@@ -1,0 +1,25 @@
+graph{
+	pong[shape=box];
+	".weaver"[shape=box];
+	conf[shape=box];
+	src[shape=box];
+	image[shape=box];
+	sound[shape=box];
+	music[shape=box];
+	weaver[shape=box];
+
+	pong -- ".weaver";
+	pong -- conf;
+	pong -- src;
+	pong -- image;
+	pong -- sound;
+	pong -- music;
+	pong -- Makefile;
+
+	conf -- "conf.h";
+
+	src -- weaver;
+	src -- "includes.h"
+	src -- "game.c"
+	src -- "game.h"
+}

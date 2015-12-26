@@ -1,0 +1,11 @@
+digraph{
+	"Vídeo de Abertura" -> "Tela Inicial";
+	"Tela Inicial" -> "Opções";
+	"Tela Inicial" -> "Créditos";
+	"Tela Inicial" -> "Novo Jogo";
+	"Tela Inicial" -> "Jogo";
+	"Opções" -> "Tela Inicial";
+	"Créditos" -> "Tela Inicial";
+	"Novo Jogo" -> "Jogo";
+	"Jogo" -> "Tela Inicial"; 
+}

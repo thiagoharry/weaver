@@ -1,0 +1,29 @@
+CC=$(shell if which gcc &> /dev/null ; then echo "gcc"; else echo "clang"; fi)
+PROG=$(shell cat .weaver/name)
+OBJ=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).o; done)
+W_OBJ=$(shell for i in src/weaver/*.c; do echo .weaver/$$(basename $${i%%.c}).o; done)
+HEADERS=$(shell echo src/*.h src/weaver/*.h)
+DEFINES=-DW_PROG=\"${PROG}\"
+FLAGS=-Wall -O2 -g
+LIB=-lm -pthread -lX11 -lGL -lXrandr -lGLEW
+
+SOURCE_TEST=$(shell grep "^\#define[ \t]\+W_SOURCE[ \t]\+W_" conf/conf.h | grep -o "\(W_C\|W_CPP\)")
+ifeq ($(strip $(SOURCE_TEST)),W_C)
+FINAL_CC=${CC}
+else ifeq ($(strip $(SOURCE_TEST)),W_CPP)
+ifeq ($(strip $(CC)),gcc)
+FINAL_CC=g++
+else ifeq ($(strip $(CC)),clang)
+FINAL_CC=clang++
+endif
+else
+err:
+	$(error Invalid W_SOURCE in conf/conf.h)
+endif
+
+all: ${OBJ} ${W_OBJ} ${HEADERS} conf/conf.h
+	${FINAL_CC} ${DEFINES} ${FLAGS} ${OBJ} ${W_OBJ} -o ${PROG} ${LIB}
+%.o : src/%.c ${HEADERS} conf/conf.h
+	${CC} ${DEFINES} ${FLAGS} -c $<
+.weaver/%.o : src/weaver/%.c ${HEADERS} conf/conf.h src/weaver/vertex.glsl src/weaver/fragment.glsl
+	${CC} ${DEFINES} ${FLAGS} -c $< -o $(subst src/weaver/,.weaver/,$(subst .c,.o,$<))
