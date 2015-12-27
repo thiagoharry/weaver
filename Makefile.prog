@@ -1,5 +1,5 @@
 TANGLE=$(shell if which ctangle &> /dev/null; then echo "ctangle";\
-	 else echo "notangle"; fi;)
+	 else echo "noweb"; fi;)
 CC=$(shell if which gcc &> /dev/null; then echo "gcc";\
 	 else echo "clang"; fi;)
 FLAGS=-Wall -O2 -g
