@@ -884,7 +884,7 @@ programa:
 @<Janela: Definição@>=
 void _restore_and_quit(int signal, siginfo_t *si, void *arg){
   fprintf(stderr, "ERROR: Received signal %d.\n", signal);
-  may_the_weaver_sleep();
+  Wexit();
   exit(1);
 }
 @

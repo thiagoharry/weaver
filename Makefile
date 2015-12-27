@@ -114,4 +114,5 @@ clean:
 	rm -f project/src/weaver/*
 	rm -f *.pdf
 	rm -f src/*
-
+	rm -f cweb/weaver.w
+	rm -f .log

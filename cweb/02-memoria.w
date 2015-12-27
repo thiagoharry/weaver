@@ -879,7 +879,7 @@ para obtermos uma medida de performance das funções |Walloc| e
 int main(int argc, char **argv){
   unsigned long i;
   void *m[1000000];
-  awake_the_weaver();
+  Winit();
   W_TIMER_BEGIN();
   for(i = 0; i < 1000000; i ++){
     m[i] = Walloc(1);
@@ -889,7 +889,7 @@ int main(int argc, char **argv){
   }
   Wtrash();
   W_TIMER_END();
-  may_the_weaver_sleep();
+  Wexit();
   return 0;
 }
 \end{verbatim}
@@ -936,14 +936,14 @@ supondo que executemos o seguinte código:
 int main(int argc, char **argv){
   pthread_t threads[NUM_THREADS];
   int i;
-  awake_the_weaver();
+  Winit();
   for(i = 0; i < NUM_THREADS; i ++)
     pthread_create(&threads[i], NULL, test, (void *) NULL);
   W_TIMER_BEGIN();
   for (i = 0; i < NUM_THREADS; i++)
     pthread_join(threads[i], NULL);
   W_TIMER_END();
-  may_the_weaver_sleep();
+  Wexit();
   pthread_exit(NULL);
   return 0;
 }
