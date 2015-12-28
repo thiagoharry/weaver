@@ -4,9 +4,9 @@
 Alocar memória dinamicamente de uma heap é uma operação cujo tempo
 gasto nem sempre pode ser previsto. Isso é algo que depende da
 quantidade de blocos contínuos de memória presentes na heap que o
-gerenciador organiza. Isso depende muito do padrão de uso das funções
-\texttt{malloc} e \texttt{free}, e por isso não é algo fácil de ser
-previsto.
+gerenciador organiza. Por sua vez, isso depende muito do padrão de uso
+das funções \texttt{malloc} e \texttt{free}, e por isso não é algo
+fácil de ser previsto.
 
 Jogos de computador tradicionalmente evitam o uso contínuo de
 \texttt{malloc} e \texttt{free} por causa disso. Tipicamente jogos
@@ -15,7 +15,7 @@ da memória de que vão precisar logo no início da execução gerando um
 \textit{pool} de memória e gerenciando ele ao longo da execução. De
 fato, esta preocupação direta com a memória é o principal motivo de
 linguagens sem \textit{garbage collectors} como C++ serem tão
-preferidas no esenvolvimento de grandes jogos comerciais.
+preferidas no desenvolvimento de grandes jogos comerciais.
 
 O gerenciador de memória do Weaver, com o objetivo de permitir que um
 programador tenha um controle sobre a quantidade máxima de memória que
@@ -23,9 +23,9 @@ será usada, espera que a quantidade máxima sempre seja declarada
 previamente. E toda a memória é preparada e alocada durante a
 inicialização do programa. Caso tente-se alocar mais memória do que o
 disponível desta forma, uma mensagem de erro será impressa na saída de
-erro para avisar o que está acontecendo ao programador (à menos que o
-programa esteja em sua versão final --- isto é, que tenha
-|W_DEBUG__LEVEL| igal à zero).
+erro para avisar o que está acontecendo ao programador. Desta forma é
+difícil deixar passar vazamentos de memória e pode-se estabelecer mais
+facilmente se o jogo está dentro dos requisitos de sistema esperados.
 
 Weaver de fato aloca mais de uma região contínua de memória onde
 pode-se alocar coisas. Uma das regiões contínuas será alocada e usada
@@ -57,7 +57,7 @@ Cada estado precisará fazer as suas próprias alocações de
 memória. Algumas vezes, ao passar de um estado pro outro, não
 precisamos lembrar do quê havia no estado anterior. Por exemplo,
 quando passamos da tela inicial para o jogo em si, não precisamos mais
-manter na memória a imagem de fundo da tela inicial. Outras veze,
+manter na memória a imagem de fundo da tela inicial. Outras vezes,
 podemos precisar memorizar coisas.  Se estamos andando pelo mundo e
 somos atacados por monstros, passamos para o estado de combate. Mas
 uma vez que os monstros sejam derrotados, devemos voltar ao estado
@@ -82,8 +82,15 @@ voltamos assim ao estado anterior de caminhar pelo mundo. Ao longo
 destes passos, nossa memória terá aproximadamente a seguinte
 estrutura:
 
-%\noindent
-%\includegraphics[width=\textwidth]{cweb/diagrams/pilha.eps}
+\begin{verbatim}
+.                                                    +---------+
+.                                                    ; Combate ;
+.           +--------------+             +---------+ +---------;
+.           ; Tela Inicial ;             ;  Jogo   ; ;  Jogo   ;
++---------+ +--------------+ +---------+ +---------+ +---------+
+; Globais ; ;    Globais   ; ; Globais ; ; Globais ; ; Globais ;
++---------+ +--------------+ +---------+ +---------+ +---------+
+\end{verbatim}
 
 Sendo assim, nosso gerenciador de memória torna-se capaz de evitar
 completamente fragmentação tratando a memória alocada na heap como uma
@@ -119,14 +126,13 @@ estruturas, usamos o seguinte código:
 @ E também criamos o cabeçalho de memória:
 
 @(project/src/weaver/memory.h@>=
-#ifndef _memory_H_
+#ifndef _memory_h_
 #define _memory_h_
 #ifdef __cplusplus
   extern "C" {
-#endif
-@<Inclui Cabeçalho de Configuração@>@/
-
-@<Declarações de Memória@>@/
+#endif@;
+@<Inclui Cabeçalho de Configuração@>@;
+@<Declarações de Memória@>@;
 #ifdef __cplusplus
   }
 #endif
