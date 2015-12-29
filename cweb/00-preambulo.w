@@ -1,4 +1,4 @@
-\documentclass[structure=hierarchic]{cweb}
+\documentclass[baseclass=book,structure=hierarchic]{cweb}
 \usepackage[brazilian]{babel}
 \usepackage[utf8]{inputenc}
 \usepackage{graphicx}

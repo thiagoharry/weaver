@@ -191,48 +191,76 @@ precisamos armazenar em cada uma delas é:
   ser alcançada por um endereço, ele precisa ser um |size_t|. Pelo
   padrão ISO isso será no mínimo 2 bytes, mas em computadores pessoais
   atualmente está chegando a 8 bytes.
+
+  Esta informação será preenchida na inicialização da arena e nunca
+  mais será mudada.
 \item\textbf{Usado:} A quantidade de memória que já está em uso nesta
   arena. Isso nos permite verificar se temos espaço disponível ou não
   para cada alocação. Pelo mesmo motivo do anterior, precisa ser um
   |size_t|.
+
+  Esta informação precisará ser atualizada toda vez que mais memória
+  for alocada ou desalocada. Ou quando um \textbf{breakpoint} for
+  criado ou destruído.
 \item\textbf{Último Breakpoint:} Armazenar isso nos permite saber à
   partir de qual posição podemos começar a desalocar memória em caso
   de um |Wtrash|. Outro |size_t|.
-\item\textbf{Último Elemento:} Indica o endereço do último elemento
+
+  Eta informaçção precisa ser atualizada toda vez que um
+  \textbf{breakpoint} for criado ou destruído.
+\item\textbf{Último Elemento:} Endereço do último elemento
   que foi armazenado. É útil guardar esta informação porque quando
   criamos um novo elemento com |Walloc| ou |Wbreakpoint|, o novo
   elemento precisa apontar para o último que havia antes dele.
+  
+  Esta informação precisa ser atualizada após qualquer operação de
+  alocação, desalocação ou \textbf{breakpoint}.
 \item\textbf{Posição Vazia:} Um ponteiro para a próxima região
   contínua de memória não-alocada. É preciso saber disso para podermos
   criar novas estruturas e retornar um espaço ainda não-utilizado em
   caso de |Walloc|. Outro |size_t|.
+
+  Novamente é algo que precisa ser atualizado após qualquer uma das
+  operações de memória sobre a arena.
 \item\textbf{Mutex:} Opcional. Só precisamos definir isso se
   estivermos usando mais de uma thread. Neste caso, o mutex servirá
   para prevenir que duas threads tentem modificar qualquer um destes
-  valores ao mesmo tempo. É sempre alinhado em 4 bytes. Em sistemas de
-  64 bits costuma ter aproximadamente 40 bytes.
+  valores ao mesmo tempo. 
+
+  Caso seja usado, o mutex precisa ser usado em qualquer operação de
+  memória, pois todas elas precisam modificar elementos da arena.
 \item\textbf{Uso Máximo:} Opcional. Só precisamos definir isso se
   estamos rodando o programa em um nível alto de depuração e por isso
   queremos saber ao fim do uso da arena qual a quantidade máxima de
   memória que alocamos nela ao longo da execução do programa. Um
   |size_t|.
+
+  Se estivermos monitorando o valor, precisamos verificar se ele
+  precisa ser atualizado após qualquer alocação ou criação de
+  \textbf{breakpoint}.
 \item\textbf{Arquivo:} Opcional. Só precisa ser usado e definido se o
   programa ainda está sendo depurado. É uma string com o nome do
   arquivo no qual a arena foi criada. Saber disso é útil para que
   possamos escrever na tela mensagens de depuração úteis. Usaremos uma
   string de 32 bytes para armazenar tal informação. Este tamanho exato
   é escolhido para manter o alinhamento da memória.
+
+  Esta informação só precisa ser escrita durante a inicialização da
+  arena.
 \item\textbf{Linha:} opcional. Só precisamos disso se o programa está
   sendo depurado. Ele deve armazenar o número da linha na qual esta
   arena foi criada. Definimos como |unsigned long|.
+
+  Este valor só precisa ser escrito e modificado durante a
+  inicialização.
 \end{enumerate}
 
-Então, assim podemos definir o nosso cabeçalho para cada uma das
-arenas. Este cabeçalho deve ser posicionado no início delas, sendo as
-posições seguintes ocupadas por dados:
+Então, assim podemos definir o nosso cabeçalho para arenas. Toda
+região de memória ocupada por arenas deverá começar sendo preenchida
+com os seguintes valores:
 
 @<Declarações de Memória@>+=
-struct _arena_header{
+struct _arena_header{@#
   size_t total, used;
   void *last_breakpoint, *empty_position, *last_element;
 #ifdef W_MULTITHREAD
@@ -242,7 +270,7 @@ struct _arena_header{
   size_t max_used;
 #endif
 #if W_DEBUG_LEVEL >= 1
-  char file[32];
+  char file[32];@;
   unsigned long line;
 #endif
 };
