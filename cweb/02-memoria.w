@@ -123,7 +123,14 @@ estruturas, usamos o seguinte código:
 @<Cabeçalhos Weaver@>=
 #include "memory.h"
 
-@ E também criamos o cabeçalho de memória:
+@ E também criamos o cabeçalho de memória. À partir de agora, cada
+novo módulo de Weaver terá um nome associado à ele. O deste é
+``Memória''. E todo cabeçalho \texttt{.h} dele conterá, além das
+macros comuns para impedir que ele seja inserido mais de uma vez e
+para que ele possa ser usado em C++, uma parte na qual será inserido o
+cabeçalho de configuração (visto no fim do capítulo anterior) e a
+parte de declarações, com o nome \texttt{Declarações de
+  NOME\_DO\_MODULO}.
 
 @(project/src/weaver/memory.h@>=
 #ifndef _memory_h_
@@ -138,23 +145,11 @@ estruturas, usamos o seguinte código:
 #endif
 #endif
 
-@*1 Macros do \textit{conf/conf.h}.
+@
 
-As seguintes macros devem ser definidas no \textit{conf/conf.h}:
-
-\begin{itemize}
-\item|W_MAX_MEMORY|: O valor máximo em bytes de memória que iremos
-  alocar por meio da função |Walloc| de alocação de memória.
-\item|W_WEB_MEMORY|: A quantidade de memória adicional em bytes que
-  reservaremos para uso caso compilemos o nosso jogo para a Web ao
-  invés de gerar um programa executável. O Emscripten precisará de
-  memória adicional e a quantidade pode depender do quanto outras
-  funções como |malloc| e |Walloc_arena| são usadas. Este valor deve
-  ser aumentado se forem encontrados problemas de falta de memória na
-  web.
-\end{itemize}
-
-@*1 Cabeçalhos a serem usados.
+No caso, as Declarações de Memória que usaremos aqui começam com os
+cabeçalhos que serão usados, e posteriormente passaraão para as
+declarações das funções e estruturas de dado a serem usadas nele:
 
 @<Declarações de Memória@>=
 #include <sys/mman.h> // |mmap|, |munmap|
@@ -164,6 +159,25 @@ As seguintes macros devem ser definidas no \textit{conf/conf.h}:
 #include <stdlib.h> // |size_t|
 #include <stdio.h> // |perror|
 #include <math.h> // |ceil|
+
+@
+
+Outra coisa relevante a mencionar é que à partir de agora assumiremos
+que as seguintes macros são definidas em \texttt{conf/conf.h}:
+
+\begin{itemize}
+\item|W_MAX_MEMORY|: O valor máximo em bytes de memória que iremos
+  alocar por meio da função |Walloc| de alocação de memória na arena
+  padrão.
+\item|W_WEB_MEMORY|: A quantidade de memória adicional em bytes que
+  reservaremos para uso caso compilemos o nosso jogo para a Web ao
+  invés de gerar um programa executável. O Emscripten precisará de
+  memória adicional e a quantidade pode depender do quanto outras
+  funções como |malloc| e |Walloc_arena| são usadas. Este valor deve
+  ser aumentado se forem encontrados problemas de falta de memória na
+  web. Esta macro será consultada na verdade por um dos
+  \texttt{Makefiles}, não por código que definiremos neste PDF.
+\end{itemize}
 
 @*1 Estruturas de Dados Usadas.
 
