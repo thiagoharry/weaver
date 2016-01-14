@@ -273,9 +273,9 @@ próprios projetos, você também poderá precisar de:
 \item\textbf{emscripten:} Isso é opcional. Mas é necessário caso você
   queira usar Weaver para construir jogos que possam ser jogados em
   navegadores Web após serem compilados para Javascript.
-\item\textbf{opengl:} Você precia de arquivos de desenvolvimento da
-  biblioteca OpenGL caso você queira gerar programas executáveis para
-  Linux.
+\item\textbf{opengl:} Você precisa de arquivos de desenvolvimento da
+  biblioteca gráfica OpenGL caso queira gerar programas executáveis
+  para Linux.
 \item\textbf{xlib:} Você precisa dos arquivos de desenvolvimento Xlib
   caso você queira usar Weaver para gerar programas executáveis para
   Linux.
@@ -525,13 +525,13 @@ características:
   para o diretório pai do qual estamos, sempre atualizando as
   variáveis para que o invariante continue válido.
 \item\textbf{Finalização}: Interrompemos a execução do loop se uma das
-  duas condições ocorrerem:
+  duas con\-di\-ções ocorrerem:
   \begin{enumerate}
   \item|complete_path == "/.weaver"|: Neste caso não podemos subir
     mais na árvore de diretórios, pois estamos na raiz. Não
     encontramos um diretório \texttt{.weaver}. Isso significa que não
     estamos dentro de um projeto Weaver.
-  \item|complete_path == ".weaver"|: Neste caso achamos um diretório
+  \item|complete_path == ".weaver"|: Neste caso encontramos um diretório
     \texttt{.weaver} e descobrimos que estamos dentro de um projeto
     Weaver. Podemos então atualizar a variável |project_path|.
   \end{enumerate}
@@ -945,8 +945,8 @@ bem como usar o programa e imprimimos uma mensagem de ajuda. A mensagem
 de ajuda terá uma forma semelhante a esta:
 
 \begin{verbatim}
-.    .  .     You are outside a Weaver Directory.
-.   ./  \.    The following command uses are available:
+.    .  .   You are outside a Weaver Directory.
+.   ./  \.  The following command uses are available:
 .   \\  //
 .   \\()//  weaver
 .   .={}=.      Print this message and exits.
@@ -979,8 +979,8 @@ usuário quer instruções sobre a criação de um novo módulo. A mensagem
 que imprimiremos é semelhante à esta:
 
 \begin{verbatim}
-.       \                You are inside a Weaver Directory.
-.        \______/        The following command uses are available:
+.       \              You are inside a Weaver Directory.
+.        \______/      The following command uses are available:
 .        /\____/\
 .       / /\__/\ \       weaver
 .    __/_/_/\/\_\_\___     Prints this message and exits.
@@ -1091,20 +1091,17 @@ copiar um único arquivo, a qual chamaremos de |copy_single_file|:
 
 @<Funções auxiliares Weaver@>+=
 int copy_single_file(char *file, char *directory){
-
-  /* Para acelerar a cópia, descobriremos o tamanho de um bloco no
-  sistema de arquivos e usaremos um buffer de igual tamanho para
-  realizarmos a cópia do arquivo.*/
-
   int block_size;
   char *buffer;
   char *file_dst;
   FILE *orig, *dst;
   int bytes_read;
 
-  @<Descobre tamanho do bloco do sistema de arquivos@>@/
+  @<Descobre tamanho do bloco do sistema de arquivos@>@;
   
-  // Nesta parte, |block_size| já foi inicializado
+  /* Nesta parte, |block_size| já foi inicializado com o tamanho do
+  bloco do sistema de arquivos. Isso tornará a cópia seguinte mais
+  eficiente.*/
 
   buffer = (char *) malloc(block_size);
   file_dst = (char *) malloc(strlen(directory) + strlen(basename(file)) + 2);
@@ -1338,10 +1335,11 @@ que faça isso para nos ajudar). Também criamos um
 \texttt{src/includes.h} que por hora estará vazio, mas será modificado
 na criação de futuros módulos.
 
-Todos os diretórios que criaremos permitirão ao seu dono e ao seu
-grupo lê-los, escrever neles e buscar neles. Já outros usuários só
-poderão ler e fazer buscas neles, mas não escrever. Este é o
-significado das flags que passamos abaixo para o |mkdir|.
+Todos os diretórios que criaremos darão à seu dono permissão de
+leitura, escrita e execução, e às outras pessoas somente permissão de
+leitura e execução. Isso é representado pelo código octal |0755|.
+
+\smallskip
 
 @<Caso de uso 6: Criar novo projeto@>=
 if(! inside_weaver_directory && have_arg){
@@ -1353,13 +1351,13 @@ if(! inside_weaver_directory && have_arg){
     err = mkdir(argument, S_IRWXU | S_IRWXG | S_IROTH);
     if(err == -1) ERROR();
     chdir(argument);
-    mkdir(".weaver", S_IRWXU | S_IRWXG | S_IROTH);
-    mkdir("conf", S_IRWXU | S_IRWXG | S_IROTH);
-    mkdir("src", S_IRWXU | S_IRWXG | S_IROTH);
-    mkdir("src/weaver", S_IRWXU | S_IRWXG | S_IROTH);
-    mkdir("image", S_IRWXU | S_IRWXG | S_IROTH);
-    mkdir("sound", S_IRWXU | S_IRWXG | S_IROTH);
-    mkdir("music", S_IRWXU | S_IRWXG | S_IROTH);
+    mkdir(".weaver", 0755);
+    mkdir("conf", 0755);
+    mkdir("src", 0755);
+    mkdir("src/weaver", 0755);
+    mkdir("image", 0755);
+    mkdir("sound", 0755);
+    mkdir("music", 0755);
 
     dir_name = (char *) malloc(strlen(shared_dir) + strlen("project") + 1);
     if(dir_name == NULL) ERROR();
@@ -1375,6 +1373,7 @@ if(! inside_weaver_directory && have_arg){
     fp = fopen(".weaver/version", "w");
     fprintf(fp, "%s\n", VERSION);
     fclose(fp);
+
     // Criando arquivo com nome de projeto:
     fp = fopen(".weaver/name", "w");
     fprintf(fp, "%s\n", basename(argv[1]));
@@ -1385,6 +1384,7 @@ if(! inside_weaver_directory && have_arg){
     write_copyright(fp, author_name, argument, year);
     if(append_basefile(fp, shared_dir, "basefile.c") == 0) ERROR();
     fclose(fp);
+
     fp = fopen("src/game.h", "w");
     if(fp == NULL) ERROR();
     write_copyright(fp, author_name, argument, year);
