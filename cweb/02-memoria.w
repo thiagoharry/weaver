@@ -386,7 +386,7 @@ atual:
 
 @<Declarações de Memória@>+=
 void *_create_arena(size_t, char *, unsigned long);
-int _destroy_arena(void *, char *, unsigned long);
+int _destroy_arena(void *);
 
 @*2 Criando uma arena.
 
@@ -489,7 +489,7 @@ depuração, podemos imprimir também a quantidade máxima de memória
 usada:
 
 @(project/src/weaver/memory.c@>+=
-int _destroy_arena(void *arena, char *filename, unsigned long line){
+int _destroy_arena(void *arena){
 #if W_DEBUG_LEVEL >= 1
   struct _arena_header *header = (struct _arena_header *) arena;
   @<Checa vazamento de memória em 'arena' dado seu 'header'@>@/
@@ -542,7 +542,7 @@ possamos destruir arenas sem nos preocuparmos com o nome de arquivo e
 número de linha:
 
 @<Declarações de Memória@>+=
-#define Wdestroy_arena(a) _destroy_arena(a, __FILE__, __LINE__)
+#define Wdestroy_arena(a) _destroy_arena(a)
 
 @*1 Alocação e desalocação de memória.
 
@@ -698,7 +698,7 @@ de memória até ele se dá por meio das funções declaradas abaixo:
 
 @<Declarações de Memória@>+=
 int _new_breakpoint(void *arena, char *filename, unsigned long line);
-void _trash(void *arena, char *filename, unsigned long line);
+void _trash(void *arena);
 
 @ As funções precisam receber como argumento apenas um ponteiro para a
 arena na qual realizar a operação. Além disso, elas recebem também o
@@ -757,7 +757,7 @@ int _new_breakpoint(void *arena, char *filename, unsigned long line){
 último breakpoint:
 
 @(project/src/weaver/memory.c@>+=
-void _trash(void *arena, char *filename, unsigned long line){
+void _trash(void *arena){
   struct _arena_header *header = (struct _arena_header *) arena;
   struct _breakpoint *previous_breakpoint =
     ((struct _breakpoint *) header -> last_breakpoint) -> last_breakpoint;
@@ -786,7 +786,7 @@ nos preocuparmos com o nome do arquivo e número de linha:
 
 @<Declarações de Memória@>+=
 #define Wbreakpoint_arena(a) _new_breakpoint(a, __FILE__, __LINE__)
-#define Wtrash_arena(a) _trash(a, __FILE__, __LINE__)
+#define Wtrash_arena(a) _trash(a)
 
 @*1 Usando as arenas de memória padrão.
 
@@ -811,7 +811,7 @@ funções:
 
 @<Declarações de Memória@>+=
 void _initialize_memory(char *filename, unsigned long line);
-void _finalize_memory(char *filename, unsigned long line);
+void _finalize_memory();
 
 @ Note que são funções que sabem o nome do arquivo e número de linha
 em que estão para propósito de depuração. Elas são definidas como
@@ -822,10 +822,10 @@ void _initialize_memory(char *filename, unsigned long line){
   _user_arena = _create_arena(W_MAX_MEMORY, filename, line);
   _internal_arena = _create_arena(4000, filename, line);
 }
-void _finalize_memory(char *filename, unsigned long line){
-  _destroy_arena(_user_arena, filename, line);
+void _finalize_memory(){
+  _destroy_arena(_user_arena);
   Wtrash_arena(_internal_arena);
-  _destroy_arena(_internal_arena, filename, line);
+  _destroy_arena(_internal_arena);
 }
 
 
@@ -848,7 +848,7 @@ _initialize_memory(filename, line);
 
 // Em ``desalocações'' desalocamos memória alocada com |Walloc|:
 @<API Weaver: Desalocações@>@/
-_finalize_memory(filename, line);
+_finalize_memory();
 
 @
 
@@ -877,9 +877,9 @@ resta definir apenas o |Wbreakpoint| e |Wtrash|:
 
 @<Declarações de Memória@>+=
 int _Wbreakpoint(char *filename, unsigned long line);
-void _Wtrash(char *filename, unsigned long line);
+void _Wtrash();
 #define Wbreakpoint() _Wbreakpoint(__FILE__, __LINE__)
-#define Wtrash() _Wtrash(__FILE__, __LINE__)
+#define Wtrash() _Wtrash()
 @
 
 E a definição das funções segue abaixo:
@@ -888,8 +888,8 @@ E a definição das funções segue abaixo:
 int _Wbreakpoint(char *filename, unsigned long line){
   return _new_breakpoint(_user_arena, filename, line);
 }
-void _Wtrash(char *filename, unsigned long line){
-  _trash(_user_arena, filename, line);
+void _Wtrash(){
+  _trash(_user_arena);
 }
 @
 

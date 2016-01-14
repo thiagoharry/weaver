@@ -883,7 +883,7 @@ programa:
 
 @<Janela: Definição@>=
 void _restore_and_quit(int signal, siginfo_t *si, void *arg){
-  fprintf(stderr, "ERROR: Received signal %d.\n", signal);
+  fprintf(stderr, "ERROR: Received signal %d (%p %p).\n", signal, si, arg);
   Wexit();
   exit(1);
 }
@@ -967,12 +967,12 @@ modo da tela para o representado pelo índice passado como argumento em
 resolução, deixando o jogo em tela cheia, e retornará 1:
 
 @<Janela: Declaração@>=
-  int Wfullscreen_mode(int mode);
+  int Wfullscreen_mode(unsigned int mode);
 @
 
 @<Janela: Definição@>=
-int Wfullscreen_mode(int mode){
-  if(mode < 0 || mode >= Wnumber_of_modes)
+int Wfullscreen_mode(unsigned int mode){
+  if(mode >= Wnumber_of_modes)
     return 0;
   else{
     Window root = RootWindow(_dpy, 0);

@@ -1581,12 +1581,12 @@ macro são como as três funções serão executadas na prática.
 
 @<Cabeçalhos Weaver@>+=
 void _awake_the_weaver(char *filename, unsigned long line);@;
-void _may_the_weaver_sleep(char *filename, unsigned long line);@;
-void _weaver_rest(unsigned long time, char *filename, unsigned long line);@;
+void _may_the_weaver_sleep();@;
+void _weaver_rest(unsigned long time);@;
 
 #define Winit() _awake_the_weaver(__FILE__, __LINE__)@;
-#define Wexit() _may_the_weaver_sleep(__FILE__, __LINE__)@;
-#define Wrest(a) _weaver_rest(a, __FILE__, __LINE__)@;
+#define Wexit() _may_the_weaver_sleep()@;
+#define Wrest(a) _weaver_rest(a)@;
 @ 
 
 Definiremos melhor a responsabilidade destas funções ao longo dos
@@ -1610,12 +1610,12 @@ void _awake_the_weaver(char *filename, unsigned long line){@/
   @<API Weaver: Inicialização@>@;
 }
 
-void _may_the_weaver_sleep(char *filename, unsigned long line){@/
+void _may_the_weaver_sleep(void){@/
   @<API Weaver: Finalização@>@;
   exit(0);@;
 }
 
-void _weaver_rest(unsigned long time, char *filename, unsigned long line){
+void _weaver_rest(unsigned long time){
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #if W_TARGET == W_ELF
   struct timespec req = {0, time * 1000000};

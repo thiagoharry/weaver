@@ -314,8 +314,9 @@ posição da tecla  em um teclado para o símbolo específico associado
 
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == KeyPress){
-  int code =  _translate_key(XkbKeycodeToKeysym(_dpy, event.xkey.keycode, 0,
-						0));
+  unsigned int code =  _translate_key(XkbKeycodeToKeysym(_dpy,
+							 event.xkey.keycode, 0,
+							 0));
   int i;
   // Adiciona na lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
@@ -345,8 +346,9 @@ soltas:
 
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == KeyRelease){
-  int code =  _translate_key(XkbKeycodeToKeysym(_dpy, event.xkey.keycode, 
-						0, 0));
+  unsigned int code =  _translate_key(XkbKeycodeToKeysym(_dpy,
+							 event.xkey.keycode, 
+							 0, 0));
 
   int i;
 
@@ -577,7 +579,7 @@ cada informação:
 
 @<API Weaver: Trata Evento SDL@>=
 if(event.type == SDL_KEYDOWN){
-  int code =  event.key.keysym.sym;
+  unsigned int code =  event.key.keysym.sym;
   int i;
   // Adiciona na lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
@@ -605,7 +607,7 @@ Por fim, o evento da tecla sendo solta:
 
 @<API Weaver: Trata Evento SDL@>=
 if(event.type == SDL_KEYUP){
-  int code =  event.key.keysym.sym;
+  unsigned int code =  event.key.keysym.sym;
   int i;
   // Remove da lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
@@ -954,7 +956,7 @@ execução baseado em Xlib:
 
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == ButtonPress){
-  int code =  event.xbutton.button;
+  unsigned int code =  event.xbutton.button;
   int i;
   // Adiciona na lista de botões pressionados:
   for(i = 0; i < 5; i ++){
@@ -981,7 +983,7 @@ E caso um botão seja solto, também tratamos tal evento:
 
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == ButtonRelease){
-  int code = event.xbutton.button;
+  unsigned int code = event.xbutton.button;
 
   int i;
 
@@ -1015,7 +1017,7 @@ botão é pressionado:
 
 @<API Weaver: Trata Evento SDL@>=
 if(event.type == SDL_MOUSEBUTTONDOWN){
-  int code =  event.button.button;
+  unsigned int code =  event.button.button;
   int i;
   // Adiciona na lista de botões pressionados
   for(i = 0; i < 5; i ++){
@@ -1040,7 +1042,7 @@ E quando um botão é solto:
 
 @<API Weaver: Trata Evento SDL@>=
 if(event.type == SDL_MOUSEBUTTONUP){
-  int code =  event.button.button;
+  unsigned int code =  event.button.button;
   int i;
   // Remove da lista de botões pressionados
   for(i = 0; i < 5; i ++){
