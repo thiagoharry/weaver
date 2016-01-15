@@ -426,14 +426,16 @@ serão desalocadas no fim do programa, que terá a seguinte estrutura:
 @<Funções auxiliares Weaver@>@;
 
 int main(int argc, char **argv){@/
-  int inside_weaver_directory = 0, project_version_major = 0;
-  int project_version_minor = 0, weaver_version_major = 0;
-  int weaver_version_minor = 0, arg_is_path = 0, arg_is_valid_project = 0;
-  int arg_is_valid_module, return_value = 0, have_arg = 0;
-  char *argument = NULL, *project_path = NULL;
-
-  char *shared_dir = NULL, *author_name = NULL, *project_name = NULL;
-  int year;
+  int return_value = 0; /* Valor de retorno. */
+  bool inside_weaver_directory = false, arg_is_path = false,
+    arg_is_valid_project = false, arg_is_valid_module = false,
+    have_arg = false; /* Variáveis booleanas. */
+  uint8_t project_version_major = 0, project_version_minor = 0,
+    weaver_version_major = 0, weaver_version_minor = 0,
+    year = 0; /* O ano atual e a versão de Weaver caberão em 8 bits
+		 por um bom tempo. */
+  char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
+    *author_name = NULL, *project_name = NULL; /* Strings UTF-8 */
 
   @<Inicialização@>@;
 
@@ -481,15 +483,18 @@ terceira macro que definimos.
 @<Cabeçalhos Incluídos no Programa Weaver@>=
 #include <sys/types.h> // |stat|, |getuid|, |getpwuid|, |mkdir|
 #include <sys/stat.h> // |stat|, |mkdir|
+#include <stdbool.h> // |bool|, |true|, |false| 
 #include <unistd.h> // |get_current_dir_name|, |getcwd|, |stat|, |chdir|, |getuid|
 #include <string.h> // |strcmp|, |strcat|, |strcpy|, |strncmp|
 #include <stdlib.h> // |free|, |exit|, |getenv|
 #include <dirent.h> // |readdir|, |opendir|, |closedir|
 #include <libgen.h> // |basename|
+#include <stdint.h> // Tipos modernos C
 #include <stdio.h> // |printf|, |fprintf|, |fopen|, |fclose|, |fgets|, |fgetc|, |perror|
 #include <ctype.h> // |isanum|
 #include <time.h> // |localtime|, |time|
 #include <pwd.h> // |getpwuid|
+
 
 @*2 Inicialização e Finalização do Programa Weaver.
 
@@ -498,8 +503,9 @@ terceira macro que definimos.
 
 Inicializar Weaver significa inicializar as 14 variáveis que serão
 usadas para definir o seu comportamento. A primeira delas é
-|inside_weaver_directory|, que deve valer 0 se o programa foi invocado
-de fora de um diretório de projeto Weaver e 1 caso contrário.
+|inside_weaver_directory|, que deve valer |false| se o programa foi
+invocado de fora de um diretório de projeto Weaver e |true| caso
+contrário.
 
 Como definir se estamos em um diretório que pertence à um projeto
 Weaver? Simples. São diretórios que contém dentro de si ou em um
@@ -568,7 +574,7 @@ free(path);
 while(strcmp(complete_path, "/.weaver")){
   // O |if| abaixo testa a Finalização 2:
   if(directory_exist(complete_path) == 1){
-    inside_weaver_directory = 1;
+    inside_weaver_directory = true;
     complete_path[strlen(complete_path)-7] = '\0'; // Apaga o \texttt{.weaver}
     project_path = (char *) malloc(strlen(complete_path) + 1);
     if(project_path == NULL){
@@ -1189,12 +1195,13 @@ int copy_files(char *orig, char *dst){
           strcpy(file, orig);
           strcat(file, "/");
           strcat(file, dir -> d_name);@/
-      #if defined(__linux__) || defined(_BSD_SOURCE)@/
+      #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
         if(dir -> d_type == DT_DIR){@/
       #@+else@/
         struct stat s;
         int err;
         err = stat(file, &s);
+	if(err == -1) return 0;
         if(S_ISDIR(s.st_mode)){@/
       #endif@/
           // Aqui executamos se nesta iteração devemos copiar um diretório
