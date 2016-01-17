@@ -1552,7 +1552,9 @@ este):
 #endif
 #endif
 
-@ Neste cabeçalho, iremos também declarar três funções. 
+@
+
+Neste cabeçalho, iremos também declarar três funções. 
 
 A primeira função servirá para inicializar a API Weaver. Seus
 parâmetros devem ser o nome do arquivo em que ela é invocada e o
