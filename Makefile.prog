@@ -2,7 +2,7 @@ TANGLE=$(shell if which ctangle &> /dev/null; then echo "ctangle";\
 	 else echo "noweb"; fi;)
 CC=$(shell if which gcc &> /dev/null; then echo "gcc";\
 	 else echo "clang"; fi;)
-FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=c11
+FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=c11 -pedantic
 OBJ=main.o memory.o weaver.o
 LINK=-lm
 
