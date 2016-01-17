@@ -119,6 +119,7 @@ apenas condicionalmente:
 
 @(project/src/weaver/window.c@>=
 @<Inclui Cabeçalho de Configuração@>@/
+extern int make_iso_compilers_happy;
 #if W_TARGET == W_ELF
 #include "window.h"
 
@@ -517,6 +518,7 @@ simples, será inteiramente definido abaixo:
 
 @(project/src/weaver/canvas.c@>=
 @<Inclui Cabeçalho de Configuração@>@/
+extern int make_iso_compilers_happy;
 #if W_TARGET == W_WEB
 #include "canvas.h"
 
@@ -883,7 +885,8 @@ programa:
 
 @<Janela: Definição@>=
 void _restore_and_quit(int signal, siginfo_t *si, void *arg){
-  fprintf(stderr, "ERROR: Received signal %d (%p %p).\n", signal, si, arg);
+  fprintf(stderr, "ERROR: Received signal %d (%p %p).\n", signal, 
+	  (void *) si, (void *) arg);
   Wexit();
   exit(1);
 }
