@@ -430,10 +430,12 @@ int main(int argc, char **argv){@/
   bool inside_weaver_directory = false, arg_is_path = false,
     arg_is_valid_project = false, arg_is_valid_module = false,
     have_arg = false; /* Variáveis booleanas. */
-  uint8_t project_version_major = 0, project_version_minor = 0,
+  unsigned int project_version_major = 0, project_version_minor = 0,
     weaver_version_major = 0, weaver_version_minor = 0,
-    year = 0; /* O ano atual e a versão de Weaver caberão em 8 bits
-		 por um bom tempo. */
+    year = 0; /* Usa-se o inteiro mais simples para tais valores. O
+		 padrão garante que o podemos representar até o número
+		 65536 aqui. Provavelmente será o suficiente para toda
+		 a história deste projeto.*/
   char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
     *author_name = NULL, *project_name = NULL; /* Strings UTF-8 */
 
@@ -489,7 +491,7 @@ terceira macro que definimos.
 #include <stdlib.h> // |free|, |exit|, |getenv|
 #include <dirent.h> // |readdir|, |opendir|, |closedir|
 #include <libgen.h> // |basename|
-#include <stdint.h> // Tipos modernos C
+#include <stdarg.h> // |va_start|, |va_arg|
 #include <stdio.h> // |printf|, |fprintf|, |fopen|, |fclose|, |fgets|, |fgetc|, |perror|
 #include <ctype.h> // |isanum|
 #include <time.h> // |localtime|, |time|
@@ -556,19 +558,22 @@ variável |complete_path|. O comportamento da função é indefinido se
 não existirem dois ``/'' na string, mas cuidaremos para que isto nunca
 aconteça no teste de finalização do loop.
 
-Por fim, a tradução para a linguagem C da implementação que propomos:
+Por fim, a tradução para a linguagem C da implementação que
+propomos. Vamos assumir que existe uma função |concatenate|, que
+recebe como argumento um número qualquer de strings como argumento,
+sendo que a última delas deve ser vazia. A função retorna uma nova
+string que é a concatenação delas, ou |NULL| se não é possível alocar
+espaço para isso.
 
 @<Inicialização@>=
 char *path = NULL, *complete_path = NULL;
 path = getcwd(NULL, 0);
 if(path == NULL) ERROR();
-complete_path = (char *) malloc(strlen(path) + strlen("/.weaver") + 1);
+complete_path = concatenate(path, "/.weaver", "");
 if(complete_path == NULL){
   free(path);
   ERROR();
 }
-strcpy(complete_path, path);
-strcat(complete_path, "/.weaver");
 free(path);
 // O |while| abaixo testa a Finalização 1:
 while(strcmp(complete_path, "/.weaver")){
@@ -576,12 +581,11 @@ while(strcmp(complete_path, "/.weaver")){
   if(directory_exist(complete_path) == 1){
     inside_weaver_directory = true;
     complete_path[strlen(complete_path)-7] = '\0'; // Apaga o \texttt{.weaver}
-    project_path = (char *) malloc(strlen(complete_path) + 1);
+    project_path = concatenate(complete_path, "");
     if(project_path == NULL){
       free(complete_path);
       ERROR();
     }
-    strcpy(project_path, complete_path);
     break;
   }
   else{
@@ -637,11 +641,10 @@ if(inside_weaver_directory){
   FILE *fp;
   char *p;
   char version[10];
-  int path_size = strlen(project_path);
-  project_path = (char *) realloc(project_path, path_size + strlen(".weaver/version") + 1);
-  if(project_path == NULL) ERROR();
-  strcat(project_path, ".weaver/version");
-  fp = fopen(project_path, "r");
+  char *file_path = concatenate(project_path, ".weaver/version", "");
+  if(file_path == NULL) ERROR();
+  fp = fopen(file_path, "r");
+  free(file_path);
   if(fp == NULL) ERROR();
   fgets(version, 10, fp);
   p = version;
@@ -649,7 +652,6 @@ if(inside_weaver_directory){
   if(*p == '.') p ++;
   project_version_major = atoi(version);
   project_version_minor = atoi(p);
-  project_path[path_size] = '\0';
   fclose(fp);
 }
 
@@ -671,10 +673,8 @@ encontramos o caminho de um diretório existente ou não.
 
 @<Inicialização@>+=
 if(have_arg){
-  char *buffer = (char *) malloc(strlen(argument) + strlen("/.weaver") + 1);
+  char *buffer = concatenate(argument, "/.weaver", "");
   if(buffer == NULL) ERROR();
-  strcpy(buffer, argument);
-  strcat(buffer, "/.weaver");
   if(directory_exist(buffer) == 1){
     arg_is_path = 1;
   }
@@ -692,14 +692,12 @@ assumiremos o valor padrão de \texttt{/usr/share/weaver}.
 {
   char *weaver_dir = getenv("WEAVER_DIR");
   if(weaver_dir == NULL){
-    shared_dir = (char *) malloc(strlen("/usr/share/weaver/") + 1);
+    shared_dir = concatenate("/usr/share/weaver/", "");
     if(shared_dir == NULL) ERROR();
-    strcpy(shared_dir, "/usr/share/weaver/");
   }
   else{
-    shared_dir = (char *) malloc(strlen(weaver_dir) + 1);
+    shared_dir = concatenate(weaver_dir, "");
     if(shared_dir == NULL) ERROR();
-    strcpy(shared_dir, weaver_dir);
   }
 }
 
@@ -748,11 +746,8 @@ if(have_arg && !arg_is_path){
     goto not_valid;
   }
   // Checando se conflita com arquivos de compilação:
-  buffer = (char *) malloc(strlen(shared_dir) + strlen("project/") + strlen(base) + 1);  
+  buffer = concatenate(shared_dir, "project/", base, "");
   if(buffer == NULL) ERROR();
-  strcpy(buffer, shared_dir);
-  strcat(buffer, "project/");
-  strcat(buffer, base);
   if(directory_exist(buffer) != 0){
     free(buffer);
     goto not_valid;
@@ -783,12 +778,8 @@ if(have_arg && inside_weaver_directory){
     }    
   }
   // Checando por conflito de nomes:
-  buffer = (char *) malloc(strlen(project_path) + strlen("src/ .c") + strlen(argument));
+  buffer = concatenate(project_path, "src/", argument, ".c", "");
   if(buffer == NULL) ERROR();
-  strcpy(buffer, project_path);
-  strcat(buffer, "src/");
-  strcat(buffer, argument);
-  strcat(buffer, ".c");
   if(directory_exist(buffer) != 0){
     free(buffer);
     goto not_valid_module;
@@ -852,15 +843,13 @@ um dos arquivos do diretório base de tal projeto em
 @<Inicialização@>+=
 if(inside_weaver_directory){
   FILE *fp;
-  char *filename = (char *) malloc(strlen(project_path) + strlen(".weaver/name") + 1);
+  char *filename = concatenate(project_path, ".weaver/name", "");
   if(filename == NULL) ERROR();
   project_name = (char *) malloc(256);
   if(project_name == NULL){
     free(filename);
     ERROR();
   }
-  strcpy(filename, project_path);
-  strcat(filename, ".weaver/name");
   fp = fopen(filename, "r");
   if(fp == NULL){
     free(filename);
@@ -941,6 +930,39 @@ void path_up(char *path){
   }
 }
 
+@*3 Função auxiliar: Concatenando strings.
+
+Esta é uma das funções auxiliares mais usadas. El recebe um número
+variável de argumentos, todos strings sendo que o último é a string
+vazia. Então, ela aloca espaço para uma nova string e retorna um
+ponteiro para ela, sendo que a nova string é a concatenação de todos
+os argumentos. Se algo falhar, |NULL| é retornado:
+
+@<Funções auxiliares Weaver@>+=
+char *concatenate(char *string, ...){
+  va_list arguments;
+  char *new_string, *current_string = string;
+  size_t current_size = strlen(string) + 1;
+  char *realloc_return;
+  va_start(arguments, string);
+  
+  new_string = (char *) malloc(current_size);
+  if(new_string == NULL) return NULL;
+  strcpy(new_string, string);
+
+  while(current_string[0] != '\0'){
+    current_string = va_arg(arguments, char *);
+    current_size += strlen(current_string);
+    realloc_return = (char *) realloc(new_string, current_size);
+    if(realloc_return == NULL){
+      free(new_string);
+      return NULL;
+    }
+    new_string = realloc_return;
+    strcat(new_string, current_string);
+  }
+  return new_string;
+}
 
 @*2 Caso de uso 1: Imprimir ajuda de criação de projeto.
 
@@ -1068,18 +1090,14 @@ if(arg_is_path){
       weaver_version_minor > project_version_minor)){
     char *buffer, *buffer2;
     // |buffer| passa a valer  SHARED\_DIR/project/src/weaver 
-    buffer = (char *) malloc(strlen(shared_dir) + strlen("project/src/weaver/") + 1);
+    buffer = concatenate(shared_dir, "project/src/weaver/", "");
     if(buffer == NULL) ERROR();
-    strcpy(buffer, shared_dir);
-    strcat(buffer, "project/src/weaver/");
     // |buffer2| passa a valer PROJECT\_DIR/src/weaver/
-    buffer2 = (char *) malloc(strlen(argument) + strlen("/src/weaver/") + 1);
+    buffer2 = concatenate(argument, "/src/weaver/", "");
     if(buffer2 == NULL){
       free(buffer);
       ERROR();
     }
-    strcpy(buffer2, argument);
-    strcat(buffer2, "/src/weaver/");
     if(copy_files(buffer, buffer2) == 0){
       free(buffer);
       free(buffer2);
@@ -1110,16 +1128,10 @@ int copy_single_file(char *file, char *directory){
   eficiente.*/
 
   buffer = (char *) malloc(block_size);
-  file_dst = (char *) malloc(strlen(directory) + strlen(basename(file)) + 2);
-  if(buffer == NULL || file_dst == NULL){
-    return 0;
-  }
+  if(buffer == NULL) return 0;
+  file_dst = concatenate(directory, "/", basename(file), "");
+  if(file_dst == NULL) return 0;
 
-  file_dst[0] = '\0';
-  strcat(file_dst, directory);
-  strcat(file_dst, "/");
-  strcat(file_dst, basename(file));
-  
   orig = fopen(file, "r");
   if(orig == NULL){
     free(buffer);
@@ -1188,13 +1200,10 @@ int copy_files(char *orig, char *dst){
   if(d){
     while((dir = readdir(d)) != NULL){
           char *file;
-          file = (char *) malloc(strlen(orig) + strlen(dir -> d_name) + 2);
+          file = concatenate(orig, "/", dir -> d_name, "");
           if(file == NULL){
             return 0;
           }
-          strcpy(file, orig);
-          strcat(file, "/");
-          strcat(file, dir -> d_name);@/
       #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
         if(dir -> d_type == DT_DIR){@/
       #@+else@/
@@ -1206,14 +1215,10 @@ int copy_files(char *orig, char *dst){
       #endif@/
           // Aqui executamos se nesta iteração devemos copiar um diretório
           char *new_dst;
-          new_dst = (char *) malloc(strlen(dst) + strlen(dir -> d_name) + 2);
+          new_dst = concatenate(dst, "/", dir -> d_name, "");
           if(new_dst == NULL){
             return 0;
           }
-          new_dst[0] = '\0';
-          strcat(new_dst, dst);
-          strcat(new_dst, "/");
-          strcat(new_dst, dir -> d_name);
           if(strcmp(dir -> d_name, ".") && strcmp(dir -> d_name, "..")){
             if(copy_files(file, new_dst) == 0){
               free(new_dst);
@@ -1266,17 +1271,16 @@ Criar um módulo basicamente envolve:
 O código para isso, assumindo que exista a função |write_copyright|
 para imprimir o comentário de copyright e licenciamento é:
 
+\vfil
+
 @<Caso de uso 5: Criar novo módulo@>=
 if(inside_weaver_directory && have_arg){
   if(arg_is_valid_module){
     char *filename;
     FILE *fp;
-    filename = (char *) malloc(strlen(project_path) + strlen("src/.c ") + strlen(argument));
+    // Creating the \texttt{.c}:
+    filename = concatenate(project_path, "src/", argument, ".c", "");
     if(filename == NULL) ERROR();
-    strcpy(filename, project_path);
-    strcat(filename, "src/");
-    strcat(filename, argument);
-    strcat(filename, ".c");
     fp = fopen(filename, "w");
     if(fp == NULL){
       free(filename);
@@ -1297,6 +1301,7 @@ if(inside_weaver_directory && have_arg){
     fclose(fp);
     free(filename);
 
+    // Updating \texttt{src/includes.h}:
     fp = fopen("src/includes.h", "a");
     fprintf(fp, "#include \"%s.h\"\n", argument);
     fclose(fp);
@@ -1342,11 +1347,10 @@ que faça isso para nos ajudar). Também criamos um
 \texttt{src/includes.h} que por hora estará vazio, mas será modificado
 na criação de futuros módulos.
 
-Todos os diretórios que criaremos darão à seu dono permissão de
-leitura, escrita e execução, e às outras pessoas somente permissão de
-leitura e execução. Isso é representado pelo código octal |0755|.
+A permissão dos diretórios criados será \texttt{drwxr-xr-x} (|0755| em
+octal).
 
-\smallskip
+\medskip
 
 @<Caso de uso 6: Criar novo projeto@>=
 if(! inside_weaver_directory && have_arg){
@@ -1358,30 +1362,21 @@ if(! inside_weaver_directory && have_arg){
     err = mkdir(argument, S_IRWXU | S_IRWXG | S_IROTH);
     if(err == -1) ERROR();
     chdir(argument);
-    mkdir(".weaver", 0755);
-    mkdir("conf", 0755);
-    mkdir("src", 0755);
-    mkdir("src/weaver", 0755);
-    mkdir("image", 0755);
-    mkdir("sound", 0755);
+    mkdir(".weaver", 0755); mkdir("conf", 0755);
+    mkdir("src", 0755); mkdir("src/weaver", 0755);
+    mkdir("image", 0755);  mkdir("sound", 0755);
     mkdir("music", 0755);
 
-    dir_name = (char *) malloc(strlen(shared_dir) + strlen("project") + 1);
+    dir_name = concatenate(shared_dir, "project", "");
     if(dir_name == NULL) ERROR();
-    strcpy(dir_name, shared_dir);
-    strcat(dir_name, "project");
     if(copy_files(dir_name, ".") == 0){
       free(dir_name);
       ERROR();
     }
-    free(dir_name);
-
-    // Criando arquivo com número de versão:
+    free(dir_name);// \\Criando arquivo com número de versão:
     fp = fopen(".weaver/version", "w");
     fprintf(fp, "%s\n", VERSION);
-    fclose(fp);
-
-    // Criando arquivo com nome de projeto:
+    fclose(fp);// Criando arquivo com nome de projeto:
     fp = fopen(".weaver/name", "w");
     fprintf(fp, "%s\n", basename(argv[1]));
     fclose(fp);
@@ -1422,10 +1417,8 @@ houver algum erro, ela retorna 0. Caso contrário, retorna 1.
 int append_basefile(FILE *fp, char *dir, char *file){
   int block_size, bytes_read;
   char *buffer, *directory = ".";
-  char *path = (char *) malloc(strlen(dir) + strlen(file) + 1);
+  char *path = concatenate(dir, file, "");
   if(path == NULL) return 0;
-  strcpy(path, dir);
-  strcat(path, file);
   FILE *origin;
 
   @<Descobre tamanho do bloco do sistema de arquivos@>@/
