@@ -190,6 +190,8 @@ a seguinte estrutura:
 +-----------+------------+-------------------------+-------------+
 \end{verbatim}
 
+@*2 Cabeçalho da Arena.
+
 O cabeçalho conterá todas as informações que precisamos para usar a
 arena. Chamaremos sua estrutura de dados de |struct arena_header|. O
 primeiro \textit{breakpoint} nunca pode ser removido e ele é útil para
@@ -198,6 +200,13 @@ existirá um último \textbf{breakpoint}. Em seguida, virá uma lista que
 talvez seja vazia (para arenas recém-criadas) de \textit{breakpoints}
 e regiões de memória alocadas. E por fim, haverá uma região de memória
 desalocada.
+
+O tamanho total da arena nunca muda. O cabeçalho e primeiro breakpoint
+também tem tamanho constante. A região de breakpoint e alocações pode
+crescer e diminuir, mas isso sempre implica que a região não-alocada
+respectivamente diminui e cresce na mesma proporção.
+
+As informações encontradas no cabeçalho são:
 
 \begin{enumerate}
 \item\textbf{Total:} A quantidade total em bytes de memória que a
@@ -339,25 +348,37 @@ static bool _initialize_arena_header(struct _arena_header *header,
 ocorrer algum erro inicializando o mutex. Por isso podemos representar
 o seu sucesso ou fracasso fazendo-a retornar um valor booleano.
 
+@*2 Breakpoints.
+
+A função primária de um breakpoint é interagir com as função
+|Wbreakpoint| e |Wtrash|. As informações que devem estar presentes
+nele são:
+
 \begin{enumerate}
 \item\textbf{Tipo:} Um número mágico que corresponde sempre à um valor
   que identifica o elemento como sendo um \textit{breakpoint}, e não
-  um fragmento alocado de memória;
+  um fragmento alocado de memória. Se o elemento realmente for um
+  breakpoint e não possuir um número mágico correspondente, então
+  ocorreu um \textit{buffer overflow} em memória alocada e podemos
+  acusar isso. Definiremos tal número como |0x11010101|.
 \item\textbf{Último breakpoint:} No caso do primeiro breakpoint, isso
   deve apontar para ele próprio (e assim o primeiro breakpoint pode
-  ser reconhecido). nos demais casos, ele irá apontar para o
-  breakpoint anterior. Desta forma, em caso de |Wtrash|, poderemos
-  restaurar o cabeçalho da arena para apontar para o breakpoint
-  anterior, já que o atual está sendo apagado.
+  ser identificado diante dos demais). nos demais casos, ele irá
+  apontar para o breakpoint anterior. Desta forma, em caso de
+  |Wtrash|, poderemos restaurar o cabeçalho da arena para apontar para
+  o breakpoint anterior, já que o atual está sendo apagado.
 \item\textbf{Último Elemento:} Para que a lista de elementos de uma
   arena possa ser percorrida, cada elemento deve ser capaz de apontar
-  para o elemento anterior. Desta forma, se o breakpoint for removido
-  e o elemento anterior da arena foi marcado para ser apagado, mas
-  ainda não foi, então ele deve ser apagado.
+  para o elemento anterior. Desta forma, se o breakpoint for removido,
+  podemos restaurar o último elemento da arena para o elemento antes
+  dele (assumindo que não tenha sido marcado para remoção como será
+  visto adiante). O último elemento do primeiro breakpoint é ele próprio.
 \item\textbf{Arena:} Um ponteiro para a arena à qual pertence a
   memória.
 \item\textbf{Tamanho:} A quantidade de memória alocada até o
-  breakpoint em questão.
+  breakpoint em questão. Quando o breakpoint for removido, a
+  quantidade de memória usada pela arena passa a ser o valor presente
+  aqui.
 \item\textbf{Arquivo:} Opcional para depuração. O nome do arquivo onde
   esta região da memória foi alocada.
 \item\textbf{Linha:} Opcional para depuração. O número da linha onde
@@ -370,8 +391,8 @@ Sendo assim, a nossa definição de breakpoint é:
 struct _breakpoint{
   unsigned long type;
   void *last_element;
-  void *arena;
-  void *last_breakpoint;
+  struct _arena_header *arena;
+  struct _breakpoint *last_breakpoint;
   size_t size;
 #if W_DEBUG_LEVEL >= 1
   char file[32];
@@ -379,7 +400,55 @@ struct _breakpoint{
 #endif
 };
 
-@ Por fim, vamos à definição da memória alocada. Ela é formada
+@ As seguintes restrições sempre devem valer para tais dados: ${\it
+  type} = 0{\times}11010101$, ${\it last\_breakpoint}\leq{\it
+  last\_element}$.
+
+POde-se definir uma função para inicializar tais valores. As
+informações externas necessárias são todos os elementos, exceto o tipo
+  (|type|) e o tamanho que pode ser deduzido pela arena:
+
+@(project/src/weaver/memory.c@>+=
+static void _initialize_breakpoint(struct _breakpoint *self,
+				   void *last_element,
+				   struct _arena_header *arena,
+				   struct _breakpoint *last_breakpoint,
+				   char *file, unsigned long line){
+  self -> type = _BREAKPOINT_T;
+  self -> last_element = last_element;
+  self -> arena = arena;
+  self -> last_breakpoint = last_breakpoint;
+  self -> size = arena -> used - sizeof(struct _breakpoint);
+#if W_DEBUG_LEVEL >= 1
+  if((void *) self -> last_breakpoint > self -> last_element){
+    fprintf(stderr,
+	    "Something is very wrong! Arena with last breakpoint greater than "
+	    "last element: %s: %lu\n", file, line);
+    exit(-1);
+  }
+  strncpy(self -> file, file, 32);
+  self -> line = line;
+#endif
+}
+@
+
+Notar que assumimos que quando vamos inicializar um breakpoint, todos
+os dados do cabeçalho da arena já foram atualizados como tendo o
+breakpoint já existente. E como consultamos tais dados, o mutex da
+arena precisa estar bloqueado para que coisas como o tamanho da arena
+não mudem.
+
+O primeiro dos breakpoints é especial e pode ser inicializado com:
+
+@(project/src/weaver/memory.c@>+=
+static void _initialize_first_breakpoint(struct _breakpoint *self,
+					 struct _arena_header *arena,
+					 char *file, unsigned long line){
+  _initialize_breakpoint(self, self, arena, self, file, line);
+}
+@
+
+Por fim, vamos à definição da memória alocada. Ela é formada
 basicamente por um cabeçalho, o espaço alocado em si e uma
 finalização. No caso do cabeçalho, precisamos dos seguintes elementos:
 
@@ -427,8 +496,8 @@ struct _memory_header{
 em nossa descrição das estruturas de memória:
 
 @<Declarações de Memória@>+=
-#define _BREAKPOINT_T  0x1
-#define _DATA_T        0x2
+#define _BREAKPOINT_T  0x11010101
+#define _DATA_T        0x10101010
 
 @*1 Criando e destruindo arenas.
 
@@ -467,19 +536,9 @@ void *_create_arena(size_t size, char *filename, unsigned long line){
       @<Desaloca 'arena'@>@/
     }
     //\\ Preenchendo o primeiro breakpoint\\
-    breakpoint = (struct _breakpoint *) malloc(sizeof(struct _breakpoint));
-    if(breakpoint == NULL){
-      @<Desaloca 'arena'@>@/
-    }
-    breakpoint -> type = _BREAKPOINT_T;
-    breakpoint -> last_breakpoint = breakpoint;
-    breakpoint -> last_element = arena;
-    breakpoint -> arena = arena;
-    breakpoint -> size = sizeof (struct _arena_header);
-#if W_DEBUG_LEVEL >= 1
-    strncpy(breakpoint -> file, filename, 32);
-    breakpoint -> line = line;
-#endif
+    breakpoint = ((struct _arena_header *) arena) -> last_breakpoint;
+    _initialize_first_breakpoint(breakpoint, (struct _arena_header *) arena,
+				 filename, line);
   }
 
   return arena;
@@ -572,7 +631,8 @@ até chegarmos ao primeiro breakpoint.
 {
   struct _memory_header *p = (struct _memory_header *) header -> last_element;
   while(p -> type != _BREAKPOINT_T ||
-	((struct _breakpoint *) p) -> last_breakpoint != p){
+	((struct _breakpoint *) p) -> last_breakpoint !=
+	(struct _breakpoint *) p){
     if(p -> type == _DATA_T && p -> flags % 2){
       fprintf(stderr, "WARNING (1): Memory leak in data allocated in %s:%lu\n",
 	      p -> file, p -> line);
