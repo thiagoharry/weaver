@@ -308,14 +308,10 @@ cabeçalho, tudo o que precisamos saber é o tamanho total que a arena
 tem. Os demais valores podem ser deduzidos. Portanto, podemos usar
 esta função interna para a tarefa:
 
-@<Declarações de Memória@>+=
-bool _initialize_arena_header(struct _arena_header *header,
-			      size_t total, char *file, int line);
-@
 @(project/src/weaver/memory.c@>=
 #include "memory.h"
 
-bool _initialize_arena_header(struct _arena_header *header,
+static bool _initialize_arena_header(struct _arena_header *header,
 				     size_t total, char *file,
 				     int line){
   header -> total = total;
