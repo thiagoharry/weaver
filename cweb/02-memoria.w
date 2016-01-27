@@ -159,7 +159,7 @@ declarações das funções e estruturas de dado a serem usadas nele:
 #include <stdlib.h> // |size_t|
 #include <stdio.h> // |perror|
 #include <math.h> // |ceil|
-
+#include <stdbool.h>
 @
 
 Outra coisa relevante a mencionar é que à partir de agora assumiremos
@@ -181,8 +181,23 @@ que as seguintes macros são definidas em \texttt{conf/conf.h}:
 
 @*1 Estruturas de Dados Usadas.
 
-Vamos considerar primeiro uma \textbf{arena}. As informações que
-precisamos armazenar em cada uma delas é:
+Vamos considerar primeiro uma \textbf{arena}. Toda \textbf{arena} terá
+a seguinte estrutura:
+
+\begin{verbatim}
++-----------+------------+-------------------------+-------------+
+; Cabeçalho ; Breakpoint ; Breakpoints e alocações ; Não alocado ;
++-----------+------------+-------------------------+-------------+
+\end{verbatim}
+
+O cabeçalho conterá todas as informações que precisamos para usar a
+arena. Chamaremos sua estrutura de dados de |struct arena_header|. O
+primeiro \textit{breakpoint} nunca pode ser removido e ele é útil para
+que o comando |Wtrash| sempre funcione e seja definido, pois sempre
+existirá um último \textbf{breakpoint}. Em seguida, virá uma lista que
+talvez seja vazia (para arenas recém-criadas) de \textit{breakpoints}
+e regiões de memória alocadas. E por fim, haverá uma região de memória
+desalocada.
 
 \begin{enumerate}
 \item\textbf{Total:} A quantidade total em bytes de memória que a
@@ -207,21 +222,26 @@ precisamos armazenar em cada uma delas é:
   de um |Wtrash|. Outro |size_t|.
 
   Eta informaçção precisa ser atualizada toda vez que um
-  \textbf{breakpoint} for criado ou destruído.
+  \textbf{breakpoint} for criado ou destruído. Um último breakpoint
+  sempre existirá, pois o primeiro breakpoint nunca pode ser removido.
 \item\textbf{Último Elemento:} Endereço do último elemento
   que foi armazenado. É útil guardar esta informação porque quando
   criamos um novo elemento com |Walloc| ou |Wbreakpoint|, o novo
   elemento precisa apontar para o último que havia antes dele.
   
   Esta informação precisa ser atualizada após qualquer operação de
-  alocação, desalocação ou \textbf{breakpoint}.
+  alocação, desalocação ou \textbf{breakpoint}. Sempre existirá um
+  último elemento na arena, pois um primeiro breakpoint sempre estará
+  posicionado após o cabeçalho.
 \item\textbf{Posição Vazia:} Um ponteiro para a próxima região
   contínua de memória não-alocada. É preciso saber disso para podermos
   criar novas estruturas e retornar um espaço ainda não-utilizado em
   caso de |Walloc|. Outro |size_t|.
 
   Novamente é algo que precisa ser atualizado após qualquer uma das
-  operações de memória sobre a arena.
+  operações de memória sobre a arena. É possível que não hajam mais
+  regiões vazias caso tudo já tenha sido alocado. Neste caso, o
+  ponteiro deverá ser |NULL|.
 \item\textbf{Mutex:} Opcional. Só precisamos definir isso se
   estivermos usando mais de uma thread. Neste caso, o mutex servirá
   para prevenir que duas threads tentem modificar qualquer um destes
@@ -256,13 +276,13 @@ precisamos armazenar em cada uma delas é:
 \end{enumerate}
 
 Então, assim podemos definir o nosso cabeçalho para arenas. Toda
-região de memória ocupada por arenas deverá começar sendo preenchida
-com os seguintes valores:
+arena terá tal estrutura em seu início.
 
 @<Declarações de Memória@>+=
 struct _arena_header{@#
   size_t total, used;
-  void *last_breakpoint, *empty_position, *last_element;
+  struct _breakpoint *last_breakpoint;
+  void *empty_position, *last_element;
 #ifdef W_MULTITHREAD
   pthread_mutex_t mutex;
 #endif
@@ -271,13 +291,57 @@ struct _arena_header{@#
 #endif
 #if W_DEBUG_LEVEL >= 1
   char file[32];@;
-  unsigned long line;
+  unsigned int line;
 #endif
 };
+@
 
-@ Imediatamente depois do cabeçalho, cada arena deve ter um
-\textit{breakpoint}, o qual não pode ser removido. Cada
-\textit{breakpoint} deve ter o seguintes elementos:
+Pela definição, existem algumas restrições sobre os valores presentes
+em cabeçalhos de arena: ${\it total} \geq {\it max\_used} \geq {\it
+  used}$, ${\it last\_element} \geq {\it last\_breakpoint}$, $({\it
+  empty\_position} = {\it NULL}) \vee ({\it empty\_position >
+  last\_element})$ e ${\it used > 0}$ (o breakpoint e o cabeçalho usam
+o espaço).
+
+Quando criamos a arena e desejamos inicializar o valor de seu
+cabeçalho, tudo o que precisamos saber é o tamanho total que a arena
+tem. Os demais valores podem ser deduzidos. Portanto, podemos usar
+esta função interna para a tarefa:
+
+@<Declarações de Memória@>+=
+bool _initialize_arena_header(struct _arena_header *header,
+			      size_t total, char *file, int line);
+@
+@(project/src/weaver/memory.c@>=
+#include "memory.h"
+
+bool _initialize_arena_header(struct _arena_header *header,
+				     size_t total, char *file,
+				     int line){
+  header -> total = total;
+  header -> used = sizeof(struct _arena_header) - sizeof(struct _breakpoint);
+  header -> last_breakpoint = (struct _breakpoint *) (header + 1);
+  header -> last_element = (void *) header -> last_breakpoint;
+  header -> empty_position = (void *) (header -> last_breakpoint + 1);
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_init(&(header -> mutex), NULL) != 0){
+    return false;
+  }  
+#endif
+#if W_DEBUG_LEVEL >= 3
+  header -> max_used = header -> used;
+#endif
+#if W_DEBUG_LEVEL >= 1
+  strncpy(header -> file, file, 32);
+  header -> line = line;
+#endif
+  return true;
+}
+@
+
+É importante notar que tal função de inicialização só pode falhar se
+ocorrer algum erro inicializando o mutex. Por isso podemos representar
+o seu sucesso ou fracasso fazendo-a retornar um valor booleano.
 
 \begin{enumerate}
 \item\textbf{Tipo:} Um número mágico que corresponde sempre à um valor
@@ -393,40 +457,24 @@ int _destroy_arena(void *);
 O processo de criar a arena funciona alocando todo o espaço de que
 precisamos e em seguida preenchendo o cabeçalho inicial e breakpoint:
 
-@(project/src/weaver/memory.c@>=
-#include "memory.h"
-
+@(project/src/weaver/memory.c@>+=
 void *_create_arena(size_t size, char *filename, unsigned long line){
   void *arena;
   size_t real_size = 0;
-  struct _arena_header *header;
   struct _breakpoint *breakpoint;
 
   @<Aloca 'arena' com cerca de 'size' bytes e preenche 'real\_size'@>@/
 
   if(arena != NULL){
-    //\\ Preenchendo o cabeçalho da arena\\
-    header = arena;
-    breakpoint = (struct _breakpoint *) (header + 1);
-    header -> total = real_size;
-    header -> used = sizeof(struct _arena_header) + sizeof(struct _breakpoint);
-    header -> last_breakpoint = breakpoint;
-    header -> empty_position = (void *) (breakpoint + 1);
-    header -> last_element = (void *) breakpoint;
-#ifdef W_MULTITHREAD
-    if(pthread_mutex_init(&(header -> mutex), NULL) != 0){
+    if(!_initialize_arena_header((struct _arena_header *) arena, real_size,
+				 filename, line)){
       @<Desaloca 'arena'@>@/
-      return NULL;
     }
-#endif
-#if W_DEBUG_LEVEL >= 3
-    header -> max_used = header -> used;
-#endif
-#if W_DEBUG_LEVEL >= 1
-    strncpy(header -> file, filename, 32);
-    header -> line = line;
-#endif
     //\\ Preenchendo o primeiro breakpoint\\
+    breakpoint = (struct _breakpoint *) malloc(sizeof(struct _breakpoint));
+    if(breakpoint == NULL){
+      @<Desaloca 'arena'@>@/
+    }
     breakpoint -> type = _BREAKPOINT_T;
     breakpoint -> last_breakpoint = breakpoint;
     breakpoint -> last_element = arena;
