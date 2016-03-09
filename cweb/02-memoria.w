@@ -404,9 +404,9 @@ struct _breakpoint{
   type} = 0{\times}11010101$, ${\it last\_breakpoint}\leq{\it
   last\_element}$.
 
-POde-se definir uma função para inicializar tais valores. As
+Pode-se definir uma função para inicializar tais valores. As
 informações externas necessárias são todos os elementos, exceto o tipo
-  (|type|) e o tamanho que pode ser deduzido pela arena:
+(|type|) e o tamanho que pode ser deduzido pela arena:
 
 @(project/src/weaver/memory.c@>+=
 static void _initialize_breakpoint(struct _breakpoint *self,
@@ -454,14 +454,15 @@ finalização. No caso do cabeçalho, precisamos dos seguintes elementos:
 
 \begin{enumerate}
 \item\textbf{Tipo:} Um número que identifica o elemento como um
-  cabeçalho de dados, não um breakpoint.
+  cabeçalho de dados, não um breakpoint. No caso, usaremos o número
+  mágico 0$\times$10101010.
 \item\textbf{Tamanho Real:} Quantos bytes tem a região alocada para
   dados. É igual ao tamanho pedido mais alguma quantidade adicional de
   bytes de preenchimento para podermos manter o alinhamento da
   memória.
 \item\textbf{Tamanho Pedido:} Quantos bytes foram pedidos na alocação,
   ignorando o preenchimento.
-\item\textbf{Último Elemento:} A posição do último elemento da
+\item\textbf{Último Elemento:} A posição do elemento anterior da
   arena. Pode ser outro cabeçalho de dado alocado ou um
   breakpoint. Este ponteiro nos permite acessar os dados como uma
   lista encadeada.
@@ -476,7 +477,10 @@ finalização. No caso do cabeçalho, precisamos dos seguintes elementos:
   esta região da memória foi alocada.
 \end{enumerate}
 
-Sendo assim, a definição de nosso cabeçalho de dados é:
+As seguintes restrições sempre são válidas para tais dados: $tipo =
+0{\times}10101010$, $tamanho\_pedido \leq tamanho\_real$.
+
+A definição de nosso cabeçalho de dados é:
 
 @<Declarações de Memória@>+=
 struct _memory_header{
