@@ -267,21 +267,6 @@ As informações encontradas no cabeçalho são:
   Se estivermos monitorando o valor, precisamos verificar se ele
   precisa ser atualizado após qualquer alocação ou criação de
   \textbf{breakpoint}.
-\item\textbf{Arquivo:} Opcional. Só precisa ser usado e definido se o
-  programa ainda está sendo depurado. É uma string com o nome do
-  arquivo no qual a arena foi criada. Saber disso é útil para que
-  possamos escrever na tela mensagens de depuração úteis. Usaremos uma
-  string de 32 bytes para armazenar tal informação. Este tamanho exato
-  é escolhido para manter o alinhamento da memória.
-
-  Esta informação só precisa ser escrita durante a inicialização da
-  arena.
-\item\textbf{Linha:} opcional. Só precisamos disso se o programa está
-  sendo depurado. Ele deve armazenar o número da linha na qual esta
-  arena foi criada. Definimos como |unsigned long|.
-
-  Este valor só precisa ser escrito e modificado durante a
-  inicialização.
 \end{enumerate}
 
 Então, assim podemos definir o nosso cabeçalho para arenas. Toda
@@ -297,10 +282,6 @@ struct _arena_header{@#
 #endif
 #if W_DEBUG_LEVEL >= 3
   size_t max_used;
-#endif
-#if W_DEBUG_LEVEL >= 1
-  char file[32];@;
-  unsigned int line;
 #endif
 };
 @
@@ -321,8 +302,7 @@ esta função interna para a tarefa:
 #include "memory.h"
 
 static bool _initialize_arena_header(struct _arena_header *header,
-				     size_t total, char *file,
-				     int line){
+				     size_t total){
   header -> total = total;
   header -> used = sizeof(struct _arena_header) - sizeof(struct _breakpoint);
   header -> last_breakpoint = (struct _breakpoint *) (header + 1);
@@ -335,10 +315,6 @@ static bool _initialize_arena_header(struct _arena_header *header,
 #endif
 #if W_DEBUG_LEVEL >= 3
   header -> max_used = header -> used;
-#endif
-#if W_DEBUG_LEVEL >= 1
-  strncpy(header -> file, file, 32);
-  header -> line = line;
 #endif
   return true;
 }
@@ -438,13 +414,14 @@ breakpoint já existente. E como consultamos tais dados, o mutex da
 arena precisa estar bloqueado para que coisas como o tamanho da arena
 não mudem.
 
-O primeiro dos breakpoints é especial e pode ser inicializado com:
+O primeiro dos breakpoints é especial e pode ser inicializado como
+abaixo. Para ele não precisamos nos preocupar em armazenar o nome de
+arquivo e número de linha em que é definido.
 
 @(project/src/weaver/memory.c@>+=
 static void _initialize_first_breakpoint(struct _breakpoint *self,
-					 struct _arena_header *arena,
-					 char *file, unsigned long line){
-  _initialize_breakpoint(self, self, arena, self, file, line);
+					 struct _arena_header *arena){
+  _initialize_breakpoint(self, self, arena, self, "", 0);
 }
 @
 
@@ -512,14 +489,12 @@ nos dá um tamanho ótimo para paginarmos). Em seguida preenchemos o
 cabeçalho da arena e colocamos o primeiro breakpoint nela.
 
 A função que cria novas arenas deve receber como argumento o tamanho
-mínimo que ela deve ter em bytes e também o nome do arquivo e número
-de linha em que estamos para fins de depuração. Já destruir uma arena
-requer um ponteiro para ela, bem como o arquivo e número de linha
-atual:
+mínimo que ela deve ter em bytes. Já destruir uma arena requer um
+ponteiro para ela:
 
 @<Declarações de Memória@>+=
-void *_create_arena(size_t, char *, unsigned long);
-int _destroy_arena(void *);
+void *Wcreate_arena(size_t);
+int Wdestroy_arena(void *);
 
 @*2 Criando uma arena.
 
@@ -527,7 +502,7 @@ O processo de criar a arena funciona alocando todo o espaço de que
 precisamos e em seguida preenchendo o cabeçalho inicial e breakpoint:
 
 @(project/src/weaver/memory.c@>+=
-void *_create_arena(size_t size, char *filename, unsigned long line){
+void *Wcreate_arena(size_t size){
   void *arena;
   size_t real_size = 0;
   struct _breakpoint *breakpoint;
@@ -535,28 +510,34 @@ void *_create_arena(size_t size, char *filename, unsigned long line){
   @<Aloca 'arena' com cerca de 'size' bytes e preenche 'real\_size'@>@/
 
   if(arena != NULL){
-    if(!_initialize_arena_header((struct _arena_header *) arena, real_size,
-				 filename, line)){
+    if(!_initialize_arena_header((struct _arena_header *) arena, real_size)){
       @<Desaloca 'arena'@>@/
     }
     //\\ Preenchendo o primeiro breakpoint\\
     breakpoint = ((struct _arena_header *) arena) -> last_breakpoint;
-    _initialize_first_breakpoint(breakpoint, (struct _arena_header *) arena,
-				 filename, line);
+    _initialize_first_breakpoint(breakpoint, (struct _arena_header *) arena);
   }
 
   return arena;
 }
 
-@ alocar o espaço envolve primeiro estabelecer qual o tamanho que
-queremos. Ele deverá ser o menor tamanho que é maior ou igual ao valor
-pedido e que seja múltiplo do tamanho de uma página do sistema. Em
-seguida, usamos a chamada de sistema |mmap| para obter a
+@ Então usar esta função nos dá como retorno |NULL| ou um ponteiro
+para uma nova arena cujo tamanho total é no mínimo o pedido como
+argumento, mas talvez será maior por motivos de alinhamento e
+paginação. Partes desta região contínua serão gastos com cabeçalhos da
+arena, das regiões alocadas e \textit{breakpoints}. Então pode ser que
+obtenhamos como retorno uma arena onde caibam menos coisas do que
+caberia no tamanho especificado como argumento.
+
+Mas qual será o tamanho real da arena se não é necessariamente o que
+pedimos como argumento? Resposta: será o menor tamanho que é maior ou
+igual ao valor pedido e que seja múltiplo do tamanho de uma página do
+sistema. Usamos a chamada de sistema |mmap| para obter a
 memória. Outra opção seria o |brk|, mas usar tal chamada de sistema
 criaria conflito caso o usuário tentasse usar o |malloc| da biblioteca
 padrão ou usasse uma função de biblioteca que usa internamento o
-|malloc|. Como até um simples |sprintf| usa |malloc|, devemos evitar
-usar o |brk|:
+|malloc|. Como até um simples |sprintf| usa |malloc|, não podemos usar
+o |brk|, pois isso criaria muitos conflitos com outras bibliotecas:
 
 @<Aloca 'arena' com cerca de 'size' bytes e preenche 'real\_size'@>=
 {
@@ -569,7 +550,7 @@ usar o |brk|:
   }
 }
 
-@ E para desalocar uma arena:
+@ E para desalocar uma arena, fazemos simplesmente:
 
 @<Desaloca 'arena'@>=
 {
@@ -578,12 +559,6 @@ usar o |brk|:
   }
 }
 
-@ Para que possamos usar esta função sem termos que nos preocupar com
-a verificação do nome do arquivo e número de linha, na prática
-definimos a seguinte macro:
-
-@<Declarações de Memória@>+=
-#define Wcreate_arena(a) _create_arena(a, __FILE__, __LINE__)
 
 @*2 Destruindo uma arena.
 
@@ -596,7 +571,7 @@ depuração, podemos imprimir também a quantidade máxima de memória
 usada:
 
 @(project/src/weaver/memory.c@>+=
-int _destroy_arena(void *arena){
+int Wdestroy_arena(void *arena){
 #if W_DEBUG_LEVEL >= 1
   struct _arena_header *header = (struct _arena_header *) arena;
   @<Checa vazamento de memória em 'arena' dado seu 'header'@>@/
@@ -644,13 +619,9 @@ até chegarmos ao primeiro breakpoint.
     p = (struct _memory_header *) p -> last_element;
   }
 }
-
-@ E agora uma função de macro construída em cima desta para que
-possamos destruir arenas sem nos preocuparmos com o nome de arquivo e
-número de linha:
-
-@<Declarações de Memória@>+=
-#define Wdestroy_arena(a) _destroy_arena(a)
+@ A única coisa que não temos como checar é se toda arena criada é
+depois destruída. Caso um programador decida manipular manualmente
+suas arenas, ele deverá assumir responsabilidade por isso.
 
 @*1 Alocação e desalocação de memória.
 
@@ -918,7 +889,7 @@ static void *_user_arena, *_internal_arena;
 funções:
 
 @<Declarações de Memória@>+=
-void _initialize_memory(char *filename, unsigned long line);
+void _initialize_memory();
 void _finalize_memory();
 
 @ Note que são funções que sabem o nome do arquivo e número de linha
@@ -926,14 +897,14 @@ em que estão para propósito de depuração. Elas são definidas como
 sendo:
 
 @(project/src/weaver/memory.c@>+=
-void _initialize_memory(char *filename, unsigned long line){
-  _user_arena = _create_arena(W_MAX_MEMORY, filename, line);
-  _internal_arena = _create_arena(4000, filename, line);
+void _initialize_memory(void){
+  _user_arena = Wcreate_arena(W_MAX_MEMORY);
+  _internal_arena = Wcreate_arena(4000);
 }
 void _finalize_memory(){
-  _destroy_arena(_user_arena);
+  Wdestroy_arena(_user_arena);
   Wtrash_arena(_internal_arena);
-  _destroy_arena(_internal_arena);
+  Wdestroy_arena(_internal_arena);
 }
 
 
