@@ -1324,34 +1324,34 @@ void _matrix_inverse4x4(float m[4][4]){
 
   multiplier = 1.0/_matrix_determinant4x4(m);
 
-  m[0][0] = aux[1][1] * aux[2][2] * aux[3][3] +
-    aux[1][2] * aux[2][3] * aux[3][1] + aux[1][3] * aux[2][1] * aux[3][2] -
-    aux[1][1] * aux[2][3] * aux[3][2] - aux[1][2] * aux[2][1] * aux[3][3] -
-    aux[1][3] * aux[2][2] * aux[3][1];
+  /*m[0][0] = aux[1][1] * aux[2][2] * aux[3][3] +
+    aux[1][2] * aux[2][3] * aux[3][1] + aux[1][3] * aux[2][1] * aux[3][2];
+  m[0][0] -=  aux[1][1] * aux[2][3] * aux[3][2] -
+    aux[1][2] * aux[2][1] * aux[3][3] - aux[1][3] * aux[2][2] * aux[3][1];
   m[0][1] = aux[0][1] * aux[2][3] * aux[3][2] +
-    aux[0][2] * aux[2][1] * aux[3][3] + aux[0][3] * aux[2][2] * aux[3][1] -
-    aux[0][1] * aux[2][2] * aux[3][3] - aux[0][2] * aux[2][3] * aux[3][1] -
-    aux[0][3] * aux[2][1] * aux[3][2];
+    aux[0][2] * aux[2][1] * aux[3][3] + aux[0][3] * aux[2][2] * aux[3][1];
+  m[0][1] -= aux[0][1] * aux[2][2] * aux[3][3] -
+    aux[0][2] * aux[2][3] * aux[3][1] - aux[0][3] * aux[2][1] * aux[3][2];
   m[0][2] = aux[0][1] * aux[1][2] * aux[3][3] +
-    aux[0][2] * aux[1][3] * aux[3][1] + aux[0][3] * aux[1][1] * aux[3][2] -
-    aux[0][1] * aux[1][3] * aux[3][2] - aux[0][2] * aux[1][1] * aux[3][3] -
-    aux[0][3] * aux[1][2] * aux[3][1];
+    aux[0][2] * aux[1][3] * aux[3][1] + aux[0][3] * aux[1][1] * aux[3][2];
+  m[0][2]-= aux[0][1] * aux[1][3] * aux[3][2] -
+    aux[0][2] * aux[1][1] * aux[3][3] - aux[0][3] * aux[1][2] * aux[3][1];
   m[0][3] = aux[0][1] * aux[1][3] * aux[2][2] +
-    aux[0][2] * aux[1][1] * aux[2][3] + aux[0][3] * aux[1][2] * aux[2][1] -
-    aux[0][1] * aux[1][2] * aux[2][3] - aux[0][2] * aux[1][3] * aux[2][1] -
-    aux[0][3] * aux[1][1] * aux[2][2];
+    aux[0][2] * aux[1][1] * aux[2][3] + aux[0][3] * aux[1][2] * aux[2][1];
+  m[0][3] -= aux[0][1] * aux[1][2] * aux[2][3] -
+    aux[0][2] * aux[1][3] * aux[2][1] - aux[0][3] * aux[1][1] * aux[2][2];
   m[1][0] = aux[1][0] * aux[2][3] * aux[3][2] +
-    aux[1][2] * aux[2][0] * aux[3][3] + aux[1][3] * aux[2][2] * aux[3][0] -
-    aux[1][0] * aux[2][2] * aux[3][3] - aux[1][2] * aux[2][3] * aux[3][0] -
-    aux[1][3] * aux[2][0] * aux[3][2];
+    aux[1][2] * aux[2][0] * aux[3][3] + aux[1][3] * aux[2][2] * aux[3][0];
+  m[1][0] -= aux[1][0] * aux[2][2] * aux[3][3] -
+    aux[1][2] * aux[2][3] * aux[3][0] - aux[1][3] * aux[2][0] * aux[3][2];
   m[1][1] = aux[0][0] * aux[2][2] * aux[3][3] +
-    aux[0][2] * aux[2][3] * aux[3][0] + aux[0][3] * aux[2][0] * aux[3][2] -
-    aux[0][0] * aux[2][3] * aux[3][2] - aux[0][2] * aux[2][0] * aux[3][3] -
-    aux[0][3] * aux[2][2] * aux[3][0];
+    aux[0][2] * aux[2][3] * aux[3][0] + aux[0][3] * aux[2][0] * aux[3][2];
+  m[1][1] -= aux[0][0] * aux[2][3] * aux[3][2] -
+    aux[0][2] * aux[2][0] * aux[3][3] - aux[0][3] * aux[2][2] * aux[3][0];
   m[1][2] = aux[0][0] * aux[1][3] * aux[3][2] +
-    aux[0][2] * aux[1][0] * aux[3][3] + aux[0][3] * aux[1][2] * aux[3][0] -
-    aux[0][0] * aux[1][2] * aux[3][3] - aux[0][2] * aux[1][3] * aux[3][0] -
-    aux[0][3] * aux[1][0] * aux[3][2];
+    aux[0][2] * aux[1][0] * aux[3][3] + aux[0][3] * aux[1][2] * aux[3][0];
+  m[1][2] -=  aux[0][0] * aux[1][2] * aux[3][3] -
+    aux[0][2] * aux[1][3] * aux[3][0] - aux[0][3] * aux[1][0] * aux[3][2];
   m[1][3] = aux[0][0] * aux[1][2] * aux[2][3] +
     aux[0][2] * aux[1][3] * aux[2][0] + aux[0][3] * aux[1][0] * aux[2][2] -
     aux[0][0] * aux[1][3] * aux[2][2] - aux[0][2] * aux[1][0] * aux[2][3] -
@@ -1373,9 +1373,9 @@ void _matrix_inverse4x4(float m[4][4]){
     aux[0][0] * aux[1][1] * aux[2][3] - aux[0][1] * aux[1][3] * aux[2][0] -
     aux[0][3] * aux[1][0] * aux[2][1];
   m[3][0] = aux[1][0] * aux[2][2] * aux[3][1] +
-    aux[1][1] * aux[2][0] * aux[3][2] + aux[1][2] * aux[2][1] * aux[3][0] -
-    aux[1][0] * aux[2][1] * aux[3][2] - aux[1][1] * aux[2][2] * aux[3][0] -
-    aux[1][2] * aux[2][0] * aux[3][1];
+    aux[1][1] * aux[2][0] * aux[3][2] + aux[1][2] * aux[2][1] * aux[3][0];
+  m[3][0] -= aux[1][0] * aux[2][1] * aux[3][2] -
+    aux[1][1] * aux[2][2] * aux[3][0] - aux[1][2] * aux[2][0] * aux[3][1];
   m[3][1] = aux[0][0] * aux[2][1] * aux[3][2] +
     aux[0][1] * aux[2][2] * aux[3][0] + aux[0][2] * aux[2][0] * aux[3][1] -
     aux[0][0] * aux[2][2] * aux[3][1] - aux[0][1] * aux[2][0] * aux[3][2] -
@@ -1390,7 +1390,7 @@ void _matrix_inverse4x4(float m[4][4]){
     aux[0][2] * aux[1][1] * aux[2][0];
   for(i = 0; i < 4; i ++)
     for(j = 0; j < 4; j ++)
-      m[i][j] *= multiplier;
+    m[i][j] *= multiplier;*/
 }
 @
 

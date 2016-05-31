@@ -1,11 +1,10 @@
-WEAVE=$(shell if which cweave &> /dev/null; then echo "cweave";\
+WEAVE=$(shell if which cweave > /dev/null; then echo "cweave";\
 	 else echo "noweb"; fi;)
-
 
 all-doc:
 	@/bin/echo -ne "Creating \033[32mweaver.pdf\033[m.........."
 	@${WEAVE} cweb/weaver.w  &> .error.log || (cat .error.log && rm .error.log && false)
-	@rm *.scn *.idx &> /dev/null
+	@rm -f *.scn *.idx &> /dev/null
 	@latex weaver.tex &> .error.log || (cat .error.log && rm .error.log && false)
 	@makeindex weaver.tex &> /dev/null
 	@latex weaver.tex &> /dev/null
