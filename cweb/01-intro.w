@@ -1,6 +1,6 @@
 @* Introdução.
 
-Este é o código-fonte de \texttt{weaver}, uma \textit{engine} (ou
+Este é o código-fonte de \monoespaco{weaver}, uma \italico{engine} (ou
 motor) para desenvolvimento de jogos feita em C utilizando-se da
 técnica de programação literária.
 
@@ -32,13 +32,13 @@ ordem acessível para humanos, não para máquinas.
 Por exemplo, para produzir este PDF, utiliza-se um conjunto de
 programas denominados de CWEB, a qual foi desenvolvida por Donald
 Knuth e Silvio Levy. Um programa chamado CWEAVE é responsável por
-gerar por meio do código-fonte do programa um código \LaTeX, o qual é
+gerar por meio do código-fonte do programa um código \MaGiTeX, o qual é
 compilado para um formato DVI, e finalmente para este formato PDF
 final. Para produzir o motor de desenvolvimento de jogos em si
 utiliza-se sobre os mesmos arquivos fonte um programa chamado CTANGLE,
 que extrai o código C (além de um punhado de códigos GLSL) para os
 arquivos certos. Em seguida, utiliza-se um compilador como GCC ou
-CLANG para produzir os executáveis. Felizmente, há \texttt{Makefiles}
+CLANG para produzir os executáveis. Felizmente, há \monoespaco{Makefiles}
 para ajudar a cuidar de tais detalhes de construção.
 
 Os pré-requisitos para se compreender este material são ter uma boa
@@ -51,7 +51,7 @@ também ajuda.
 Weaver é desenvolvida pelo programador Thiago ``Harry'' Leucz
 Astrizi. Abaixo segue a licença do software.
 
-\begin{verbatim}
+\alinhaverbatim
 Copyright (c) Thiago Leucz Astrizi 2015
 
 This program is free software: you can redistribute it and/or
@@ -67,11 +67,11 @@ GNU General Public License for more details.
 You should have received a copy of the GNU General Public
 License along with this program.  If not, see
 <http://www.gnu.org/licenses/>.
-\end{verbatim}
+\alinhanormal
 
 A tradução não-oficial da licença é:
 
-\begin{verbatim}
+\alinhaverbatim
 Copyright (c) Thiago Leucz Astrizi 2015
 
 Este programa é um software livre; você pode redistribuí-lo e/ou 
@@ -87,7 +87,7 @@ Licença Pública Geral GNU para maiores detalhes.
 Você deve ter recebido uma cópia da Licença Pública Geral GNU
 junto com este programa. Se não, veja
 <http://www.gnu.org/licenses/>.
-\end{verbatim}
+\alinhanormal
 
 A versão completa da licença pode ser obtida junto ao código-fonte
 Weaver ou consultada no link mencionado.
@@ -96,15 +96,14 @@ Weaver ou consultada no link mencionado.
 
 Estes são os princípios filosóficos que guiam o desenvolvimento deste
 software. Qualqer coisa que vá de encontro à eles devem ser tratados
-como \textit{bugs}.
+como \italico{bugs}.
 
 
-\begin{itemize}
-\item\textbf{Software é conhecimento sobre como realizar algo escrito em
+
+\negrito{Software é conhecimento sobre como realizar algo escrito em
   linguagens formais de computadores. E o conhecimento deve ser livre
   para todos. Portanto, Weaver deverá ser um software livre e deverá
   também ser usada para a criação de jogos livres.}
-\end{itemize}
 
 A arte de um jogo pode ter direitos de cópia. Ela deveria ter uma
 licença permisiva, pois arte é cultura, e portanto, também não deveria
@@ -121,10 +120,10 @@ responsabilidades). Passar para outras pessoas. Modificá-lo. A única
 coisa não permitida é produzir com ele algo que não dê aos seus
 usuários exatamente as mesmas liberdades.
 
-\begin{itemize}
-\item\textbf{Como corolário da filosofia anterior, Weaver deve estar
+
+\negrito{Como corolário da filosofia anterior, Weaver deve estar
   bem-documentado.}
-\end{itemize}
+
 
 A escolha de CWEB para a criação de Weaver é um reflexo desta
 filosofia. Naturalmente, outra questão que surge é: documentado para
@@ -140,10 +139,10 @@ escrita de tutoriais em inglês lá. Os nomes das variáveis também serão
 em inglês. Com isso tento conciliar as duas coisas, por mais difícil
 que isso seja.
 
-\begin{itemize}
-\item\textbf{Weaver deve ter muitas opções de configuração para que
+
+\negrito{Weaver deve ter muitas opções de configuração para que
   possa atender à diferentes necessidades.}
-\end{itemize}
+
 
 Cada projeto deve ter um arquivo de configuração e muito da
 funcionalidade pode ser escolhida lá. Escolhas padrão sãs devem ser
@@ -154,16 +153,16 @@ Weaver nunca tenha funções abomináveis como a API do Windows, com 10
 ou mais argumentos.
 
 Como reflexo disso, faremos com que em todo projeto Weaver haja um
-arquivo de configuração \texttt{conf/conf.h}, que modifica o
+arquivo de configuração \monoespaco{conf/conf.h}, que modifica o
 funcionamento do motor. Como pode ser deduzido pela extensão do nome
 do arquivo, ele é basicamente um arquivo de cabeçalho C onde poderão
-ter vários \texttt{\#define}s que modificarão o funcionamento de seu
+ter vários \monoespaco{\#define}s que modificarão o funcionamento de seu
 jogo.
 
-\begin{itemize}
-\item\textbf{Weaver não deve tentar resolver problemas sem solução. Ao
+
+\negrito{Weaver não deve tentar resolver problemas sem solução. Ao
   invés disso, é melhor propor um acordo mútuo entre usuários.}
-\end{itemize}
+
 
 Computadores são coisas complexas primariamente porque pessoas tentam
 resolver neles problemas insolúveis. É como tapar o sol com a
@@ -187,11 +186,11 @@ comportamento que deve ser seguido pela engine e pelo usuário para que
 se possa lidar com o problema combinando os esforços de humanos e
 máquinas.
 
-\begin{itemize}
-\item\textbf{Um jogo feito usando Weaver deve poder ser instalado em
+
+\negrito{Um jogo feito usando Weaver deve poder ser instalado em
   um computador simplesmente distribuindo-se um instalador, sem
   necessidade de ir atrás de dependências.}
-\end{itemize}
+
 
 Isso está por trás da decisão do código da API Weaver ser inserido
 estaticamente nos projetos ao invés de compilado como bibliotecas
@@ -210,19 +209,19 @@ erro na instalação deve ser tão clara como em qualquer outro pacote.
 Ferramentas para gerar instaladores nas 2 distribuições mais usadas
 devem ser fornecidas, desde que elas possuam gerenciador de pacotes.
 
-\begin{itemize}
-\item\textbf{Wever deve ser fácil de usar. Mais fácil que a maioria
+
+\negrito{Wever deve ser fácil de usar. Mais fácil que a maioria
   das ferramentas já existentes.}
-\end{itemize}
+
 
 Isso é obtido mantendo as funções o mais simples possíveis e
 fazendo-as funcionar seguindo padrões que são bons o bastante para a
 maioria dos casos. E caso um programador saiba o que está fazendo, ele
 deve poder configurar tais padrões sem problemas por meio do arquivo
-\texttt{conf/conf.h}.
+\monoespaco{conf/conf.h}.
 
 Desta forma, uma função de inicialização poderia se chamar
-\texttt{Winit()} e não precisar de nenhum argumento. Coisas como
+\monoespaco{Winit()} e não precisar de nenhum argumento. Coisas como
 gerenciar a projeção das imagens na tela devem ser transparentes e nem
 precisar de uma função específica após os objetos que compõe o nosso
 ambiente 3D sejam definidos.
@@ -232,61 +231,61 @@ ambiente 3D sejam definidos.
 % Como Weaver ainda está em construção, isso deve ser mudado bastante.
 
 Para instalar Weaver em um computador, assumindo que você está fazendo
-isso à partir do código-fonte, basta usar o comando \texttt{make} e
-\texttt{make install}.
+isso à partir do código-fonte, basta usar o comando \monoespaco{make} e
+\monoespaco{make install}.
 
 Atualmente, os seguintes programas são necessários para se compilar
 Weaver:
 
-\begin{itemize}
-\item\textbf{ctangle:} Extrai o código C dos arquivos de
-  \texttt{cweb/}.
-\item\textbf{clang:} Um compilador C que gera executáveis à partir de
+
+\negrito{ctangle:} Extrai o código C dos arquivos de
+  \monoespaco{cweb/}.
+\negrito{clang:} Um compilador C que gera executáveis à partir de
   código C. Pode-se usar o GCC (abaixo) ao invés dele.
-\item\textbf{gcc:} Um compilador que gera executáveis à partir de
+\negrito{gcc:} Um compilador que gera executáveis à partir de
   código C. Pode-se usar o CLANG (acima) ao invés dele.
-\item\textbf{make:} Interpreta e executa comandos do Makefile.
-\end{itemize}
+\negrito{make:} Interpreta e executa comandos do Makefile.
+
 
 Adicionalmente, os seguintes programs são necessários para se gerar a
 documentação:
 
-\begin{itemize}
-\item\textbf{cweave:} Usado para gerar código \LaTeX\ usado para gerar
+
+\negrito{cweave:} Usado para gerar código \MaGiTeX\ usado para gerar
   este PDF.
-\item\textbf{dvipdf:} Usado para converter um arquivo \texttt{.dvi} em
-  um \texttt{.pdf}, que é o formato final deste manual. Dependendo da
+\negrito{dvipdf:} Usado para converter um arquivo \monoespaco{.dvi} em
+  um \monoespaco{.pdf}, que é o formato final deste manual. Dependendo da
   sua distribuição este programa vem em algum pacote com o nome
-  \texttt{texlive}.
-\item\textbf{graphviz:} Um conjunto de programas usado para gerar
+  \monoespaco{texlive}.
+\negrito{graphviz:} Um conjunto de programas usado para gerar
   representações gráficas em diferentes formatos de estruturas como
   grafos.
-\item\textbf{latex:} Usado para converter um arquivo \texttt{.tex} em
-  um \texttt{.dvi}. Também costuma vir em pacotes chamados
-  \texttt{texlive}.
-\end{itemize}
+\negrito{latex:} Usado para converter um arquivo \monoespaco{.tex} em
+  um \monoespaco{.dvi}. Também costuma vir em pacotes chamados
+  \monoespaco{texlive}.
+
 
 Além disso, para que você possa efetivamente usar Weaver criando seus
 próprios projetos, você também poderá precisar de:
 
-\begin{itemize}
-\item\textbf{emscripten:} Isso é opcional. Mas é necessário caso você
+
+\negrito{emscripten:} Isso é opcional. Mas é necessário caso você
   queira usar Weaver para construir jogos que possam ser jogados em
   navegadores Web após serem compilados para Javascript.
-\item\textbf{opengl:} Você precisa de arquivos de desenvolvimento da
+\negrito{opengl:} Você precisa de arquivos de desenvolvimento da
   biblioteca gráfica OpenGL caso queira gerar programas executáveis
   para Linux.
-\item\textbf{xlib:} Você precisa dos arquivos de desenvolvimento Xlib
+\negrito{xlib:} Você precisa dos arquivos de desenvolvimento Xlib
   caso você queira usar Weaver para gerar programas executáveis para
   Linux.
-\item\textbf{xxd:} Um programa capaz de gerar representação
+\negrito{xxd:} Um programa capaz de gerar representação
   hexadecimal de arquivos quaisquer. É necessário para inserir o
   código dos shaders no programa. Por motivos obscuros, algumas
-  distribuições trazem este programa no mesmo pacote do \textbf{vim}.
-\end{itemize}
+  distribuições trazem este programa no mesmo pacote do \negrito{vim}.
 
 
-@*1 O programa \texttt{weaver}.\index{Programas!Weaver}
+
+@*1 O programa \monoespaco{weaver}.
 
 Weaver é uma engine para desenvolvimento de jogos que na verdaade é
 formada por várias coisas diferentes. Quando falamos em código do
@@ -297,32 +296,32 @@ de seus jogos ou então podemos estar nos referindo ao código de algum
 de seus jogos.
 
 Para evitar ambigüidades, quando nos referimos ao programa executável,
-nos referiremos ao \textbf{programa Weaver}. Seu código-fonte pode ser
+nos referiremos ao \negrito{programa Weaver}. Seu código-fonte pode ser
 encontrado junto ao código da engine em si. O programa é usado
 simplesmente para criar um novo projeto Weaver. E um projeto é um
 diretório com vários arquivos e diretórios necessários para gerar um
 novo jogo Weaver. Por exemplo, o comando abaixo cria um novo projeto
-de um jogo chamado \texttt{pong}:
+de um jogo chamado \monoespaco{pong}:
 
-\begin{verbatim}
+\alinhaverbatim
 weaver pong
-\end{verbatim}
+\alinhanormal
 
 A árvore de diretórios exibida parcialmente abaixo é o que é criado
 pelo comando acima (diretórios são retângulos e arquivos são
 círculos):
 
-\noindent
-\includegraphics[width=\textwidth]{cweb/diagrams/project_dir.eps}
+%\noindent
+%\includegraphics[width=\textwidth]{cweb/diagrams/project_dir.eps}
 
 Quando nos referimos ao código que é inserido em seus projetos,
-falamos do código da \textbf{API Weaver}. Seu código é sempre inserido
-dentro de cada projeto no diretório \texttt{src/weaver/}. Você terá
+falamos do código da \negrito{API Weaver}. Seu código é sempre inserido
+dentro de cada projeto no diretório \monoespaco{src/weaver/}. Você terá
 aceso à uma cópia de seu código em cada novo jogo que criar, já que
 tal código é inserido estaticamente em seus projetos.
 
 Já o código de jogos feitos com Weaver são tratados por
-\textbf{projetos Weaver}. É você quem escreve o seu código, ainda que
+\negrito{projetos Weaver}. É você quem escreve o seu código, ainda que
 a engine forneça como um ponto de partida o código inicial de
 inicialização, criação de uma janela e leitura de eventos do teclado e
 mouse.
@@ -332,22 +331,22 @@ mouse.
 Além de criar um projeto Weaver novo, o programa Weaver tem outros
 casos de uso. Eis a lista deles:
 
-\begin{itemize}
-\item\textbf{Caso de Uso 1: Mostrar mensagem de ajuda de criação de
+
+\negrito{Caso de Uso 1: Mostrar mensagem de ajuda de criação de
   novo projeto:} Isso deve ser feito toda vez que o usuário estiver
   fora do diretório de um Projeto Weaver e ele pedir ajuda
-  explicitamente passando o parâmetro \texttt{--help} ou quando ele
+  explicitamente passando o parâmetro \monoespaco{--help} ou quando ele
   chama o programa sem argumentos (caso em que assumiremos que ele não
   sabe o que fazer e precisa de ajuda).
-\item\textbf{Caso de Uso 2: Mostrar mensagem de ajuda do gerenciamento
+\negrito{Caso de Uso 2: Mostrar mensagem de ajuda do gerenciamento
   de projeto:} Isso deve ser feito quando o usuário estiver dentro de
   um projeto Weaver e pedir ajuda explicitamente com o argumento
-  \texttt{--help} ou se invocar o programa sem argumentos (caso em que
+  \monoespaco{--help} ou se invocar o programa sem argumentos (caso em que
   assumimos que ele não sabe o que está fazendo e precisa de ajuda).
-\item\textbf{Caso de Uso 3: Mostrar a versão de Weaver instalada no
+\negrito{Caso de Uso 3: Mostrar a versão de Weaver instalada no
   sistema:} Isso deve ser feito toda vez que Weaver for invocada com o
-  argumento \texttt{--version}.
-\item\textbf{Caso de Uso 4: Atualizar um projeto Weaver existente:}
+  argumento \monoespaco{--version}.
+\negrito{Caso de Uso 4: Atualizar um projeto Weaver existente:}
   Para o caso de um projeto ter sido criado com a versão 0.4 e
   tenha-se instalado no computador a versão 0.5, por exemplo. Para
   atualizar, basta passar como argumento o caminho absoluto ou
@@ -355,65 +354,65 @@ casos de uso. Eis a lista deles:
   dentro de um diretório de projeto Weaver. Atualizar um projeto
   significa mudar os arquivos com a API Weaver para ue reflitam
   versões mais recentes.
-\item\textbf{Caso de Uso 5: Criar novo módulo em projeto Weaver:} Para
+\negrito{Caso de Uso 5: Criar novo módulo em projeto Weaver:} Para
   isso, devemos estar dentro do diretório de um projeto Weaver e
   devemos passar como argumento um nome para o módulo que não deve
   começar com pontos, traços, nem ter o mesmo nome de qualquer arquivo
-  de extensão \texttt{.c} presente em \texttt{src/} (pois para um
-  módulo de nome XXX, serão criados arquivos \texttt{src/XXX.c} e
-  \texttt{src/XXX.h}).
-\item\textbf{Caso de Uso 6: Criar um novo projeto Weaver:} Para isso
+  de extensão \monoespaco{.c} presente em \monoespaco{src/} (pois para um
+  módulo de nome XXX, serão criados arquivos \monoespaco{src/XXX.c} e
+  \monoespaco{src/XXX.h}).
+\negrito{Caso de Uso 6: Criar um novo projeto Weaver:} Para isso
   ele deve estar fora de um diretório Weaver e deve passar como
   primeiro argumento um nome válido e não-reservado para seu novo
   projeto. Um nome válido deve ser qualquer um que não comece com
   ponto, nem traço, que não tenha efeitos negativos no terminal (tais
   como mudar a cor de fundo) e cujo nome não pode conflitar com
   qualquer arquivo necessário para o desenvolvimento (por exemplo, não
-  deve-se poder criar um projeto chamado \texttt{Makefile}).
-\end{itemize}
+  deve-se poder criar um projeto chamado \monoespaco{Makefile}).
+
 
 @*2 Variáveis do Programa Weaver.
 
 O comportamento de Weaver deve depender das seguintes variáveis:
 
-\begin{itemize}
-\item|inside_weaver_directory|: Indicará se o programa está sendo
+
+|inside_weaver_directory|: Indicará se o programa está sendo
   invocado de dentro de um projeto Weaver.
-\item|argument|: O primeiro argumento, ou NULL se ele não existir
-\item|project_version_major|: Se estamos em um projeto Weaver, qual o
+|argument|: O primeiro argumento, ou NULL se ele não existir
+|project_version_major|: Se estamos em um projeto Weaver, qual o
   maior número da versão do Weaver usada para gerar o
   projeto. Exemplo: se a versão for 0.5, o número maior é 0. Em
   versões de teste, o valor é sempre 0.
-\item|project_version_minor|: Se estamos em um projeto Weaver, o valor
+|project_version_minor|: Se estamos em um projeto Weaver, o valor
   do menor número da versão do Weaver usada para gerar o
   projeto. Exemplo, se a versão for 0.5, o número menor é 5. Em
   versões de teste o valor é sempre 0.
-\item|weaver_version_major|: O número maior da versão do Weaver sendo
+|weaver_version_major|: O número maior da versão do Weaver sendo
   usada no momento.
-\item|weaver_version_minor|: O número menor da versão do Weaver sendo
+|weaver_version_minor|: O número menor da versão do Weaver sendo
   usada no momento.
-\item|arg_is_path|: Se o primeiro argumento é ou não um caminho
+|arg_is_path|: Se o primeiro argumento é ou não um caminho
   absoluto ou relativo para um projeto Weaver.
-\item|arg_is_valid_project|: Se o argumento passado seria válido como
+|arg_is_valid_project|: Se o argumento passado seria válido como
   nome de projeto Weaver.
-\item|arg_is_valid_module|: Se o argumento passado seria válido como
+|arg_is_valid_module|: Se o argumento passado seria válido como
   um novo módulo no projeto Weaver atual.
-\item|project_path|: Se estamos dentro de um diretório de projeto
+|project_path|: Se estamos dentro de um diretório de projeto
   Weaver, qual o caminho para a sua base (onde há o Makefile)
-\item|have_arg|: Se o programa é invocado com argumento.
-\item|shared_dir|: Deverá armazenar o caminho para o diretório onde
+|have_arg|: Se o programa é invocado com argumento.
+|shared_dir|: Deverá armazenar o caminho para o diretório onde
   estão os arquivos compartilhados da instalação de Weaver. Por
-  padrão, será igual à "\texttt{/usr/share/weaver}", mas caso exista a
-  variável de ambiente \texttt{WEAVER\_DIR}, então este será
+  padrão, será igual à "\monoespaco{/usr/share/weaver}", mas caso exista a
+  variável de ambiente \monoespaco{WEAVER\_DIR}, então este será
   considerado o endereço dos arquivos compartilhados.
-\item|author_name|,|project_name| e |year|: Conterão respectivamente o
+|author_name|,|project_name| e |year|: Conterão respectivamente o
   nome do usuário que está invocando Weaver, o nome do projeto atual
   (se estivermos no diretório de um) e o ano atual. Isso será
   importante para gerar as mensagens de Copyright em novos projetos
   Weaver.
-\item|return_value|: Que valor o programa deve retornar caso o programa
+|return_value|: Que valor o programa deve retornar caso o programa
   seja interrompido no momento atual.
-\end{itemize}
+
 
 @*2 Estrutura Geral do Programa Weaver.
 
@@ -421,9 +420,9 @@ Todas estas variáveis serão inicializadas no começo, e se precisar
 serão desalocadas no fim do programa, que terá a seguinte estrutura:
 
 @(src/weaver.c@>=
-@<Cabeçalhos Incluídos no Programa Weaver@>@;
-@<Macros do Programa Weaver@>@;
-@<Funções auxiliares Weaver@>@;
+@<Cabeçalhos Incluídos no Programa Weaver@>
+@<Macros do Programa Weaver@>
+@<Funções auxiliares Weaver@>
 
 int main(int argc, char **argv){@/
   int return_value = 0; /* Valor de retorno. */
@@ -439,17 +438,17 @@ int main(int argc, char **argv){@/
   char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
     *author_name = NULL, *project_name = NULL; /* Strings UTF-8 */
 
-  @<Inicialização@>@;
+  @<Inicialização@>
 
-  @<Caso de uso 1: Imprimir ajuda de criação de projeto@>@;
-  @<Caso de uso 2: Imprimir ajuda de gerenciamento de projeto@>@;
-  @<Caso de uso 3: Mostrar versão@>@;
-  @<Caso de uso 4: Atualizar projeto Weaver@>@;
-  @<Caso de uso 5: Criar novo módulo@>@;
-  @<Caso de uso 6: Criar novo projeto@>@;
+  @<Caso de uso 1: Imprimir ajuda de criação de projeto@>
+  @<Caso de uso 2: Imprimir ajuda de gerenciamento de projeto@>
+  @<Caso de uso 3: Mostrar versão@>
+  @<Caso de uso 4: Atualizar projeto Weaver@>
+  @<Caso de uso 5: Criar novo módulo@>
+  @<Caso de uso 6: Criar novo projeto@>
 
   finalize:
-  @<Finalização@>@;
+  @<Finalização@>
 
   return return_value;
 }
@@ -500,8 +499,8 @@ terceira macro que definimos.
 
 @*2 Inicialização e Finalização do Programa Weaver.
 
-@*3 Inicializando \textit{inside\_weaver\_directory} e
-\textit{project\_path}.
+@*3 Inicializando \italico{inside\_weaver\_directory} e
+\italico{project\_path}.
 
 Inicializar Weaver significa inicializar as 14 variáveis que serão
 usadas para definir o seu comportamento. A primeira delas é
@@ -511,41 +510,41 @@ contrário.
 
 Como definir se estamos em um diretório que pertence à um projeto
 Weaver? Simples. São diretórios que contém dentro de si ou em um
-diretório ancestral um diretório oculto chamado \texttt{.weaver}. Caso
+diretório ancestral um diretório oculto chamado \monoespaco{.weaver}. Caso
 encontremos este diretório oculto, também podemos aproveitar e ajustar
 a variável |project_path| para apontar para o pai do
-\texttt{.weaver}. Se não o encontrarmos, estaremos fora de um
+\monoespaco{.weaver}. Se não o encontrarmos, estaremos fora de um
 diretório Weaver e não precisamos mudar nenhum valor das duas
 variáveis.
 
 Em suma, o que precisamos é de um loop com as seguintes
 características:
 
-\begin{enumerate}
-\item\textbf{Invariantes}: A variável |complete_path| deve sempre
-  possuir o caminho completo do diretório \texttt{.weaver} se ele
+
+\negrito{Invariantes}: A variável |complete_path| deve sempre
+  possuir o caminho completo do diretório \monoespaco{.weaver} se ele
   existisse no diretório atual.
-\item\textbf{Inicialização:} Inicializamos tanto o |complete_path|
+\negrito{Inicialização:} Inicializamos tanto o |complete_path|
   para serem válidos de acordo com o diretório em que o programa é
   invocado.
-\item\textbf{Manutenção:} Em cada iteração do loop nós verificamos se
+\negrito{Manutenção:} Em cada iteração do loop nós verificamos se
   encontramos uma condição de finalização. Caso contrário, subimos
   para o diretório pai do qual estamos, sempre atualizando as
   variáveis para que o invariante continue válido.
-\item\textbf{Finalização}: Interrompemos a execução do loop se uma das
+\negrito{Finalização}: Interrompemos a execução do loop se uma das
   duas con\-di\-ções ocorrerem:
-  \begin{enumerate}
-  \item|complete_path == "/.weaver"|: Neste caso não podemos subir
+  
+  |complete_path == "/.weaver"|: Neste caso não podemos subir
     mais na árvore de diretórios, pois estamos na raiz. Não
-    encontramos um diretório \texttt{.weaver}. Isso significa que não
+    encontramos um diretório \monoespaco{.weaver}. Isso significa que não
     estamos dentro de um projeto Weaver.
-  \item|complete_path == ".weaver"|: Neste caso encontramos um diretório
-    \texttt{.weaver} e descobrimos que estamos dentro de um projeto
+  |complete_path == ".weaver"|: Neste caso encontramos um diretório
+    \monoespaco{.weaver} e descobrimos que estamos dentro de um projeto
     Weaver. Podemos então atualizar a variável |project_path|.
-  \end{enumerate}
-\end{enumerate}
+  
 
-Para checar se o diretório \texttt{.weaver} existe, vamos assumir a
+
+Para checar se o diretório \monoespaco{.weaver} existe, vamos assumir a
 existência de uma função chamada |directry_exists(x)|, onde |x| é uma
 string e tal função deve retornar 1 se |x| for um diretório existente,
 -1 se |x| for um arquivo existente e 0 caso contrário. Para checarmos
@@ -580,7 +579,7 @@ while(strcmp(complete_path, "/.weaver")){
   // O |if| abaixo testa a Finalização 2:
   if(directory_exist(complete_path) == 1){
     inside_weaver_directory = true;
-    complete_path[strlen(complete_path)-7] = '\0'; // Apaga o \texttt{.weaver}
+    complete_path[strlen(complete_path)-7] = '\0'; // Apaga o \monoespaco{.weaver}
     project_path = concatenate(complete_path, "");
     if(project_path == NULL){
       free(complete_path);
@@ -603,8 +602,8 @@ desalocar a memória de |path|:
 @<Finalização@>=
 if(project_path != NULL) free(project_path);
 
-@*3 Inicializando \textit{weaver\_version\_major} e
-\textit{weaver\_version\_minor}.
+@*3 Inicializando \italico{weaver\_version\_major} e
+\italico{weaver\_version\_minor}.
 
 Para descobrirmos a versão atual do Weaver que temos, basta consultar
 o valor presente na macro |VERSION|. Então, obtemos o número de versão
@@ -625,13 +624,13 @@ conteúdo:
 }
 
 
-@*3 Inicializando \textit{project\_version\_major} e
-\textit{project\_version\_minor}.
+@*3 Inicializando \italico{project\_version\_major} e
+\italico{project\_version\_minor}.
 
 Se estamos dentro de um projeto Weaver, queremos saber qual foi a
 versão do Weaver usada para criar o projeto, ou então para atualizá-lo
 pela última vez. Isso pode ser obtido lendo o arquivo
-\textit{.weaver/version} localizado dentro do diretório Weaver. Se não
+\italico{.weaver/version} localizado dentro do diretório Weaver. Se não
 estamos em um diretório Weaver, não precisamos inicializar tais
 valores. O número de versão maior e menor é separado por um ponto. Tal
 como em ``0.5''.
@@ -655,7 +654,7 @@ if(inside_weaver_directory){
   fclose(fp);
 }
 
-@*3 Inicializando \textit{have\_arg} e \textit{argument}.
+@*3 Inicializando \italico{have\_arg} e \italico{argument}.
 
 Uma das variáveis mais fáceis e triviais de se inicializar. Basta
 consultar |argc| e |argv|.
@@ -664,11 +663,11 @@ consultar |argc| e |argv|.
 have_arg = (argc > 1);
 if(have_arg) argument = argv[1];
 
-@*3 Inicializando \textit{arg\_is\_path}.
+@*3 Inicializando \italico{arg\_is\_path}.
 
 Agora temos que verificar se no caso de termos um argumento, se ele é
 um caminho para um projeto Weaver existente ou não. Para isso,
-checamos se ao concatenarmos \texttt{/.weaver} no argumento
+checamos se ao concatenarmos \monoespaco{/.weaver} no argumento
 encontramos o caminho de um diretório existente ou não.
 
 @<Inicialização@>+=
@@ -681,12 +680,12 @@ if(have_arg){
   free(buffer);
 }
 
-@*3 Inicializando \textit{shared\_dir}.
+@*3 Inicializando \italico{shared\_dir}.
 
 A variável |shared_dir| deverá conter onde estão os arquivos
 compartilhados da instalação de Weaver. Se existir a variável de
-ambiente \texttt{WEAVER\_DIR}, este será o caminho. Caso contrário,
-assumiremos o valor padrão de \texttt{/usr/share/weaver}.
+ambiente \monoespaco{WEAVER\_DIR}, este será o caminho. Caso contrário,
+assumiremos o valor padrão de \monoespaco{/usr/share/weaver}.
 
 @<Inicialização@>+=
 {
@@ -707,25 +706,25 @@ memória alocada para |shared_dir|:
 @<Finalização@>+=
 if(shared_dir != NULL) free(shared_dir);
 
-@*3 Inicializando \textit{arg\_is\_valid\_project}.
+@*3 Inicializando \italico{arg\_is\_valid\_project}.
 
 A próxima questão que deve ser averiguada é se o que recebemos como
 argumento, caso haja argumento pode ser o nome de um projeto Weaver
 válido ou não. Para isso, três condições precisam ser
 satisfeitas:
 
-\begin{enumerate}
-\item O nome base do projeto deve ser formado somente por caracteres
+
+ O nome base do projeto deve ser formado somente por caracteres
   alfanuméricos (embora uma barra possa aparecer para passar o caminho
   completo de um projeto).
-\item Não pode existir um arquivo com o mesmo nome do projeto no local
+ Não pode existir um arquivo com o mesmo nome do projeto no local
   indicado para a criação.
-\item O projeto não pode ter o nome de nenhum arquivo que costuma
+ O projeto não pode ter o nome de nenhum arquivo que costuma
   ficar no diretório base de um projeto Weaver (como ``Makefile''). Do
-  contrário, na hora da compilação comandos como ``\texttt{gcc game.c
+  contrário, na hora da compilação comandos como ``\monoespaco{gcc game.c
     -o Makefile}'' poderiam ser executados e sobrescreveriam arquivos
   importantes.
-\end{enumerate}
+
 
 Para isso, usamos o seguinte código:
 
@@ -757,14 +756,14 @@ if(have_arg && !arg_is_path){
 }
 not_valid:
 
-@*3 Inicializando \textit{arg\_is\_valid\_module}.
+@*3 Inicializando \italico{arg\_is\_valid\_module}.
 
 Checar se o argumento que recebemos pode ser um nome válido para um
 módulo só faz sentido se estivermos dentro de um diretório Weaver e se
 um argumento estiver sendo passado. Neste caso, o argumento é um nome
 válido se ele contiver apenas caracteres alfanuméricos e se não
-existir no projeto um arquivo \texttt{.c} ou \texttt{.h} em
-\texttt{src/} que tenha o mesmo nome do argumento passado:
+existir no projeto um arquivo \monoespaco{.c} ou \monoespaco{.h} em
+\monoespaco{src/} que tenha o mesmo nome do argumento passado:
 
 @<Inicialização@>+=
 if(have_arg && inside_weaver_directory){
@@ -794,7 +793,7 @@ if(have_arg && inside_weaver_directory){
 }
 not_valid_module:
 
-@*3 Inicializando \textit{author\_name}.
+@*3 Inicializando \italico{author\_name}.
 
 A variável |author_name| deve conter o nome do usuário que está
 invocando o programa. Esta informação é útil para gerar uma mensagem
@@ -803,7 +802,7 @@ serão criados e escritos pelo usuário da Engine.
 
 Para obter o nome do usuário, começamos obtendo o seu UID. De posse
 dele, obtemos todas as informações de login com um |getpwuid|. Se o
-usuário tiver registrado um nome em \texttt{/etc/passwd}, obtemos tal
+usuário tiver registrado um nome em \monoespaco{/etc/passwd}, obtemos tal
 nome na estrutura retornada pela função. Caso contrário, assumiremos o
 login como sendo o nome:
 
@@ -833,12 +832,12 @@ login como sendo o nome:
 @<Finalização@>+=
 if(author_name != NULL) free(author_name);
 
-@*3 Inicializando \textit{project\_name}.
+@*3 Inicializando \italico{project\_name}.
 
 Só faz sendido falarmos no nome do projeto se estivermos dentro de um
 projeto Weaver. Neste caso, o nome do projeto pode ser encontrado em
 um dos arquivos do diretório base de tal projeto em
-\texttt{.weaver/name}:
+\monoespaco{.weaver/name}:
 
 @<Inicialização@>+=
 if(inside_weaver_directory){
@@ -869,7 +868,7 @@ if(inside_weaver_directory){
 if(project_name != NULL) free(project_name);
 
 
-@*3 Inicializando \textit{year}.
+@*3 Inicializando \italico{year}.
 
 O ano atual é trivial de descobrir usando a função |localtime|:
 
@@ -889,17 +888,15 @@ Definiremos agora a função |directory_exist| para verificarmos se um
 caminho de diretório passado como argumento existe ou não. Os valores
 de retorno possíveis desta função serão:
 
-\begin{description}
-\item[-1]: Arquivo existe, mas não é um diretório.
-\item[0]: Diretório ou arquivo não existe.
-\item[1]: Arquivo existe e é um diretório.
-\end{description}
+[-1]: Arquivo existe, mas não é um diretório.
+[0]: Diretório ou arquivo não existe.
+[1]: Arquivo existe e é um diretório.
 
 @<Funções auxiliares Weaver@>=
 int directory_exist(char *dir){
   struct stat s; /* Armazena status se um diretório existe ou não. */
   int err; /* Checagem de erros */
-  err = stat(dir, &s); // \texttt{.weaver} existe?
+  err = stat(dir, &s); // \monoespaco{.weaver} existe?
   if(err != -1){
     if(S_ISDIR(s.st_mode)){
       return 1;
@@ -968,21 +965,21 @@ char *concatenate(char *string, ...){
 
 O primeiro caso de uso sempre ocorre quando Weaver é invocado fora de
 um diretório de projeto e a invocação é sem argumentos ou com
-argumento \texttt{--help}. Nesse caso assumimos que o usuário não sabe
+argumento \monoespaco{--help}. Nesse caso assumimos que o usuário não sabe
 bem como usar o programa e imprimimos uma mensagem de ajuda. A mensagem
 de ajuda terá uma forma semelhante a esta:
 
-\begin{verbatim}
+\alinhaverbatim
 .    .  .   You are outside a Weaver Directory.
-.   ./  \.  The following command uses are available:
-.   \\  //
-.   \\()//  weaver
+.   ./  \\.  The following command uses are available:
+.   \\\\  //
+.   \\\\()//  weaver
 .   .={}=.      Print this message and exits.
-.  / /`'\ \
-.  ` \  / '  weaver PROJECT_NAME
+.  / /`'\\ \\
+.  ` \\  / '  weaver PROJECT_NAME
 .     `'        Creates a new Weaver Directory with a new
 .               project.
-\end{verbatim}
+\alinhanormal
 
 @<Caso de uso 1: Imprimir ajuda de criação de projeto@>=
 if(!inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
@@ -1002,11 +999,11 @@ if(!inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
 
 O segundo caso de uso também é bastante simples. Ele é invocado quando
 já estamos dentro de um projeto Weaver e invocamos Weaver sem
-argumentos ou com um \texttt{--help}. Assumimos neste caso que o
+argumentos ou com um \monoespaco{--help}. Assumimos neste caso que o
 usuário quer instruções sobre a criação de um novo módulo. A mensagem
 que imprimiremos é semelhante à esta:
 
-\begin{verbatim}
+\alinhaverbatim
 .       \              You are inside a Weaver Directory.
 .        \______/      The following command uses are available:
 .        /\____/\
@@ -1017,7 +1014,7 @@ que imprimiremos é semelhante à esta:
 .        \/____\/          Creates NAME.c and NAME.h, updating
 .        /      \          the Makefile and headers
 .       /
-\end{verbatim}
+\alinhanormal
 
 @<Caso de uso 2: Imprimir ajuda de gerenciamento de projeto@>=
 if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
@@ -1037,7 +1034,7 @@ if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
 @*2 Caso de uso 3: Mostrar versão instalada de Weaver.
 
 Um caso de uso ainda mais simples. Ocorrerá toda vez que o usuário
-invocar Weaver com o argumento \texttt{--version}:
+invocar Weaver com o argumento \monoespaco{--version}:
 
 @<Caso de uso 3: Mostrar versão@>=
 if(have_arg && !strcmp(argument, "--version")){
@@ -1059,7 +1056,7 @@ Naturalmente, isso só será feito caso a versão de Weaver instalada
 seja superior à versão do projeto ou se a versão de Weaver instalada
 for uma versão instável para testes. Afinal, entende-se neste caso que
 o usuário deseja testar a versão experimental de Weaver no
-projeto. Fora isso, não é possível fazer \textit{downgrades} de
+projeto. Fora isso, não é possível fazer \italico{downgrades} de
 projetos, passando da versão 0.2 para 0.1, por exemplo.
 
 Versões experimentais sempre são identificadas como tendo um nome
@@ -1076,7 +1073,7 @@ independente da versão ser mais antiga ou mais nova.
 
 Uma atualização consiste em copiar todos os arquivos que estão no
 diretório de arquivos compartilhados Weaver dentro de
-\texttt{project/src/weaver} para o diretório \texttt{src/weaver} do
+\monoespaco{project/src/weaver} para o diretório \monoespaco{src/weaver} do
 projeto em questão.
 
 Assumindo que exista uma função |copy_files(a, b)| que copia todos os
@@ -1121,7 +1118,7 @@ int copy_single_file(char *file, char *directory){
   FILE *orig, *dst;
   int bytes_read;
 
-  @<Descobre tamanho do bloco do sistema de arquivos@>@;
+  @<Descobre tamanho do bloco do sistema de arquivos@>
   
   /* Nesta parte, |block_size| já foi inicializado com o tamanho do
   bloco do sistema de arquivos. Isso tornará a cópia seguinte mais
@@ -1206,13 +1203,13 @@ int copy_files(char *orig, char *dst){
           }
       #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
         if(dir -> d_type == DT_DIR){@/
-      #@+else@/
+      #else
         struct stat s;
         int err;
         err = stat(file, &s);
 	if(err == -1) return 0;
         if(S_ISDIR(s.st_mode)){@/
-      #endif@/
+      #endif
           // Aqui executamos se nesta iteração devemos copiar um diretório
           char *new_dst;
           new_dst = concatenate(dst, "/", dir -> d_name, "");
@@ -1255,18 +1252,18 @@ contrário,devemos imprimir uma mensagem de erro e sair.
 
 Criar um módulo basicamente envolve:
 
-\begin{itemize}
-\item Criar arquivos \texttt{.c} e \texttt{.h} base, deixando seus
+
+ Criar arquivos \monoespaco{.c} e \monoespaco{.h} base, deixando seus
   nomes iguais ao nome do módulo criado.
-\item Adicionar em ambos um código com copyright e licenciamento com o
+ Adicionar em ambos um código com copyright e licenciamento com o
   nome do autor, do projeto e ano.
-\item Adicionar no \texttt{.h} código de macro simples para evitar que
+ Adicionar no \monoespaco{.h} código de macro simples para evitar que
   o cabeçalho seja inserido mais de uma vez e fazer com que o
-  \texttt{.c} inclua o \texttt{.h} dentro de si.
-\item Fazer com que o \texttt{.h} gerado seja inserido em
-  \texttt{src/includes.h} e assim suas estruturas sejam acessíveis de
+  \monoespaco{.c} inclua o \monoespaco{.h} dentro de si.
+ Fazer com que o \monoespaco{.h} gerado seja inserido em
+  \monoespaco{src/includes.h} e assim suas estruturas sejam acessíveis de
   todos os outros módulos do jogo.
-\end{itemize}
+
 
 O código para isso, assumindo que exista a função |write_copyright|
 para imprimir o comentário de copyright e licenciamento é:
@@ -1278,7 +1275,7 @@ if(inside_weaver_directory && have_arg){
   if(arg_is_valid_module){
     char *filename;
     FILE *fp;
-    // Creating the \texttt{.c}:
+    // Creating the \monoespaco{.c}:
     filename = concatenate(project_path, "src/", argument, ".c", "");
     if(filename == NULL) ERROR();
     fp = fopen(filename, "w");
@@ -1289,7 +1286,7 @@ if(inside_weaver_directory && have_arg){
     write_copyright(fp, author_name, project_name, year);
     fprintf(fp, "#include \"%s.h\"", argument);
     fclose(fp);
-    filename[strlen(filename)-1] = 'h'; // Creating the \texttt{.h}:
+    filename[strlen(filename)-1] = 'h'; // Creating the \monoespaco{.h}:
     fp = fopen(filename, "w");
     if(fp == NULL){
       free(filename);
@@ -1301,7 +1298,7 @@ if(inside_weaver_directory && have_arg){
     fclose(fp);
     free(filename);
 
-    // Updating \texttt{src/includes.h}:
+    // Updating \monoespaco{src/includes.h}:
     fp = fopen("src/includes.h", "a");
     fprintf(fp, "#include \"%s.h\"\n", argument);
     fclose(fp);
@@ -1316,7 +1313,7 @@ if(inside_weaver_directory && have_arg){
 @*3 Função Auxiliar: Imprimir código de copyright e licenciamento.
 
 Para preencher o código de copyright tanto em novos módulos como no
-\texttt{main.c} de novos projetos, podemos usar a função abaixo:
+\monoespaco{main.c} de novos projetos, podemos usar a função abaixo:
 
 @<Funções auxiliares Weaver@>+=
 void write_copyright(FILE *fp, char *author_name, char *project_name,
@@ -1337,20 +1334,18 @@ If not, see <http://www.gnu.org/licenses/>.*/\n\n";
 
 Criar um novo projeto Weaver consiste em criar um novo diretório com o
 nome do projeto, copiar para lá tudo o que está no diretório
-\texttt{project} do diretório de arquivos compartilhados e criar um
-diretório \texttt{.weaver} com os dados do projeto. Além disso,
-criamos um \texttt{src/game.c} e \texttt{src/game.h} adicionando o
+\monoespaco{project} do diretório de arquivos compartilhados e criar um
+diretório \monoespaco{.weaver} com os dados do projeto. Além disso,
+criamos um \monoespaco{src/game.c} e \monoespaco{src/game.h} adicionando o
 comentário de Copyright neles e copiando a estrutura básica dos
-arquivos do diretório compartilhado \texttt{basefile.c} e
-\texttt{basefile.h} (assumindo que existe a função |append_basefile|
+arquivos do diretório compartilhado \monoespaco{basefile.c} e
+\monoespaco{basefile.h} (assumindo que existe a função |append_basefile|
 que faça isso para nos ajudar). Também criamos um
-\texttt{src/includes.h} que por hora estará vazio, mas será modificado
+\monoespaco{src/includes.h} que por hora estará vazio, mas será modificado
 na criação de futuros módulos.
 
-A permissão dos diretórios criados será \texttt{drwxr-xr-x} (|0755| em
+A permissão dos diretórios criados será \monoespaco{drwxr-xr-x} (|0755| em
 octal).
-
-\medskip
 
 @<Caso de uso 6: Criar novo projeto@>=
 if(! inside_weaver_directory && have_arg){
@@ -1445,64 +1440,64 @@ int append_basefile(FILE *fp, char *dir, char *file){
   return 1;
 }
 
-@*1 O arquivo \texttt{conf.h}.
+@*1 O arquivo \monoespaco{conf.h}.
 
 Em toda árvore de diretórios de um projeto Weaver, deve existir um
-arquivo chamado \texttt{conf/conf.h}. Este arquivo é um arquivo de
+arquivo chamado \monoespaco{conf/conf.h}. Este arquivo é um arquivo de
 cabeçalho C que será incluído em todos os outros arquivos de código do
 Weaver no projeto e que permitirá que o comportamento da Engine seja
 modificado naquele projeto específico.
 
 O arquivo deverá ter as seguintes macros (dentre outras):
 
-\begin{itemize}
-\item|W_DEBUG_LEVEL|: Indica o que deve ser impresso na saída padrão
+
+|W_DEBUG_LEVEL|: Indica o que deve ser impresso na saída padrão
   durante a execução. Seu valor pode ser:
 
-\begin{itemize}
-\item|0|: Nenhuma mensagem de depuração é impressa durante a execução
+
+|0|: Nenhuma mensagem de depuração é impressa durante a execução
   do programa. Ideal para compilar a versão final de seu jogo.
-\item|1|: Mensagens de aviso que provavelmente indicam erros são
+|1|: Mensagens de aviso que provavelmente indicam erros são
   impressas durante a execução. Por exemplo, um vazamento de memória
   foi detectado, um arquivo de textura não foi encontrado, etc.
-\item|2|: Mensagens que talvez possam indicar erros ou problemas, mas
+|2|: Mensagens que talvez possam indicar erros ou problemas, mas
   que talvez sejam inofensivas são impressas.
-\item|3|: Mensagens informativas com dados sobre a execução, mas que
+|3|: Mensagens informativas com dados sobre a execução, mas que
   não representam problemas são impressas.
-\end{itemize}
-\item|W_SOURCE|: Indica a linguagem que usaremos em nosso projeto. As
+
+|W_SOURCE|: Indica a linguagem que usaremos em nosso projeto. As
   opções são:
-  \begin{itemize}
-    \item|W_C|: Nosso projeto é um programa em C.
-    \item|W_CPP|: Nosso projeto é um programa em C++.
-  \end{itemize}
-\item|W_TARGET|: Indica que tipo de formato deve ter o jogo de
+  
+    |W_C|: Nosso projeto é um programa em C.
+    |W_CPP|: Nosso projeto é um programa em C++.
+  
+|W_TARGET|: Indica que tipo de formato deve ter o jogo de
   saída. As opções são:
-  \begin{itemize}
-    \item|W_ELF|: O jogo deverá rodar nativamente em Linux. Após a
+  
+    |W_ELF|: O jogo deverá rodar nativamente em Linux. Após a
       compilação, deverá ser criado um arquivo executável que poderá
-      ser instalado com \texttt{make install}.
-    \item|W_WEB|: O jogo deverá executar em um navegador de
+      ser instalado com \monoespaco{make install}.
+    |W_WEB|: O jogo deverá executar em um navegador de
       Internet. Após a compilação deverá ser criado um diretório
-      chamado \texttt{web} que conterá o jogo na forma de uma página
+      chamado \monoespaco{web} que conterá o jogo na forma de uma página
       HTML com Javascript. Não faz sentido instalar um jogo assim. Ele
       deverá ser copiado para algum servidor Web para que possa ser
       jogado na Internet. Isso é feito usando Emscripten.
-  \end{itemize}
-\end{itemize}
+  
+
 
 Opcionalmente as seguintes macros podem ser definidas também (dentre
 outras):
 
-\begin{itemize}
-  \item|W_MULTITHREAD|:\index{Macros de Configuração!W_MULTITHREAD} Se
-    a macro for definida, Weaver é compilado com suporte à múltiplas
-    threads acionadas pelo usuário. Note que de qualquer forma vai
-    existir mais de uma thread rodando no programa para que música e
-    efeitos sonoros sejam tocados. Mas esta macro garante que mutexes
-    e código adicional sejam executados para que o desenvolvedor possa
-    executar qualquer função da API concorrentemente.
-\end{itemize}
+
+  |W_MULTITHREAD|: Se a macro for definida, Weaver é compilado com
+    suporte à múltiplas threads acionadas pelo usuário. Note que de
+    qualquer forma vai existir mais de uma thread rodando no programa
+    para que música e efeitos sonoros sejam tocados. Mas esta macro
+    garante que mutexes e código adicional sejam executados para que o
+    desenvolvedor possa executar qualquer função da API
+    concorrentemente.
+
 
 Ao longo das demais seções deste documento, outras macros que devem
 estar presentes ou que são opcionais serão apresentadas. Mudar os seus
@@ -1510,7 +1505,7 @@ valores, adicionar ou removê-las é a forma de configurar o
 funcionamento do Weaver.
 
 Junto ao código-fonte de Weaver deve vir também um arquivo
-\texttt{conf/conf.h} que apresenta todas as macros possíveis em um só
+\monoespaco{conf/conf.h} que apresenta todas as macros possíveis em um só
 lugar. Apesar de ser formado por código C, tal arquivo não será
 apresentado neste PDF, pois é importante que ele tenha comentários e
 CWEB iria remover os comentários ao gerar o código C.
@@ -1524,9 +1519,9 @@ de arquivos da API Weaver é:
 
 @
 
-Note que haverão também cabeçalhos \texttt{conf\_begin.h} que cuidarão
+Note que haverão também cabeçalhos \monoespaco{conf\_begin.h} que cuidarão
 de toda declaração de inicialização que forem necessárias. Para
-começar, criaremos o \texttt{conf\_begin.h} para inicializar as macros
+começar, criaremos o \monoespaco{conf\_begin.h} para inicializar as macros
 |W_WEB| e |W_ELF|:
 
 @(project/src/weaver/conf_begin.h@>=
@@ -1535,7 +1530,7 @@ começar, criaremos o \texttt{conf\_begin.h} para inicializar as macros
 
 @*1 Funções básicas Weaver.
 
-Vamos criar também um \texttt{weaver.h} que irá incluir
+Vamos criar também um \monoespaco{weaver.h} que irá incluir
 automaticamente todos os cabeçalhos Weaver necessários (inclusivve
 este):
 
@@ -1545,8 +1540,8 @@ este):
 #ifdef __cplusplus
   extern "C" {
 #endif
-@<Inclui Cabeçalho de Configuração@>@;
-@<Cabeçalhos Weaver@>@;
+@<Inclui Cabeçalho de Configuração@>
+@<Cabeçalhos Weaver@>
 #ifdef __cplusplus
   }
 #endif
@@ -1582,13 +1577,13 @@ transparentes e de responsabilidade do compilador. As três funções de
 macro são como as três funções serão executadas na prática.
 
 @<Cabeçalhos Weaver@>+=
-void _awake_the_weaver(char *filename, unsigned long line);@;
-void _may_the_weaver_sleep();@;
-void _weaver_rest(unsigned long time);@;
+void _awake_the_weaver(char *filename, unsigned long line);
+void _may_the_weaver_sleep();
+void _weaver_rest(unsigned long time);
 
-#define Winit() _awake_the_weaver(__FILE__, __LINE__)@;
-#define Wexit() _may_the_weaver_sleep()@;
-#define Wrest(a) _weaver_rest(a)@;
+#define Winit() _awake_the_weaver(__FILE__, __LINE__)
+#define Wexit() _may_the_weaver_sleep()
+#define Wrest(a) _weaver_rest(a)
 @ 
 
 Definiremos melhor a responsabilidade destas funções ao longo dos
@@ -1600,21 +1595,21 @@ devem ser limpos em cada frame de jogo (|glClear|) e que se nosso jogo
 liberar a CPU um pouco (caso o jogo seja compilado para Javascript,
 isso ocorre usando um mecanismo diferente, então não é necessário
 especificar isso todo frame). Além disso, caso o jogo seja um programa
-nativo, nós usamos \textit{double buffering}, e por isso precisamos do
+nativo, nós usamos \italico{double buffering}, e por isso precisamos do
 |glXSwapBuffers| ao invés de um mais simples |glFlush|.
 
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 
-@<API Weaver: Definições@>@;
+@<API Weaver: Definições@>
 
 void _awake_the_weaver(char *filename, unsigned long line){@/
-  @<API Weaver: Inicialização@>@;
+  @<API Weaver: Inicialização@>
 }
 
 void _may_the_weaver_sleep(void){@/
-  @<API Weaver: Finalização@>@;
-  exit(0);@;
+  @<API Weaver: Finalização@>
+  exit(0);
 }
 
 void _weaver_rest(unsigned long time){
