@@ -29,17 +29,17 @@ programa na ordem certa é de responsabilidade do programa que extrai o
 código. Um programa literário deve sempre apresentar as coisas em uma
 ordem acessível para humanos, não para máquinas.
 
-Por exemplo, para produzir este PDF, utiliza-se um conjunto de
-programas denominados de CWEB, a qual foi desenvolvida por Donald
-Knuth e Silvio Levy. Um programa chamado CWEAVE é responsável por
-gerar por meio do código-fonte do programa um código \MaGiTeX, o qual é
-compilado para um formato DVI, e finalmente para este formato PDF
-final. Para produzir o motor de desenvolvimento de jogos em si
-utiliza-se sobre os mesmos arquivos fonte um programa chamado CTANGLE,
-que extrai o código C (além de um punhado de códigos GLSL) para os
-arquivos certos. Em seguida, utiliza-se um compilador como GCC ou
-CLANG para produzir os executáveis. Felizmente, há \monoespaco{Makefiles}
-para ajudar a cuidar de tais detalhes de construção.
+Por exemplo, para produzir este PDF, utiliza-se um programa chamado
+\TeX, o qual por meio do formato \MaGiTeX\ instalado, compreende
+código escrito em um formato específico de texto e o formata de
+maneira adequada.  O \TeX\ gera um arquivo no formato DVI, o qual é
+convertido para PDF. Para produzir o motor de desenvolvimento de jogos
+em si utiliza-se sobre os mesmos arquivos fonte um programa chamado
+CTANGLE, que extrai o código C (além de um punhado de códigos GLSL)
+para os arquivos certos. Em seguida, utiliza-se um compilador como GCC
+ou CLANG para produzir os executáveis. Felizmente, há
+\monoespaco{Makefiles} para ajudar a cuidar de tais detalhes de
+construção.
 
 Os pré-requisitos para se compreender este material são ter uma boa
 base de programação em C e ter experiência no desenvolvimento de
@@ -49,7 +49,9 @@ também ajuda.
 @*1 Copyright e licenciamento.
 
 Weaver é desenvolvida pelo programador Thiago ``Harry'' Leucz
-Astrizi. Abaixo segue a licença do software.
+Astrizi. Abaixo segue a licença do software:
+
+\linha
 
 \alinhaverbatim
 Copyright (c) Thiago Leucz Astrizi 2015
