@@ -248,37 +248,31 @@ ambiente serem definidos.
 
 Para instalar Weaver em um computador, assumindo que você está fazendo
 isso à partir do código-fonte, basta usar o comando \monoespaco{make} e
-\monoespaco{make install}.
+\monoespaco{make install} (o segundo comando como \italico{root}).
 
 Atualmente, os seguintes programas são necessários para se compilar
 Weaver:
 
-
-\negrito{ctangle:} Extrai o código C dos arquivos de
+\negrito{ctangle} ou \negrito{notangle}: Extrai o código C dos arquivos de
   \monoespaco{cweb/}.
-\negrito{clang:} Um compilador C que gera executáveis à partir de
-  código C. Pode-se usar o GCC (abaixo) ao invés dele.
-\negrito{gcc:} Um compilador que gera executáveis à partir de
-  código C. Pode-se usar o CLANG (acima) ao invés dele.
+
+\negrito{clang} ou \negrito{gcc}: Um compilador C que gera executáveis à
+partir de código C.
+
 \negrito{make:} Interpreta e executa comandos do Makefile.
 
 
-Adicionalmente, os seguintes programs são necessários para se gerar a
-documentação:
+Os dois primeiros programas podem vir em pacotes chamados
+de \negrito{cweb} ou \negrito{noweb}. Adicionalmente, os seguintes
+programas são necessários para se gerar a documentação:
 
+\negrito{\TeX\ e \MaGiTeX}: Usado para ler o código-fonte CWEB e gerar um
+ arquivo DVI.
 
-\negrito{cweave:} Usado para gerar código \MaGiTeX\ usado para gerar
-  este PDF.
-\negrito{dvipdf:} Usado para converter um arquivo \monoespaco{.dvi} em
-  um \monoespaco{.pdf}, que é o formato final deste manual. Dependendo da
-  sua distribuição este programa vem em algum pacote com o nome
-  \monoespaco{texlive}.
-\negrito{graphviz:} Um conjunto de programas usado para gerar
-  representações gráficas em diferentes formatos de estruturas como
-  grafos.
-\negrito{latex:} Usado para converter um arquivo \monoespaco{.tex} em
-  um \monoespaco{.dvi}. Também costuma vir em pacotes chamados
-  \monoespaco{texlive}.
+\negrito{dvipdf}: Usado para converter um arquivo \monoespaco{.dvi} em
+  um \monoespaco{.pdf}.
+
+\negrito{graphviz}: Gera representações gráficas de grafos.
 
 
 Além disso, para que você possa efetivamente usar Weaver criando seus
