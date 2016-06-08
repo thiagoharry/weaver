@@ -51,8 +51,7 @@ também ajuda.
 Weaver é desenvolvida pelo programador Thiago ``Harry'' Leucz
 Astrizi. Abaixo segue a licença do software:
 
-\linha
-
+\espaco{5mm}\linha
 \alinhaverbatim
 Copyright (c) Thiago Leucz Astrizi 2015
 
@@ -70,9 +69,11 @@ You should have received a copy of the GNU General Public
 License along with this program.  If not, see
 <http://www.gnu.org/licenses/>.
 \alinhanormal
+\linha\espaco{5mm}
 
 A tradução não-oficial da licença é:
 
+\espaco{5mm}\linha
 \alinhaverbatim
 Copyright (c) Thiago Leucz Astrizi 2015
 
@@ -90,6 +91,7 @@ Você deve ter recebido uma cópia da Licença Pública Geral GNU
 junto com este programa. Se não, veja
 <http://www.gnu.org/licenses/>.
 \alinhanormal
+\linha\espaco{5mm}
 
 A versão completa da licença pode ser obtida junto ao código-fonte
 Weaver ou consultada no link mencionado.
@@ -97,13 +99,11 @@ Weaver ou consultada no link mencionado.
 @*1 Filosofia Weaver.
 
 Estes são os princípios filosóficos que guiam o desenvolvimento deste
-software. Qualqer coisa que vá de encontro à eles devem ser tratados
+software. Qualquer coisa que vá de encontro à eles devem ser tratados
 como \italico{bugs}.
 
-
-
-\negrito{Software é conhecimento sobre como realizar algo escrito em
-  linguagens formais de computadores. E o conhecimento deve ser livre
+\negrito{1- Software é conhecimento sobre como realizar algo escrito em
+  linguagens formais de computadores. O conhecimento deve ser livre
   para todos. Portanto, Weaver deverá ser um software livre e deverá
   também ser usada para a criação de jogos livres.}
 
@@ -122,63 +122,90 @@ responsabilidades). Passar para outras pessoas. Modificá-lo. A única
 coisa não permitida é produzir com ele algo que não dê aos seus
 usuários exatamente as mesmas liberdades.
 
+As seguintes quatro liberdades devem estar presentes em Weaver e nos
+jogos que ele desenvolve:
 
-\negrito{Como corolário da filosofia anterior, Weaver deve estar
-  bem-documentado.}
+Liberdade 0: A liberdade para executar o programa, para qualquer
+propósito.
 
+Liberdade 1: A liberdade de estudar o software.
 
-A escolha de CWEB para a criação de Weaver é um reflexo desta
-filosofia. Naturalmente, outra questão que surge é: documentado para
-quem?
+Liberdade 2: A liberdade de redistribuir cópias do programa de modo
+que você possa ajudar ao seu próximo.
 
-Estudei por anos demais em universidade pública e minha educação foi
-paga com dinheiro do povo brasileiro. Por isso acho que minhas
-contribuições devem ser pensadas sempre em como retribuir à isto. O
-motivo de eu escrever em português neste manual é este. Mas ao mesmo
-tempo quero que meu programa seja acessível ao mundo todo. Isso me
-leva a escrever o site do projeto em inglês e dar prioridade para a
-escrita de tutoriais em inglês lá. Os nomes das variáveis também serão
-em inglês. Com isso tento conciliar as duas coisas, por mais difícil
-que isso seja.
+Liberdade 3: A liberdade de modificar o programa e distribuir estas
+modificações, de modo que toda a comunidade se beneficie.
 
+\negrito{2- Weaver deve estar bem-documentado.}
 
-\negrito{Weaver deve ter muitas opções de configuração para que
+As quatro liberdades anteriores não são o suficiente para que as
+pessoas realmente possam estudar um software. Código ofuscado ou de
+difícil compreensão dificulta que as pessoas a exerçam. Weaver deve
+estar completamente documentada. Isso inclui explicação para todo o
+código-fonte que o projeto possui. O uso de \MaGiTeX\ e CWEB é um
+reflexo desta filosofia.
+
+Algumas pessoas podem estranhar também que toda a documentação do
+código-fonte esteja em português. Estudei por anos demais em
+universidade pública e minha educação foi paga com dinheiro do povo
+brasileiro. Por isso acho que minhas contribuições devem ser pensadas
+sempre em como retribuir à isto. Por isso, o português brasileiro será
+o idioma principal na escrita deste software.
+
+Infelizmente, isso tamém conflita com o meu desejo de que este projeto
+seja amplamente usado no mundo todo. Geralmente espera-se que código e
+documentação esteja em inglês. Para lidar com isso, pretendo que a
+documentação on-line e guia de referência das funções esteja em
+inglês. Os nomes de funções e de variáveis estarão em inglês. Mas as
+explicações aqui serão em português.
+
+Com isso tento conciliar as duas coisas, por mais difícil que isso
+seja.
+
+\negrito{3- Weaver deve ter muitas opções de configuração para que
   possa atender à diferentes necessidades.}
 
+É terrível quando você tem que lidar com abominações como:
+
+@(/tmp/dummy.c@>=
+  CreateWindow("nome da classe", "nome da janela", WS_BORDER | WS_CAPTION |
+	       WS_MAXIMIZE, 20, 20, 800, 600, handle1, handle2, handle3, NULL);
+@
 
 Cada projeto deve ter um arquivo de configuração e muito da
 funcionalidade pode ser escolhida lá. Escolhas padrão sãs devem ser
 escolhidas e estar lá, de modo que um projeto funcione bem mesmo que
 seu autor não mude nada nas configurações. E concentrando
-configurações em um arquivo, retiramos complexidade das funções. Que
-Weaver nunca tenha funções abomináveis como a API do Windows, com 10
-ou mais argumentos.
+configurações em um arquivo, retiramos complexidade das funções. As
+funções não precisam então receber mais de 10 argumentos diferentes e
+não é necessário também ficar encapsulando os 10 argumentos em um
+objeto de configuração, o qual é mais uma distração que solução para a
+complexidade.
 
-Como reflexo disso, faremos com que em todo projeto Weaver haja um
-arquivo de configuração \monoespaco{conf/conf.h}, que modifica o
-funcionamento do motor. Como pode ser deduzido pela extensão do nome
-do arquivo, ele é basicamente um arquivo de cabeçalho C onde poderão
-ter vários \monoespaco{\#define}s que modificarão o funcionamento de seu
+Em todo projeto Weaver haverá um arquivo de
+configuração \monoespaco{conf/conf.h}, que modifica o funcionamento do
+motor. Como pode ser deduzido pela extensão do nome do arquivo, ele é
+basicamente um arquivo de cabeçalho C onde poderão ter
+vários |#define|s que modificarão o funcionamento de seu
 jogo.
 
-
-\negrito{Weaver não deve tentar resolver problemas sem solução. Ao
+\negrito{4- Weaver não deve tentar resolver problemas sem solução. Ao
   invés disso, é melhor propor um acordo mútuo entre usuários.}
 
-
-Computadores são coisas complexas primariamente porque pessoas tentam
-resolver neles problemas insolúveis. É como tapar o sol com a
-peneira. Você até consegue fazer isso. Junte um número suficientemente
-grande de peneiras, coloque uma sobre a outra e você consegue gerar
-uma sombra o quão escura se queira. Assim são os sistemas de
-computador modernos.
+Computadores tornam-se coisas complexas porque pessoas tentam resolver
+neles problemas insolúveis. É como tapar o sol com a peneira. Você na
+verdade consegue fazer isso. Junte um número suficientemente grande de
+peneiras, coloque uma sobre a outra e você consegue gerar uma sombra o
+quão escura se queira. Assim são os sistemas modernos que usamos nos
+computadores.
 
 Como exemplo de tais tentativas de solucionar problemas insolúveis,
-que fazem com que arquiteturas monstruosas e ineficientes sejam
-construídas temos a tentativa de fazer com que Sistemas Operacionais
-proprietários sejam seguros e livres de vírus, garantir privacidade,
-autenticação e segurança sobre HTTP e até mesmo coisas como o
-gerenciamento de memória.
+temos a tentativa de fazer com que Sistemas Operacionais proprietários
+sejam seguros e livres de vírus, garantir privacidade, autenticação e
+segurança sobre HTTP e até mesmo coisas como o gerenciamento de
+memória. Pode-se resolver tais coisas apenas adicionando camadas e
+mais camadas de complexidade, e mesmo assim, não funcionará em
+realmente 100\% dos casos.
 
 Quando um problema não tem uma solução satisfatória, isso jamais deve
 ser escondido por meio de complexidades que tentam amenizar ou sufocar
@@ -186,35 +213,22 @@ o problema. Ao invés disso, a limitação natural da tarefa deve ficar
 clara para o usuário, e deve-se trabalhar em algum tipo de
 comportamento que deve ser seguido pela engine e pelo usuário para que
 se possa lidar com o problema combinando os esforços de humanos e
-máquinas.
+máquinas naquilo que cada um dos dois é melhor em fazer.
 
-
-\negrito{Um jogo feito usando Weaver deve poder ser instalado em
+\negrito{5- Um jogo feito usando Weaver deve poder ser instalado em
   um computador simplesmente distribuindo-se um instalador, sem
   necessidade de ir atrás de dependências.}
 
+Este é um exemplo de problema insolúvel mencionado anteriormente. Para
+isso a API Weaver é inserida estaticamente em cada projeto Weaver ao
+invés de ser na forma de bibliotecas compartilhadas. Mesmo assim ainda
+haverão dependências externas. Iremos então tentar minimizar elas e
+garantir que as duas maiores distribuições Linux no DistroWatch sejam
+capazes de rodar os jogos sem dependências adicionais além daquelas
+que já vem instaladas por padrão.
 
-Isso está por trás da decisão do código da API Weaver ser inserido
-estaticamente nos projetos ao invés de compilado como bibliotecas
-compartilhadas. À rigor, este é um exemplo de problema insolúvel
-mencionado anteriormente. Por causa disso, o acordo proposto é que
-Weaver garanta que jogos possam ser instalados por meio de pacotes nas
-2 distribuições Linux mais populares segundo o Distro Watch, sem a
-instalação de pacotes adicionais, desde que as distribuições em si
-suportem interfaces gráficas. Da parte do usuário, ele deverá usar uma
-destas distribuições ou deverá concordar em instalar por conta própria
-as dependências antes de instalar um jogo Weaver.
-
-Naturalmente, caso alguma dependência esteja faltando, a mensagem de
-erro na instalação deve ser tão clara como em qualquer outro pacote.
-
-Ferramentas para gerar instaladores nas 2 distribuições mais usadas
-devem ser fornecidas, desde que elas possuam gerenciador de pacotes.
-
-
-\negrito{Wever deve ser fácil de usar. Mais fácil que a maioria
+\negrito{6- Wever deve ser fácil de usar. Mais fácil que a maioria
   das ferramentas já existentes.}
-
 
 Isso é obtido mantendo as funções o mais simples possíveis e
 fazendo-as funcionar seguindo padrões que são bons o bastante para a
@@ -224,9 +238,9 @@ deve poder configurar tais padrões sem problemas por meio do arquivo
 
 Desta forma, uma função de inicialização poderia se chamar
 \monoespaco{Winit()} e não precisar de nenhum argumento. Coisas como
-gerenciar a projeção das imagens na tela devem ser transparentes e nem
-precisar de uma função específica após os objetos que compõe o nosso
-ambiente 3D sejam definidos.
+gerenciar a projeção das imagens na tela devem ser transparentessem
+precisar de uma função específica após os objetos que compõe o
+ambiente serem definidos.
 
 @*1 Instalando Weaver.
 
