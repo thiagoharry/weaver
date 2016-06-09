@@ -73,7 +73,7 @@ License along with this program.  If not, see
 
 A tradução não-oficial da licença é:
 
-\espaco{5mm}\linha
+\quebra\linha
 \alinhaverbatim
 Copyright (c) Thiago Leucz Astrizi 2015
 
@@ -278,21 +278,17 @@ programas são necessários para se gerar a documentação:
 Além disso, para que você possa efetivamente usar Weaver criando seus
 próprios projetos, você também poderá precisar de:
 
+\negrito{emscripten:} Compila código C para Javascript e assim
+rodar em um navegador.
 
-\negrito{emscripten:} Isso é opcional. Mas é necessário caso você
-  queira usar Weaver para construir jogos que possam ser jogados em
-  navegadores Web após serem compilados para Javascript.
-\negrito{opengl:} Você precisa de arquivos de desenvolvimento da
-  biblioteca gráfica OpenGL caso queira gerar programas executáveis
-  para Linux.
-\negrito{xlib:} Você precisa dos arquivos de desenvolvimento Xlib
-  caso você queira usar Weaver para gerar programas executáveis para
-  Linux.
-\negrito{xxd:} Um programa capaz de gerar representação
-  hexadecimal de arquivos quaisquer. É necessário para inserir o
-  código dos shaders no programa. Por motivos obscuros, algumas
-  distribuições trazem este programa no mesmo pacote do \negrito{vim}.
+\negrito{opengl:} Permite gerar executáveis nativos com gráficos em 3D.
 
+\negrito{xlib:} Permite gerar executáveis nativos gráficos.
+
+\negrito{xxd:} Gera representação hexadecimal de arquivos. Insere
+ o código dos shaders no programa. Por motivos obscuros, algumas
+ distribuições trazem este último programa no mesmo pacote
+ do \negrito{vim}.
 
 
 @*1 O programa \monoespaco{weaver}.
