@@ -302,23 +302,23 @@ de seus jogos ou então podemos estar nos referindo ao código de algum
 de seus jogos.
 
 Para evitar ambigüidades, quando nos referimos ao programa executável,
-nos referiremos ao \negrito{programa Weaver}. Seu código-fonte pode ser
-encontrado junto ao código da engine em si. O programa é usado
+nos referiremos ao \negrito{programa Weaver}. Seu código-fonte será
+apresentado inteiramente neste capítulo. O programa é usado
 simplesmente para criar um novo projeto Weaver. E um projeto é um
-diretório com vários arquivos e diretórios necessários para gerar um
-novo jogo Weaver. Por exemplo, o comando abaixo cria um novo projeto
-de um jogo chamado \monoespaco{pong}:
+diretório com vários arquivos de desenvolvimento contendo código-fonte
+e multimídia. Por exemplo, o comando abaixo cria um novo projeto de um
+jogo chamado \monoespaco{pong}:
 
 \alinhaverbatim
 weaver pong
+
 \alinhanormal
 
 A árvore de diretórios exibida parcialmente abaixo é o que é criado
 pelo comando acima (diretórios são retângulos e arquivos são
 círculos):
 
-%\noindent
-%\includegraphics[width=\textwidth]{cweb/diagrams/project_dir.eps}
+\imagem{cweb/diagrams/project_dir.eps}
 
 Quando nos referimos ao código que é inserido em seus projetos,
 falamos do código da \negrito{API Weaver}. Seu código é sempre inserido
@@ -344,22 +344,26 @@ casos de uso. Eis a lista deles:
   explicitamente passando o parâmetro \monoespaco{--help} ou quando ele
   chama o programa sem argumentos (caso em que assumiremos que ele não
   sabe o que fazer e precisa de ajuda).
+
 \negrito{Caso de Uso 2: Mostrar mensagem de ajuda do gerenciamento
   de projeto:} Isso deve ser feito quando o usuário estiver dentro de
   um projeto Weaver e pedir ajuda explicitamente com o argumento
   \monoespaco{--help} ou se invocar o programa sem argumentos (caso em que
   assumimos que ele não sabe o que está fazendo e precisa de ajuda).
+
 \negrito{Caso de Uso 3: Mostrar a versão de Weaver instalada no
   sistema:} Isso deve ser feito toda vez que Weaver for invocada com o
   argumento \monoespaco{--version}.
+
 \negrito{Caso de Uso 4: Atualizar um projeto Weaver existente:}
   Para o caso de um projeto ter sido criado com a versão 0.4 e
   tenha-se instalado no computador a versão 0.5, por exemplo. Para
   atualizar, basta passar como argumento o caminho absoluto ou
   relativo de um projeto Weaver. Independente de estarmos ou não
   dentro de um diretório de projeto Weaver. Atualizar um projeto
-  significa mudar os arquivos com a API Weaver para ue reflitam
+  significa mudar os arquivos com a API Weaver para que reflitam
   versões mais recentes.
+
 \negrito{Caso de Uso 5: Criar novo módulo em projeto Weaver:} Para
   isso, devemos estar dentro do diretório de um projeto Weaver e
   devemos passar como argumento um nome para o módulo que não deve
@@ -367,6 +371,7 @@ casos de uso. Eis a lista deles:
   de extensão \monoespaco{.c} presente em \monoespaco{src/} (pois para um
   módulo de nome XXX, serão criados arquivos \monoespaco{src/XXX.c} e
   \monoespaco{src/XXX.h}).
+
 \negrito{Caso de Uso 6: Criar um novo projeto Weaver:} Para isso
   ele deve estar fora de um diretório Weaver e deve passar como
   primeiro argumento um nome válido e não-reservado para seu novo
