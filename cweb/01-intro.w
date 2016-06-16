@@ -389,38 +389,51 @@ O comportamento de Weaver deve depender das seguintes variáveis:
 
 |inside_weaver_directory|: Indicará se o programa está sendo
   invocado de dentro de um projeto Weaver.
+
 |argument|: O primeiro argumento, ou NULL se ele não existir
+
 |project_version_major|: Se estamos em um projeto Weaver, qual o
   maior número da versão do Weaver usada para gerar o
   projeto. Exemplo: se a versão for 0.5, o número maior é 0. Em
   versões de teste, o valor é sempre 0.
+
 |project_version_minor|: Se estamos em um projeto Weaver, o valor
   do menor número da versão do Weaver usada para gerar o
   projeto. Exemplo, se a versão for 0.5, o número menor é 5. Em
   versões de teste o valor é sempre 0.
+
 |weaver_version_major|: O número maior da versão do Weaver sendo
   usada no momento.
+
 |weaver_version_minor|: O número menor da versão do Weaver sendo
   usada no momento.
+
 |arg_is_path|: Se o primeiro argumento é ou não um caminho
   absoluto ou relativo para um projeto Weaver.
+
 |arg_is_valid_project|: Se o argumento passado seria válido como
   nome de projeto Weaver.
+
 |arg_is_valid_module|: Se o argumento passado seria válido como
   um novo módulo no projeto Weaver atual.
+
 |project_path|: Se estamos dentro de um diretório de projeto
   Weaver, qual o caminho para a sua base (onde há o Makefile)
+
 |have_arg|: Se o programa é invocado com argumento.
+
 |shared_dir|: Deverá armazenar o caminho para o diretório onde
   estão os arquivos compartilhados da instalação de Weaver. Por
   padrão, será igual à "\monoespaco{/usr/share/weaver}", mas caso exista a
   variável de ambiente \monoespaco{WEAVER\_DIR}, então este será
   considerado o endereço dos arquivos compartilhados.
+
 |author_name|,|project_name| e |year|: Conterão respectivamente o
   nome do usuário que está invocando Weaver, o nome do projeto atual
   (se estivermos no diretório de um) e o ano atual. Isso será
   importante para gerar as mensagens de Copyright em novos projetos
   Weaver.
+
 |return_value|: Que valor o programa deve retornar caso o programa
   seja interrompido no momento atual.
 

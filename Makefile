@@ -12,7 +12,7 @@ preprocess: ${W_FILES}
 	@rm -f cweb/weaver.w
 	@cat ${W_FILES} > cweb/weaver.w
 doc: test_cweave test_dot test_latex make-doc
-make-doc: preprocess #diagram
+make-doc: preprocess diagram
 	@if [ -e .error ]; then	rm .error; \
 	else make --no-print-directory -j ${CORES} -f Makefile.doc; fi
 diagram: cweb/diagrams/project_dir.dot cweb/diagrams/estados.dot cweb/diagrams/estados2.dot
