@@ -455,23 +455,20 @@ int main(int argc, char **argv){@/
     have_arg = false; /* Variáveis booleanas. */
   unsigned int project_version_major = 0, project_version_minor = 0,
     weaver_version_major = 0, weaver_version_minor = 0,
-    year = 0; /* Usa-se o inteiro mais simples para tais valores. O
-		 padrão garante que o podemos representar até o número
-		 65536 aqui. Provavelmente será o suficiente para toda
-		 a história deste projeto.*/
+    year = 0;
   char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
     *author_name = NULL, *project_name = NULL; /* Strings UTF-8 */
 
   @<Inicialização@>
 
   @<Caso de uso 1: Imprimir ajuda de criação de projeto@>
-  @<Caso de uso 2: Imprimir ajuda de gerenciamento de projeto@>
+  @<Caso de uso 2: Imprimir ajuda de gerenciamento@>
   @<Caso de uso 3: Mostrar versão@>
   @<Caso de uso 4: Atualizar projeto Weaver@>
   @<Caso de uso 5: Criar novo módulo@>
   @<Caso de uso 6: Criar novo projeto@>
 
-  finalize:
+END_OF_PROGRAM:
   @<Finalização@>
 
   return return_value;
@@ -486,7 +483,7 @@ ponto e de outro número (sem espaços) no caso de uma versão final do
 programa.
 
 Para a segunda macro, observe que na estrutura geral do programa vista
-acima existe um rótulo chamado |finalize| logo na parte de
+acima existe um rótulo chamado |END_OF_PROGRAM| logo na parte de
 finalização. Uma das formas de chegarmos lá é por meio da execução
 normal do programa, caso nada dê errado. Entretanto, no caso de um
 erro, nós podemos também chegar lá por meio de um desvio incondicional
@@ -499,47 +496,49 @@ terceira macro que definimos.
 
 @<Macros do Programa Weaver@>=
 #define VERSION "Alpha"
-#define ERROR() {perror(NULL); return_value = 1; goto finalize;}
-#define END() goto finalize;
-
+#define ERROR() {perror(NULL); return_value = 1; goto END_OF_PROGRAM;}
+#define END() goto END_OF_PROGRAM;
+@
 
 @*2 Cabeçalhos do Programa Weaver.
 
 @<Cabeçalhos Incluídos no Programa Weaver@>=
-#include <sys/types.h> // |stat|, |getuid|, |getpwuid|, |mkdir|
-#include <sys/stat.h> // |stat|, |mkdir|
-#include <stdbool.h> // |bool|, |true|, |false| 
-#include <unistd.h> // |get_current_dir_name|, |getcwd|, |stat|, |chdir|, |getuid|
-#include <string.h> // |strcmp|, |strcat|, |strcpy|, |strncmp|
-#include <stdlib.h> // |free|, |exit|, |getenv|
-#include <dirent.h> // |readdir|, |opendir|, |closedir|
-#include <libgen.h> // |basename|
-#include <stdarg.h> // |va_start|, |va_arg|
-#include <stdio.h> // |printf|, |fprintf|, |fopen|, |fclose|, |fgets|, |fgetc|, |perror|
-#include <ctype.h> // |isanum|
-#include <time.h> // |localtime|, |time|
-#include <pwd.h> // |getpwuid|
-
+#include <sys/types.h> // stat, getuid, getpwuid, mkdir
+#include <sys/stat.h> // stat, mkdir
+#include <stdbool.h> // bool, true, false 
+#include <unistd.h> // get_current_dir_name, getcwd, stat, chdir, getuid
+#include <string.h> // strcmp, strcat, strcpy, strncmp
+#include <stdlib.h> // free, exit, getenv
+#include <dirent.h> // readdir, opendir, closedir
+#include <libgen.h> // basename
+#include <stdarg.h> // va_start, va_arg
+#include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
+#include <ctype.h> // isanum
+#include <time.h> // localtime, time
+#include <pwd.h> // getpwuid
+@
 
 @*2 Inicialização e Finalização do Programa Weaver.
 
-@*3 Inicializando \italico{inside\_weaver\_directory} e
-\italico{project\_path}.
-
 Inicializar Weaver significa inicializar as 14 variáveis que serão
-usadas para definir o seu comportamento. A primeira delas é
-|inside_weaver_directory|, que deve valer |false| se o programa foi
-invocado de fora de um diretório de projeto Weaver e |true| caso
-contrário.
+usadas para definir o seu comportamento.
+
+@*3 Inicializando Variáveis \monoespaco{inside\_weaver\_directory} e
+\monoespaco{project\_path}.
+
+A primeira das variáveis é |inside_weaver_directory|, que deve valer
+|false| se o programa foi invocado de fora de um diretório de projeto
+Weaver e |true| caso contrário.
 
 Como definir se estamos em um diretório que pertence à um projeto
 Weaver? Simples. São diretórios que contém dentro de si ou em um
-diretório ancestral um diretório oculto chamado \monoespaco{.weaver}. Caso
-encontremos este diretório oculto, também podemos aproveitar e ajustar
-a variável |project_path| para apontar para o pai do
-\monoespaco{.weaver}. Se não o encontrarmos, estaremos fora de um
-diretório Weaver e não precisamos mudar nenhum valor das duas
-variáveis.
+diretório ancestral um diretório oculto
+chamado \monoespaco{.weaver}. Caso encontremos este diretório oculto,
+também podemos aproveitar e ajustar a variável |project_path| para
+apontar para o local onde ele está. Se não o encontrarmos, estaremos
+fora de um diretório Weaver e não precisamos mudar nenhum valor das
+duas variáveis, pois elas deverão permanecer com o valor padrão
+|NULL|.
 
 Em suma, o que precisamos é de um loop com as seguintes
 características:
@@ -548,26 +547,29 @@ características:
 \negrito{Invariantes}: A variável |complete_path| deve sempre
   possuir o caminho completo do diretório \monoespaco{.weaver} se ele
   existisse no diretório atual.
+
 \negrito{Inicialização:} Inicializamos tanto o |complete_path|
   para serem válidos de acordo com o diretório em que o programa é
   invocado.
+
 \negrito{Manutenção:} Em cada iteração do loop nós verificamos se
   encontramos uma condição de finalização. Caso contrário, subimos
   para o diretório pai do qual estamos, sempre atualizando as
   variáveis para que o invariante continue válido.
+
 \negrito{Finalização}: Interrompemos a execução do loop se uma das
-  duas con\-di\-ções ocorrerem:
+  duas condições ocorrerem:
   
-  |complete_path == "/.weaver"|: Neste caso não podemos subir
-    mais na árvore de diretórios, pois estamos na raiz. Não
-    encontramos um diretório \monoespaco{.weaver}. Isso significa que não
-    estamos dentro de um projeto Weaver.
-  |complete_path == ".weaver"|: Neste caso encontramos um diretório
-    \monoespaco{.weaver} e descobrimos que estamos dentro de um projeto
-    Weaver. Podemos então atualizar a variável |project_path|.
+|complete_path == "/.weaver"|: Neste caso não podemos subir mais na
+árvore de diretórios, pois estamos na raiz do sistema de arquivos. Não
+encontramos um diretório \monoespaco{.weaver}. Isso significa que não
+estamos dentro de um projeto Weaver.
+
+|complete_path == ".weaver"|: Neste caso encontramos um diretório
+\monoespaco{.weaver} e descobrimos que estamos dentro de um projeto
+Weaver. Podemos então atualizar a variável |project_path| para o
+diretório em que paramos.
   
-
-
 Para checar se o diretório \monoespaco{.weaver} existe, vamos assumir a
 existência de uma função chamada |directry_exists(x)|, onde |x| é uma
 string e tal função deve retornar 1 se |x| for um diretório existente,
@@ -1019,7 +1021,7 @@ if(!inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
   END();
 }
 
-@*2 Caso de uso 2: Imprimir ajuda de gerenciamento de projeto.
+@*2 Caso de uso 2: Imprimir ajuda de gerenciamento.
 
 O segundo caso de uso também é bastante simples. Ele é invocado quando
 já estamos dentro de um projeto Weaver e invocamos Weaver sem
@@ -1040,7 +1042,7 @@ que imprimiremos é semelhante à esta:
 .       /
 \alinhanormal
 
-@<Caso de uso 2: Imprimir ajuda de gerenciamento de projeto@>=
+@<Caso de uso 2: Imprimir ajuda de gerenciamento@>=
 if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
   printf("       \\                You are inside a Weaver Directory.\n"
   "        \\______/        The following command uses are available:\n"
