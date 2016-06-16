@@ -560,28 +560,98 @@ características:
 \negrito{Finalização}: Interrompemos a execução do loop se uma das
   duas condições ocorrerem:
   
-|complete_path == "/.weaver"|: Neste caso não podemos subir mais na
+a) |complete_path == "/.weaver"|: Neste caso não podemos subir mais na
 árvore de diretórios, pois estamos na raiz do sistema de arquivos. Não
 encontramos um diretório \monoespaco{.weaver}. Isso significa que não
 estamos dentro de um projeto Weaver.
 
-|complete_path == ".weaver"|: Neste caso encontramos um diretório
+b) |complete_path == ".weaver"|: Neste caso encontramos um diretório
 \monoespaco{.weaver} e descobrimos que estamos dentro de um projeto
 Weaver. Podemos então atualizar a variável |project_path| para o
 diretório em que paramos.
+
+Para manipularmos o caminho da árvore de diretórios, usaremos uma
+função auxiliar que recebe como entrada uma string com um caminho na
+árvore de diretórios e apaga todos os últimos caracteres até apagar
+dois ``/''. Assim em ``/home/alice/projeto/diretorio/'' ele retornaria
+``/home/alice/projeto'' efetivamente subindo um nível na árvore de
+diretórios:
+
+@<Funções auxiliares Weaver@>=
+void path_up(char *path){
+  int erased = 0;
+  char *p = path;
+  while(*p != '\0') p ++; // Vai até o fim
+  while(erased < 2 && p != path){
+    p --;
+    if(*p == '/') erased ++;
+    *p = '\0'; // Apaga
+  }
+}
+@
+
+Note que caso a função receba uma string que não possua dois ``/'' em
+seu nome, obtemos um ``buffer overflow'' onde percorreríamos regiões
+de memória indevidas preenchendo-as com zero. Esta função é bastante
+perigosa, mas se limitarmos as strings que passamos para somente
+arquivos que não estão na raíz e diretórios diferentes da própria raíz
+que terminam sempre com ``/'', então não teremos problemas pois a
+restrição do número de barras será cumprida. Ex: ``/etc/'' e
+``/tmp/file.txt''.
+
+Para checar se o diretório \monoespaco{.weaver} existe, definimos
+|directory_exists(x)| como uma função que recebe uma string
+correspondente à localização de um arquivo e que deve retornar
+1 se |x| for um diretório existente, -1 se |x| for um arquivo
+existente e 0 caso contrário:
+
+@<Funções auxiliares Weaver@>+=
+int directory_exist(char *dir){
+  struct stat s; // Armazena status se um diretório existe ou não.
+  int err; // Checagem de erros
+  err = stat(dir, &s); // .weaver existe?
+  if(err == -1) return 0; // Não existe
+  if(S_ISDIR(s.st_mode)) return 1; // Diretório
+  return -1; // Arquivo
+}
+@
+
+A última função auxiliar da qual precisaremos é uma função para
+concatenar strings. Ela deve receber um número arbitrário de srings
+como argumento, mas a última string deve ser uma string vazia. E irá
+retornar a concatenação de todas as strings passadas como argumento.
+
+A função irá alocar sempre uma nova string, a qual deverá ser
+desalocada antes do programa terminar. Como exemplo,
+|concatenate("tes", " ", "te", "")| retorna |"tes te"|.
+
+@<Funções auxiliares Weaver@>+=
+char *concatenate(char *string, ...){
+  va_list arguments;
+  char *new_string, *current_string = string;
+  size_t current_size = strlen(string) + 1;
+  char *realloc_return;
+  va_start(arguments, string);
   
-Para checar se o diretório \monoespaco{.weaver} existe, vamos assumir a
-existência de uma função chamada |directry_exists(x)|, onde |x| é uma
-string e tal função deve retornar 1 se |x| for um diretório existente,
--1 se |x| for um arquivo existente e 0 caso contrário. Para checarmos
-os diretórios acima dos atuais, assumiremos que existe uma função
-chamada |path_up(x)| que dada uma string |x|, apaga todos os
-caracteres dela de trás pra frente até remover dois ``/''. Desta
-forma, removemos em cada execução desta função o ``/.weaver'' presente
-no fim de cada string e também subimos um diretório na hierarquia na
-variável |complete_path|. O comportamento da função é indefinido se
-não existirem dois ``/'' na string, mas cuidaremos para que isto nunca
-aconteça no teste de finalização do loop.
+  new_string = (char *) malloc(current_size);
+  if(new_string == NULL) return NULL;
+  strcpy(new_string, string); // Copia primeira string
+
+  while(current_string[0] != '\0'){ // Pára quando copiamos o "".
+    current_string = va_arg(arguments, char *);
+    current_size += strlen(current_string);
+    realloc_return = (char *) realloc(new_string, current_size);
+    if(realloc_return == NULL){
+      free(new_string);
+      return NULL;
+    }
+    new_string = realloc_return;
+    strcat(new_string, current_string); // Copia próxima string
+  }
+  return new_string;
+}
+@
+
 
 Por fim, a tradução para a linguagem C da implementação que
 propomos. Vamos assumir que existe uma função |concatenate|, que
@@ -918,21 +988,6 @@ de retorno possíveis desta função serão:
 [0]: Diretório ou arquivo não existe.
 [1]: Arquivo existe e é um diretório.
 
-@<Funções auxiliares Weaver@>=
-int directory_exist(char *dir){
-  struct stat s; /* Armazena status se um diretório existe ou não. */
-  int err; /* Checagem de erros */
-  err = stat(dir, &s); // \monoespaco{.weaver} existe?
-  if(err != -1){
-    if(S_ISDIR(s.st_mode)){
-      return 1;
-    }
-    else{
-      return -1;
-    }
-  }
-  return 0;
-}
 
 @*3 Função auxiliar: Apagando caracteres até apagar duas barras.
 
@@ -941,17 +996,6 @@ sistema de arquivos. Apagar a primeira barra é ficar só com o endereço
 do diretório, não do arquivo indicado pelo caminho. Apaga a segunda
 barra significa subir um nível na árvore de diretórios:
 
-@<Funções auxiliares Weaver@>+=
-void path_up(char *path){
-  int erased = 0;
-  char *p = path;
-  while(*p != '\0') p ++;
-  while(erased < 2 && p != path){
-    p --;
-    if(*p == '/') erased ++;
-    *p = '\0';
-  }
-}
 
 @*3 Função auxiliar: Concatenando strings.
 
