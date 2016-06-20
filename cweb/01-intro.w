@@ -652,39 +652,39 @@ char *concatenate(char *string, ...){
 }
 @
 
+É importante lembrarmos que a função |concatenate| sempre deve receber
+como último argumento uma string vazia ou teremos um \italico{buffer
+overflow}. Esta função também é perigosa e deve ser usada sempre
+tomando-se este cuidado.
 
-Por fim, a tradução para a linguagem C da implementação que
-propomos. Vamos assumir que existe uma função |concatenate|, que
-recebe como argumento um número qualquer de strings como argumento,
-sendo que a última delas deve ser vazia. A função retorna uma nova
-string que é a concatenação delas, ou |NULL| se não é possível alocar
-espaço para isso.
+Por fim, podemos escrever agora o código de inicialização. Começamos
+primeiro fazendo |complete_path| ser igual à \monoespaco{./.weaver/}:
 
 @<Inicialização@>=
 char *path = NULL, *complete_path = NULL;
 path = getcwd(NULL, 0);
 if(path == NULL) ERROR();
 complete_path = concatenate(path, "/.weaver", "");
-if(complete_path == NULL){
-  free(path);
-  ERROR();
-}
 free(path);
-// O |while| abaixo testa a Finalização 1:
-while(strcmp(complete_path, "/.weaver")){
-  // O |if| abaixo testa a Finalização 2:
-  if(directory_exist(complete_path) == 1){
+if(complete_path == NULL) ERROR();
+@
+
+Agora iniciamos um loop que terminará quando |complete_path| for igual
+à \monoespaco{/.weaver} (chegamos no fim da árvore de diretórios e não
+encontramos nada) ou quando realmente existir o
+diretório \monoespaco{.weaver/} no diretório examinado. E no fim do
+loop, sempre vamos para o diretório-pai do qual estamos:
+
+@<Inicialização@>+=
+while(strcmp(complete_path, "/.weaver")){ // Testa se chegamos ao fim
+  if(directory_exist(complete_path) == 1){ // Testa se achamos o diretório
     inside_weaver_directory = true;
-    complete_path[strlen(complete_path)-7] = '\0'; // Apaga o \monoespaco{.weaver}
+    complete_path[strlen(complete_path)-7] = '\0'; // Apaga o '.weaver'
     project_path = concatenate(complete_path, "");
-    if(project_path == NULL){
-      free(complete_path);
-      ERROR();
-    }
+    if(project_path == NULL){ free(complete_path); ERROR(); }
     break;
   }
   else{
-    // Dentro deste |else| está a manutenção do loop
     path_up(complete_path);
     strcat(complete_path, "/.weaver");
   }
@@ -692,20 +692,21 @@ while(strcmp(complete_path, "/.weaver")){
 free(complete_path);
 @
 
-Isso significa que agora na finalização do projeto, temos que
-desalocar a memória de |path|:
+Como alocamos memória para |project_path| armazenar o endereço do
+projeto atual se estamos em um projeto Weaver, no final do programa
+teremos que desalocar a memória:
 
 @<Finalização@>=
 if(project_path != NULL) free(project_path);
 
-@*3 Inicializando \italico{weaver\_version\_major} e
-\italico{weaver\_version\_minor}.
+@*3 Inicializando variáveis \monoespaco{weaver\_version\_major} e
+\quebra\monoespaco{weaver\_version\_minor}.
 
 Para descobrirmos a versão atual do Weaver que temos, basta consultar
 o valor presente na macro |VERSION|. Então, obtemos o número de versão
 maior e menor que estão separados por um ponto (se existirem). Note
 que se não houver um ponto no nome da versão, então ela é uma versão
-de testes. De qualquer forma o código abaixo vai funcionar, pois a
+de testes. Mesmo neste caso o código abaixo vai funcionar, pois a
 função |atoi| iria retornar 0 nas duas invocações por encontrar
 respectivamente uma string sem dígito algum e um fim de string sem
 conteúdo:
@@ -720,22 +721,20 @@ conteúdo:
 }
 
 
-@*3 Inicializando \italico{project\_version\_major} e
-\italico{project\_version\_minor}.
+@*3 Inicializando variáveis \monoespaco{project\_version\_major} e
+\quebra\monoespaco{project\_version\_minor}.
 
-Se estamos dentro de um projeto Weaver, queremos saber qual foi a
-versão do Weaver usada para criar o projeto, ou então para atualizá-lo
-pela última vez. Isso pode ser obtido lendo o arquivo
+Se estamos dentro de um projeto Weaver, temos que inicializar
+informação sobre qual versão do Weaver foi usada para atualizá-lo pela
+última vez. Isso pode ser obtido lendo o arquivo
 \italico{.weaver/version} localizado dentro do diretório Weaver. Se não
 estamos em um diretório Weaver, não precisamos inicializar tais
-valores. O número de versão maior e menor é separado por um ponto. Tal
-como em ``0.5''.
+valores. O número de versão maior e menor é separado por um ponto.
 
 @<Inicialização@>+=
 if(inside_weaver_directory){
   FILE *fp;
-  char *p;
-  char version[10];
+  char *p, version[10];
   char *file_path = concatenate(project_path, ".weaver/version", "");
   if(file_path == NULL) ERROR();
   fp = fopen(file_path, "r");
@@ -750,7 +749,7 @@ if(inside_weaver_directory){
   fclose(fp);
 }
 
-@*3 Inicializando \italico{have\_arg} e \italico{argument}.
+@*3 Inicializando \monoespaco{have\_arg} e \monoespaco{argument}.
 
 Uma das variáveis mais fáceis e triviais de se inicializar. Basta
 consultar |argc| e |argv|.
@@ -759,7 +758,7 @@ consultar |argc| e |argv|.
 have_arg = (argc > 1);
 if(have_arg) argument = argv[1];
 
-@*3 Inicializando \italico{arg\_is\_path}.
+@*3 Inicializando \monoespaco{arg\_is\_path}.
 
 Agora temos que verificar se no caso de termos um argumento, se ele é
 um caminho para um projeto Weaver existente ou não. Para isso,
@@ -776,7 +775,7 @@ if(have_arg){
   free(buffer);
 }
 
-@*3 Inicializando \italico{shared\_dir}.
+@*3 Inicializando \monoespaco{shared\_dir}.
 
 A variável |shared_dir| deverá conter onde estão os arquivos
 compartilhados da instalação de Weaver. Se existir a variável de
@@ -802,25 +801,25 @@ memória alocada para |shared_dir|:
 @<Finalização@>+=
 if(shared_dir != NULL) free(shared_dir);
 
-@*3 Inicializando \italico{arg\_is\_valid\_project}.
+@*3 Inicializando \monoespaco{arg\_is\_valid\_project}.
 
 A próxima questão que deve ser averiguada é se o que recebemos como
-argumento, caso haja argumento pode ser o nome de um projeto Weaver
+argumento, caso haja argumento, pode ser o nome de um projeto Weaver
 válido ou não. Para isso, três condições precisam ser
 satisfeitas:
 
+1) O nome base do projeto deve ser formado somente por caracteres
+alfanuméricos (embora uma barra possa aparecer para passar o caminho
+completo de um projeto).
 
- O nome base do projeto deve ser formado somente por caracteres
-  alfanuméricos (embora uma barra possa aparecer para passar o caminho
-  completo de um projeto).
- Não pode existir um arquivo com o mesmo nome do projeto no local
-  indicado para a criação.
- O projeto não pode ter o nome de nenhum arquivo que costuma
-  ficar no diretório base de um projeto Weaver (como ``Makefile''). Do
-  contrário, na hora da compilação comandos como ``\monoespaco{gcc game.c
-    -o Makefile}'' poderiam ser executados e sobrescreveriam arquivos
-  importantes.
+2) Não pode existir um arquivo com o mesmo nome do projeto no local
+indicado para a criação.
 
+3) O projeto não pode ter o nome de nenhum arquivo que costuma ficar
+no diretório base de um projeto Weaver (como ``Makefile''). Do
+contrário, na hora da compilação comandos como ``\monoespaco{gcc
+game.c -o Makefile}'' poderiam ser executados e sobrescreveriam
+arquivos importantes.
 
 Para isso, usamos o seguinte código:
 
@@ -833,26 +832,26 @@ if(have_arg && !arg_is_path){
   // Checando caracteres inválidos no nome:
   for(i = 0; i < size; i ++){
     if(!isalnum(base[i])){
-      goto not_valid;
+      goto NOT_VALID;
     }
   }
   // Checando se arquivo existe:
   if(directory_exist(argument) != 0){
-    goto not_valid;
+    goto NOT_VALID;
   }
   // Checando se conflita com arquivos de compilação:
   buffer = concatenate(shared_dir, "project/", base, "");
   if(buffer == NULL) ERROR();
   if(directory_exist(buffer) != 0){
     free(buffer);
-    goto not_valid;
+    goto NOT_VALID;
   }
   free(buffer);
-  arg_is_valid_project = 1;
+  arg_is_valid_project = true;
 }
-not_valid:
+NOT_VALID:
 
-@*3 Inicializando \italico{arg\_is\_valid\_module}.
+@*3 Inicializando \monoespaco{arg\_is\_valid\_module}.
 
 Checar se o argumento que recebemos pode ser um nome válido para um
 módulo só faz sentido se estivermos dentro de um diretório Weaver e se
@@ -869,7 +868,7 @@ if(have_arg && inside_weaver_directory){
   // Checando caracteres inválidos no nome:
   for(i = 0; i < size; i ++){
     if(!isalnum(argument[i])){
-      goto not_valid_module;
+      goto NOT_VALID_MODULE;
     }    
   }
   // Checando por conflito de nomes:
@@ -877,24 +876,23 @@ if(have_arg && inside_weaver_directory){
   if(buffer == NULL) ERROR();
   if(directory_exist(buffer) != 0){
     free(buffer);
-    goto not_valid_module;
+    goto NOT_VALID_MODULE;
   }
   buffer[strlen(buffer) - 1] = 'h';
   if(directory_exist(buffer) != 0){
     free(buffer);
-    goto not_valid_module;
+    goto NOT_VALID_MODULE;
   }
   free(buffer);
-  arg_is_valid_module = 1;
+  arg_is_valid_module = true;
 }
-not_valid_module:
+NOT_VALID_MODULE:
 
-@*3 Inicializando \italico{author\_name}.
+@*3 Inicializando \monoespaco{author\_name}.
 
 A variável |author_name| deve conter o nome do usuário que está
 invocando o programa. Esta informação é útil para gerar uma mensagem
-de Copyright nos arquivos de código fonte de novos módulos, os quais
-serão criados e escritos pelo usuário da Engine.
+de Copyright nos arquivos de código fonte de novos módulos.
 
 Para obter o nome do usuário, começamos obtendo o seu UID. De posse
 dele, obtemos todas as informações de login com um |getpwuid|. Se o
@@ -907,28 +905,29 @@ login como sendo o nome:
   struct passwd *login;
   int size;
   char *string_to_copy;
-  
   login = getpwuid(getuid()); // Obtém dados de usuário
   if(login == NULL) ERROR();
   size = strlen(login -> pw_gecos);
-  if(size > 0){
+  if(size > 0)
     string_to_copy = login -> pw_gecos;
-  }
-  else{
+  else
     string_to_copy = login -> pw_name;
-  }
   size = strlen(string_to_copy);
   author_name = (char *) malloc(size + 1);
   if(author_name == NULL) ERROR();
   strcpy(author_name, string_to_copy);
 }
+@
 
-@ Depois, precisaremos desalocar a memória ocupada por |author_name|:
+Depois, precisaremos desalocar a memória ocupada por |author_name|:
+
+\quebra
 
 @<Finalização@>+=
 if(author_name != NULL) free(author_name);
+@
 
-@*3 Inicializando \italico{project\_name}.
+@*3 Inicializando \monoespaco{project\_name}.
 
 Só faz sendido falarmos no nome do projeto se estivermos dentro de um
 projeto Weaver. Neste caso, o nome do projeto pode ser encontrado em
@@ -957,14 +956,15 @@ if(inside_weaver_directory){
   project_name = realloc(project_name, strlen(project_name) + 1);
   if(project_name == NULL) ERROR();
 }
+@
 
-@ Depois, precisaremos desalocar a memória ocupada por |project_name|:
+Depois, precisaremos desalocar a memória ocupada por |project_name|:
 
 @<Finalização@>+=
 if(project_name != NULL) free(project_name);
+@
 
-
-@*3 Inicializando \italico{year}.
+@*3 Inicializando \monoespaco{year}.
 
 O ano atual é trivial de descobrir usando a função |localtime|:
 
@@ -977,59 +977,7 @@ O ano atual é trivial de descobrir usando a função |localtime|:
   date = localtime(&current_time);
   year = date -> tm_year + 1900;
 }
-
-@*3 Função auxiliar: Checando se diretório ou arquivo existe.
-
-Definiremos agora a função |directory_exist| para verificarmos se um
-caminho de diretório passado como argumento existe ou não. Os valores
-de retorno possíveis desta função serão:
-
-[-1]: Arquivo existe, mas não é um diretório.
-[0]: Diretório ou arquivo não existe.
-[1]: Arquivo existe e é um diretório.
-
-
-@*3 Função auxiliar: Apagando caracteres até apagar duas barras.
-
-Esta função é usada mais para manipular o caminho para arquivos no
-sistema de arquivos. Apagar a primeira barra é ficar só com o endereço
-do diretório, não do arquivo indicado pelo caminho. Apaga a segunda
-barra significa subir um nível na árvore de diretórios:
-
-
-@*3 Função auxiliar: Concatenando strings.
-
-Esta é uma das funções auxiliares mais usadas. El recebe um número
-variável de argumentos, todos strings sendo que o último é a string
-vazia. Então, ela aloca espaço para uma nova string e retorna um
-ponteiro para ela, sendo que a nova string é a concatenação de todos
-os argumentos. Se algo falhar, |NULL| é retornado:
-
-@<Funções auxiliares Weaver@>+=
-char *concatenate(char *string, ...){
-  va_list arguments;
-  char *new_string, *current_string = string;
-  size_t current_size = strlen(string) + 1;
-  char *realloc_return;
-  va_start(arguments, string);
-  
-  new_string = (char *) malloc(current_size);
-  if(new_string == NULL) return NULL;
-  strcpy(new_string, string);
-
-  while(current_string[0] != '\0'){
-    current_string = va_arg(arguments, char *);
-    current_size += strlen(current_string);
-    realloc_return = (char *) realloc(new_string, current_size);
-    if(realloc_return == NULL){
-      free(new_string);
-      return NULL;
-    }
-    new_string = realloc_return;
-    strcat(new_string, current_string);
-  }
-  return new_string;
-}
+@
 
 @*2 Caso de uso 1: Imprimir ajuda de criação de projeto.
 
@@ -1040,16 +988,18 @@ bem como usar o programa e imprimimos uma mensagem de ajuda. A mensagem
 de ajuda terá uma forma semelhante a esta:
 
 \alinhaverbatim
-.    .  .   You are outside a Weaver Directory.
-.   ./  \\.  The following command uses are available:
-.   \\\\  //
-.   \\\\()//  weaver
-.   .={}=.      Print this message and exits.
-.  / /`'\\ \\
-.  ` \\  / '  weaver PROJECT_NAME
-.     `'        Creates a new Weaver Directory with a new
-.               project.
+    .  .   You are outside a Weaver Directory.
+   ./  \\.  The following command uses are available:
+   \\\\  //
+   \\\\()//  weaver
+   .={}=.      Print this message and exits.
+  / /`'\\ \\
+  ` \\  / '  weaver PROJECT_NAME
+     `'        Creates a new Weaver Directory with a new
+               project.
 \alinhanormal
+
+O que é feito com o código abaixo:
 
 @<Caso de uso 1: Imprimir ajuda de criação de projeto@>=
 if(!inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
@@ -1074,17 +1024,19 @@ usuário quer instruções sobre a criação de um novo módulo. A mensagem
 que imprimiremos é semelhante à esta:
 
 \alinhaverbatim
-.       \              You are inside a Weaver Directory.
-.        \______/      The following command uses are available:
-.        /\____/\
-.       / /\__/\ \       weaver
-.    __/_/_/\/\_\_\___     Prints this message and exits.
-.      \ \ \/\/ / /
-.       \ \/__\/ /       weaver NAME
-.        \/____\/          Creates NAME.c and NAME.h, updating
-.        /      \          the Makefile and headers
-.       /
+       \\              You are inside a Weaver Directory.
+        \\______/      The following command uses are available:
+        /\\____/\\
+       / /\\__/\\ \\       weaver
+    __/_/_/\\/\\_\\_\\___     Prints this message and exits.
+      \\ \\ \\/\\/ / /
+       \\ \\/__\\/ /       weaver NAME
+        \\/____\\/          Creates NAME.c and NAME.h, updating
+        /      \\          the Makefile and headers
+       /
 \alinhanormal
+
+O que é obtido com o código:
 
 @<Caso de uso 2: Imprimir ajuda de gerenciamento@>=
 if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
@@ -1111,7 +1063,7 @@ if(have_arg && !strcmp(argument, "--version")){
   printf("Weaver\t%s\n", VERSION);
   END();
 }
-
+@
 
 @*2 Caso de Uso 4: Atualizar projetos Weaver já existentes.
 
@@ -1124,10 +1076,10 @@ nova da API.
 
 Naturalmente, isso só será feito caso a versão de Weaver instalada
 seja superior à versão do projeto ou se a versão de Weaver instalada
-for uma versão instável para testes. Afinal, entende-se neste caso que
-o usuário deseja testar a versão experimental de Weaver no
-projeto. Fora isso, não é possível fazer \italico{downgrades} de
-projetos, passando da versão 0.2 para 0.1, por exemplo.
+for uma versão instável para testes. Entende-se neste caso que o
+usuário deseja testar a versão experimental de Weaver no projeto. Fora
+isso, não é possível fazer \italico{downgrades} de projetos, passando
+da versão 0.2 para 0.1, por exemplo.
 
 Versões experimentais sempre são identificadas como tendo um nome
 formado somente por caracteres alfabéticos. Versões estáveis serão
@@ -1146,8 +1098,127 @@ diretório de arquivos compartilhados Weaver dentro de
 \monoespaco{project/src/weaver} para o diretório \monoespaco{src/weaver} do
 projeto em questão.
 
-Assumindo que exista uma função |copy_files(a, b)| que copia todos os
-arquivos de |a| para |b|, definimos este caso de uso como:
+Mas para copiarmos os arquivos precisamos primeiro de uma função capaz
+de copiar um único arquivo. A função |copy_single_file| tenta copiar o
+arquivo cujo caminho é o primeiro argumento para o diretório cujo
+caminho é o segundo argumento. Se ela conseguir, retorna 1 e retorna 0
+caso contrário.
+
+@<Funções auxiliares Weaver@>+=
+int copy_single_file(char *file, char *directory){
+  int block_size, bytes_read;
+  char *buffer, *file_dst;
+  FILE *orig, *dst;
+  // Inicializa 'block_size':
+  @<Descobre tamanho do bloco do sistema de arquivos@>
+  buffer = (char *) malloc(block_size); // Aloca buffer de cópia
+  if(buffer == NULL) return 0;
+  file_dst = concatenate(directory, "/", basename(file), "");
+  if(file_dst == NULL) return 0;
+  orig = fopen(file, "r"); // Abre arquivo de origem
+  if(orig == NULL){
+    free(buffer);
+    free(file_dst);
+    return 0;
+  }
+  dst = fopen(file_dst, "w"); // Abre arquivo de destino
+  if(dst == NULL){
+    fclose(orig);
+    free(buffer);
+    free(file_dst);
+    return 0;
+  }
+  while((bytes_read = fread(buffer, 1, block_size, orig)) > 0){
+    fwrite(buffer, 1, bytes_read, dst); // Copia origem -> buffer -> destino
+  }
+  fclose(orig);
+  fclose(dst);
+  free(file_dst);
+  free(buffer);
+  return 1;
+}
+@
+
+O mais eficiente é que o buffer usado para copiar arquivos tenha o
+mesmo tamanho do bloco do sistema de arquivos. Para obter o valor
+correto deste tamanho, usamos o seguinte trecho de código:
+
+@<Descobre tamanho do bloco do sistema de arquivos@>=
+{
+  struct stat s;
+  stat(directory, &s);
+  block_size = s.st_blksize;
+  if(block_size <= 0){
+    block_size = 4096;
+  }
+}
+@
+
+De posse da função que copia um só arquivo, definimos uma função que
+copia todo o conteúdo de um diretório para outro diretório:
+
+@<Funções auxiliares Weaver@>+=
+int copy_files(char *orig, char *dst){
+  DIR *d = NULL;
+  struct dirent *dir;
+
+  d = opendir(orig);
+  if(d){
+    while((dir = readdir(d)) != NULL){ // Loop para ler cada arquivo
+          char *file;
+          file = concatenate(orig, "/", dir -> d_name, "");
+          if(file == NULL){
+            return 0;
+          }
+      #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
+        // Se suportamos DT_DIR, não precisamos chamar a função 'stat':
+        if(dir -> d_type == DT_DIR){@/
+      #else
+        struct stat s;
+        int err;
+        err = stat(file, &s);
+        if(err == -1) return 0;
+        if(S_ISDIR(s.st_mode)){@/
+      #endif
+          // Se concluirmos estar lidando com subdiretório via 'stat' ou 'DT_DIR':
+          char *new_dst;
+          new_dst = concatenate(dst, "/", dir -> d_name, "");
+          if(new_dst == NULL){
+            return 0;
+          }
+          if(strcmp(dir -> d_name, ".") && strcmp(dir -> d_name, "..")){
+            if(copy_files(file, new_dst) == 0){
+              free(new_dst);
+              free(file);
+              closedir(d);
+              return 0; // Não fazemos nada para diretórios '.' e '..'
+            }
+          }
+          free(new_dst);
+        }
+        else{
+          // Se concluimos estar diante de um arquivo usual:
+          if(copy_single_file(file, dst) == 0){
+            free(file);
+            closedir(d);
+            return 0;
+          }          
+        }
+      free(file);
+    } // Fim do loop para ler cada arquivo
+    closedir(d);
+  }
+  return 1;
+}
+@
+
+A função acima presumiu que o diretório de destino tem a mesma
+estrutura de diretórios que a origem.
+
+De posse de todas as funções podemos escrever o código do caso
+de uso em que iremos realizar a atualização:
+
+\quebra
 
 @<Caso de uso 4: Atualizar projeto Weaver@>=
 if(arg_is_path){
@@ -1175,142 +1246,6 @@ if(arg_is_path){
   }
   END();
 }
-
-@ Resta então definirmos a função |copy_files| que usaremos para
-copiar arquivos. Mas antes dela iremos definir uma função usada para
-copiar um único arquivo, a qual chamaremos de |copy_single_file|:
-
-@<Funções auxiliares Weaver@>+=
-int copy_single_file(char *file, char *directory){
-  int block_size;
-  char *buffer;
-  char *file_dst;
-  FILE *orig, *dst;
-  int bytes_read;
-
-  @<Descobre tamanho do bloco do sistema de arquivos@>
-  
-  /* Nesta parte, |block_size| já foi inicializado com o tamanho do
-  bloco do sistema de arquivos. Isso tornará a cópia seguinte mais
-  eficiente.*/
-
-  buffer = (char *) malloc(block_size);
-  if(buffer == NULL) return 0;
-  file_dst = concatenate(directory, "/", basename(file), "");
-  if(file_dst == NULL) return 0;
-
-  orig = fopen(file, "r");
-  if(orig == NULL){
-    free(buffer);
-    free(file_dst);
-    return 0;
-  }
-  dst = fopen(file_dst, "w");
-  if(dst == NULL){
-    fclose(orig);
-    free(buffer);
-    free(file_dst);
-    return 0;
-  }
-  
-  while((bytes_read = fread(buffer, 1, block_size, orig)) > 0){
-    fwrite(buffer, 1, bytes_read, dst);
-  }
-  
-  fclose(orig);
-  fclose(dst);
-  free(file_dst);
-  free(buffer);
-  return 1;
-}
-
-@
-
-Para finalizar a função de cópia, basta descobrirmos agora como obter
-o valor do tamanho do bloco do sistema de arquivos usado. Para isso,
-usamos novamente a função |stat| em qualquer arquivo ou diretório do
-sistema de arquivos do destino. Isso funcionará em qualquer sistema
-POSIX. No código abaixo, tomamos também o cuidado de preencher um
-valor padrão para o caso de algo ter dado errado.
-
-@<Descobre tamanho do bloco do sistema de arquivos@>=
-{
-  struct stat s;
-  stat(directory, &s);
-  block_size = s.st_blksize;
-  if(block_size <= 0){
-    block_size = 4096;
-  }
-}
-
-@
-
-Já tendo a função que copia um único arquivo para um destino, podemos
-escrever agora a função que percorre recursivamente um diretório de
-origem entrando nos diretórios e percorrendo todos os arquivos para
-copiá-los. Ela assume que o diretório de destino possui a mesma
-estrutura de diretórios que o de origem e copia os arquivos para os
-seus locais respectivos.
-
-Pode-se notar que é muito mais fácil fazer a tarefa no Linux e
-sistemas BSD, pois a informação do tipo de arquivo (se é um diretório,
-por exemplo) pode ser obtida pelo próprio retorno da função
-|readdir|. Em outros sistemas que não adotam o mesmo padrão, é
-necessário chamar uma função |stat| adicional para obter a informação.
-
-@<Funções auxiliares Weaver@>+=
-int copy_files(char *orig, char *dst){
-  DIR *d = NULL;
-  struct dirent *dir;
-
-  d = opendir(orig);
-  if(d){
-    while((dir = readdir(d)) != NULL){
-          char *file;
-          file = concatenate(orig, "/", dir -> d_name, "");
-          if(file == NULL){
-            return 0;
-          }
-      #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
-        if(dir -> d_type == DT_DIR){@/
-      #else
-        struct stat s;
-        int err;
-        err = stat(file, &s);
-	if(err == -1) return 0;
-        if(S_ISDIR(s.st_mode)){@/
-      #endif
-          // Aqui executamos se nesta iteração devemos copiar um diretório
-          char *new_dst;
-          new_dst = concatenate(dst, "/", dir -> d_name, "");
-          if(new_dst == NULL){
-            return 0;
-          }
-          if(strcmp(dir -> d_name, ".") && strcmp(dir -> d_name, "..")){
-            if(copy_files(file, new_dst) == 0){
-              free(new_dst);
-              free(file);
-              closedir(d);
-              return 0;
-            }
-          }
-          free(new_dst);
-        }
-        else{
-          // Aqui executamos se nesta iteração devemos copiar um arquivo
-          if(copy_single_file(file, dst) == 0){
-            free(file);
-            closedir(d);
-            return 0;
-          }          
-        }
-      free(file);
-    }
-    closedir(d);
-  }
-  return 1;
-}
-
 @
 
 @*2 Caso de Uso 5: Adicionando um módulo ao projeto Weaver.
@@ -1323,29 +1258,47 @@ contrário,devemos imprimir uma mensagem de erro e sair.
 Criar um módulo basicamente envolve:
 
 
- Criar arquivos \monoespaco{.c} e \monoespaco{.h} base, deixando seus
-  nomes iguais ao nome do módulo criado.
- Adicionar em ambos um código com copyright e licenciamento com o
-  nome do autor, do projeto e ano.
- Adicionar no \monoespaco{.h} código de macro simples para evitar que
-  o cabeçalho seja inserido mais de uma vez e fazer com que o
-  \monoespaco{.c} inclua o \monoespaco{.h} dentro de si.
- Fazer com que o \monoespaco{.h} gerado seja inserido em
-  \monoespaco{src/includes.h} e assim suas estruturas sejam acessíveis de
-  todos os outros módulos do jogo.
+a) Criar arquivos \monoespaco{.c} e \monoespaco{.h} base, deixando seus
+nomes iguais ao nome do módulo criado.
 
+b) Adicionar em ambos um código com copyright e licenciamento com o
+nome do autor, do projeto e ano.
 
-O código para isso, assumindo que exista a função |write_copyright|
-para imprimir o comentário de copyright e licenciamento é:
+c) Adicionar no \monoespaco{.h} código de macro simples para evitar que
+o cabeçalho seja inserido mais de uma vez e fazer com que o
+\monoespaco{.c} inclua o \monoespaco{.h} dentro de si.
 
-\vfil
+d) Fazer com que o \monoespaco{.h} gerado seja inserido
+em \monoespaco{src/includes.h} e assim suas estruturas sejam
+acessíveis de todos os outros módulos do jogo.
+
+A parte de imprimir um código de copyright será feita usando a nova
+função abaixo:
+
+@<Funções auxiliares Weaver@>+=
+void write_copyright(FILE *fp, char *author_name, char *project_name, int year){
+  char license[] = "/*\nCopyright (c) %s, %d\n\nThis file is part of %s.\n\n%s\
+ is free software: you can redistribute it and/or modify\nit under the terms of\
+ the GNU General Public License as published by\nthe Free Software Foundation,\
+ either version 3 of the License, or\n(at your option) any later version.\
+ \n\n%s is distributed in the hope that it will be useful,\nbut WITHOUT ANY\
+  WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS\
+  FOR A PARTICULAR PURPOSE.  See the\nGNU General Public License for more\
+  details.\n\nYou should have received a copy of the GNU General Public License\
+ \nalong with %s. If not, see <http://www.gnu.org/licenses/>.*/\n\n";
+  fprintf(fp, license, author_name, year, project_name, project_name,
+          project_name, project_name);
+}
+@
+
+Já o código de criação de novo módulo passa a ser:
 
 @<Caso de uso 5: Criar novo módulo@>=
 if(inside_weaver_directory && have_arg){
   if(arg_is_valid_module){
     char *filename;
     FILE *fp;
-    // Creating the \monoespaco{.c}:
+    // Criando modulo.c
     filename = concatenate(project_path, "src/", argument, ".c", "");
     if(filename == NULL) ERROR();
     fp = fopen(filename, "w");
@@ -1356,7 +1309,7 @@ if(inside_weaver_directory && have_arg){
     write_copyright(fp, author_name, project_name, year);
     fprintf(fp, "#include \"%s.h\"", argument);
     fclose(fp);
-    filename[strlen(filename)-1] = 'h'; // Creating the \monoespaco{.h}:
+    filename[strlen(filename)-1] = 'h'; // Criando modulo.h
     fp = fopen(filename, "w");
     if(fp == NULL){
       free(filename);
@@ -1368,7 +1321,7 @@ if(inside_weaver_directory && have_arg){
     fclose(fp);
     free(filename);
 
-    // Updating \monoespaco{src/includes.h}:
+    // Atualizando src/includes.h para inserir modulo.h:
     fp = fopen("src/includes.h", "a");
     fprintf(fp, "#include \"%s.h\"\n", argument);
     fclose(fp);
@@ -1379,26 +1332,7 @@ if(inside_weaver_directory && have_arg){
   }
   END();
 }
-
-@*3 Função Auxiliar: Imprimir código de copyright e licenciamento.
-
-Para preencher o código de copyright tanto em novos módulos como no
-\monoespaco{main.c} de novos projetos, podemos usar a função abaixo:
-
-@<Funções auxiliares Weaver@>+=
-void write_copyright(FILE *fp, char *author_name, char *project_name,
-int year){
-  char license[] = "/*\nCopyright (c) %s, %d\n\nThis file is part of %s.\n\n%s is free\
-software: you can redistribute it and/or modify\nit under the terms of the GNU\
-General Public License as published by\nthe Free Software Foundation, either\
-version 3 of the License, or\n(at your option) any later version.\n\n%s is\
-distributed in the hope that it will be useful,\nbut WITHOUT ANY WARRANTY;\
-without even the implied warranty of\nMERCHANTABILITY or FITNESS FOR A\
-PARTICULAR PURPOSE.  See the\nGNU General Public License for more details.\n\n\
-You should have received a copy of the GNU General Public License\nalong with %s.\
-If not, see <http://www.gnu.org/licenses/>.*/\n\n";
-  fprintf(fp, license, author_name, year, project_name, project_name, project_name, project_name);
-}
+@
 
 @*2 Caso de Uso 6: Criando um novo projeto Weaver.
 
