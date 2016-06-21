@@ -600,7 +600,7 @@ restrição do número de barras será cumprida. Ex: ``/etc/'' e
 ``/tmp/file.txt''.
 
 Para checar se o diretório \monoespaco{.weaver} existe, definimos
-|directory_exists(x)| como uma função que recebe uma string
+|directory_exist(x)| como uma função que recebe uma string
 correspondente à localização de um arquivo e que deve retornar
 1 se |x| for um diretório existente, -1 se |x| for um arquivo
 existente e 0 caso contrário:
@@ -740,8 +740,8 @@ if(inside_weaver_directory){
   fp = fopen(file_path, "r");
   free(file_path);
   if(fp == NULL) ERROR();
-  fgets(version, 10, fp);
-  p = version;
+  p = fgets(version, 10, fp);
+  if(p == NULL){ fclose(fp); ERROR(); }
   while(*p != '.' && *p != '\0') p ++;
   if(*p == '.') p ++;
   project_version_major = atoi(version);
@@ -937,7 +937,7 @@ um dos arquivos do diretório base de tal projeto em
 @<Inicialização@>+=
 if(inside_weaver_directory){
   FILE *fp;
-  char *filename = concatenate(project_path, ".weaver/name", "");
+  char *c, *filename = concatenate(project_path, ".weaver/name", "");
   if(filename == NULL) ERROR();
   project_name = (char *) malloc(256);
   if(project_name == NULL){
@@ -949,9 +949,10 @@ if(inside_weaver_directory){
     free(filename);
     ERROR();
   }
-  fgets(project_name, 256, fp);
+  c = fgets(project_name, 256, fp);
   fclose(fp);
   free(filename);
+  if(c == NULL) ERROR();
   project_name[strlen(project_name)-1] = '\0';
   project_name = realloc(project_name, strlen(project_name) + 1);
   if(project_name == NULL) ERROR();
@@ -1161,7 +1162,6 @@ copia todo o conteúdo de um diretório para outro diretório:
 int copy_files(char *orig, char *dst){
   DIR *d = NULL;
   struct dirent *dir;
-
   d = opendir(orig);
   if(d){
     while((dir = readdir(d)) != NULL){ // Loop para ler cada arquivo
@@ -1187,6 +1187,7 @@ int copy_files(char *orig, char *dst){
             return 0;
           }
           if(strcmp(dir -> d_name, ".") && strcmp(dir -> d_name, "..")){
+            if(!directory_exist(new_dst)) mkdir(new_dst, 0755);
             if(copy_files(file, new_dst) == 0){
               free(new_dst);
               free(file);
@@ -1227,10 +1228,10 @@ if(arg_is_path){
      (weaver_version_major == project_version_major &&
       weaver_version_minor > project_version_minor)){
     char *buffer, *buffer2;
-    // |buffer| passa a valer  SHARED\_DIR/project/src/weaver 
+    // |buffer| passa a valer  SHARED_DIR/project/src/weaver 
     buffer = concatenate(shared_dir, "project/src/weaver/", "");
     if(buffer == NULL) ERROR();
-    // |buffer2| passa a valer PROJECT\_DIR/src/weaver/
+    // |buffer2| passa a valer PROJECT_DIR/src/weaver/
     buffer2 = concatenate(argument, "/src/weaver/", "");
     if(buffer2 == NULL){
       free(buffer);
@@ -1343,8 +1344,7 @@ diretório \monoespaco{.weaver} com os dados do projeto. Além disso,
 criamos um \monoespaco{src/game.c} e \monoespaco{src/game.h} adicionando o
 comentário de Copyright neles e copiando a estrutura básica dos
 arquivos do diretório compartilhado \monoespaco{basefile.c} e
-\monoespaco{basefile.h} (assumindo que existe a função |append_basefile|
-que faça isso para nos ajudar). Também criamos um
+\monoespaco{basefile.h}. Também criamos um
 \monoespaco{src/includes.h} que por hora estará vazio, mas será modificado
 na criação de futuros módulos.
 
@@ -1360,7 +1360,8 @@ if(! inside_weaver_directory && have_arg){
 
     err = mkdir(argument, S_IRWXU | S_IRWXG | S_IROTH);
     if(err == -1) ERROR();
-    chdir(argument);
+    err = chdir(argument);
+    if(err == -1) ERROR();
     mkdir(".weaver", 0755); mkdir("conf", 0755);
     mkdir("src", 0755); mkdir("src/weaver", 0755);
     mkdir("image", 0755);  mkdir("sound", 0755);
@@ -1372,10 +1373,10 @@ if(! inside_weaver_directory && have_arg){
       free(dir_name);
       ERROR();
     }
-    free(dir_name);// \\Criando arquivo com número de versão:
+    free(dir_name); //Criando arquivo com número de versão:
     fp = fopen(".weaver/version", "w");
     fprintf(fp, "%s\n", VERSION);
-    fclose(fp);// Criando arquivo com nome de projeto:
+    fclose(fp); // Criando arquivo com nome de projeto:
     fp = fopen(".weaver/name", "w");
     fprintf(fp, "%s\n", basename(argv[1]));
     fclose(fp);
@@ -1402,15 +1403,17 @@ if(! inside_weaver_directory && have_arg){
   }
   END();
 }
+@
 
-@*3 Função Auxiliar: Adicionando em arquivo aberto conteúdo de arquivo.
+A única coisa ainda não-definida é a função usada acima
+|append_basefile|. Esta é uma função bastante específica para
+concatenar o conteúdo de um arquivo para o outro dentro deste trecho
+de código. Não é uma função geral, pois ela recebe como argumento um
+ponteiro para o arquivo de destino aberto e reebe como argumento o
+diretório em que está a origem e o nome do arquivo de origem ao invés
+de ter a forma mais intuitiva |cat(origem, destino)|.
 
-A função |append_basefile| deve receber 3 argumentos. Um ponteiro para
-arquivo aberto, um endereço absoluto de diretório e um nome de
-arquivo. Ela cuidará da parte de concatenar o nomed e diretório com o
-de arquivo gerando um endereço absoluto de arquivo, abrirá tal arquivo
-e escreverá no ponteiro para arquivo todo o conteúdo que houver. Se
-houver algum erro, ela retorna 0. Caso contrário, retorna 1.
+Definimos abaixo a forma da |append_basefile|:
 
 @<Funções auxiliares Weaver@>+=
 int append_basefile(FILE *fp, char *dir, char *file){
@@ -1443,8 +1446,10 @@ int append_basefile(FILE *fp, char *dir, char *file){
 
   return 1;
 }
+@
 
-@*1 O arquivo \monoespaco{conf.h}.
+
+@*1 O arquivo \monoespaco{conf\.h}.
 
 Em toda árvore de diretórios de um projeto Weaver, deve existir um
 arquivo chamado \monoespaco{conf/conf.h}. Este arquivo é um arquivo de
@@ -1605,14 +1610,14 @@ nativo, nós usamos \italico{double buffering}, e por isso precisamos do
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 
-@<API Weaver: Definições@>
+//API Weaver: Definições
 
-void _awake_the_weaver(char *filename, unsigned long line){@/
-  @<API Weaver: Inicialização@>
+void _awake_the_weaver(char *filename, unsigned long line){
+  //API Weaver: Inicialização
 }
 
-void _may_the_weaver_sleep(void){@/
-  @<API Weaver: Finalização@>
+void _may_the_weaver_sleep(void){
+  //API Weaver: Finalização
   exit(0);
 }
 

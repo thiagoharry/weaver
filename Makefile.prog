@@ -1,5 +1,4 @@
-TANGLE=$(shell if which ctangle &> /dev/null; then echo "ctangle";\
-	 else echo "noweb"; fi;)
+TANGLE=ctangle
 CC=$(shell if which gcc &> /dev/null; then echo "gcc";\
 	 else echo "clang"; fi;)
 FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=c11 -pedantic
@@ -9,7 +8,7 @@ LINK=-lm
 
 main-prog:
 	@echo -n "Compiling...................."
-	@${TANGLE} cweb/weaver.w > .log || (/bin/echo -e "\033[31mFAILED\033[m" && cat .log && false)
-	@rm weaver.c
-	@${CC} ${FLAGS} src/weaver.c -o bin/weaver > /dev/null
-	@echo "OK"
+	${TANGLE} cweb/weaver.w > .log || (/bin/echo -e "\033[31mFAILED\033[m" && cat .log && false)
+	rm weaver.c
+	${CC} ${FLAGS} src/weaver.c -o bin/weaver > /dev/null
+	echo "OK"
