@@ -1448,65 +1448,68 @@ int append_basefile(FILE *fp, char *dir, char *file){
 }
 @
 
+E isso conclui todo o código do Programa Weaver. Todo o resto de
+código que será apresentado à seguir, não pertence mais ao programa
+Weaver, mas à Projetos Weaver e à API Weaver.
 
 @*1 O arquivo \monoespaco{conf\.h}.
 
 Em toda árvore de diretórios de um projeto Weaver, deve existir um
-arquivo chamado \monoespaco{conf/conf.h}. Este arquivo é um arquivo de
-cabeçalho C que será incluído em todos os outros arquivos de código do
-Weaver no projeto e que permitirá que o comportamento da Engine seja
-modificado naquele projeto específico.
+arquivo cabeçalho C chamado\monoespaco{conf/conf.h}. Este cabeçalho
+será incluído em todos os outros arquivos de código do Weaver no
+projeto e que permitirá que o comportamento da Engine seja modificado
+naquele projeto específico.
 
 O arquivo deverá ter as seguintes macros (dentre outras):
 
+\macronome|W_DEBUG_LEVEL|: Indica o que deve ser impresso na saída padrão
+ durante a execução. Seu valor pode ser:
 
-|W_DEBUG_LEVEL|: Indica o que deve ser impresso na saída padrão
-  durante a execução. Seu valor pode ser:
+\macrovalor|0|) Nenhuma mensagem de depuração é impressa durante a
+execução do programa. Ideal para compilar a versão final de seu
+jogo.
 
+\macrovalor|1|) Mensagens de aviso que provavelmente indicam erros
+são impressas durante a execução. Por exemplo, um vazamento de memória
+foi detectado, um arquivo de textura não foi encontrado, etc.
 
-|0|: Nenhuma mensagem de depuração é impressa durante a execução
-  do programa. Ideal para compilar a versão final de seu jogo.
-|1|: Mensagens de aviso que provavelmente indicam erros são
-  impressas durante a execução. Por exemplo, um vazamento de memória
-  foi detectado, um arquivo de textura não foi encontrado, etc.
-|2|: Mensagens que talvez possam indicar erros ou problemas, mas
-  que talvez sejam inofensivas são impressas.
-|3|: Mensagens informativas com dados sobre a execução, mas que
-  não representam problemas são impressas.
+\macrovalor|2|) Mensagens que talvez possam indicar erros ou problemas, mas que
+ talvez sejam inofensivas são impressas.
 
-|W_SOURCE|: Indica a linguagem que usaremos em nosso projeto. As
-  opções são:
+\macrovalor|3|) Mensagens informativas com dados sobre a execução, mas que não
+ representam problemas são impressas.
+
+\macronome|W_SOURCE|: Indica a linguagem que usaremos em nosso projeto. As
+opções são:
   
-    |W_C|: Nosso projeto é um programa em C.
-    |W_CPP|: Nosso projeto é um programa em C++.
-  
-|W_TARGET|: Indica que tipo de formato deve ter o jogo de
-  saída. As opções são:
-  
-    |W_ELF|: O jogo deverá rodar nativamente em Linux. Após a
-      compilação, deverá ser criado um arquivo executável que poderá
-      ser instalado com \monoespaco{make install}.
-    |W_WEB|: O jogo deverá executar em um navegador de
-      Internet. Após a compilação deverá ser criado um diretório
-      chamado \monoespaco{web} que conterá o jogo na forma de uma página
-      HTML com Javascript. Não faz sentido instalar um jogo assim. Ele
-      deverá ser copiado para algum servidor Web para que possa ser
-      jogado na Internet. Isso é feito usando Emscripten.
-  
+\macrovalor|W_C|) Nosso projeto é um programa em C.
 
+\macrovalor|W_CPP|) Nosso projeto é um programa em C++.
 
+\macronome|W_TARGET|: Indica que tipo de formato deve ter o jogo de saída. As
+opções são:
+  
+\macrovalor|W_ELF|) O jogo deverá rodar nativamente em Linux. Após a
+compilação, deverá ser criado um arquivo executável que poderá ser
+instalado com \monoespaco{make install}.
+
+\macrovalor|W_WEB|) O jogo deverá executar em um navegador de
+Internet. Após a compilação deverá ser criado um diretório
+chamado \monoespaco{web} que conterá o jogo na forma de uma página
+HTML com Javascript. Não faz sentido instalar um jogo assim. Ele
+deverá ser copiado para algum servidor Web para que possa ser jogado
+na Internet. Isso é feito usando Emscripten.
+  
 Opcionalmente as seguintes macros podem ser definidas também (dentre
 outras):
 
 
-  |W_MULTITHREAD|: Se a macro for definida, Weaver é compilado com
-    suporte à múltiplas threads acionadas pelo usuário. Note que de
-    qualquer forma vai existir mais de uma thread rodando no programa
-    para que música e efeitos sonoros sejam tocados. Mas esta macro
-    garante que mutexes e código adicional sejam executados para que o
-    desenvolvedor possa executar qualquer função da API
-    concorrentemente.
-
+\macronome|W_MULTITHREAD|: Se a macro for definida, Weaver é compilado com
+suporte à múltiplas threads acionadas pelo usuário. Note que de
+qualquer forma vai existir mais de uma thread rodando no programa para
+que música e efeitos sonoros sejam tocados. Mas esta macro garante que
+mutexes e código adicional sejam executados para que o desenvolvedor
+possa executar qualquer função da API concorrentemente.
 
 Ao longo das demais seções deste documento, outras macros que devem
 estar presentes ou que são opcionais serão apresentadas. Mudar os seus
@@ -1539,9 +1542,10 @@ começar, criaremos o \monoespaco{conf\_begin.h} para inicializar as macros
 
 @*1 Funções básicas Weaver.
 
-Vamos criar também um \monoespaco{weaver.h} que irá incluir
-automaticamente todos os cabeçalhos Weaver necessários (inclusivve
-este):
+E agora começaremos a definir o começo do código para a API Weaver.
+
+Primeiro criamos um \monoespaco{weaver.h} que irá incluir
+automaticamente todos os cabeçalhos Weaver necessários:
 
 @(project/src/weaver/weaver.h@>=
 #ifndef _weaver_h_
@@ -1583,7 +1587,8 @@ Como não é razoável pedir para que um programador se preocupar com
 detalhes como o arquivo e linha de execução da função, abaixo das três
 funções definiremos funções de macro que tornarão tais informações
 transparentes e de responsabilidade do compilador. As três funções de
-macro são como as três funções serão executadas na prática.
+macro (|Winit|, |Wexit| e |Wrest|) são aquelas que realmente serão
+usadas na prática.
 
 @<Cabeçalhos Weaver@>+=
 void _awake_the_weaver(char *filename, unsigned long line);
@@ -1598,26 +1603,36 @@ void _weaver_rest(unsigned long time);
 Definiremos melhor a responsabilidade destas funções ao longo dos
 demais capítulos. Mas colocaremos aqui a definição delas no arquivo
 adequado. E no caso da função |_weaver_rest|, colocaremos aqui algum
-código mínimo que faz todos os buffers usados para desenho OpenGL
-devem ser limpos em cada frame de jogo (|glClear|) e que se nosso jogo
-é um programa executável Linux, então precisamos usar |nanosleep| para
-liberar a CPU um pouco (caso o jogo seja compilado para Javascript,
-isso ocorre usando um mecanismo diferente, então não é necessário
-especificar isso todo frame). Além disso, caso o jogo seja um programa
-nativo, nós usamos \italico{double buffering}, e por isso precisamos do
-|glXSwapBuffers| ao invés de um mais simples |glFlush|.
+código mínimo.
+
+A função |_weaver_rest| é a função a ser executada em cada frame do
+jogo.  Ela executa de forma diferente se o programa está sendo
+compilado para um executável Linux ou para uma página de Internet via
+Emscripten.
+
+Para dar uma pequena amostra do que ela faz, segue um código para ela
+em que a função limpa os buffers OpenGL (|glClear|), executa todo o
+código relevante ao loop principal do jogo (que iremos definir em
+breve), troca os buffers de desenho na tela (|glXSwapBuffers|, somente
+se formos um programa executável, não algo compilado para Javascript),
+pede que todos os comandos OpenGL pendentes sejam executados
+(|glFlush|) e, se pertinente, pede que o programa fique um tempo
+ocioso para não usar 100\% da CPU (|nanosleep|, só para programa
+executável, não se compilado para Javascript).
+
+\quebra
 
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 
-//API Weaver: Definições
+@<API Weaver: Definições@>
 
 void _awake_the_weaver(char *filename, unsigned long line){
-  //API Weaver: Inicialização
+  @<API Weaver: Inicialização@>
 }
 
 void _may_the_weaver_sleep(void){
-  //API Weaver: Finalização
+  @<API Weaver: Finalização@>
   exit(0);
 }
 
@@ -1637,5 +1652,24 @@ void _weaver_rest(unsigned long time){
 #endif
 }
 @
+
+Mas isso é só uma amostra inicial e uma inicialização dos
+arquivos. Estas funções todas serão mais ricamente definidas a cada
+capítulo à medida que definimos novas responsabilidades para o nosso
+motor de jogo.
+
 @<API Weaver: Loop Principal@>=
   // A definir...
+@
+
+@<API Weaver: Definições@>=
+  // A definir...
+@
+
+@<API Weaver: Inicialização@>=
+  // A definir...
+@
+
+@<API Weaver: Finalização@>=
+  // A definir...
+@
