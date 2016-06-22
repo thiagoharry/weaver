@@ -17,15 +17,23 @@ fato, esta preocupação direta com a memória é o principal motivo de
 linguagens sem \italico{garbage collectors} como C++ serem tão
 preferidas no desenvolvimento de grandes jogos comerciais.
 
-O gerenciador de memória do Weaver, com o objetivo de permitir que um
-programador tenha um controle sobre a quantidade máxima de memória que
-será usada, espera que a quantidade máxima sempre seja declarada
-previamente. E toda a memória é preparada e alocada durante a
-inicialização do programa. Caso tente-se alocar mais memória do que o
-disponível desta forma, uma mensagem de erro será impressa na saída de
-erro para avisar o que está acontecendo ao programador. Desta forma é
-difícil deixar passar vazamentos de memória e pode-se estabelecer mais
-facilmente se o jogo está dentro dos requisitos de sistema esperados.
+Um dos motivos para isso é que também nem sempre o |malloc| disponível
+pela biblioteca padrão de algum sistema é muito eficiente para o que
+está sendo feito. Como um exemplo, será mostrado posteriormente
+gráficos de benchmarks que mostram que após ser compilado para
+Javascript usando Emscripten, a função |malloc| da biblioteca padrão
+do Linux torna-se terrivelmente lenta. Mas mesmo que não estejamos
+lidando com uma implementação rápida, ainda assim há benefícios em ter
+um alocador de memória próprio. Pelo menos a práica de alocar toda a
+memória necessária logo no começo e depois gerenciar ela ajuda a
+termos um programa mais rápido.
+
+Por causa disso, Weaver exisge que você informe anteriormente quanto
+de memória você irá usar e cuida de toda a alocação durante a
+inicialização. Sabendo a quantidade máxima de memória que você vai
+usar, isso também permite que vazamentos de memória sejam detectados
+mais cedo e permitem garantir que o seu jogo está dentro dos
+requisitos de memória esperados.
 
 Weaver de fato aloca mais de uma região contínua de memória onde
 pode-se alocar coisas. Uma das regiões contínuas será alocada e usada
@@ -33,8 +41,9 @@ pela própria API Weaver à medida que for necessário. A segunda região
 de memória contínua, cujo tamanho deve ser declarada em
 \monoespaco{conf/conf.h} é a região dedicada para que o usuário possa
 alocar por meio de |Walloc| (que funciona como o |malloc|). Além
-disso, o usuário deve poder criar novas regiões contínuas de
-memória. O nome que tais regiões recebem é \negrito{arena}.
+disso, o usuário deve poder criar novas regiões contínuas de memória
+dentro das quais pode-se fazer novas alocações. O nome que tais
+regiões recebem é \negrito{arena}.
 
 Além de um |Walloc|, também existe um |Wfree|. Entretanto, o jeito
 recomendável de desalocar na maioria das vezes é usando uma outra
@@ -43,15 +52,13 @@ repare que tipicamente um jogo funciona como uma máquina de estados
 onde mudamos várias vezes de estado. Por exemplo, em um jogo de RPG
 clássico como Final Fantasy, podemos encontrar os seguintes estados:
 
-\noindent
-%\imagem{cweb/diagrams/estados.eps}
+\imagem{cweb/diagrams/estados.eps}
 
 E cada um dos estados pode também ter os seus próprios
 sub-estados. Por exemplo, o estado ``Jogo'' seria formado pela
 seguinte máquina de estados interna:
 
-\noindent
-%\imagem{cweb/diagrams/estados2.eps}
+\imagem{cweb/diagrams/estados2.eps}
 
 Cada estado precisará fazer as suas próprias alocações de
 memória. Algumas vezes, ao passar de um estado pro outro, não
@@ -82,15 +89,7 @@ voltamos assim ao estado anterior de caminhar pelo mundo. Ao longo
 destes passos, nossa memória terá aproximadamente a seguinte
 estrutura:
 
-\alinhaverbatim
-.                                                    +---------+
-.                                                    ; Combate ;
-.           +--------------+             +---------+ +---------;
-.           ; Tela Inicial ;             ;  Jogo   ; ;  Jogo   ;
-+---------+ +--------------+ +---------+ +---------+ +---------+
-; Globais ; ;    Globais   ; ; Globais ; ; Globais ; ; Globais ;
-+---------+ +--------------+ +---------+ +---------+ +---------+
-\alinhanormal
+\imagem{cweb/diagrams/exemplo_memoria.eps}
 
 Sendo assim, nosso gerenciador de memória torna-se capaz de evitar
 completamente fragmentação tratando a memória alocada na heap como uma
@@ -119,6 +118,8 @@ nela até o último \italico{breakpoint} (|Wtrash_arena|).
 
 Para garantir a inclusão da definição de todas estas funções e
 estruturas, usamos o seguinte código:
+
+\quebra
 
 @<Cabeçalhos Weaver@>=
 #include "memory.h"
