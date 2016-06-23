@@ -169,7 +169,7 @@ seja.
 
 @(/tmp/dummy.c@>=
   CreateWindow("nome da classe", "nome da janela", WS_BORDER | WS_CAPTION |
-	       WS_MAXIMIZE, 20, 20, 800, 600, handle1, handle2, handle3, NULL);
+               WS_MAXIMIZE, 20, 20, 800, 600, handle1, handle2, handle3, NULL);
 @
 
 Cada projeto deve ter um arquivo de configuração e muito da
@@ -1219,8 +1219,6 @@ estrutura de diretórios que a origem.
 De posse de todas as funções podemos escrever o código do caso
 de uso em que iremos realizar a atualização:
 
-\quebra
-
 @<Caso de uso 4: Atualizar projeto Weaver@>=
 if(arg_is_path){
   if((weaver_version_major == 0 && weaver_version_minor == 0) ||
@@ -1479,6 +1477,11 @@ foi detectado, um arquivo de textura não foi encontrado, etc.
 \macrovalor|3|) Mensagens informativas com dados sobre a execução, mas que não
  representam problemas são impressas.
 
+\macrovalor|4|) Código de teste adicional é execuado apenas para garantir que
+ condições que tornem o código incorreto não estão presentes. Use só
+ se você está depurando ou desenvolvendo a própria API Weaver, não o
+ projeto de um jogo que a usa.
+
 \macronome|W_SOURCE|: Indica a linguagem que usaremos em nosso projeto. As
 opções são:
   
@@ -1619,8 +1622,6 @@ pede que todos os comandos OpenGL pendentes sejam executados
 (|glFlush|) e, se pertinente, pede que o programa fique um tempo
 ocioso para não usar 100\% da CPU (|nanosleep|, só para programa
 executável, não se compilado para Javascript).
-
-\quebra
 
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"

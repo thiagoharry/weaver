@@ -145,11 +145,13 @@ parte de declarações, com o nome \monoespaco{Declarações de
   }
 #endif
 #endif
-
+@
+@(project/src/weaver/memory.c@>=
+#include "memory.h"
 @
 
 No caso, as Declarações de Memória que usaremos aqui começam com os
-cabeçalhos que serão usados, e posteriormente passaraão para as
+cabeçalhos que serão usados, e posteriormente passarão para as
 declarações das funções e estruturas de dado a serem usadas nele:
 
 @<Declarações de Memória@>=
@@ -166,10 +168,11 @@ declarações das funções e estruturas de dado a serem usadas nele:
 Outra coisa relevante a mencionar é que à partir de agora assumiremos
 que as seguintes macros são definidas em \monoespaco{conf/conf.h}:
 
-|W_MAX_MEMORY|: O valor máximo em bytes de memória que iremos
+\macronome|W_MAX_MEMORY|: O valor máximo em bytes de memória que iremos
   alocar por meio da função |Walloc| de alocação de memória na arena
   padrão.
-|W_WEB_MEMORY|: A quantidade de memória adicional em bytes que
+
+\macronome|W_WEB_MEMORY|: A quantidade de memória adicional em bytes que
   reservaremos para uso caso compilemos o nosso jogo para a Web ao
   invés de gerar um programa executável. O Emscripten precisará de
   memória adicional e a quantidade pode depender do quanto outras
@@ -183,22 +186,28 @@ que as seguintes macros são definidas em \monoespaco{conf/conf.h}:
 Vamos considerar primeiro uma \negrito{arena}. Toda \negrito{arena} terá
 a seguinte estrutura:
 
+\quebra
+
 \alinhaverbatim
 +-----------+------------+-------------------------+-------------+
-; Cabeçalho ; Breakpoint ; Breakpoints e alocações ; Não alocado ;
+| Cabeçalho | Breakpoint | Breakpoints e alocações | Não alocado |
 +-----------+------------+-------------------------+-------------+
 \alinhanormal
+
+A terceira região é onde toda a ação de alocação e liberação de
+memória ocorrerá. No começo estará vazia e a área não-alocada será a
+maioria. À medida que alocações e desalocações ocorrerem, a região de
+alocação e \italico{breakpoints} crescerá e diminuirá, sempre
+substituindo o espaço não-alocado ao crescer. O cabeçalho
+e \italico{breakpoint} inicial sempre existirão e não poderão ser
+removidos. O primeiro \italico{breakpoint} é útil para que o comando
+|Wtrash| sempre funcione e seja definido, pois sempre existirá um
+último \italico{breakpoint}.
 
 @*2 Cabeçalho da Arena.
 
 O cabeçalho conterá todas as informações que precisamos para usar a
-arena. Chamaremos sua estrutura de dados de |struct arena_header|. O
-primeiro \italico{breakpoint} nunca pode ser removido e ele é útil para
-que o comando |Wtrash| sempre funcione e seja definido, pois sempre
-existirá um último \negrito{breakpoint}. Em seguida, virá uma lista que
-talvez seja vazia (para arenas recém-criadas) de \italico{breakpoints}
-e regiões de memória alocadas. E por fim, haverá uma região de memória
-desalocada.
+arena. Chamaremos sua estrutura de dados de |struct arena_header|.
 
 O tamanho total da arena nunca muda. O cabeçalho e primeiro breakpoint
 também tem tamanho constante. A região de breakpoint e alocações pode
@@ -207,7 +216,7 @@ respectivamente diminui e cresce na mesma proporção.
 
 As informações encontradas no cabeçalho são:
 
-\negrito{Total:} A quantidade total em bytes de memória que a
+\macronome \negrito{Total:} A quantidade total em bytes de memória que a
   arena possui. Como precisamos garantir que ele tenha um tamanho
   suficientemente grande para que alcance qualquer posição que possa
   ser alcançada por um endereço, ele precisa ser um |size_t|. Pelo
@@ -216,58 +225,62 @@ As informações encontradas no cabeçalho são:
 
   Esta informação será preenchida na inicialização da arena e nunca
   mais será mudada.
-\negrito{Usado:} A quantidade de memória que já está em uso nesta
+
+\macronome \negrito{Usado:} A quantidade de memória que já está em uso nesta
   arena. Isso nos permite verificar se temos espaço disponível ou não
   para cada alocação. Pelo mesmo motivo do anterior, precisa ser um
-  |size_t|.
+  |size_t|. Esta informação precisará ser atualizada toda vez que mais
+  memória for alocada ou desalocada. Ou quando um \italico{breakpoint}
+  for criado ou destruído.
 
-  Esta informação precisará ser atualizada toda vez que mais memória
-  for alocada ou desalocada. Ou quando um \negrito{breakpoint} for
-  criado ou destruído.
-\negrito{Último Breakpoint:} Armazenar isso nos permite saber à
+\macronome \negrito{Último Breakpoint:} Armazenar isso nos permite saber à
   partir de qual posição podemos começar a desalocar memória em caso
-  de um |Wtrash|. Outro |size_t|.
+  de um |Wtrash|. Outro |size_t|. Eta informação precisa ser
+  atualizada toda vez que um \italico{breakpoint} for criado ou
+  destruído. Um último breakpoint sempre existirá, pois o primeiro
+  breakpoint nunca pode ser removido.
 
-  Eta informaçção precisa ser atualizada toda vez que um
-  \negrito{breakpoint} for criado ou destruído. Um último breakpoint
-  sempre existirá, pois o primeiro breakpoint nunca pode ser removido.
-\negrito{Último Elemento:} Endereço do último elemento
+\macronome \negrito{Último Elemento:} Endereço do último elemento
   que foi armazenado. É útil guardar esta informação porque quando
   criamos um novo elemento com |Walloc| ou |Wbreakpoint|, o novo
-  elemento precisa apontar para o último que havia antes dele.
-  
-  Esta informação precisa ser atualizada após qualquer operação de
-  alocação, desalocação ou \negrito{breakpoint}. Sempre existirá um
-  último elemento na arena, pois um primeiro breakpoint sempre estará
-  posicionado após o cabeçalho.
-\negrito{Posição Vazia:} Um ponteiro para a próxima região
+  elemento precisa apontar para o último que havia antes dele. Esta
+  informação precisa ser atualizada após qualquer operação de
+  alocação, desalocação ou \italico{breakpoint}. Sempre existirá um
+  último elemento na arena, pois se nada foi alocado um primeiro
+  breakpoint sempre estará posicionado após o cabeçalho e este será
+  nosso último elemento.
+
+\macronome\negrito{Posição Vazia:} Um ponteiro para a próxima região
   contínua de memória não-alocada. É preciso saber disso para podermos
   criar novas estruturas e retornar um espaço ainda não-utilizado em
-  caso de |Walloc|. Outro |size_t|.
+  caso de |Walloc|. Outro |size_t|. Novamente é algo que precisa ser
+  atualizado após qualquer uma das operações de memória sobre a
+  arena. É possível que não hajam mais regiões vazias caso tudo já
+  tenha sido alocado. Neste caso, o ponteiro deverá ser |NULL|.
 
-  Novamente é algo que precisa ser atualizado após qualquer uma das
-  operações de memória sobre a arena. É possível que não hajam mais
-  regiões vazias caso tudo já tenha sido alocado. Neste caso, o
-  ponteiro deverá ser |NULL|.
-\negrito{Mutex:} Opcional. Só precisamos definir isso se
+\macronome \negrito{Mutex:} Opcional. Só precisamos definir isso se
   estivermos usando mais de uma thread. Neste caso, o mutex servirá
   para prevenir que duas threads tentem modificar qualquer um destes
-  valores ao mesmo tempo. 
+  valores ao mesmo tempo. Caso seja usado, o mutex precisa ser usado
+  em qualquer operação de memória, pois todas elas precisam modificar
+  elementos da arena. Em máquinas testadas, isso gasta cerca de 40
+  bytes se usado.
 
-  Caso seja usado, o mutex precisa ser usado em qualquer operação de
-  memória, pois todas elas precisam modificar elementos da arena.
-\negrito{Uso Máximo:} Opcional. Só precisamos definir isso se
+\macronome \negrito{Uso Máximo:} Opcional. Só precisamos definir isso se
   estamos rodando o programa em um nível alto de depuração e por isso
   queremos saber ao fim do uso da arena qual a quantidade máxima de
-  memória que alocamos nela ao longo da execução do programa. Um
-  |size_t|.
+  memória que alocamos nela ao longo da execução do programa. Desta
+  forma, se nosso programa sempre disser que usamos uma quantidade
+  pequena demais de memória, podemos ajustar o valor para alocar menos
+  memória. Ou se chegarmos perto demais do valor máximo de alocação,
+  podemos mudar o valor ou depurar o programa para gastarmos menos
+  memória. Se estivermos monitorando o valor, precisamos verificar se
+  ele precisa ser atualizado após qualquer alocação ou criação
+  de \negrito{breakpoint}.
 
-  Se estivermos monitorando o valor, precisamos verificar se ele
-  precisa ser atualizado após qualquer alocação ou criação de
-  \negrito{breakpoint}.
-
-Então, assim podemos definir o nosso cabeçalho para arenas. Toda
-arena terá tal estrutura em seu início.
+Caso usemos todos estes dados, nosso cabeçalho de memória ficará com
+cerca de 88 bytes em máquinas típicas. Nosso cabeçalho de arena terá
+então a seguinte definição na linguagem C:
 
 @<Declarações de Memória@>+=
 struct _arena_header{
@@ -284,22 +297,68 @@ struct _arena_header{
 @
 
 Pela definição, existem algumas restrições sobre os valores presentes
-em cabeçalhos de arena: $\italico{total} \geq \italico{max\_used} \geq
-\italico{used}$, $\italico{last\_element} \geq \italico{last\_breakpoint}$,
-$(\italico{empty\_position} = \italico{NULL}) \vee (\italico{empty\_position >
-last\_element})$ e $\italico{used > 0}$ (o breakpoint e o cabeçalho usam o
-espaço).
+em cabeçalhos de arena. Vamos criar um código de depuração para testar
+que qualquer uma destas restrições não é violada:
+
+@<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 4
+void _assert__arena_header(struct arena_header *);
+#endif
+@
+
+@(project/src/weaver/memory.c@>=
+#if W_DEBUG_LEVEL >= 4
+void _assert__arena_header(struct arena_header *header){
+  // O espaço máximo disponível na arena sempre deve ser maior ou
+  // igual ao máximo que já armazenamos nela.
+  if(header -> total < header -> max_used){
+    fprintf(stderr,
+            "ERROR (4): MEMORY: Arena header used more memory than allowed!\n");
+    exit(1);
+  }
+  // Já o máximo que já armazenamos deve ser maior ou igual ao que
+  // estamos armazenando no instante atual (pela definição de
+  // 'máximo')
+  if(header -> max_used < header -> used){
+    fprintf(stderr,
+            "ERROR (4): MEMORY: Arena header not registering max usage!\n");
+    exit(1);
+  }
+  // O último breakpoint é o último elemento ou está antes do último
+  // elemento. Já que breakpoints são elementos, mas há outros
+  // elementos além de breakpoints.
+  if(header -> last_element < header -> last_breakpoint){
+    fprintf(stderr,
+            "ERROR (4): MEMORY: Arena header storing in wrong location!\n");
+    exit(1);
+  }
+  // O espaço não-alocado não existe ou fica depois do último elemento
+  // alocado.
+  if(!(header -> empty_position == NULL ||
+       header -> empty_position > header -> last_element)){
+    fprintf(stderr,
+            "ERROR (4): MEMORY: Arena header confused about empty position!\n");
+    exit(1);
+  }
+  // Toda arena ocupa algum espaço, nem que sejam os bytes gastos pelo
+  // cabeçalho.
+  if(header -> used <= 0){
+    fprintf(stderr,
+            "ERROR (4): MEMORY: Arena header not occupying space!\n");
+    exit(1);
+  }
+}
+#endif
+@
 
 Quando criamos a arena e desejamos inicializar o valor de seu
 cabeçalho, tudo o que precisamos saber é o tamanho total que a arena
 tem. Os demais valores podem ser deduzidos. Portanto, podemos usar
 esta função interna para a tarefa:
 
-@(project/src/weaver/memory.c@>=
-#include "memory.h"
-
+@(project/src/weaver/memory.c@>+=
 static bool _initialize_arena_header(struct _arena_header *header,
-				     size_t total){
+                                     size_t total){
   header -> total = total;
   header -> used = sizeof(struct _arena_header) - sizeof(struct _breakpoint);
   header -> last_breakpoint = (struct _breakpoint *) (header + 1);
@@ -312,6 +371,9 @@ static bool _initialize_arena_header(struct _arena_header *header,
 #endif
 #if W_DEBUG_LEVEL >= 3
   header -> max_used = header -> used;
+#endif
+#if W_DEBUG_LEVEL >= 4
+  _assert__arena_header(header);
 #endif
   return true;
 }
@@ -327,33 +389,39 @@ A função primária de um breakpoint é interagir com as função
 |Wbreakpoint| e |Wtrash|. As informações que devem estar presentes
 nele são:
 
-\negrito{Tipo:} Um número mágico que corresponde sempre à um valor
+\macronome \negrito{Tipo:} Um número mágico que corresponde sempre à um valor
   que identifica o elemento como sendo um \italico{breakpoint}, e não
   um fragmento alocado de memória. Se o elemento realmente for um
   breakpoint e não possuir um número mágico correspondente, então
   ocorreu um \italico{buffer overflow} em memória alocada e podemos
   acusar isso. Definiremos tal número como |0x11010101|.
-\negrito{Último breakpoint:} No caso do primeiro breakpoint, isso
+
+\macronome \negrito{Último breakpoint:} No caso do primeiro breakpoint, isso
   deve apontar para ele próprio (e assim o primeiro breakpoint pode
   ser identificado diante dos demais). nos demais casos, ele irá
   apontar para o breakpoint anterior. Desta forma, em caso de
   |Wtrash|, poderemos restaurar o cabeçalho da arena para apontar para
   o breakpoint anterior, já que o atual está sendo apagado.
-\negrito{Último Elemento:} Para que a lista de elementos de uma
+
+\macronome \negrito{Último Elemento:} Para que a lista de elementos de uma
   arena possa ser percorrida, cada elemento deve ser capaz de apontar
   para o elemento anterior. Desta forma, se o breakpoint for removido,
   podemos restaurar o último elemento da arena para o elemento antes
   dele (assumindo que não tenha sido marcado para remoção como será
   visto adiante). O último elemento do primeiro breakpoint é ele próprio.
-\negrito{Arena:} Um ponteiro para a arena à qual pertence a
+
+\macronome \negrito{Arena:} Um ponteiro para a arena à qual pertence a
   memória.
-\negrito{Tamanho:} A quantidade de memória alocada até o
+
+\macronome \negrito{Tamanho:} A quantidade de memória alocada até o
   breakpoint em questão. Quando o breakpoint for removido, a
   quantidade de memória usada pela arena passa a ser o valor presente
   aqui.
-\negrito{Arquivo:} Opcional para depuração. O nome do arquivo onde
+
+\macronome \negrito{Arquivo:} Opcional para depuração. O nome do arquivo onde
   esta região da memória foi alocada.
-\negrito{Linha:} Opcional para depuração. O número da linha onde
+
+\macronome \negrito{Linha:} Opcional para depuração. O número da linha onde
   esta região da memória foi alocada.
 
 Sendo assim, a nossa definição de breakpoint é:
@@ -370,12 +438,20 @@ struct _breakpoint{
   unsigned long line;
 #endif
 };
-
 @ 
 
-%As seguintes restrições sempre devem valer para tais dados:
-%  $\italico{type} = 0{\times}11010101$,
-%  $\italico{last\_breakpoint}\leq\italico{last\_element}$.
+Se todos os elementos estiverem presentes, espera-se que
+um \italico{breakpoint} tenha por volta de 72 bytes. Naturalmente, isso
+pode variar dependendo da máquina.
+
+As seguintes restrições sempre devem valer para tais dados:
+  
+a) $\italico{type} = 0{\times}11010101$.
+
+b) $\italico{last\_breakpoint}\leq\italico{last\_element}$.
+
+Vamos criar uma função de depuração que nos ajude a checar por tais
+erros. Como o caso 
 
 Pode-se definir uma função para inicializar tais valores. As
 informações externas necessárias são todos os elementos, exceto o tipo
