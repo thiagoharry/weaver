@@ -1,4 +1,3 @@
-
 @* Gerenciamento de memória.
 
 Alocar memória dinamicamente de uma heap é uma operação cujo tempo
@@ -747,13 +746,13 @@ usada:
 int Wdestroy_arena(void *arena){
 #if W_DEBUG_LEVEL >= 1
   struct _arena_header *header = (struct _arena_header *) arena;
-  @<Checa vazamento de memória em 'arena' dado seu 'header'@>@/
+@<Checa vazamento de memória em 'arena' dado seu 'header'@>
 #endif
 #if W_DEBUG_LEVEL >= 3
   fprintf(stderr,
-	  "WARNING (3): Max memory used in arena %s:%lu: %lu/%lu\n",
-	  header -> file, header -> line, (unsigned long) header -> max_used,
-	  (unsigned long) header -> total);
+          "WARNING (3): Max memory used in arena %s:%lu: %lu/%lu\n",
+          header -> file, header -> line, (unsigned long) header -> max_used,
+          (unsigned long) header -> total);
 #endif
 #ifdef W_MULTITHREAD
   {
@@ -787,11 +786,11 @@ até chegarmos ao primeiro breakpoint.
 {
   struct _memory_header *p = (struct _memory_header *) header -> last_element;
   while(p -> type != _BREAKPOINT_T ||
-	((struct _breakpoint *) p) -> last_breakpoint !=
-	(struct _breakpoint *) p){
+        ((struct _breakpoint *) p) -> last_breakpoint !=
+        (struct _breakpoint *) p){
     if(p -> type == _DATA_T && p -> flags % 2){
       fprintf(stderr, "WARNING (1): Memory leak in data allocated in %s:%lu\n",
-	      p -> file, p -> line);
+              p -> file, p -> line);
     }
     p = (struct _memory_header *) p -> last_element;
   }
@@ -839,10 +838,10 @@ void *_alloc(void *arena, size_t size, char *filename, unsigned long line){
 #endif
   mem_header = header -> empty_position;
   old_last_element = header -> last_element;
-  //Parte 1: Calcular o verdadeiro tamanho a se alocar:\\
+  //Parte 1: Calcular o verdadeiro tamanho a se alocar:
   size_t real_size = (size_t) (ceil((float) size / (float) sizeof(long)) *
-			       sizeof(long));
-  //Parte 2: Atualizar o cabeçalho da arena:\\
+                               sizeof(long));
+  //Parte 2: Atualizar o cabeçalho da arena:
   if(header -> used + real_size + sizeof(struct _memory_header) > 
      header -> total){
 #if W_DEBUG_LEVEL >= 1
@@ -856,7 +855,7 @@ void *_alloc(void *arena, size_t size, char *filename, unsigned long line){
   }
   header -> used += real_size + sizeof(struct _memory_header);
   mem = (void *) ((char *) header -> empty_position +
-		  sizeof(struct _memory_header));
+                  sizeof(struct _memory_header));
   header -> last_element = header -> empty_position;
   header -> empty_position = (void *) ((char *) mem + real_size);
 #if W_DEBUG_LEVEL >= 3
@@ -864,7 +863,7 @@ void *_alloc(void *arena, size_t size, char *filename, unsigned long line){
     header -> max_used = header -> used;
   }
 #endif
-  //Parte 3: Preencher o cabeçalho do dado a ser alocado:\\
+  //Parte 3: Preencher o cabeçalho do dado a ser alocado:
   mem_header -> type = _DATA_T;
   mem_header -> last_element = old_last_element;
   mem_header -> real_size = real_size;
@@ -922,10 +921,10 @@ void _free(void *mem, char *filename, unsigned long line){
     mem_header -> flags = 0x0;
 #if W_DEBUG_LEVEL >= 2
     fprintf(stderr,
-	    "WARNING (2): %s:%lu: Memory allocated in %s:%lu should be"
-	    " freed first.\n", filename, line,
-	    ((struct _memory_header *) (arena -> last_element)) -> file,
-	    ((struct _memory_header *) (arena -> last_element)) -> line);
+            "WARNING (2): %s:%lu: Memory allocated in %s:%lu should be"
+            " freed first.\n", filename, line,
+            ((struct _memory_header *) (arena -> last_element)) -> file,
+            ((struct _memory_header *) (arena -> last_element)) -> line);
 #endif
     return;
   }
@@ -951,6 +950,7 @@ número de linha:
 
 @<Declarações de Memória@>+=
 #define Wfree(a) _free(a, __FILE__, __LINE__)
+@
 
 @*1 Usando a heap descartável.
 
