@@ -648,6 +648,14 @@ void _assert__memory_header(struct _memory_header *mem){
 #endif
 @
 
+Não criaremos uma função de inicialização para este cabeçalho. Ele
+será inicializado dentro da função que aloca mais espaço na
+memória. Ao contrário de outros cabeçalhos, não há nenhuma facilidade
+em criar um inicializador para este, pois todos os dados a serem
+inicializados precisam ser passados explicitamente. Nada pode ser
+meramente deduzido, exceto o |real_size|. Mas de qualquer forma o
+|real_size| precisa ser calculado antes do preenchimento do cabeçalho,
+para atualizar o cabeçalho da própria arena.
 
 @*1 Criando e destruindo arenas.
 
@@ -677,11 +685,24 @@ void *Wcreate_arena(size_t size){
   size_t real_size = 0;
   struct _breakpoint *breakpoint;
 
-  @<Aloca 'arena' com cerca de 'size' bytes e preenche 'realsize'@>
+  { // Aloca 'arena' com cerca de 'size' bytes e preenche 'realsize'
+    long page_size = sysconf(_SC_PAGESIZE);
+    real_size = ((int) ceil((double) size / (double) page_size)) * page_size;
+    arena = mmap(0, real_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS,
+                -1, 0);
+    if(arena == MAP_FAILED){
+      arena = NULL;
+    }
+  }
 
   if(arena != NULL){
     if(!_initialize_arena_header((struct _arena_header *) arena, real_size)){
-      @<Desaloca arena@>
+      // Se não conseguimos inicializar o cabeçalho da arena,
+      // desalocamos ela com munmap:
+      munmap(arena, ((struct _arena_header *) arena) -> total);
+      // O munmap pode falhar, mas não podemos fazer nada à este
+      // respeito.
+      return NULL;
     }
     // Preenchendo o primeiro breakpoint
     breakpoint = ((struct _arena_header *) arena) -> last_breakpoint;
@@ -694,45 +715,23 @@ void *Wcreate_arena(size_t size){
 
 Então usar esta função nos dá como retorno |NULL| ou um ponteiro
 para uma nova arena cujo tamanho total é no mínimo o pedido como
-argumento, mas talvez será maior por motivos de alinhamento e
+argumento, mas talvez seja maior por motivos de alinhamento e
 paginação. Partes desta região contínua serão gastos com cabeçalhos da
 arena, das regiões alocadas e \italico{breakpoints}. Então pode ser que
 obtenhamos como retorno uma arena onde caibam menos coisas do que
 caberia no tamanho especificado como argumento.
 
 Mas qual será o tamanho real da arena se não é necessariamente o que
-pedimos como argumento? Resposta: será o menor tamanho que é maior ou
+pedimos como argumento? Será o menor tamanho que é maior ou
 igual ao valor pedido e que seja múltiplo do tamanho de uma página do
-sistema. Usamos a chamada de sistema |mmap| para obter a
+sistema.
+
+Usamos |sysconf| para saber o tamanho da página e |mmap| para obter a
 memória. Outra opção seria o |brk|, mas usar tal chamada de sistema
 criaria conflito caso o usuário tentasse usar o |malloc| da biblioteca
 padrão ou usasse uma função de biblioteca que usa internamento o
 |malloc|. Como até um simples |sprintf| usa |malloc|, não podemos usar
 o |brk|, pois isso criaria muitos conflitos com outras bibliotecas:
-
-% O comprido acima
-
-@<Aloca 'arena' com cerca de 'size' bytes e preenche 'realsize'@>=
-{
-  long page_size = sysconf(_SC_PAGESIZE);
-  real_size = ((int) ceil((double) size / (double) page_size)) * page_size;
-  arena = mmap(0, real_size, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANONYMOUS,
-              -1, 0);
-  if(arena == MAP_FAILED){
-    arena = NULL;
-  }
-}
-@
-
-E para desalocar uma arena, fazemos simplesmente:
-
-@<Desaloca 'arena'@>=
-{
-  if(munmap(arena, ((struct _arena_header *) arena) -> total) == -1){
-    arena = NULL;
-  }
-}
-@
 
 @*2 Destruindo uma arena.
 
@@ -764,7 +763,10 @@ int Wdestroy_arena(void *arena){
     }
   }
 #endif
-  @<Desaloca 'arena'@>@/
+  //Desaloca 'arena'
+  if(munmap(arena, ((struct _arena_header *) arena) -> total) == -1){
+    arena = NULL;
+  }
   if(arena == NULL){
     return 0;
   }
