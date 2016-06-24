@@ -5,7 +5,7 @@ de um local onde desenharmos os gráficos. Em um jogo compilado para
 Desktop, tipicamente criaremos uma janela na qual invocaremos funções
 OpenGL. Em um jogo compilado para a Web, tudo será mais fácil, pois
 não precisaremos de uma janela especial. Por padrão já teremos um
-``\textit{canvas}'' para manipular com WebGL. Portanto, o código para
+``\italico{canvas}'' para manipular com WebGL. Portanto, o código para
 estes dois cenários irá diferir bastante neste capítulo. De qualquer
 forma, ambos usarão OpenGL:
 
@@ -16,26 +16,26 @@ forma, ambos usarão OpenGL:
 Para criar uma janela, usaremos o Xlib ao invés de bibliotecas de mais
 alto nível. Primeiro porque muitas bibliotecas de alto nível como SDL
 parecem não funcionar bem em ambientes gráficos mais excêntricos como
-o \textit{ratpoison}, o qual eu uso. Em especial quando tentam usar a
+o \italico{ratpoison}, o qual eu uso. Em especial quando tentam usar a
 tela-cheia. Durante um tempo usei também o Xmonad, no qual algumas
 bibliotecas não conseguiam deixar suas janelas em tela-cheia. Além
 disso, o Xlib é uma biblioteca bastante universal. Geralmente se um
 sistema não tem o X, é porque ele não tem interface gráfica e não iria
 rodar um jogo mesmo.
 
-O nosso arquivo \texttt{conf/conf.h} precisará de duas macros novas
+O nosso arquivo \monoespaco{conf/conf.h} precisará de duas macros novas
 para estabelecermos o tamanho de nossa janela (ou do ``canvas'' para a
 Web):
 
-\begin{itemize}
-\item|W_DEFAULT_COLOR|: A cor padrão da janela, a ser exibida na
+|W_DEFAULT_COLOR|: A cor padrão da janela, a ser exibida na
   ausência de qualquer outra coisa para desenhar. Representada como
   três números em ponto flutuante separados por vírgulas.
-\item|W_HEIGHT|: A altura da janela ou do ``canvas''. Se for definido
+
+|W_HEIGHT|: A altura da janela ou do ``canvas''. Se for definido
   como zero, será o maior tamanho possível.
-\item|W_WIDTH|: A largura da janela ou do ``canvas''. Se for definido
+
+|W_WIDTH|: A largura da janela ou do ``canvas''. Se for definido
   como zero, será o maior tamanho possível.
-\end{itemize}
 
 Por padrão, ambos serão definidos como zero, o que tem o efeito de
 deixar o programa em tela-cheia.
@@ -512,7 +512,7 @@ void _finalize_canvas(void);
 #endif
 @
 
-E por fim, o nosso \texttt{canvas.c} que definirá as funções que
+E por fim, o nosso \monoespaco{canvas.c} que definirá as funções que
 criarão nosso espaço de desenho pode ser definido. Como ele é bem mais
 simples, será inteiramente definido abaixo:
 
@@ -734,7 +734,7 @@ distintos: a resolução horizontal, vertical, e a frequência de
 atualização da tela. A ideia é que nós usemos uma variável
 |Wnumber_of_modes| para armazenar quantos modos diferentes temos,
 |Wcurrent_mode| para sabermos qual o modo atual e aloquemos uma
-estrutura formada por um \textit{array} de triplas de números contendo
+estrutura formada por um \italico{array} de triplas de números contendo
 os dados de cada modo, a qual pode ser acessada por meio de
 |Wmodes|. Cada um dos modos possíveis terá um número sequencial. E se
 quisermos passar para outro modo, usaremos uma função que recebe como
