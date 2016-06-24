@@ -155,7 +155,7 @@ símbolos e caracteres. Alguns teclados possuem ``Ç'', outros possuem o
 símbolo do Euro, e outros podem possuir símbolos bem mais exóticos. Há
 também teclas modificadoras que transformam determinadas teclas em
 outras. O Xlib reconhece diferentes teclas associando à elas um número
-chamado de \textbf{KeySym}, que são inteiros de 29 bits.
+chamado de \negrito{KeySym}, que são inteiros de 29 bits.
 
 Entretanto, não podemos criar um vetor de $2^{29}$ números para
 representar se uma das diferentes teclas possíveis está
@@ -315,8 +315,8 @@ posição da tecla  em um teclado para o símbolo específico associado
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == KeyPress){
   unsigned int code =  _translate_key(XkbKeycodeToKeysym(_dpy,
-							 event.xkey.keycode, 0,
-							 0));
+                                                         event.xkey.keycode, 0,
+                                                         0));
   int i;
   // Adiciona na lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
@@ -347,8 +347,8 @@ soltas:
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == KeyRelease){
   unsigned int code =  _translate_key(XkbKeycodeToKeysym(_dpy,
-							 event.xkey.keycode, 
-							 0, 0));
+                                                         event.xkey.keycode, 
+                                                         0, 0));
 
   int i;
 
@@ -407,7 +407,7 @@ seguinte código deve ser posicionado antes do tratamento de eventos:
     while(Wkeyboard[key] > 0){
       int j;
       for(j = i; j < 19; j ++){
-	_released_keys[j] = _released_keys[j+1];
+        _released_keys[j] = _released_keys[j+1];
       }
       _released_keys[19] = 0;
       key = _released_keys[i];
@@ -735,13 +735,13 @@ O problema é que este tipo de coisa depende do ambiente de execução em
 que estamos. Por exemplo, se estamos executando um programa Linux, o
 seguinte loop principal seria válido:
 
-\begin{verbatim}
+\alinhaverbatim
 while(1){
   handle_input();
   handle_objects();
   weaver_rest(10);
 }
-\end{verbatim}
+\alinhanormal
 
 Além disso poderíamos criar uma condição explícita para sairmos do
 loop e entrarmos em outra logo em seguida. Mas infelizmente se estamos
@@ -764,7 +764,7 @@ algo ruim, mas podemos minimizar os danos disso usando a palavra-chave
 O que queremos então é que um programa Weaver possa ter então a
 seguinte forma:
 
-\begin{verbatim}
+\alinhaverbatim
 void main_loop(void){
   // ...
   weaver_rest(10);
@@ -778,7 +778,7 @@ int main(int argc, char **argv){
 
   weaver_rest();
 }
-\end{verbatim}
+\alinhanormal
 
 A função |Wloop| então executa a função que recebe como argumento em
 um loop infinito. E esta função deve ser definida de modo diferente
@@ -834,7 +834,7 @@ que todo loop principal seja uma função que não retorna nada e nem
 recebe argumentos.
 
 A única possibilidade de evitar isso seria se fosse possível usar
-clausuras (\textit{closures}). Neste caso, poderíamos definir |Wloop|
+clausuras (\italico{closures}). Neste caso, poderíamos definir |Wloop|
 como uma macro que expandiria para a definição de uma clausura que
 poderia ter acesso à todas as variáveis da função atual ao mesmo tempo
 em que ela poderia ser passada para a função de invocaçã do loop. O
@@ -930,7 +930,7 @@ recém-soltos para removê-los da lista:
     while(Wmouse.buttons[button] > 0){
       int j;
       for(j = i; j < 4; j ++){
-	_released_buttons[j] = _released_buttons[j+1];
+        _released_buttons[j] = _released_buttons[j+1];
       }
       _released_buttons[4] = 0;
       button = _released_buttons[i];

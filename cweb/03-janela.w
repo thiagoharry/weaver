@@ -187,8 +187,8 @@ função |XOpenDisplay|:
   _dpy = XOpenDisplay(NULL);
   if(_dpy == NULL){
     fprintf(stderr,
-	    "ERROR: Couldn't connect with the X Server. Are you running a "
-	    "graphical interface?\n");
+            "ERROR: Couldn't connect with the X Server. Are you running a "
+            "graphical interface?\n");
     exit(1);
   }
 @
@@ -264,12 +264,12 @@ E é inicializada com os seguintes dados:
   W_height = DisplayHeight(_dpy, screen);
 #endif
   _window = XCreateSimpleWindow(_dpy, //Conexão com o servidor X
-			       DefaultRootWindow(_dpy), // A janeela-mãe
-			       W_x, W_y, // Coordenadas da janela
-			       W_width, // Largura da janela
-			       W_height, // Altura da janela
-			       0, 0, // Borda (espessura e cor)
-			       0); // Cor padrão
+                               DefaultRootWindow(_dpy), // A janeela-mãe
+                               W_x, W_y, // Coordenadas da janela
+                               W_width, // Largura da janela
+                               W_height, // Altura da janela
+                               0, 0, // Borda (espessura e cor)
+                               0); // Cor padrão
 @
 
 
@@ -306,8 +306,8 @@ static XSetWindowAttributes at;
       KeyReleaseMask | PointerMotionMask | ExposureMask | StructureNotifyMask;
     XChangeWindowAttributes(_dpy, _window, CWOverrideRedirect, &at);
     XSelectInput(_dpy, _window, StructureNotifyMask | KeyPressMask |
-		 KeyReleaseMask | ButtonPressMask | ButtonReleaseMask |
-		 PointerMotionMask | ExposureMask | StructureNotifyMask);
+                 KeyReleaseMask | ButtonPressMask | ButtonReleaseMask |
+                 PointerMotionMask | ExposureMask | StructureNotifyMask);
   }
 @
 
@@ -352,8 +352,8 @@ versão compatível:
   ret = glXQueryVersion(_dpy, &glx_major, &glx_minor);
   if(!ret || (( glx_major == 1 ) && ( glx_minor < 3 )) || glx_major < 1){
     fprintf(stderr,
-	    "ERROR: GLX is version %d.%d, but should be at least 1.3.\n", 
-	    glx_major, glx_minor);
+            "ERROR: GLX is version %d.%d, but should be at least 1.3.\n", 
+            glx_major, glx_minor);
     exit(1);
   }
 }
@@ -390,10 +390,10 @@ que pode ser desenhada e com buffer duplo.
     None
   };
   fbConfigs = glXChooseFBConfig(_dpy, screen, doubleBufferAttributes,
-				&return_value);
+                                &return_value);
   if (fbConfigs == NULL){
     fprintf(stderr,
-	    "ERROR: Not possible to create a double-buffered window.\n");
+            "ERROR: Not possible to create a double-buffered window.\n");
     exit(1);
   }
 }
@@ -409,7 +409,7 @@ declará-la e obter o seu valor dinamicamente se ela existir:
 @<Janela: Declaração@>+=
 typedef GLXContext
   (*glXCreateContextAttribsARBProc)(Display*, GLXFBConfig, GLXContext, Bool,
-				    const int*);
+                                    const int*);
 @
 
 Tendo declarado o novo tipo, tentamos obter a função e usá-la para
@@ -430,7 +430,7 @@ criar o contexto:.
   glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
     glXGetProcAddressARB( (const GLubyte *) "glXCreateContextAttribsARB" );
   context = glXCreateContextAttribsARB(_dpy, *fbConfigs, NULL, GL_TRUE,
-				       context_attribs);
+                                       context_attribs);
   glXMakeCurrent(_dpy, _window, context);
 }
 @
@@ -534,21 +534,21 @@ void _initialize_canvas(void){
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
   window = SDL_SetVideoMode(
 #if W_WIDTH > 0
-			    W_width = W_WIDTH, // Largura da janela
+                            W_width = W_WIDTH, // Largura da janela
 #else
-			    W_width = 800, // Largura da janela
+                            W_width = 800, // Largura da janela
 #endif
 #if W_HEIGHT > 0
-			    W_height = W_HEIGHT, // Altura da janela
+                            W_height = W_HEIGHT, // Altura da janela
 #else
-			    W_height = 600, // Altura da janela
+                            W_height = 600, // Altura da janela
 #endif
-			    0, // Bits por pixel, usar o padrão
-			    SDL_OPENGL // Inicializar o contexto OpenGL
+                            0, // Bits por pixel, usar o padrão
+                            SDL_OPENGL // Inicializar o contexto OpenGL
 #if W_WIDTH == 0 && W_HEIGHT == 0
-			    | SDL_WINDOW_FULLSCREEN
+                            | SDL_WINDOW_FULLSCREEN
 #endif
-			    );
+                            );
   if (window == NULL) {
     fprintf(stderr, "ERROR: Could not create window: %s\n", SDL_GetError());
     exit(1);
@@ -673,9 +673,9 @@ mesmo efeito:
 @<Canvas: Definição@>=
 void Wresize_window(int width, int height){
   window = SDL_SetVideoMode(width, height,
-			    0, // Bits por pixel, usar o padrão
-			    SDL_OPENGL // Inicializar o contexto OpenGL
-			    );
+                            0, // Bits por pixel, usar o padrão
+                            SDL_OPENGL // Inicializar o contexto OpenGL
+                            );
   W_width = width;
   W_height = height;
   @<Ações após Redimencionar Janela@>@/
@@ -780,7 +780,7 @@ zero, significando um valor indefinido.
   }
 #if W_DEBUG_LEVEL >=3
   fprintf(stderr, "WARNING (3): Screen resolution: %dx%d.\n",
-	  Wmodes[0].width, Wmodes[0].height);
+          Wmodes[0].width, Wmodes[0].height);
 #endif
 @
 
@@ -818,7 +818,7 @@ atualização da tela.
     Wnumber_of_modes += num_rates;
   }
   Wmodes = (struct _wmodes *) _iWalloc(sizeof(struct _wmodes) *
-				       Wnumber_of_modes);
+                                       Wnumber_of_modes);
 
   // obtendo o valor original de resolução e taxa de atualização:
   conf = XRRGetScreenInfo(_dpy, root);
@@ -835,14 +835,14 @@ atualização da tela.
       Wmodes[k].rate = rates[j];
       Wmodes[k].id = i;
       if(i == _orig_size_id && rates[j] == _orig_rate)
-	Wcurrent_mode = k;
+        Wcurrent_mode = k;
       k ++;
     }
   }
 #if W_DEBUG_LEVEL >=3
   fprintf(stderr, "WARNING (3): Screen resolution: %dx%d (%dHz).\n",
-	  Wmodes[Wcurrent_mode].width, Wmodes[Wcurrent_mode].height, 
-	  Wmodes[Wcurrent_mode].rate);
+          Wmodes[Wcurrent_mode].width, Wmodes[Wcurrent_mode].height, 
+          Wmodes[Wcurrent_mode].rate);
 #endif
 }
 @
@@ -861,7 +861,7 @@ chamar a função que definiremos:
 void _restore_resolution(void){
   Window root = RootWindow(_dpy, 0);
   XRRSetScreenConfigAndRate(_dpy, conf, root, _orig_size_id, _orig_rotation,
-			    _orig_rate, CurrentTime);
+                            _orig_rate, CurrentTime);
   XRRFreeScreenConfigInfo(conf);
 }
 @
@@ -886,7 +886,7 @@ programa:
 @<Janela: Definição@>=
 void _restore_and_quit(int signal, siginfo_t *si, void *arg){
   fprintf(stderr, "ERROR: Received signal %d (%p %p).\n", signal, 
-	  (void *) si, (void *) arg);
+          (void *) si, (void *) arg);
   Wexit();
   exit(1);
 }
@@ -982,7 +982,7 @@ int Wfullscreen_mode(unsigned int mode){
     Wmove_window(0, 0);
     Wresize_window(Wmodes[mode].width, Wmodes[mode].height);
     XRRSetScreenConfigAndRate(_dpy, conf, root, Wmodes[mode].id, _orig_rotation,
-			      Wmodes[mode].rate, CurrentTime);
+                              Wmodes[mode].rate, CurrentTime);
     return 1;
   }
 }
