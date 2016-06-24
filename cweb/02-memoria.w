@@ -302,13 +302,13 @@ que qualquer uma destas restrições não é violada:
 
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 4
-void _assert__arena_header(struct arena_header *);
+void _assert__arena_header(struct _arena_header *);
 #endif
 @
 
 @(project/src/weaver/memory.c@>=
 #if W_DEBUG_LEVEL >= 4
-void _assert__arena_header(struct arena_header *header){
+void _assert__arena_header(struct _arena_header *header){
   // O espaço máximo disponível na arena sempre deve ser maior ou
   // igual ao máximo que já armazenamos nela.
   if(header -> total < header -> max_used){
@@ -429,14 +429,21 @@ Sendo assim, a nossa definição de breakpoint é:
 @<Declarações de Memória@>+=
 struct _breakpoint{
   unsigned long type;
-  void *last_element;
-  struct _arena_header *arena;
-  struct _breakpoint *last_breakpoint;
-  size_t size;
 #if W_DEBUG_LEVEL >= 1
   char file[32];
   unsigned long line;
 #endif
+  void *last_element;
+  struct _arena_header *arena;
+  // Todo elemento dentro da memória (breakpoints e cabeçalhos de
+  // memória) terão os 5 campos anteriores no mesmo local. Desta
+  // forma, independente deles serem breakpoints ou regiões alocadas,
+  // sempre será seguro usar um casting para qualquer um dos tipos e
+  // consultar qualquer um dos 5 campos anteriores. O campo abaixo,
+  // 'last_breakpoint', por outro lado, só pode ser consultado por
+  // breakpoints.
+  struct _breakpoint *last_breakpoint;
+  size_t size;
 };
 @ 
 
@@ -445,38 +452,76 @@ um \italico{breakpoint} tenha por volta de 72 bytes. Naturalmente, isso
 pode variar dependendo da máquina.
 
 As seguintes restrições sempre devem valer para tais dados:
-  
-a) $\italico{type} = 0{\times}11010101$.
+
+a) $\italico{type} = 0{\times}11010101$. Mas é melhor declarar uma
+macro para não esquecer o valor:
+
+@<Declarações de Memória@>+=
+#define _BREAKPOINT_T  0x11010101
+@
 
 b) $\italico{last\_breakpoint}\leq\italico{last\_element}$.
 
 Vamos criar uma função de depuração que nos ajude a checar por tais
-erros. Como o caso 
+erros. O caso do tipo de um \italico{breakpoint} não casar com o valor
+esperado é algo possível de acontecer principalmente devido
+à \italico{buffer overflows} causados devido à erros do programador
+que usa a API. Por causa disso, teremos que ficar de olho em tais
+erros quando |W_DEBUG_LEVEL >= 1|, não penas quando |W_DEBUG_LEVEL >= 4|.
+Esta é a função que checa um \italico{breakpoint} por erros:
 
-Pode-se definir uma função para inicializar tais valores. As
-informações externas necessárias são todos os elementos, exceto o tipo
-(|type|) e o tamanho que pode ser deduzido pela arena:
+@<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
+void _assert__breakpoint(struct _breakpoint *);
+#endif
+@
+
+@(project/src/weaver/memory.c@>+=
+#if W_DEBUG_LEVEL >= 1
+void _assert__breakpoint(struct _breakpoint *breakpoint){
+  if(breakpoint -> type != _BREAKPOINT_T){
+    fprintf(stderr,
+            "ERROR (1): Probable buffer overflow. We can't guarantee a "
+            "reliable error message in this case. But the "
+            "data where the buffer overflow happened may be "
+            "the place allocated at %s:%d or before.\n",
+            ((struct _breakpoint *)
+              breakpoint -> last_element) -> file,
+            ((struct _breakpoint *)
+              breakpoint -> last_element) -> line);
+    exit(1);
+  }
+#if W_DEBUG_LEVEL >= 4
+  if(breakpoint -> last_breakpoint > breakpoint -> last_element){
+    fprintf(stderr, "ERROR (4): MEMORY: Breakpoint's previous breakpoint "
+                    "found after breakpoint's last element.\n");
+    exit(1);
+  }
+#endif
+}
+#endif
+@
+
+Vamos agora cuidar de uma função para inicializar os valores de um
+breakpoint. Para isso vamos precisar saber o valor de todos os
+elementos, exceto o |type| e o tamanho que pode ser deduzido pela
+arena:
 
 @(project/src/weaver/memory.c@>+=
 static void _initialize_breakpoint(struct _breakpoint *self,
-				   void *last_element,
-				   struct _arena_header *arena,
-				   struct _breakpoint *last_breakpoint,
-				   char *file, unsigned long line){
+                                   void *last_element,
+                                   struct _arena_header *arena,
+                                   struct _breakpoint *last_breakpoint,
+                                   char *file, unsigned long line){
   self -> type = _BREAKPOINT_T;
   self -> last_element = last_element;
   self -> arena = arena;
   self -> last_breakpoint = last_breakpoint;
   self -> size = arena -> used - sizeof(struct _breakpoint);
 #if W_DEBUG_LEVEL >= 1
-  if((void *) self -> last_breakpoint > self -> last_element){
-    fprintf(stderr,
-	    "Something is very wrong! Arena with last breakpoint greater than "
-	    "last element: %s: %lu\n", file, line);
-    exit(-1);
-  }
   strncpy(self -> file, file, 32);
   self -> line = line;
+  _assert__breakpoint(self);
 #endif
 }
 @
@@ -493,36 +538,49 @@ arquivo e número de linha em que é definido.
 
 @(project/src/weaver/memory.c@>+=
 static void _initialize_first_breakpoint(struct _breakpoint *self,
-					 struct _arena_header *arena){
+                                         struct _arena_header *arena){
   _initialize_breakpoint(self, self, arena, self, "", 0);
 }
 @
+
+@*2 Memória alocada.
 
 Por fim, vamos à definição da memória alocada. Ela é formada
 basicamente por um cabeçalho, o espaço alocado em si e uma
 finalização. No caso do cabeçalho, precisamos dos seguintes elementos:
 
-\negrito{Tipo:} Um número que identifica o elemento como um
+\macronome \negrito{Tipo:} Um número que identifica o elemento como um
   cabeçalho de dados, não um breakpoint. No caso, usaremos o número
-  mágico 0$\times$10101010.
-\negrito{Tamanho Real:} Quantos bytes tem a região alocada para
+  mágico 0$\times$10101010. Para não esquecer, é melhor definir uma
+  macro para se referir à ele:
+
+@<Declarações de Memória@>+=
+#define _DATA_T        0x10101010
+@
+
+\macronome \negrito{Tamanho Real:} Quantos bytes tem a região alocada para
   dados. É igual ao tamanho pedido mais alguma quantidade adicional de
   bytes de preenchimento para podermos manter o alinhamento da
   memória.
-\negrito{Tamanho Pedido:} Quantos bytes foram pedidos na alocação,
+
+\macronome\negrito{Tamanho Pedido:} Quantos bytes foram pedidos na alocação,
   ignorando o preenchimento.
-\negrito{Último Elemento:} A posição do elemento anterior da
+
+\macronome\negrito{Último Elemento:} A posição do elemento anterior da
  arena. Pode ser outro cabeçalho de dado alocado ou um
   breakpoint. Este ponteiro nos permite acessar os dados como uma
   lista encadeada.
-\negrito{Arena:} Um ponteiro para a arena à qual pertence a
+
+\macronome\negrito{Arena:} Um ponteiro para a arena à qual pertence a
   memória.
 \negrito{Flags:} Permite que coloquemos informações adicionais. o
   último bit é usado para definir se a memória foi marcada para ser
   apagada ou não.
-\negrito{Arquivo:} Opcional para depuração. O nome do arquivo onde
+
+\macronome \negrito{Arquivo:} Opcional para depuração. O nome do arquivo onde
   esta região da memória foi alocada.
-\negrito{Linha:} Opcional para depuração. O número da linha onde
+
+\macronome \negrito{Linha:} Opcional para depuração. O número da linha onde
   esta região da memória foi alocada.
 
 %As seguintes restrições sempre são válidas para tais dados: $tipo =
@@ -533,23 +591,63 @@ A definição de nosso cabeçalho de dados é:
 @<Declarações de Memória@>+=
 struct _memory_header{
   unsigned long type;
-  void *last_element;
-  void *arena;
-  size_t real_size, requested_size;
-  unsigned long flags;
 #if W_DEBUG_LEVEL >= 1
   char file[32];
   unsigned long line;
 #endif
+  void *last_element;
+  struct _arena_header *arena;
+  // Os campos acima devem ser idênticos aos 5 primeiros do 'breakpoint'
+  size_t real_size, requested_size;
+  unsigned long flags;
 };
+@
 
+Notar que as seguintes restrições sempre devem ser verdadeiras para
+este cabeçalho de região alocada:
 
-@ E por fim, precisamos definir os 2 números mágicos que mencionamos
-em nossa descrição das estruturas de memória:
+a) $\italico{type} = 0{\times}10101010$. Ou significa que ocorreu
+um \italico{buffer overflow}.
+
+b) $\italico{real\_size}\geq\italico{requested\_size}$. A quantidade
+de bytes de preenchimento é no mínimo zero. Não iremos alocar um valor
+menor que o pedido.
+
+A função que irá checar a integridade de nosso cabeçalho de memória é:
 
 @<Declarações de Memória@>+=
-#define _BREAKPOINT_T  0x11010101
-#define _DATA_T        0x10101010
+#if W_DEBUG_LEVEL >= 1
+void _assert__memory_header(struct _memory_header *);
+#endif
+@
+
+@(project/src/weaver/memory.c@>+=
+#if W_DEBUG_LEVEL >= 1
+void _assert__memory_header(struct _memory_header *mem){
+  if(mem -> type != _DATA_T){
+    fprintf(stderr,
+            "ERROR (1): Probable buffer overflow. We can't guarantee a "
+            "reliable error message in this case. But the "
+            "data where the buffer overflow happened may be "
+            "the place allocated at %s:%d or before.\n",
+            ((struct _memory_header *)
+              mem -> last_element) -> file,
+            ((struct _memory_header *)
+              mem -> last_element) -> line);
+    exit(1);
+  }
+#if W_DEBUG_LEVEL >= 4
+  if(mem -> real_size < mem -> requested_size){
+    fprintf(stderr,
+            "ERROR (4): MEMORY: Allocated less memory than requested in "
+            "data allocated in %s:%d.\n", mem -> file, mem -> line);
+    exit(1);
+  }
+#endif
+}
+#endif
+@
+
 
 @*1 Criando e destruindo arenas.
 
