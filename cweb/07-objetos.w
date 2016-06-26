@@ -44,14 +44,13 @@ Esta questão é relevante pelo fato de querermos armazenar o máximo
 possível de coisas em vetores sequenciais ao invés de coisas que usam
 muitos ponteiros como referência (listas encadeadas). Além disso, nosso
 gerenciador de memória não suporta algo como |realloc|. Então,
-contamos que haja no \texttt{conf/conf.h} uma macro que informe isso:
+contamos que haja no \monoespaco{conf/conf.h} uma macro que informe isso:
 
-\begin{itemize}
-\item|W_MAX_CLASSES|: O número máximo de classes que pode ser definida.
-\item|W_MAX_INSTANCES|: O número máximo de instâncias que um objeto
+|W_MAX_CLASSES|: O número máximo de classes que pode ser definida.
+
+|W_MAX_INSTANCES|: O número máximo de instâncias que um objeto
   Weaver pode ter. Se você definir uma cadeira, o número máximo de
   cadeiras simultâneas que podem existir é este.
-\end{itemize}
 
 E a nossa definição de Objeto Weaver é:
 
@@ -224,7 +223,7 @@ union Wclass *_define_basic_object(int number_of_vertices, float *vertices){
      coordenadas do vértice (3 floats) e o vetor normal de cada
      vértice para o cálculo de iluminação (3 floats) */
   _wclasses[i].basic.vertices = (float *) Walloc(sizeof(float) *
-						 (number_of_vertices + 1) * 6);
+                                                 (number_of_vertices + 1) * 6);
   if(_wclasses[i].basic.vertices == NULL)
     return NULL;
   total = (number_of_vertices + 1) * 6;
@@ -262,7 +261,7 @@ union Wclass *_define_basic_object(int number_of_vertices, float *vertices){
   glGenBuffers(1, &_wclasses[i].basic._buffer_object);
   glBindBuffer(GL_ARRAY_BUFFER, _wclasses[i].basic._buffer_object);
   glBufferData(GL_ARRAY_BUFFER, sizeof(float) * 6 * (number_of_vertices + 1),
-	       _wclasses[i].basic.vertices, GL_STATIC_DRAW);
+               _wclasses[i].basic.vertices, GL_STATIC_DRAW);
 
   // Inicializando as instâncias
   for(j = 0; j < W_MAX_INSTANCES; j ++){
@@ -283,28 +282,28 @@ union Wclass *_define_basic_object(int number_of_vertices, float *vertices){
     /* inicializando as matrizes como matrizes identidade: */
     for(k = 0; k < 4; k ++)
       for(l = 0; l < 4; l ++){
-	if(k == l){
-	  _wclasses[i].basic.instances[j].basic.rotation_x[k][l] = 1;
-	  _wclasses[i].basic.instances[j].basic.rotation_y[k][l] = 1;
-	  _wclasses[i].basic.instances[j].basic.rotation_z[k][l] = 1;
-	  _wclasses[i].basic.instances[j].basic.rotation_total[k][l] = 1;
-	  _wclasses[i].basic.instances[j].basic.translation[k][l] = 1;
-	  _wclasses[i].basic.instances[j].basic.scale_matrix[k][l] = 1;
-	  _wclasses[i].basic.instances[j].basic.model_matrix[k][l] = 1;
-	  _wclasses[i].basic.instances[j].basic.model_view_matrix[k][l] = 1;
-	  _wclasses[i].basic.instances[j].basic.normal_matrix[k][l] = 1;
-	}
-	else{
-	  _wclasses[i].basic.instances[j].basic.rotation_x[k][l] = 0;
-	  _wclasses[i].basic.instances[j].basic.rotation_y[k][l] = 0;
-	  _wclasses[i].basic.instances[j].basic.rotation_z[k][l] = 0;
-	  _wclasses[i].basic.instances[j].basic.rotation_total[k][l] = 0;
-	  _wclasses[i].basic.instances[j].basic.translation[k][l] = 0;
-	  _wclasses[i].basic.instances[j].basic.scale_matrix[k][l] = 0;
-	  _wclasses[i].basic.instances[j].basic.model_matrix[k][l] = 0;
-	  _wclasses[i].basic.instances[j].basic.model_view_matrix[k][l] = 0;
-	  _wclasses[i].basic.instances[j].basic.normal_matrix[k][l] = 0;
-	}
+        if(k == l){
+          _wclasses[i].basic.instances[j].basic.rotation_x[k][l] = 1;
+          _wclasses[i].basic.instances[j].basic.rotation_y[k][l] = 1;
+          _wclasses[i].basic.instances[j].basic.rotation_z[k][l] = 1;
+          _wclasses[i].basic.instances[j].basic.rotation_total[k][l] = 1;
+          _wclasses[i].basic.instances[j].basic.translation[k][l] = 1;
+          _wclasses[i].basic.instances[j].basic.scale_matrix[k][l] = 1;
+          _wclasses[i].basic.instances[j].basic.model_matrix[k][l] = 1;
+          _wclasses[i].basic.instances[j].basic.model_view_matrix[k][l] = 1;
+          _wclasses[i].basic.instances[j].basic.normal_matrix[k][l] = 1;
+        }
+        else{
+          _wclasses[i].basic.instances[j].basic.rotation_x[k][l] = 0;
+          _wclasses[i].basic.instances[j].basic.rotation_y[k][l] = 0;
+          _wclasses[i].basic.instances[j].basic.rotation_z[k][l] = 0;
+          _wclasses[i].basic.instances[j].basic.rotation_total[k][l] = 0;
+          _wclasses[i].basic.instances[j].basic.translation[k][l] = 0;
+          _wclasses[i].basic.instances[j].basic.scale_matrix[k][l] = 0;
+          _wclasses[i].basic.instances[j].basic.model_matrix[k][l] = 0;
+          _wclasses[i].basic.instances[j].basic.model_view_matrix[k][l] = 0;
+          _wclasses[i].basic.instances[j].basic.normal_matrix[k][l] = 0;
+        }
       }
   }
   return &(_wclasses[i]);
@@ -404,11 +403,11 @@ union Wobject *_new_basic_object(union Wclass *wclass){
   if(wclass -> basic.number_of_objects < W_MAX_INSTANCES){
     for(i = 0; i < W_MAX_INSTANCES; i ++){
       if(wclass -> basic.instances[i].basic.type == W_NONE){
-	wclass -> basic.instances[i].basic.type = W_BASIC;
-	wclass -> basic.instances[i].basic.number = wclass ->
-	  basic.number_of_objects;
-	wclass -> basic.number_of_objects ++;
-	return &(wclass -> basic.instances[i]);
+        wclass -> basic.instances[i].basic.type = W_BASIC;
+        wclass -> basic.instances[i].basic.number = wclass ->
+          basic.number_of_objects;
+        wclass -> basic.number_of_objects ++;
+        return &(wclass -> basic.instances[i]);
       }
     }
     return NULL;
@@ -423,8 +422,8 @@ union Wobject *_new_basic_object(union Wclass *wclass){
     for(i = 0; i < W_MAX_INSTANCES; i ++){
       wclass -> basic.instances[i].basic.number --;
       if(wclass -> basic.instances[i].basic.number == -1)
-	wclass -> basic.instances[i].basic.number = W_MAX_INSTANCES - 1;
-	ptr = &(wclass -> basic.instances[i]);
+        wclass -> basic.instances[i].basic.number = W_MAX_INSTANCES - 1;
+        ptr = &(wclass -> basic.instances[i]);
     }
     ptr -> basic.x = 0;
     ptr -> basic.y = 0;
@@ -440,28 +439,28 @@ union Wobject *_new_basic_object(union Wclass *wclass){
     // Ininicializando as matrizes de rotação e translação:
     for(k = 0; k < 4; k ++)
       for(l = 0; l < 4; l ++){
-	if(k == l){
-	  ptr -> basic.rotation_x[k][l] = 1;
-	  ptr -> basic.rotation_y[k][l] = 1;
-	  ptr -> basic.rotation_z[k][l] = 1;
-	  ptr -> basic.rotation_total[k][l] = 1;
-	  ptr -> basic.translation[k][l] = 1;
-	  ptr -> basic.scale_matrix[k][l] = 1;
-	  ptr -> basic.model_matrix[k][l] = 1;
-	  ptr -> basic.normal_matrix[k][l] = 1;
-	  ptr -> basic.model_view_matrix[k][l] = 1;
-	}
-	else{
-	  ptr -> basic.rotation_x[k][l] = 0;
-	  ptr -> basic.rotation_y[k][l] = 0;
-	  ptr -> basic.rotation_z[k][l] = 0;
-	  ptr -> basic.rotation_total[k][l] = 0;
-	  ptr -> basic.translation[k][l] = 0;
-	  ptr -> basic.scale_matrix[k][l] = 0;
-	  ptr -> basic.model_view_matrix[k][l] = 0;
-	  ptr -> basic.model_matrix[k][l] = 0;
-	  ptr -> basic.normal_matrix[k][l] = 0;
-	}
+        if(k == l){
+          ptr -> basic.rotation_x[k][l] = 1;
+          ptr -> basic.rotation_y[k][l] = 1;
+          ptr -> basic.rotation_z[k][l] = 1;
+          ptr -> basic.rotation_total[k][l] = 1;
+          ptr -> basic.translation[k][l] = 1;
+          ptr -> basic.scale_matrix[k][l] = 1;
+          ptr -> basic.model_matrix[k][l] = 1;
+          ptr -> basic.normal_matrix[k][l] = 1;
+          ptr -> basic.model_view_matrix[k][l] = 1;
+        }
+        else{
+          ptr -> basic.rotation_x[k][l] = 0;
+          ptr -> basic.rotation_y[k][l] = 0;
+          ptr -> basic.rotation_z[k][l] = 0;
+          ptr -> basic.rotation_total[k][l] = 0;
+          ptr -> basic.translation[k][l] = 0;
+          ptr -> basic.scale_matrix[k][l] = 0;
+          ptr -> basic.model_view_matrix[k][l] = 0;
+          ptr -> basic.model_matrix[k][l] = 0;
+          ptr -> basic.normal_matrix[k][l] = 0;
+        }
       }
     return ptr;
   }
@@ -510,19 +509,19 @@ loop principal:
       continue;
     case W_BASIC:
       for(j = 0; j < W_MAX_INSTANCES; j ++){
-	if(_wclasses[i].basic.instances[j].basic.type == W_NONE)
-	  continue;
-	@<Transformação Linear de Objeto (i, j)@>@/
+        if(_wclasses[i].basic.instances[j].basic.type == W_NONE)
+          continue;
+        @<Transformação Linear de Objeto (i, j)@>@/
         glVertexAttribPointer(_shader_vPosition, 3, GL_FLOAT, GL_FALSE,
-			      6 * sizeof(float), (void *) 0);
-	glVertexAttribPointer(_shader_VertexNormal, 3, GL_FLOAT, GL_FALSE,
-			      6 * sizeof(float), (void *) (sizeof(float) * 3));
-	glEnableVertexAttribArray(_shader_vPosition);
-	glEnableVertexAttribArray(_shader_VertexNormal);
-	glBindVertexArray(_wclasses[i].basic._vertex_object);
-	/* Note que abaixo ignoramos o primeiro vértice. Seu valor não
-	   deve ser usado conforme mencionado na definição de classe: */
-	glDrawArrays(GL_POINTS, 1, _wclasses[i].basic.number_of_vertices);
+                              6 * sizeof(float), (void *) 0);
+        glVertexAttribPointer(_shader_VertexNormal, 3, GL_FLOAT, GL_FALSE,
+                              6 * sizeof(float), (void *) (sizeof(float) * 3));
+        glEnableVertexAttribArray(_shader_vPosition);
+        glEnableVertexAttribArray(_shader_VertexNormal);
+        glBindVertexArray(_wclasses[i].basic._vertex_object);
+        /* Note que abaixo ignoramos o primeiro vértice. Seu valor não
+           deve ser usado conforme mencionado na definição de classe: */
+        glDrawArrays(GL_POINTS, 1, _wclasses[i].basic.number_of_vertices);
       }
       continue;
       @<Desenho de Objetos no Loop Principal@>@/
@@ -549,25 +548,24 @@ podemos representar a transformação por meio da seguinte multiplicação
 de matrizes:
 
 $$
-\begin{bmatrix}
-    a & 0 & 0 & 0 \\
-    0 & b & 0 & 0 \\
-    0 & 0 & c & 0 \\
-    0 & 0 & 0 & 1 \\
-\end{bmatrix}
-\begin{bmatrix}
-  x\\
-  y\\
-  z\\
-  1\\
-\end{bmatrix} =
-\begin{bmatrix}
-  ax\\
-  by\\
-  cz\\
-  1\\
-\end{bmatrix}
+\left(\matrix{a & 0 & 0 & 0\cr
+              0 & b & 0 & 0\cr
+              0 & 0 & c & 0\cr
+              0 & 0 & 0 & 1\cr}\right)
 $$
+%\begin{bmatrix}
+%  x\\
+%  y\\
+%  z\\
+%  1\\
+%\end{bmatrix} =
+%\begin{bmatrix}
+%  ax\\
+%  by\\
+%  cz\\
+%  1\\
+%\end{bmatrix}
+%$$
 
 A matriz será o que será passada para a GPU para o cálculo.  Já os
 valores |scale_x|, |scale_y| e |scale_z| será mais útil para a
@@ -610,24 +608,24 @@ espaço cartesiano tridimensional, movendo-o $(a, b, c)$ posições,
 realizamos a seguinte multiplicação:
 
 $$
-\begin{bmatrix}
-    1 & 0 & 0 & a \\
-    0 & 1 & 0 & b \\
-    0 & 0 & 1 & c \\
-    0 & 0 & 0 & 1 \\
-\end{bmatrix}
-\begin{bmatrix}
-  x\\
-  y\\
-  z\\
-  1\\
-\end{bmatrix} =
-\begin{bmatrix}
-  x+a\\
-  y+b\\
-  z+c\\
-  1\\
-\end{bmatrix}
+%\begin{bmatrix}
+%    1 & 0 & 0 & a \\
+%    0 & 1 & 0 & b \\
+%    0 & 0 & 1 & c \\
+%    0 & 0 & 0 & 1 \\
+%\end{bmatrix}
+%\begin{bmatrix}
+%  x\\
+%  y\\
+%  z\\
+%  1\\
+%\end{bmatrix} =
+%\begin{bmatrix}
+%  x+a\\
+%  y+b\\
+%  z+c\\
+%  1\\
+%\end{bmatrix}
 $$
 
 Como nós armazenamos esta matriz $4\times 4$, nem mesmo seria
@@ -662,71 +660,71 @@ e $z$. Como o objeto já está inicialmente centralizado em $(0, 0, 0)$,
 a matriz para rotacioná-lo em um ângulo $\theta$ no eixo $x$ é:
 
 $$
-\begin{bmatrix}
-    1 & 0 & 0 & 0\\
-    0 & cos\theta & -sin\theta & 0\\
-    0 & sin\theta & cos\theta & 0\\
-    0 & 0 & 0 & 1\\
-\end{bmatrix}
-\begin{bmatrix}
-  x\\
-  y\\
-  z\\
-  1\\
-\end{bmatrix} =
-\begin{bmatrix}
-  x\\
-  y\ cos\theta - z\ sin\theta\\
-  y\ sin\theta + z\ cos\theta\\
-  1\\
-\end{bmatrix}
+%\begin{bmatrix}
+%    1 & 0 & 0 & 0\\
+%    0 & cos\theta & -sin\theta & 0\\
+%    0 & sin\theta & cos\theta & 0\\
+%    0 & 0 & 0 & 1\\
+%\end{bmatrix}
+%\begin{bmatrix}
+%  x\\
+%  y\\
+%  z\\
+%  1\\
+%\end{bmatrix} =
+%\begin{bmatrix}
+%  x\\
+%  y\ cos\theta - z\ sin\theta\\
+%  y\ sin\theta + z\ cos\theta\\
+%  1\\
+%\end{bmatrix}
 $$
 
 E no eixo $y$:
 
 $$
-\begin{bmatrix}
-    cos\theta & 0 & sin\theta & 0\\
-    0 & 1 & 0 & 0\\
-    -sin\theta & 0 & cos\theta & 0\\
-    0 & 0 & 0 & 1\\
-\end{bmatrix}
-\begin{bmatrix}
-  x\\
-  y\\
-  z\\
-  1\\
-\end{bmatrix} =
-\begin{bmatrix}
-  x\ cos\theta + z\ sin\theta\\
-  y\\
-  -x\ sin\theta + z\ cos\theta\\
-  1\\
-\end{bmatrix}
+%\begin{bmatrix}
+%    cos\theta & 0 & sin\theta & 0\\
+%    0 & 1 & 0 & 0\\
+%    -sin\theta & 0 & cos\theta & 0\\
+%    0 & 0 & 0 & 1\\
+%\end{bmatrix}
+%\begin{bmatrix}
+%  x\\
+%  y\\
+%  z\\
+%  1\\
+%\end{bmatrix} =
+%\begin{bmatrix}
+%  x\ cos\theta + z\ sin\theta\\
+%  y\\
+%  -x\ sin\theta + z\ cos\theta\\
+%  1\\
+%\end{bmatrix}
 $$
 
 E finalmente, no eixo $z$:
 
-$$
-\begin{bmatrix}
-    cos\theta & -sin\theta & 0 & 0\\
-    sin\theta & cos\theta & 0 & 0\\
-    0 & 0 & 1 & 0\\
-    0 & 0 & 0 & 1\\
-\end{bmatrix}
-\begin{bmatrix}
-  x\\
-  y\\
-  z\\
-  1\\
-\end{bmatrix} =
-\begin{bmatrix}
-  x\ cos\theta - y\ sin\theta\\
-  x\ sin\theta + y\ cos\theta\\
-  z\\
-  1\\
-\end{bmatrix}
-$$
+%$$
+%\begin{bmatrix}
+%    cos\theta & -sin\theta & 0 & 0\\
+%    sin\theta & cos\theta & 0 & 0\\
+%    0 & 0 & 1 & 0\\
+%    0 & 0 & 0 & 1\\
+%\end{bmatrix}
+%\begin{bmatrix}
+%  x\\
+%  y\\
+%  z\\
+%  1\\
+%\end{bmatrix} =
+%\begin{bmatrix}
+%  x\ cos\theta - y\ sin\theta\\
+%  x\ sin\theta + y\ cos\theta\\
+%  z\\
+%  1\\
+%\end{bmatrix}
+%$$
 
 E para modificarmos estas matrizes, podemos então definir a função
 |Wrotate|, análoga à |Wtranslate|:
@@ -762,10 +760,10 @@ void Wrotate(union Wobject *wobj, float x, float y, float z){
   }
   // Multiplicamos agora as matrizes. Primeiro a rotação X pela Y:
   _matrix_multiplication4x4(wobj -> basic.rotation_x, wobj -> basic.rotation_y,
-			    aux);
+                            aux);
   // E depois multiplicamos o resultado por Z:
   _matrix_multiplication4x4(aux, wobj -> basic.rotation_z,
-			    wobj -> basic.rotation_total);
+                            wobj -> basic.rotation_total);
   // Por fim, atualizamos a matriz de modelo:
   _regenerate_model_matrix(wobj);
 }
@@ -807,11 +805,11 @@ void _regenerate_model_matrix(union Wobject *wobj);
 void _regenerate_model_matrix(union Wobject *wobj){
   float aux[4][4];
   _matrix_multiplication4x4(wobj -> basic.translation,
-			    wobj -> basic.rotation_total,			    
-			    aux);
+                            wobj -> basic.rotation_total,                            
+                            aux);
   _matrix_multiplication4x4(aux,
-			    wobj -> basic.scale_matrix,			    
-			    wobj -> basic.model_matrix);
+                            wobj -> basic.scale_matrix,                            
+                            wobj -> basic.model_matrix);
   _regenerate_model_view_matrix(wobj);
 }
 @
@@ -934,20 +932,20 @@ void _initialize_camera(void){
   for(i = 0; i < 4; i ++)
     for(j = 0; j < 4; j ++)
       if(i == j){
-	_camera_translation[i][j] = 1.0;
-	_camera_rotation_x[i][j] = 1.0;
-	_camera_rotation_y[i][j] = 1.0;
-	_camera_rotation_z[i][j] = 1.0;
-	_camera_rotation_total[i][j] = 1.0;
-	_view_matrix[i][j] = 1.0;
+        _camera_translation[i][j] = 1.0;
+        _camera_rotation_x[i][j] = 1.0;
+        _camera_rotation_y[i][j] = 1.0;
+        _camera_rotation_z[i][j] = 1.0;
+        _camera_rotation_total[i][j] = 1.0;
+        _view_matrix[i][j] = 1.0;
       }
       else{
-	_camera_translation[i][j] = 0.0;
-	_camera_rotation_x[i][j] = 0.0;
-	_camera_rotation_y[i][j] = 0.0;
-	_camera_rotation_z[i][j] = 0.0;
-	_camera_rotation_total[i][j] = 0.0;
-	_view_matrix[i][j] = 0.0;
+        _camera_translation[i][j] = 0.0;
+        _camera_rotation_x[i][j] = 0.0;
+        _camera_rotation_y[i][j] = 0.0;
+        _camera_rotation_z[i][j] = 0.0;
+        _camera_rotation_total[i][j] = 0.0;
+        _view_matrix[i][j] = 0.0;
       }
 }
 @
@@ -1047,8 +1045,8 @@ void _regenerate_view_matrix(void);
 void _regenerate_view_matrix(void){
   int i, j;
   _matrix_multiplication4x4(_camera_translation,
-			    _camera_rotation_total,
-			    _view_matrix);
+                            _camera_rotation_total,
+                            _view_matrix);
   for(i = 0; i < W_MAX_CLASSES; i ++)
     for(j =0; j < W_MAX_INSTANCES; j ++)
       _regenerate_model_view_matrix(&_wclasses[i].basic.instances[j]);
@@ -1071,8 +1069,8 @@ void _regenerate_model_view_matrix(union Wobject *wobj);
 void _regenerate_model_view_matrix(union Wobject *wobj){
   int i, j;
   _matrix_multiplication4x4(_view_matrix,
-			    wobj -> basic.model_matrix,
-			    wobj -> basic.model_view_matrix);
+                            wobj -> basic.model_matrix,
+                            wobj -> basic.model_view_matrix);
   for(i = 0; i < 4; i ++)
     for(j = 0; j < 4; j ++)
       wobj -> basic.normal_matrix[i][j] = wobj -> basic.model_view_matrix[i][j];
@@ -1095,7 +1093,7 @@ visão humana fazendo com que objetos mais distantes pareçam
 menores. Alguns jogos, por outro lado, baseiam-se em uma projeção
 ortográfica, onde objetos mais distantes não ficam menores (Sim City,
 por exemplo). Podem haver muitas outras formas de projeção para criar
-diferentes tipos de efeitos visuais. O jogo \textbf{Animal Crossing:
+diferentes tipos de efeitos visuais. O jogo \negrito{Animal Crossing:
   New Leaf}, por exemplo, possui uma projeção peculiar que faz com que
 o espaço em si tenha uma curvatura cilíndrica.
 
@@ -1134,35 +1132,35 @@ distância que a câmera pode captar (|W_FAR_PLANE|, ou $Z_{far}$) e
 também o tamanho máximo que um quadrado deve ter para ser visto por
 inteiro quando está na menor distância possível da câmera
 (|W_CAMERA_SIZE|, ou $n$). Estes três valores devem estar definidos e
-ser configurados no \texttt{conf/conf.h}.
+ser configurados no \monoespaco{conf/conf.h}.
 
 Tendo tais valores, o método de se obter a projeção em perspectiva é
 multiplicando os vetores pela seguinte matriz:
 
 $$
-\begin{bmatrix}
-    \frac{Z_{near}}{n / 2} & 0 & 0 & 0\\
-    0 & \frac{Z_{near}}{n / 2} & 0 & 0\\
-    0 & 0 & -\frac{Z_{far} + Z_{near}}{Z_{far} - Z_{near}} &
-    \frac{-2Z_{far}Z_{near}}{Z_{far} - Z_{near}}\\
-    0 & 0 & -1 & 0\\
-\end{bmatrix}
+%\begin{bmatrix}
+%    \frac{Z_{near}}{n / 2} & 0 & 0 & 0\\
+%    0 & \frac{Z_{near}}{n / 2} & 0 & 0\\
+%    0 & 0 & -\frac{Z_{far} + Z_{near}}{Z_{far} - Z_{near}} &
+%    \frac{-2Z_{far}Z_{near}}{Z_{far} - Z_{near}}\\
+%    0 & 0 & -1 & 0\\
+%\end{bmatrix}
 $$
 
 E para obtermos uma projeção ortográfica, usamos a seguinte matriz:
 
 $$
-\begin{bmatrix}
-    \frac{1}{n / 2} & 0 & 0 & 0\\
-    0 & \frac{1}{n / 2} & 0 & 0\\
-    0 & 0 & -\frac{1}{2(Z_{far} - Z_{near})} &
-    -\frac{Z_{far}+Z_{near}}{Z_{far} - Z_{near}}\\
-    0 & 0 & 0 & 1\\
-\end{bmatrix}
+%\begin{bmatrix}
+%    \frac{1}{n / 2} & 0 & 0 & 0\\
+%    0 & \frac{1}{n / 2} & 0 & 0\\
+%    0 & 0 & -\frac{1}{2(Z_{far} - Z_{near})} &
+%    -\frac{Z_{far}+Z_{near}}{Z_{far} - Z_{near}}\\
+%    0 & 0 & 0 & 1\\
+%\end{bmatrix}
 $$
 
 Qual destas matrizes iremos usar? Isso também é algo que deve ser
-configurável no \texttt{conf/conf.h}. Vamos definir um significado
+configurável no \monoespaco{conf/conf.h}. Vamos definir um significado
 para as macros |W_PERSPECTIVE| e |W_ORTHOGONAL| que poderão ser usadas
 neste arquivo:
 
@@ -1172,7 +1170,7 @@ neste arquivo:
 @
 
 Ambos os valores podem ser definidos para a macro |W_PROJECTION| no
-\texttt{conf/conf.h}
+\monoespaco{conf/conf.h}
 
 Como a matriz de projeção é inicializada só no começo do programa e
 nunca mais é mudada, vamos declará-la como estática no mesmo arquivo
@@ -1236,7 +1234,7 @@ armazenar a localização de tal matriz dentro do shader:
   GLuint _shader_projection_address;
   float *ptr = (float *) &_projection_matrix;
   _shader_projection_address = glGetUniformLocation(_program,
-						     "Wprojection_matrix");
+                                                     "Wprojection_matrix");
   glUniformMatrix4fv(_shader_projection_address, 1, GL_FALSE, ptr);
 }
 @
@@ -1285,17 +1283,17 @@ para tal arquivo:
 
 @<Funções Auxiliares: Declaração@>=
 void _matrix_multiplication4x4(float a[4][4], float b[4][4],
-			       float result[4][4]);
+                               float result[4][4]);
 @
 @<Funções Auxiliares: Definição@>=
 void _matrix_multiplication4x4(float a[4][4], float b[4][4],
-			       float result[4][4]){
+                               float result[4][4]){
   int i, j, k;
   for(i = 0; i < 4; i ++)
     for(j = 0; j < 4; j ++){
       result[i][j] = 0;
       for(k = 0; k < 4; k ++){
-	result[i][j] += a[i][k] * b[k][j];
+        result[i][j] += a[i][k] * b[k][j];
       }
     }
 }
@@ -1324,7 +1322,7 @@ void _matrix_inverse4x4(float m[4][4]){
 
   multiplier = 1.0/_matrix_determinant4x4(m);
 
-  /*m[0][0] = aux[1][1] * aux[2][2] * aux[3][3] +
+  m[0][0] = aux[1][1] * aux[2][2] * aux[3][3] +
     aux[1][2] * aux[2][3] * aux[3][1] + aux[1][3] * aux[2][1] * aux[3][2];
   m[0][0] -=  aux[1][1] * aux[2][3] * aux[3][2] -
     aux[1][2] * aux[2][1] * aux[3][3] - aux[1][3] * aux[2][2] * aux[3][1];
@@ -1390,7 +1388,7 @@ void _matrix_inverse4x4(float m[4][4]){
     aux[0][2] * aux[1][1] * aux[2][0];
   for(i = 0; i < 4; i ++)
     for(j = 0; j < 4; j ++)
-    m[i][j] *= multiplier;*/
+    m[i][j] *= multiplier;
 }
 @
 
@@ -1452,6 +1450,5 @@ void _matrix_transpose4x4(float m[4][4]){
   for(i = 0; i < 4; i ++)
     for(j = 0; j < 4; j ++)
       m[i][j] = aux[j][i];
-
 }
 @
