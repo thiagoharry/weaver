@@ -483,7 +483,7 @@ void _assert__breakpoint(struct _breakpoint *breakpoint){
             "ERROR (1): Probable buffer overflow. We can't guarantee a "
             "reliable error message in this case. But the "
             "data where the buffer overflow happened may be "
-            "the place allocated at %s:%d or before.\n",
+            "the place allocated at %s:%lu or before.\n",
             ((struct _breakpoint *)
               breakpoint -> last_element) -> file,
             ((struct _breakpoint *)
@@ -628,7 +628,7 @@ void _assert__memory_header(struct _memory_header *mem){
             "ERROR (1): Probable buffer overflow. We can't guarantee a "
             "reliable error message in this case. But the "
             "data where the buffer overflow happened may be "
-            "the place allocated at %s:%d or before.\n",
+            "the place allocated at %s:%lu or before.\n",
             ((struct _memory_header *)
               mem -> last_element) -> file,
             ((struct _memory_header *)
@@ -639,7 +639,7 @@ void _assert__memory_header(struct _memory_header *mem){
   if(mem -> real_size < mem -> requested_size){
     fprintf(stderr,
             "ERROR (4): MEMORY: Allocated less memory than requested in "
-            "data allocated in %s:%d.\n", mem -> file, mem -> line);
+            "data allocated in %s:%lu.\n", mem -> file, mem -> line);
     exit(1);
   }
 #endif

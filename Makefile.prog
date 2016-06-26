@@ -8,7 +8,7 @@ LINK=-lm
 
 main-prog:
 	@echo -n "Compiling...................."
-	${TANGLE} cweb/weaver.w > .log || (/bin/echo -e "\033[31mFAILED\033[m" && cat .log && false)
+	${TANGLE} cweb/weaver.w 
 	rm weaver.c
 	${CC} ${FLAGS} src/weaver.c -o bin/weaver > /dev/null
 	echo "OK"
