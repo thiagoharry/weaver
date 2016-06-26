@@ -278,18 +278,17 @@ multiplicadores:
 @<API Weaver: Inicialização@>+=
 {
   _horizontal_multiplier = glGetUniformLocation(_program,
-						"Whorizontal_multiplier");
+                                                "Whorizontal_multiplier");
   if(W_width > W_height)
     glUniform1f(_horizontal_multiplier, ((float) W_height / (float) W_width));
   else
     glUniform1f(_horizontal_multiplier, 1.0);
   _vertical_multiplier = glGetUniformLocation(_program,
-					      "Wvertical_multiplier");
+                                              "Wvertical_multiplier");
   if(W_height > W_width)
     glUniform1f(_vertical_multiplier, ((float) W_width / (float) W_height));
   else
     glUniform1f(_vertical_multiplier, 1.0);
-
 }
 @
 
@@ -376,9 +375,9 @@ intensidade máxima.
   Wambient_light.g = 0.5;
   Wambient_light.b = 0.5;
   Wambient_light._shader_variable = glGetUniformLocation(_program,
-							 "Wambient_light");
+                                                         "Wambient_light");
   glUniform3f(Wambient_light._shader_variable, Wambient_light.r,
-	      Wambient_light.g, Wambient_light.b);
+              Wambient_light.g, Wambient_light.b);
 }
 @
 
@@ -395,7 +394,7 @@ void Wset_ambient_light_color(float r, float g, float b){
   Wambient_light.g = g;
   Wambient_light.b = b;
   glUniform3f(Wambient_light._shader_variable, Wambient_light.r,
-	      Wambient_light.g, Wambient_light.b);  
+              Wambient_light.g, Wambient_light.b);  
 }
 @
 
@@ -500,14 +499,13 @@ uma direção padrão:
   Wdirectional_light.y = 0.5;
   Wdirectional_light.z = -1.0;
   Wdirectional_light._shader_variable = glGetUniformLocation(_program,
-							 "Wdirectional_light");
+                                                         "Wdirectional_light");
   glUniform3f(Wdirectional_light._shader_variable, Wdirectional_light.r,
-	      Wdirectional_light.g, Wdirectional_light.b);
+              Wdirectional_light.g, Wdirectional_light.b);
   Wdirectional_light._direction_variable = glGetUniformLocation(_program,
-								"Wlight_direction");
+                                                            "Wlight_direction");
   glUniform3f(Wdirectional_light._direction_variable, Wdirectional_light.x,
-	      Wdirectional_light.y, Wdirectional_light.z);
-
+              Wdirectional_light.y, Wdirectional_light.z);
 }
 @
 
@@ -524,7 +522,7 @@ void Wset_directional_light_color(float r, float g, float b){
   Wdirectional_light.g = g;
   Wdirectional_light.b = b;
   glUniform3f(Wdirectional_light._shader_variable, Wdirectional_light.r,
-	      Wdirectional_light.g, Wdirectional_light.b);  
+              Wdirectional_light.g, Wdirectional_light.b);  
 }
 @
 
@@ -541,7 +539,7 @@ void Wset_directional_light_direction(float x, float y, float z){
   Wdirectional_light.y = y;
   Wdirectional_light.z = z;
   glUniform3f(Wdirectional_light._direction_variable, Wdirectional_light.x,
-	      Wdirectional_light.y, Wdirectional_light.z);  
+              Wdirectional_light.y, Wdirectional_light.z);  
 }
 @
 
@@ -564,5 +562,5 @@ ambiente:
 
 @<Shader de Fragmento: Modelo Clássico de Iluminação@>+=
   gl_FragColor += vec4(directional_light * Wdirectional_light,
-		       0.0);
+                       0.0);
 @
