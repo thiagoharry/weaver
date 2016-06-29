@@ -973,15 +973,32 @@ desalocando a última memória alocada ou não. No primeiro caso, tudo é
 uma questão de atualizar o cabeçalho da arena modificando o valor do
 último elemento armazenado e também um ponteiro pra o próximo espaço
 vazio. No segundo caso, tudo o que fazemos é marcar o elemento para
-ser desalocado no futuro.
+ser desalocado no futuro sem desalocá-lo de verdade no momento.
 
-Caso o elemento realmente seja desalocado (seja o último elemento
-alocado), temos que percorrer os elementos anteriores desalocando
-todos aqueles que foram marcados para desalocar e parar no primeiro
-elemento que ainda estiver em uso.
+Não podemos desalocar sempre porque nosso espaço de memória é uma
+pilha. Os elementos só podem ser desalocados de verdade na ordem
+inversa em que são alocados. Quando isso não ocorre, a memória começa
+a se fragmentar ficando com buracos internos que não podem ser usados
+até que os elementos que vem depois não sejam também desalocados.
+
+Isso pode parecer ruim, mas se a memória do projeto for bem-gerenciada
+pelo programador, não chegará a ser um problema e ficamos com um
+gerenciamento mais rápido. Para os casos em que não conseguimos
+garantir desalocações na ordem, podemos também escrever uma função
+para desfragmentar a memória que poderia ser invocada em momentos
+não-críticos, talvez antes de carregar um novo cenário.
+
+Se nós realmente desalocamos a memória, pode ser que antes dela
+encontremos regiões que já foram marcadas para ser desalocadas, mas
+ainda não foram. É neste momento em que realmente as desalocamos
+eliminando a fragmentação naquela parte.
 
 @(project/src/weaver/memory.c@>+=
+#if W_DEBUG_LEVEL >= 1
 void _free(void *mem, char *filename, unsigned long line){
+#else
+void _free(void *mem){
+#endif
   struct _memory_header *mem_header = ((struct _memory_header *) mem) - 1;
   struct _arena_header *arena = mem_header -> arena;
   void *last_freed_element;
@@ -990,14 +1007,16 @@ void _free(void *mem, char *filename, unsigned long line){
   pthread_mutex_lock(&(arena -> mutex));
 #endif
   // Primeiro checamos se não estamos desalocando a ultima memória. Se
-  // é a ultima memória, precisamos manter o mutex ativo para impedir
-  // que hajam novas escritas na memória depois dela no momento:
+  // não é a ultima memória, não precisamos manter o mutex ativo e
+  // apenas marcamos o dado presente para ser desalocado no futuro.
   if((struct _memory_header *) arena -> last_element != mem_header){
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&(arena -> mutex));
 #endif
     mem_header -> flags = 0x0;
 #if W_DEBUG_LEVEL >= 2
+  // Pode ser que tenhamos que imprimir um aviso de depuração acusando
+  // desalocação na ordem errada:
     fprintf(stderr,
             "WARNING (2): %s:%lu: Memory allocated in %s:%lu should be"
             " freed first.\n", filename, line,
@@ -1006,14 +1025,20 @@ void _free(void *mem, char *filename, unsigned long line){
 #endif
     return;
   }
+  // Se estamos aqui, esta é uma desalocação verdadeira. Calculamos
+  // quanto espaço iremos liberar:
   memory_freed = mem_header -> real_size + sizeof(struct _memory_header);
   last_freed_element = mem_header;
   mem_header = mem_header -> last_element;
+  // E também levamos em conta que podemos desalocar outras coisas que
+  // tinham sido marcadas para ser desalocadas:
   while(mem_header -> type != _BREAKPOINT_T && mem_header -> flags == 0x0){
     memory_freed += mem_header -> real_size + sizeof(struct _memory_header);
     last_freed_element = mem_header;
     mem_header = mem_header -> last_element;
   }
+  // Terminando de obter o tamanho total a ser desalocado e obter
+  // novos valores para ponteiros, atualizamos o cabeçalho da arena:
   arena -> last_element = mem_header;
   arena -> empty_position = last_freed_element;
   arena -> used -= memory_freed;
@@ -1021,13 +1046,6 @@ void _free(void *mem, char *filename, unsigned long line){
   pthread_mutex_unlock(&(arena -> mutex));
 #endif
 }
-@
-
-E agora a macro que automatiza a obtenção do nome de arquivo e
-número de linha:
-
-@<Declarações de Memória@>+=
-#define Wfree(a) _free(a, __FILE__, __LINE__)
 @
 
 @*1 Usando a heap descartável.
