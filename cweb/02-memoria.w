@@ -864,33 +864,56 @@ int Wdestroy_arena(void *arena){
 
 @*1 Alocação e desalocação de memória.
 
+Agora chegamos à parte mais usada de um gerenciador de memórias. A
+alocação e desalocação. Para isso usaremos duas funções. A função de
+alocação deve receber um ponteiro para a arena onde iremos alocar e
+qual o tamanho a ser alocado.  A função de desalocação só precisa
+receber o ponteiro da região a ser desalocada. Todas as outras
+informações poderão ser encontradas no cabeçalho que precede a região
+onde estão os dados alocados. Dependendo do nível de depuração, ambas
+as funções precisam também saber de que arquivo e número de linha
+estão sendo invocadas:
+
 @<Declarações de Memória@>+=
-void *_alloc(void *arena, size_t size, char *filename, unsigned long line);
-void _free(void *mem, char *filename, unsigned long line);
+#if W_DEBUG_LEVEL >= 1
+  void *_alloc(void *arena, size_t size, char *filename, unsigned long line);
+  void _free(void *mem, char *filename, unsigned long line);
+#define Walloc_arena(a, b) _alloc(a, b, __FILE__, __LINE__)
+#else
+  void *_alloc(void *arena, size_t size);
+  void _free(void *mem);
+#define Walloc_arena(a, b) _alloc(a, b)
+#endif
 @
 
-Alocar memória significa basicamente atualizar informações no
-cabeçalho de sua arena indicando quanto de memória estamos pegando e
-atualizando o ponteiro para o último elemento e para o próximo espaço
-disponível para alocação. Podemos também ter que atualizar qual a
-quantidade máxima de memória usada por tal arena. E podemos precisar
-usar um mutex para isso.
+Ao alocar memória, precisamos ter a preocupação de manter um
+alinhamento de bytes para não prejudicar o desempenho. Por causa
+disso, às vezes precisamos alocar mais que o pedido. Por exemplo, se o
+usuário pede para alocar somente 1 byte, podemos precisar alocar 3
+bytes adicionais além dele só para maner o alinhamento de 4 bytes de
+dados. O tamanho que usamos como referência para o alinhamento é o
+tamanho de um |long|. Sempre alocamos valores múltiplos de um |long|
+que sejam suficientes para conter a quantidade de bytes pedida.
 
-Além do cabeçalho da arena, temos também que colocar o cabeçalho da
-região alocada e o seu rodapé. Mas nesta parte não precisaremos mais
-segurar o mutex.
+Se estamos trabalhando com múltiplas threads, precisamos também
+garantir que o mutex da arena em que estamos seja bloqueado. pois
+temos que mudar valores da arena para indicar que estamos ocupando
+mais espaço nela.
 
-Podemos ter que alocar uma quantidade ligeiramente maior que a pedida
-para preservarmos o alinhamento dos dados na memória. A memória sempre
-se manterá alinhada com um |long|. O verdadeiro tamanho alocado será
-armazenado em |real_size|.
-
-O que pode dar errado é que podemos não ter espaço na arena para fazer
-a alocação. Neste caso, teremos que retornar |NULL| e se estivermos em
-fase de depuração, imprimiremos uma mensagem avisando isso:
+Por fim, se tudo deu certo basta preenchermos o cabeçalho da região de
+dados da arena que estamos criando. E ao retornar, retornaremos um
+ponteiro para o início da região que o usuário pode usar para
+armazenamento (e não da região de cabeçalho que vem imediatamente
+anes). Se alguma coisa falhar (pode não haver mais espaço suficiente
+na arena) precisamos retornar NULL e dependendo do nível de depuração,
+imprimimos uma mensagem de aviso.
 
 @(project/src/weaver/memory.c@>+=
+#if W_DEBUG_LEVEL >= 1
 void *_alloc(void *arena, size_t size, char *filename, unsigned long line){
+#else
+void *_alloc(void *arena, size_t size){
+#endif
   struct _arena_header *header = arena;
   struct _memory_header *mem_header;
   void *mem = NULL, *old_last_element;
@@ -899,12 +922,12 @@ void *_alloc(void *arena, size_t size, char *filename, unsigned long line){
 #endif
   mem_header = header -> empty_position;
   old_last_element = header -> last_element;
-  //Parte 1: Calcular o verdadeiro tamanho a se alocar:
+  // Calcular o verdadeiro tamanho múltiplo de 'long' a se alocar:
   size_t real_size = (size_t) (ceil((float) size / (float) sizeof(long)) *
                                sizeof(long));
-  //Parte 2: Atualizar o cabeçalho da arena:
   if(header -> used + real_size + sizeof(struct _memory_header) > 
      header -> total){
+    // Chegamos aqui neste 'if' se não há memória suficiente
 #if W_DEBUG_LEVEL >= 1
     fprintf(stderr, "WARNING (1): No memory enough to allocate in %s:%lu.\n",
       filename, line);
@@ -914,17 +937,20 @@ void *_alloc(void *arena, size_t size, char *filename, unsigned long line){
 #endif
     return NULL;
   }
+  // Atualizando o cabeçalho da arena
   header -> used += real_size + sizeof(struct _memory_header);
   mem = (void *) ((char *) header -> empty_position +
                   sizeof(struct _memory_header));
   header -> last_element = header -> empty_position;
   header -> empty_position = (void *) ((char *) mem + real_size);
 #if W_DEBUG_LEVEL >= 3
-  if(header -> used > header -> max_used){
+  // Se estamos tomando nota do máximo de memória que usamos:
+  if(header -> used > header -> max_used)
     header -> max_used = header -> used;
-  }
 #endif
-  //Parte 3: Preencher o cabeçalho do dado a ser alocado:
+  // Preenchendo o cabeçalho do dado a ser alocado. Este cabeçalho
+  // fica imediatamente antes do local cujo ponteiro retornamos para o
+  // usuário usar:
   mem_header -> type = _DATA_T;
   mem_header -> last_element = old_last_element;
   mem_header -> real_size = real_size;
@@ -940,15 +966,6 @@ void *_alloc(void *arena, size_t size, char *filename, unsigned long line){
 #endif
   return mem;
 }
-@
-
-
-E agora precisamos só de uma função de macro para cuidar
-automaticamente da tarefa de coletar o nome de arquivo e número de
-linha para mensagens de depuração:
-
-@<Declarações de Memória@>+=
-#define Walloc_arena(a, b) _alloc(a, b, __FILE__, __LINE__)
 @
 
 Para desalocar a memória, existem duas possibilidades. Podemos estar
