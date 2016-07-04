@@ -988,6 +988,7 @@ void *_alloc(void *arena, size_t size){
 #if W_DEBUG_LEVEL >= 1
   strncpy(mem_header -> file, filename, 32);
   mem_header -> line = line;
+  _assert__memory_header(mem_header);
 #endif
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&(header -> mutex));
@@ -1033,6 +1034,9 @@ void _free(void *mem){
   size_t memory_freed = 0;
 #if W_DEBUG_LEVEL >= 4
     _assert__arena_header(arena);
+#endif
+#if W_DEBUG_LEVEL >= 1
+    _assert__memory_header(mem_header);
 #endif
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(arena -> mutex));
@@ -1143,6 +1147,9 @@ int _new_breakpoint(void *arena, char *filename, unsigned long line){
   strncpy(breakpoint -> file, filename, 32);
   breakpoint -> line = line;
 #endif
+#if W_DEBUG_LEVEL >= 4
+  _assert__breakpoint(breakpoint);
+#endif
   return 1;
 }
 
@@ -1156,6 +1163,7 @@ void _trash(void *arena){
     ((struct _breakpoint *) header -> last_breakpoint) -> last_breakpoint;
 #if W_DEBUG_LEVEL >= 4
     _assert__arena_header(arena);
+    _assert__breakpoint(header -> last_breakpoint);
 #endif
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(header -> mutex));
