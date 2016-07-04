@@ -203,6 +203,26 @@ removidos. O primeiro \italico{breakpoint} é útil para que o comando
 |Wtrash| sempre funcione e seja definido, pois sempre existirá um
 último \italico{breakpoint}.
 
+A memória pode ser vista de três formas diferentes:
+
+1) Como uma pilha que cresce da última alocação até a região
+não-alocada. Sempre que uma nova alocação é feita, ela será colocada
+imediatamente após a última alocação feita. Se memória for desalocada,
+caso a memória em questão esteja no fim da pilha, ela será
+efetivamente liberada. Caso contrário, será marcada para ser removida
+depois, o que infelizmente pode gerar fragmentação se o usuário não
+tomar cuidado.
+
+2) Como uma lista duplamente encadeada. Cada \italico{breakpoint} e
+região alocada terá ponteiros para a próxima região e para a região
+anterior (ou para |NULL|). Desta forma, pode-se percorrer rapidamente
+em uma iteração todos os elementos da memória.
+
+3) Como uma árvore. Cada elemento terá um ponteiro para o
+último \italico{breakpoint}. Desta forma, caso queiramos descartar a
+memória alocada até encontrarmos o último \italico{breakpoint},
+podemos consultar este ponteiro.
+
 @*2 Cabeçalho da Arena.
 
 O cabeçalho conterá todas as informações que precisamos para usar a
@@ -608,9 +628,6 @@ finalização. No caso do cabeçalho, precisamos dos seguintes elementos:
 \macronome \negrito{Linha:} Opcional para depuração. O número da linha onde
   esta região da memória foi alocada.
 
-%As seguintes restrições sempre são válidas para tais dados: $tipo =
-%0{\times}10101010$, $tamanho\_pedido \leq tamanho\_real$.
-
 A definição de nosso cabeçalho de dados é:
 
 @<Declarações de Memória@>+=
@@ -745,6 +762,9 @@ void *_Wcreate_arena(size_t size){
     // Preenchendo o primeiro breakpoint
     breakpoint = ((struct _arena_header *) arena) -> last_breakpoint;
     _initialize_first_breakpoint(breakpoint, (struct _arena_header *) arena);
+#if W_DEBUG_LEVEL >= 4
+    _assert__arena_header(arena);
+#endif
   }
   return arena;
 }
@@ -840,6 +860,9 @@ int Wdestroy_arena(void *arena){
 #if W_DEBUG_LEVEL >= 1
   _assert_no_memory_leak(arena);
 #endif
+#if W_DEBUG_LEVEL >= 4
+    _assert__arena_header(arena);
+#endif
 #if W_DEBUG_LEVEL >= 3
   fprintf(stderr,
           "WARNING (3): Max memory used in arena %s:%lu: %lu/%lu\n",
@@ -917,6 +940,9 @@ void *_alloc(void *arena, size_t size){
   struct _arena_header *header = arena;
   struct _memory_header *mem_header;
   void *mem = NULL, *old_last_element;
+#if W_DEBUG_LEVEL >= 4
+    _assert__arena_header(arena);
+#endif
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(header -> mutex));
 #endif
@@ -1003,6 +1029,9 @@ void _free(void *mem){
   struct _arena_header *arena = mem_header -> arena;
   void *last_freed_element;
   size_t memory_freed = 0;
+#if W_DEBUG_LEVEL >= 4
+    _assert__arena_header(arena);
+#endif
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(arena -> mutex));
 #endif
@@ -1070,6 +1099,9 @@ int _new_breakpoint(void *arena, char *filename, unsigned long line){
   struct _breakpoint *breakpoint, *old_breakpoint;
   void *old_last_element;
   size_t old_size;
+#if W_DEBUG_LEVEL >= 4
+    _assert__arena_header(arena);
+#endif
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(header -> mutex));
 #endif
@@ -1120,6 +1152,9 @@ void _trash(void *arena){
   struct _arena_header *header = (struct _arena_header *) arena;
   struct _breakpoint *previous_breakpoint =
     ((struct _breakpoint *) header -> last_breakpoint) -> last_breakpoint;
+#if W_DEBUG_LEVEL >= 4
+    _assert__arena_header(arena);
+#endif
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(header -> mutex));
 #endif
