@@ -902,12 +902,12 @@ estão sendo invocadas:
   void *_alloc(void *arena, size_t size, char *filename, unsigned long line);
   void _free(void *mem, char *filename, unsigned long line);
 #define Walloc_arena(a, b) _alloc(a, b, __FILE__, __LINE__)
-#define Wfree _free(a, __FILE__, __LINE__)
+#define Wfree(a) _free(a, __FILE__, __LINE__)
 #else
   void *_alloc(void *arena, size_t size);
   void _free(void *mem);
 #define Walloc_arena(a, b) _alloc(a, b)
-#define Wfree _free(a)
+#define Wfree(a) _free(a)
 #endif
 @
 
