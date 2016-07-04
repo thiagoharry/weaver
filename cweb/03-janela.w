@@ -87,6 +87,7 @@ importação do cabeçalho condicionalmente:
 @<Inclui Cabeçalho de Configuração@>@/
 
 #include "weaver.h"
+#include "memory.h"
 #include <signal.h>
 #include <stdio.h> // |fprintf|
 #include <stdlib.h> // |exit|

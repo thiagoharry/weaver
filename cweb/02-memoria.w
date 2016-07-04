@@ -866,8 +866,10 @@ int Wdestroy_arena(void *arena){
 #if W_DEBUG_LEVEL >= 3
   fprintf(stderr,
           "WARNING (3): Max memory used in arena %s:%lu: %lu/%lu\n",
-          header -> file, header -> line, (unsigned long) header -> max_used,
-          (unsigned long) header -> total);
+          ((struct _arena_header *) arena) -> file, 
+          ((struct _arena_header *) arena) -> line,
+          (unsigned long) ((struct _arena_header *) arena) -> max_used,
+          (unsigned long) ((struct _arena_header *) arena) -> total);
 #endif
 #ifdef W_MULTITHREAD
   {
@@ -900,13 +902,16 @@ estão sendo invocadas:
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
   void *_alloc(void *arena, size_t size, char *filename, unsigned long line);
-  void _free(void *mem, char *filename, unsigned long line);
 #define Walloc_arena(a, b) _alloc(a, b, __FILE__, __LINE__)
-#define Wfree(a) _free(a, __FILE__, __LINE__)
 #else
   void *_alloc(void *arena, size_t size);
-  void _free(void *mem);
 #define Walloc_arena(a, b) _alloc(a, b)
+#endif
+#if W_DEBUG_LEVEL >= 2
+  void _free(void *mem, char *filename, unsigned long line);
+#define Wfree(a) _free(a, __FILE__, __LINE__)
+#else
+  void _free(void *mem);
 #define Wfree(a) _free(a)
 #endif
 @
@@ -1023,7 +1028,7 @@ ainda não foram. É neste momento em que realmente as desalocamos
 eliminando a fragmentação naquela parte.
 
 @(project/src/weaver/memory.c@>+=
-#if W_DEBUG_LEVEL >= 1
+#if W_DEBUG_LEVEL >= 2
 void _free(void *mem, char *filename, unsigned long line){
 #else
 void _free(void *mem){
@@ -1091,7 +1096,13 @@ por meio do |Wtrash|.  A criação de um \italico{breakpoit} e descarte
 de memória até ele se dá por meio das funções declaradas abaixo:
 
 @<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
 int _new_breakpoint(void *arena, char *filename, unsigned long line);
+#define Wbreakpoint_arena(a) _new_breakpoint(a, __FILE__, __LINE__)
+#else
+int _new_breakpoint(void *arena);
+#define Wbreakpoint_arena(a) _new_breakpoint(a)
+#endif
 void _trash(void *arena);
 
 @ As funções precisam receber como argumento apenas um ponteiro para a
@@ -1100,7 +1111,11 @@ nome de arquivo e número de linha como nos casos anteriores para que
 isso ajude na depuração:
 
 @(project/src/weaver/memory.c@>+=
+#if W_DEBUG_LEVEL >= 1
 int _new_breakpoint(void *arena, char *filename, unsigned long line){
+#else
+int _new_breakpoint(void *arena){
+#endif
   struct _arena_header *header = (struct _arena_header *) arena;
   struct _breakpoint *breakpoint, *old_breakpoint;
   void *old_last_element;
@@ -1189,7 +1204,6 @@ void _trash(void *arena){
 nos preocuparmos com o nome do arquivo e número de linha:
 
 @<Declarações de Memória@>+=
-#define Wbreakpoint_arena(a) _new_breakpoint(a, __FILE__, __LINE__)
 #define Wtrash_arena(a) _trash(a)
 
 @*1 Usando as arenas de memória padrão.
@@ -1260,19 +1274,35 @@ Agora para podermos alocar e desalocar memória da arena padrão e da
 arena interna, criaremos a seguinte funções:
 
 @<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
 void *_Walloc(size_t size, char *filename, unsigned int line);
 #define Walloc(n) _Walloc(n, __FILE__, __LINE__)
 void *_Winternal_alloc(size_t size, char *filename, unsigned int line);
 #define _iWalloc(n) _Winternal_alloc(n, __FILE__, __LINE__)
+#else
+void *_Walloc(size_t size);
+#define Walloc(n) _Walloc(n)
+void *_Winternal_alloc(size_t size);
+#define _iWalloc(n) _Winternal_alloc(n)
+#endif
 @
 
 @(project/src/weaver/memory.c@>+=
+#if W_DEBUG_LEVEL >= 1
 void *_Walloc(size_t size, char *filename, unsigned int line){
   return _alloc(_user_arena, size, filename, line);
 }
 void *_Winternal_alloc(size_t size, char *filename, unsigned int line){
   return _alloc(_internal_arena, size, filename, line);
 }
+#else
+void *_Walloc(size_t size){
+  return _alloc(_user_arena, size);
+}
+void *_Winternal_alloc(size_t size){
+  return _alloc(_internal_arena, size);
+}
+#endif
 @
 
 O |Wfree| já foi definido e irá funcionar sem problemas, independente
@@ -1280,18 +1310,29 @@ da arena à qual pertence o trecho de memória alocado. Sendo assim,
 resta definir apenas o |Wbreakpoint| e |Wtrash|:
 
 @<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
 int _Wbreakpoint(char *filename, unsigned long line);
-void _Wtrash();
 #define Wbreakpoint() _Wbreakpoint(__FILE__, __LINE__)
+#else
+int _Wbreakpoint();
+#define Wbreakpoint() _Wbreakpoint()
+#endif
+void _Wtrash();
 #define Wtrash() _Wtrash()
 @
 
 E a definição das funções segue abaixo:
 
 @(project/src/weaver/memory.c@>+=
+#if W_DEBUG_LEVEL >= 1
 int _Wbreakpoint(char *filename, unsigned long line){
   return _new_breakpoint(_user_arena, filename, line);
 }
+#else
+int _Wbreakpoint(){
+  return _new_breakpoint(_user_arena);
+}
+#endif
 void _Wtrash(){
   _trash(_user_arena);
 }
