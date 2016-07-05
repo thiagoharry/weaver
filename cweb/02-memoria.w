@@ -874,9 +874,8 @@ int Wdestroy_arena(void *arena){
 #ifdef W_MULTITHREAD
   {
     struct _arena_header *header = (struct _arena_header *) arena;
-    if(pthread_mutex_destroy(&(header -> mutex)) != 0){
+    if(pthread_mutex_destroy(&(header -> mutex)) != 0)
       return 0;
-    }
   }
 #endif
   //Desaloca 'arena'
@@ -889,15 +888,15 @@ int Wdestroy_arena(void *arena){
 
 @*1 Alocação e desalocação de memória.
 
-Agora chegamos à parte mais usada de um gerenciador de memórias. A
-alocação e desalocação. Para isso usaremos duas funções. A função de
-alocação deve receber um ponteiro para a arena onde iremos alocar e
-qual o tamanho a ser alocado.  A função de desalocação só precisa
-receber o ponteiro da região a ser desalocada. Todas as outras
-informações poderão ser encontradas no cabeçalho que precede a região
-onde estão os dados alocados. Dependendo do nível de depuração, ambas
-as funções precisam também saber de que arquivo e número de linha
-estão sendo invocadas:
+Agora chegamos à parte mais usada de um gerenciador de memórias:
+alocação e desalocação. A função de alocação deve receber um ponteiro
+para a arena onde iremos alocar e qual o tamanho a ser alocado.  A
+função de desalocação só precisa receber o ponteiro da região a ser
+desalocada, pois informações sobre a arena serão encontradas em seu
+cabeçalho imediatamente antes da região de uso da memória.  Dependendo
+do nível de depuração, ambas as funções precisam também saber de que
+arquivo e número de linha estão sendo invocadas e isso justifica o
+forte uso de macros abaixo:
 
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
@@ -920,22 +919,22 @@ Ao alocar memória, precisamos ter a preocupação de manter um
 alinhamento de bytes para não prejudicar o desempenho. Por causa
 disso, às vezes precisamos alocar mais que o pedido. Por exemplo, se o
 usuário pede para alocar somente 1 byte, podemos precisar alocar 3
-bytes adicionais além dele só para maner o alinhamento de 4 bytes de
+bytes adicionais além dele só para manter o alinhamento de 4 bytes de
 dados. O tamanho que usamos como referência para o alinhamento é o
 tamanho de um |long|. Sempre alocamos valores múltiplos de um |long|
 que sejam suficientes para conter a quantidade de bytes pedida.
 
 Se estamos trabalhando com múltiplas threads, precisamos também
-garantir que o mutex da arena em que estamos seja bloqueado. pois
+garantir que o mutex da arena em que estamos seja bloqueado, pois
 temos que mudar valores da arena para indicar que estamos ocupando
 mais espaço nela.
 
 Por fim, se tudo deu certo basta preenchermos o cabeçalho da região de
 dados da arena que estamos criando. E ao retornar, retornaremos um
 ponteiro para o início da região que o usuário pode usar para
-armazenamento (e não da região de cabeçalho que vem imediatamente
-anes). Se alguma coisa falhar (pode não haver mais espaço suficiente
-na arena) precisamos retornar NULL e dependendo do nível de depuração,
+armazenamento (e não da região que contém o cabeçalho). Se alguma
+coisa falhar (pode não haver mais espaço suficiente na arena)
+precisamos retornar |NULL| e dependendo do nível de depuração,
 imprimimos uma mensagem de aviso.
 
 @(project/src/weaver/memory.c@>+=
@@ -1059,7 +1058,7 @@ void _free(void *mem){
   // desalocação na ordem errada:
     fprintf(stderr,
             "WARNING (2): %s:%lu: Memory allocated in %s:%lu should be"
-            " freed first.\n", filename, line,
+            " freed first to prevent fragmentation.\n", filename, line,
             ((struct _memory_header *) (arena -> last_element)) -> file,
             ((struct _memory_header *) (arena -> last_element)) -> line);
 #endif
@@ -1103,12 +1102,13 @@ int _new_breakpoint(void *arena, char *filename, unsigned long line);
 int _new_breakpoint(void *arena);
 #define Wbreakpoint_arena(a) _new_breakpoint(a)
 #endif
-void _trash(void *arena);
+void Wtrash_arena(void *arena);
+@
 
-@ As funções precisam receber como argumento apenas um ponteiro para a
-arena na qual realizar a operação. Além disso, elas recebem também o
-nome de arquivo e número de linha como nos casos anteriores para que
-isso ajude na depuração:
+As funções precisam receber como argumento apenas um ponteiro para a
+arena na qual realizar a operação. Além disso, dependendo do nível de
+depuração, elas recebem também o nome de arquivo e número de linha
+como nos casos anteriores para que isso ajude na depuração:
 
 @(project/src/weaver/memory.c@>+=
 #if W_DEBUG_LEVEL >= 1
@@ -1127,6 +1127,7 @@ int _new_breakpoint(void *arena){
   pthread_mutex_lock(&(header -> mutex));
 #endif
   if(header -> used + sizeof(struct _breakpoint) > header -> total){
+    // Se estamos aqui, não temos espaço para um breakpoint
 #if W_DEBUG_LEVEL >= 1
     fprintf(stderr, "WARNING (1): No memory enough to allocate in %s:%lu.\n",
       filename, line);
@@ -1136,6 +1137,7 @@ int _new_breakpoint(void *arena){
 #endif
     return 0;
   }
+  // Atualizando o cabeçalho da arena e salvando valores relevantes
   old_breakpoint = header -> last_breakpoint;
   old_last_element = header -> last_element;
   old_size = header -> used;
@@ -1146,14 +1148,14 @@ int _new_breakpoint(void *arena){
     1;
   header -> last_element = header -> last_breakpoint;
 #if W_DEBUG_LEVEL >= 3
-  if(header -> used > header -> max_used){
+  if(header -> used > header -> max_used){ // Batemos récorde de uso?
     header -> max_used = header -> used;
   }
 #endif
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&(header -> mutex));
 #endif
-  breakpoint -> type = _BREAKPOINT_T;
+  breakpoint -> type = _BREAKPOINT_T; // Preenchendo cabeçalho do breakpoint
   breakpoint -> last_element = old_last_element;
   breakpoint -> arena = arena;
   breakpoint -> last_breakpoint = (void *) old_breakpoint;
@@ -1172,7 +1174,7 @@ int _new_breakpoint(void *arena){
 último breakpoint:
 
 @(project/src/weaver/memory.c@>+=
-void _trash(void *arena){
+void Wtrash_arena(void *arena){
   struct _arena_header *header = (struct _arena_header *) arena;
   struct _breakpoint *previous_breakpoint =
     ((struct _breakpoint *) header -> last_breakpoint) -> last_breakpoint;
@@ -1184,35 +1186,37 @@ void _trash(void *arena){
   pthread_mutex_lock(&(header -> mutex));
 #endif
   if(header -> last_breakpoint == previous_breakpoint){
+    // Chegamos aqui se existe apenas 1 breakpoint
     header -> last_element = previous_breakpoint;
     header -> empty_position = (void *) (previous_breakpoint + 1);
     header -> used = previous_breakpoint -> size + sizeof(struct _breakpoint);
   }
   else{
+    // Chegamos aqui se há 2 ou mais breakpoints
     struct _breakpoint *last = (struct _breakpoint *) header -> last_breakpoint;
     header -> used = last -> size;
     header -> empty_position = last;
     header -> last_element = last -> last_element;
-    header -> last_breakpoint = previous_breakpoint;;
+    header -> last_breakpoint = previous_breakpoint;
   }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&(header -> mutex));
 #endif
 }
+@
 
-@ E para finalizar, as macros necessárias para usarmos as funções sem
-nos preocuparmos com o nome do arquivo e número de linha:
-
-@<Declarações de Memória@>+=
-#define Wtrash_arena(a) _trash(a)
+A função acima é totalmente inócua se não existem dados a serem
+desalocados até o último \italico{breakpoint}. Neste caso ela
+simplesmente apaga o \italico{breakpoint} se ele não for o único, e
+não faz nada se existe apenas o \italico{breakpoint} inicial.
 
 @*1 Usando as arenas de memória padrão.
 
-Ter que se preocupar com arenas muitas vezes é desnecessário. O
-usuário pode querer simplesmente usar uma função |Walloc| sem ter que
-se preocupar com qual arena usar. Usando simplesmente a arena
-padrão. E associada à ela deve haver as funções |Wfree|, |Wbreakpoint|
-e |Wtrash|.
+Ter que se preocupar com arenas geralmente é desnecessário. O usuário
+pode querer simplesmente usar uma função |Walloc| sem ter que se
+preocupar com qual arena usar. Weaver simplesmente assumirá a
+existência de uma arena padrão e associada à ela as novas funções
+|Wfree|, |Wbreakpoint| e |Wtrash|.
 
 Primeiro precisaremos declarar duas variáveis globais. Uma delas será
 uma arena padrão do usuário, a outra deverá ser uma arena usada pelas
@@ -1223,22 +1227,23 @@ restritas ao módulo de memória, então serão declaradas como estáticas:
 static void *_user_arena, *_internal_arena;
 @
 
-
-@ Vamos precisar inicializar e finalizar estas arenas com as seguinte
-funções:
+Noe que elas serão variáveis estáticas. Isso garantirá que somente as
+funções que definiremos aqui poderão manipulá-las. Será impossível
+mudá-las ou usá-las sem que seja usando as funções relacionadas ao
+gerenciador de memória. Vamos precisar inicializar e finalizar estas
+arenas com as seguinte funções:
 
 @<Declarações de Memória@>+=
 void _initialize_memory();
 void _finalize_memory();
+@ 
 
-@ Note que são funções que sabem o nome do arquivo e número de linha
-em que estão para propósito de depuração. Elas são definidas como
-sendo:
+Que são definidas como:
 
 @(project/src/weaver/memory.c@>+=
 void _initialize_memory(void){
   _user_arena = Wcreate_arena(W_MAX_MEMORY);
-  _internal_arena = Wcreate_arena(4000);
+  _internal_arena = Wcreate_arena(4000); // Cerca de 1 página
 }
 void _finalize_memory(){
   Wdestroy_arena(_user_arena);
@@ -1260,14 +1265,13 @@ chamamos a função de finalização:
 
 @<API Weaver: Inicialização@>+=
 _initialize_memory(filename, line);
-
 @
+
 @<API Weaver: Finalização@>+=
-
-// Em ``desalocações'' desalocamos memória alocada com |Walloc|:
+// Em "desalocações" desalocamos memória alocada com |Walloc|:
 @<API Weaver: Desalocações@>@/
+// Só então podemos finalizar o gerenciador de memória:
 _finalize_memory();
-
 @
 
 Agora para podermos alocar e desalocar memória da arena padrão e da
@@ -1286,6 +1290,13 @@ void *_Winternal_alloc(size_t size);
 #define _iWalloc(n) _Winternal_alloc(n)
 #endif
 @
+
+Destas o usuário irá usar mesmo a |Walloc|. A |iWalloc| será usada
+apenas internamente para usarmos a arena de alocações internas da
+API. E precisamos que elas sejam definidas como funções, não como
+macros para poderem manipular as arenas, que são variáveis estáticas à
+este capítulo.
+
 
 @(project/src/weaver/memory.c@>+=
 #if W_DEBUG_LEVEL >= 1
@@ -1307,7 +1318,7 @@ void *_Winternal_alloc(size_t size){
 
 O |Wfree| já foi definido e irá funcionar sem problemas, independente
 da arena à qual pertence o trecho de memória alocado. Sendo assim,
-resta definir apenas o |Wbreakpoint| e |Wtrash|:
+resta declarar apenas o |Wbreakpoint| e |Wtrash|:
 
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
@@ -1321,7 +1332,7 @@ void _Wtrash();
 #define Wtrash() _Wtrash()
 @
 
-E a definição das funções segue abaixo:
+A definição das funções segue abaixo:
 
 @(project/src/weaver/memory.c@>+=
 #if W_DEBUG_LEVEL >= 1
