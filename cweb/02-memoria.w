@@ -1345,7 +1345,7 @@ int _Wbreakpoint(){
 }
 #endif
 void _Wtrash(){
-  _trash(_user_arena);
+  Wtrash_arena(_user_arena);
 }
 @
 
