@@ -1381,15 +1381,18 @@ para obtermos uma medida de performance das funções |Walloc| e
 
 @(/tmp/dummy.c@>=
 // Só um exemplo, não faz parte de Weaver
+#include "game.h"
+#define T 1000000
+
 int main(int argc, char **argv){
-  unsigned long i;
-  void *m[1000000];
+  long i;
+  void *m[T];
   Winit();
   W_TIMER_BEGIN();
-  for(i = 0; i < 1000000; i ++){
+  for(i = 0; i < T; i ++){
     m[i] = Walloc(1);
   }
-  for(i = 0; i < 1000000; i ++){
+  for(i = T-1; i >=0; i --){
     Wfree(m[i]);
   }
   Wtrash();
@@ -1398,21 +1401,80 @@ int main(int argc, char **argv){
   return 0;
 }
 @
+% Malloc: 60000
+% Walloc: 30000 55000 56000 55000 68000
 
-Rodando este código em um Pentium B980 2.40GHz Dual Core, obtemos os
-seguintes resultados para o |Walloc|/|Wfree| (em vermelho) comparado
-com o |malloc|/|free| (em azul) da biblioteca padrão (Glibc 2.20)
-comparado ainda com a substituição do segundo loop por uma única
-chamada para |Wtrash| (em verde):
+Rodando este código em um Pentium B980 2.40GHz Dual Core, este é o
+gráfico que representa o teste de desempenho. As barras vermellhas
+representam o uso de |Walloc|/|free| em diferentes níveis de depuração
+(0 é o mais claro e 4 é o mais escuro). Para comparar, em azul podemos
+ver o tempo gasto pelo |malloc|/|free| da biblioteca C GNU versão 2.20.
 
-%\noindent
-%\includegraphics[width=0.5\textwidth]{cweb/diagrams/benchmark_walloc_malloc.eps}
+\hbox{
+\cor{1.0 0.75 0.75}{\vrule height 7mm width 23mm}
+\cor{1.0 0.6 0.6}{\vrule height 13mm width 23mm}
+\cor{1.0 0.45 0.45}{\vrule height 14mm width 23mm}
+\cor{1.0 0.2 0.2}{\vrule height 13mm width 23mm}
+\cor{0.0 0.0 1.0}{\vrule height 15mm width 23mm}
+\cor{0.9 0.0 0.0}{\vrule height 17mm width 23mm}
+}
 
-O alto desempenho do uso de |Walloc|/|Wtrash| é compreensível pelo
-fato da função |Wtrash| desalocar todo o espaço ocupado pelo último
-milhão de alocações no mesmo tempo que |Wfree| levaria para desalocar
-uma só alocação. Isso explica o fato de termos reduzido pela metade o
-tempo de execução do exemplo.
+Isso nos mostra que se compilarmos nosso código sem nenhum recurso de
+depuração (como é feito ao compilarmos a versão final), obtemos um
+desempenho duas vezes mais rápido que do |malloc|.
+
+E se alocássemos quantidades maiores que 1 byte? Se no programa acima
+estivéssemos alocando um milhão de fragmentos de 100 bytes? O próximo
+gráfico mostra este caso usando exatamente a mesma escala utilizada no
+gráfico anterior:
+
+\hbox{
+\cor{1.0 0.75 0.75}{\vrule height 20mm width 23mm}
+\cor{0.0 0.0 1.0}{\vrule height 22mm width 23mm}
+\cor{1.0 0.6 0.6}{\vrule height 30mm width 23mm}
+\cor{1.0 0.45 0.45}{\vrule height 37mm width 23mm}
+\cor{1.0 0.2 0.2}{\vrule height 37mm width 23mm}
+\cor{0.9 0.0 0.0}{\vrule height 40mm width 23mm}
+}
+
+A diferença não é explicada somente pela diminuição da localidade
+espacial dos dados acessados. Se diminuirmos o número de alocações
+para somente dez mil, mantendo um total alocado de 1 MB, ainda assim o
+|malloc| ficaria na mesma posição se comparado ao |Walloc|. O que
+significa que alocando quantias maiores, o |malloc| é apenas
+ligeiramente pior que o |Walloc| sem recursos de depuração. Mas a
+diferença é apenas marginal.
+
+E se ao invés de desalocarmos memória com |Wfree|, usássemos o
+|Wtrash| para desalocar tudo de uma só vez? O gráfico abaixo mostra
+este caso para quando alocamos 1 milhão de espaços de 1 byte usando a
+mesma escala:
+
+\hbox{
+\cor{1.0 0.75 0.75}{\vrule height 5mm width 23mm}
+\cor{1.0 0.6 0.6}{\vrule height 10mm width 23mm}
+\cor{1.0 0.45 0.45}{\vrule height 10mm width 23mm}
+\cor{1.0 0.2 0.2}{\vrule height 10mm width 23mm}
+\cor{0.9 0.0 0.0}{\vrule height 11mm width 23mm}
+\cor{0.0 0.0 1.0}{\vrule height 15mm width 23mm}
+}
+
+O alto desempenho de nosso gerenciador de memória neste caso é
+compreensível. Podemos substituir um milhão de chamadas para uma
+função por uma só. Enquanto isso o |malloc| não tem esta opção e
+precisa chamar uma função de desalocação para cada função de alocação
+usada. E se usarmos isto para alocar 1 milhão de fragmentos de 100
+bytes, o teste em que o |malloc| teve um desempenho semelhante ao
+nosso? A resposta é o gráfico:
+
+\hbox{
+\cor{1.0 0.75 0.75}{\vrule height 10mm width 23mm}
+\cor{1.0 0.6 0.6}{\vrule height 16mm width 23mm}
+\cor{1.0 0.45 0.45}{\vrule height 18mm width 23mm}
+\cor{1.0 0.2 0.2}{\vrule height 21mm width 23mm}
+\cor{0.0 0.0 1.0}{\vrule height 22mm width 23mm}
+\cor{0.9 0.0 0.0}{\vrule height 24mm width 23mm}
+}
 
 Entretanto, tais resultados positivos só são obtidos caso usemos a
 macro |W_DEBUG_LEVEL| ajustada para zero, como é recomendado fazer ao
