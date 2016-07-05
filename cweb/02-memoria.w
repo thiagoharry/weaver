@@ -1017,10 +1017,10 @@ até que os elementos que vem depois não sejam também desalocados.
 
 Isso pode parecer ruim, mas se a memória do projeto for bem-gerenciada
 pelo programador, não chegará a ser um problema e ficamos com um
-gerenciamento mais rápido. Para os casos em que não conseguimos
-garantir desalocações na ordem, podemos também escrever uma função
-para desfragmentar a memória que poderia ser invocada em momentos
-não-críticos, talvez antes de carregar um novo cenário.
+gerenciamento mais rápido. Se o programador preferir, ele tambéem pode
+usar o |malloc| da biblioteca padrão para não ter que se preocupar com
+a ordem de desalocações. Uma discussão sobre as consequências de cada
+caso pode ser encontrada ao fim deste capítulo.
 
 Se nós realmente desalocamos a memória, pode ser que antes dela
 encontremos regiões que já foram marcadas para ser desalocadas, mas
