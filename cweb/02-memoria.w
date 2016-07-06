@@ -718,6 +718,7 @@ ponteiro para ela:
 void *_Wcreate_arena(size_t size, char *filename, unsigned long line);
 #define Wcreate_arena(a) _Wcreate_arena(a, __FILE__, __LINE__)
 #else
+void *_Wcreate_arena(size_t size);
 #define Wcreate_arena(a) _Wcreate_arena(a)
 #endif
 int Wdestroy_arena(void *);
@@ -1482,8 +1483,8 @@ ao do |Walloc| quando |W_DEBUG_MODE| é igual à 1. Mas quando o
 alguns casos a diferença possa ser marginal). Para analizar um caso em
 que o |Walloc| realmente se sobressai, vamos observar o comportamento
 quando compilamos o nosso teste de alocar 1 byte um milhão de vezes
-para Javascript via Emscripten (versão 1.34). Mas o gráfico à seguir
-usará uma escala diferente:
+para Javascript via Emscripten (versão 1.34). O gráfico à seguir usará
+uma escala diferente.
 
 \hbox{
 \cor{1.0 0.75 0.75}{\vrule height 1mm width 23mm}
@@ -1542,14 +1543,21 @@ int main(void){
 Neste caso, assumindo que estejamos compilando com a macro
 |W_MULTITHREAD| no arquivo \monoespaco{conf/conf.h}, as threads
 estarão sempre competindo pela arena e passarão boa parte do tempo
-bloqueando umas às outras. O desempenho do |malloc| neste caso será
-duas vezes pior. O desempenho do |Walloc| será 6 vezes pior se
-|W_DEBUG_LEVEL| for zero. Caso |W_DEBUG_LEVEL| seja igual à 1, o
-desempenho ficará cerca de 4 vezes pior. Para valores maiores, o valor
-torna-se tão alto que pode-se esperar alguns minutos para que o código
-acima execute. Sendo assim, torna-se completamente inviável usar
-|Walloc| em um código com muitas threads. Também torna-se inviável
-desenhar um gráfico com valores com ordens de magnitude de diferença.
+bloqueando umas às outras. O desempenho do |Walloc| e |malloc| neste
+caso será:
+
+\hbox{
+\cor{0.0 0.0 1.0}{\vrule height 17mm width 23mm}
+\cor{1.0 0.75 0.75}{\vrule height 45mm width 23mm}
+\cor{1.0 0.6 0.6}{\vrule height 120mm width 23mm}
+\vbox to 70mm{\hbox to 70mm{Para |W_DEBUG_MODE| valendo dois e três, a}
+\hbox to 70mm{barra torna-se vinte vezes maior do que a vista}
+\hbox to 70mm{ao lado.\hfil}
+\kern2mm
+\hbox to 70mm{Para o nível quatro de depuração, a barra}
+\hbox to 70mm{torna-se quarenta vezes maior que a vista ao}
+\hbox to 70mm{lado.\hfil}\vfil}
+}
 
 Neste caso, o correto seria criar uma arena para cada thread com
 |Wcreate_arena|, sempre fazer cada thread alocar dentro de sua arena
@@ -1560,9 +1568,55 @@ thread deveria finalizar sua arena com |Wdestroy_arena|. Assim
 poderia-se usar o desempenho maior do |Walloc| aproveitando-o melhor
 entre todas as threads. Pode nem ser necessário definir
 |W_MULTITHREAD| se as threads forem bem especializadas e não
-disputarem recursos.
+disputarem recursos. 
 
-Este é um caso em que não podemos verificar o desempenho via
-Emscripten. Até o momento código Javascript não suporta threads,
-exceto na versão Firefox Nightly. Portanto, este é um recurso que não
-pode ser usado caso você queira compilar seu jogo para a Web.
+A nova função de teste que usamos passa a ser:
+
+@(/tmp/dummy.c@>=
+// Só um exemplo, não faz parte de Weaver
+void *test(void *a){
+  long *m[T];
+  long i;
+  void *arena = Wcreate_arena(10000000);
+  for(i = 0; i < T; i ++){
+    m[i] = (long *) Walloc_arena(arena, 1);
+    *m[i] = (long) m[i];
+  }
+  for(i = T-1; i >= 0; i --){
+    Wfree(m[i]);
+  }
+  Wtrash_arena(arena);
+  Wdestroy_arena(arena);
+  return NULL;
+}
+@
+
+Neste caso, o gráfico de desempenho em um computador com dois
+processadores é:
+
+\hbox{
+\cor{1.0 0.75 0.75}{\vrule height 6mm width 23mm}
+\cor{1.0 0.6 0.6}{\vrule height 10mm width 23mm}
+\cor{1.0 0.45 0.45}{\vrule height 10mm width 23mm}
+\cor{1.0 0.2 0.2}{\vrule height 11mm width 23mm}
+\cor{0.9 0.0 0.0}{\vrule height 11mm width 23mm}
+\cor{0.0 0.0 1.0}{\vrule height 45mm width 23mm}
+}
+
+Infelizmente não poderemos fazer os testes de threads na compilação
+via Emscripten. Até o momento, este é um recurso disponível somente no
+Firefox Nightly.
+
+Os testes nos mostram que embora o |malloc| da biblioteca C GNU seja
+bem otimizado, é possível obter melhoras significativas em código
+compilado via Emscripten e código feito para várias threads tendo um
+gerenciador de memórias mais simples e personalizado. Isto e a
+habilidade de detectar vazamentos de memória em modo de depuração é o
+que justifica a criação de um gerenciador próprio para Weaver. Como a
+prioridade em nosso gerenciador é a velocidade, o seu uso correto para
+evitar fragmentação excessiva depende de conhecimento e cuidados
+maiores por parte do programador. Por isso espera-se que programadores
+menos experientes continuem usando o |malloc| enquanto o |Walloc| será
+usado internamente pela nossa engine e estará à disposição daqueles
+que querem pagar o preço por ter um desempenho maior, especialmente em
+certos casos específicos.

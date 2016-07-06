@@ -1594,11 +1594,11 @@ macro (|Winit|, |Wexit| e |Wrest|) são aquelas que realmente serão
 usadas na prática.
 
 @<Cabeçalhos Weaver@>+=
-void _awake_the_weaver(char *filename, unsigned long line);
+void _awake_the_weaver(void);
 void _may_the_weaver_sleep();
 void _weaver_rest(unsigned long time);
 
-#define Winit() _awake_the_weaver(__FILE__, __LINE__)
+#define Winit() _awake_the_weaver()
 #define Wexit() _may_the_weaver_sleep()
 #define Wrest(a) _weaver_rest(a)
 @ 
@@ -1628,7 +1628,7 @@ executável, não se compilado para Javascript).
 
 @<API Weaver: Definições@>
 
-void _awake_the_weaver(char *filename, unsigned long line){
+void _awake_the_weaver(void){
   @<API Weaver: Inicialização@>
 }
 
