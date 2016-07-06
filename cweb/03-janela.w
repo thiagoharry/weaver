@@ -1,11 +1,11 @@
-@* Criando uma janela ou espaço de desenho.
+@* Criando uma Janela.
 
 Para que tenhamos um jogo, precisamos de gráficos. E também precisamos
 de um local onde desenharmos os gráficos. Em um jogo compilado para
 Desktop, tipicamente criaremos uma janela na qual invocaremos funções
 OpenGL. Em um jogo compilado para a Web, tudo será mais fácil, pois
 não precisaremos de uma janela especial. Por padrão já teremos um
-``\italico{canvas}'' para manipular com WebGL. Portanto, o código para
+\italico{canvas} para manipular com WebGL. Portanto, o código para
 estes dois cenários irá diferir bastante neste capítulo. De qualquer
 forma, ambos usarão OpenGL:
 
@@ -15,38 +15,35 @@ forma, ambos usarão OpenGL:
 
 Para criar uma janela, usaremos o Xlib ao invés de bibliotecas de mais
 alto nível. Primeiro porque muitas bibliotecas de alto nível como SDL
-parecem não funcionar bem em ambientes gráficos mais excêntricos como
-o \italico{ratpoison}, o qual eu uso. Em especial quando tentam usar a
-tela-cheia. Durante um tempo usei também o Xmonad, no qual algumas
-bibliotecas não conseguiam deixar suas janelas em tela-cheia. Além
-disso, o Xlib é uma biblioteca bastante universal. Geralmente se um
-sistema não tem o X, é porque ele não tem interface gráfica e não iria
-rodar um jogo mesmo.
+parecem ter problemas em ambientes gráficos mais excêntricos como o
+\italico{ratpoison} e \italico{xmonad}, as quais eu
+uso. Particularmente recursos como tela cheia em alguns ambientes não
+funcionam. Ao mesmo tempo, o Xlib é uma biblioteca bastante
+universal. Se um sistema não tem o X, é porque ele não tem interface
+gráfica e não iria rodar um jogo mesmo.
 
 O nosso arquivo \monoespaco{conf/conf.h} precisará de duas macros novas
 para estabelecermos o tamanho de nossa janela (ou do ``canvas'' para a
 Web):
 
-|W_DEFAULT_COLOR|: A cor padrão da janela, a ser exibida na
+\macronome|W_DEFAULT_COLOR|: A cor padrão da janela, a ser exibida na
   ausência de qualquer outra coisa para desenhar. Representada como
   três números em ponto flutuante separados por vírgulas.
 
-|W_HEIGHT|: A altura da janela ou do ``canvas''. Se for definido
+\macronome|W_HEIGHT|: A altura da janela ou do ``canvas''. Se for definido
   como zero, será o maior tamanho possível.
 
-|W_WIDTH|: A largura da janela ou do ``canvas''. Se for definido
+\macronome|W_WIDTH|: A largura da janela ou do ``canvas''. Se for definido
   como zero, será o maior tamanho possível.
 
 Por padrão, ambos serão definidos como zero, o que tem o efeito de
 deixar o programa em tela-cheia.
 
-Vamos precisar definir também duas variáveis globais que armazenarão o
-tamanho da janela em que estamos e duas outras para saber em que
-posição da tela está nossa janela. Se estivermos rodando o jogo em um
+Vamos precisar definir também variáveis globais que armazenarão o
+tamanho da janela e sua posição. Se estivermos rodando o jogo em um
 navegador, seus valores nunca mudarão, e serão os que forem indicados
 por tais macros. Mas se o jogo estiver rodando em uma janela, um
-usuário pode querer modificar seu tamanho. Ou alternativamente, o
-próprio jogo pode pedir para ter o tamanho de sua janela modificado.
+usuário ou o próprio programa pode querer modificar seu tamanho.
 
 Saber a altura e largura da janela em que estamos tem importância
 central para podermos desenhar na tela uma interface. Saber a posição
@@ -57,104 +54,123 @@ o mouse aproxime-se dela para fechá-la. Ou um jogo que crie uma janela
 que ao ser movida pela Área de trabalho possa revelar imagens
 diferentes, como se funcionasse como um raio-x da tela.
 
+Além destas variáveis globais, será importante também criarmos um
+mutex a ser bloqueado sempre que elas forem modificadas em jogos com
+mais de uma thread:
+
 @<Cabeçalhos Weaver@>+=
 extern int W_width, W_height, W_x, W_y;
+#ifdef W_MULTITHREAD
+extern pthread_mutex_t _window_mutex;
+#endif
 @
 
 Estas variáveis precisarão ser atualizadas caso o tamanho da janela
-mude e caso a janela seja movida.
+mude e caso a janela seja movida. E não são variáveis que o
+programador deva mudar. Não atribua nada à elas, são variáveis somente
+para leitura.
 
 @*1 Criar janelas.
 
 O código de criar janelas só será usado se estivermos compilando um
 programa nativo. Por isso, só iremos definir e declarar suas funções
-se a macro |W_TARGET| for igual à |W_ELF|. Por isso, realizamos a
-importação do cabeçalho condicionalmente:
+se a macro |W_TARGET| for igual à |W_ELF|.
 
 @<Cabeçalhos Weaver@>=
 #if W_TARGET == W_ELF
 #include "window.h"
 #endif
+@
 
-@ E o cabeçalho em si terá a forma:
+E o cabeçalho em si terá a forma:
 
 @(project/src/weaver/window.h@>=
-#ifndef _window_H_
+#ifndef _window_h_
 #define _window_h_
 #ifdef __cplusplus
   extern "C" {
 #endif
-@<Inclui Cabeçalho de Configuração@>@/
-
+@<Inclui Cabeçalho de Configuração@>
 #include "weaver.h"
 #include "memory.h"
 #include <signal.h>
-#include <stdio.h> // |fprintf|
-#include <stdlib.h> // |exit|
-#include <X11/Xlib.h> // |XOpenDisplay|, |XCloseDisplay|, |DefaultScreen|,
-                      // |DisplayPlanes|, |XFree|, |XCreateSimpleWindow|,
-                      // |XDestroyWindow|, |XChangeWindowAttributes|,
-                      // |XSelectInput|, |XMapWindow|, |XNextEvent|,
-                      // |XSetInputFocus|, |XStoreName|,
+#include <stdio.h> // fprintf
+#include <stdlib.h> // exit
+#include <X11/Xlib.h> // XOpenDisplay, XCloseDisplay, DefaultScreen,
+                      // DisplayPlanes, XFree, XCreateSimpleWindow,
+                      // XDestroyWindow, XChangeWindowAttributes,
+                      // XSelectInput, XMapWindow, XNextEvent,
+                      // XSetInputFocus, XStoreName,
 #include <GL/gl.h>
-#include <GL/glx.h> // |glXChooseVisual|, |glXCreateContext|, |glXMakeCurrent|
-#include <X11/extensions/Xrandr.h> // |XRRSizes|, |XRRRates|, |XRRGetScreenInfo|,
-                                  // |XRRConfigCurrentRate|,
-                                  // |XRRConfigCurrentConfiguration|,
-                                  // |XRRFreeScreenConfigInfo|,
-                                  // |XRRSetScreenConfigAndRate|
-#include <X11/XKBlib.h> // |XkbKeycodeToKeysym|
-
+#include <GL/glx.h> // glXChooseVisual, glXCreateContext, glXMakeCurrent
+#include <X11/extensions/Xrandr.h> // XRRSizes, XRRRates, XRRGetScreenInfo,
+                                   // XRRConfigCurrentRate,
+                                   // XRRConfigCurrentConfiguration,
+                                   // XRRFreeScreenConfigInfo,
+                                   // XRRSetScreenConfigAndRate
+#include <X11/XKBlib.h> // XkbKeycodeToKeysym
 void _initialize_window(void);
 void _finalize_window(void);
-
-@<Janela: Declaração@>@/
-
+@<Janela: Declaração@>
 #ifdef __cplusplus
   }
 #endif
 #endif
+@ 
 
-@ Enquanto o próprio arquivo de definição de funções as definirá
-apenas condicionalmente:
+Enquanto o próprio arquivo de definição de funções as definirá apenas
+condicionalmente:
 
 @(project/src/weaver/window.c@>=
-@<Inclui Cabeçalho de Configuração@>@/
+@<Inclui Cabeçalho de Configuração@>
+  // Se W_TARGET != W_ELF, então este arquivo não terá conteúdo nenhum
+  // para o compilador, o que é proibido pelo padrão ISO. A variável a
+  // seguir que nunca será usada e nem declarada propriamente previne
+  // isso.
 extern int make_iso_compilers_happy;
 #if W_TARGET == W_ELF
 #include "window.h"
-
   int W_width, W_height, W_x, W_y;
-
-@<Variáveis de Janela@>@/
-
-void _initialize_window(void){
-  @<Janela: Inicialização@>@/
-}
-
-void _finalize_window(void){
-  @<Janela: Pré-Finalização@>@/
-  @<Janela: Finalização@>@/
-}
-
-@<Janela: Definição@>@/
-
+#ifdef W_MULTITHREAD
+  pthread_mutex_t _window_mutex;
 #endif
+@<Variáveis de Janela@>
+void _initialize_window(void){
+  @<Janela: Inicialização@>
+}
+void _finalize_window(void){
+  @<Janela: Pré-Finalização@>
+  @<Janela: Finalização@>
+}
+@<Janela: Definição@>
+#endif
+@
 
-@ Desta forma, nada disso será incluído desnecessariamente quando
+Desta forma, nada disso será incluído desnecessariamente quando
 compilarmos para a Web. Mas caso seja incluso, precisamos invocar uma
 função de inicialização e finalização na inicialização e finalização
 da API:
 
 @<API Weaver: Inicialização@>+=
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_init(&_window_mutex, NULL) != 0){ // Inicializa mutex
+  perror(NULL);
+  exit(1);
+} 
+#endif
 #if W_TARGET == W_ELF
 _initialize_window();
 #endif
 @
 @<API Weaver: Finalização@>+=
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_destroy(&_window_mutex) != 0){ // Finaliza mutex
+  perror(NULL);
+  exit(1);
+} 
+#endif
 #if W_TARGET == W_ELF
 _finalize_window();
-@<Restaura os Sinais do Programa (SIGINT, SIGTERM, etc)@>@/
 #endif
 @
 
@@ -197,11 +213,11 @@ função |XOpenDisplay|:
 Nosso próximo passo será obter o número da tela na qual a janela
 estará. Teoricamente um dispositivo pode ter várias telas
 diferentes. Na prática provavelmente só encontraremos uma. Caso uma
-pessoa tenha duas, ela provavelmente ativa a extensão Xinerama, que
-faz com que suas duas telas sejam tratadas como uma só (tipicamente
-com uma largura bem grande). De qualquer forma, obter o ID desta tela
-será importante para obtermos alguns dados como a resolução máxima e
-quantidade de bits usado em cores.
+pessoa tenha duas ou mais, ela provavelmente ativa a extensão
+Xinerama, que faz com que suas duas telas sejam tratadas como uma só
+(tipicamente com uma largura bem grande). De qualquer forma, obter o
+ID desta tela será importante para obtermos alguns dados como a
+resolução máxima e quantidade de bits usado em cores.
 
 @<Variáveis de Janela@>+=
 static int screen;
@@ -252,14 +268,14 @@ Window _window;
 E é inicializada com os seguintes dados:
 
 @<Janela: Inicialização@>+=
-  W_x = 0;
+  W_x = 0; // Na inicialização não é necessário ativar o mutex.
   W_y = 0;
 #if W_WIDTH > 0
-  W_width = W_WIDTH;
+  W_width = W_WIDTH; // Obtendo largura da janela
 #else
   W_width = DisplayWidth(_dpy, screen);
 #endif
-#if W_HEIGHT > 0
+#if W_HEIGHT > 0 // Obtendo altura da janela
   W_height = W_HEIGHT;
 #else
   W_height = DisplayHeight(_dpy, screen);
@@ -273,12 +289,10 @@ E é inicializada com os seguintes dados:
                                0); // Cor padrão
 @
 
-
-Agora já podemos criar uma janela. Mas isso não quer dizer que a
-janela será exibida depois de criada. Ainda temos que fazer algumas
-coisas como mudar alguns atributos de configuração da janela. E só
-depois disso poderemos pedir para que o servidor mostre a janela
-visualmente.
+Isso cria a janela. Mas isso não quer dizer que a janela será
+exibida. Ainda temos que fazer algumas coisas como mudar alguns
+atributos da sua configuração. Só depois disso poderemos pedir para
+que o servidor mostre a janela visualmente.
 
 Vamos nos concentrar agora nos atributos da janela. Primeiro nós
 queremos que nossas escolhas de configuração sejam as mais soberanas
