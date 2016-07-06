@@ -1264,7 +1264,7 @@ mencionada na Introdução. Da mesma forma, na finalização da API,
 chamamos a função de finalização:
 
 @<API Weaver: Inicialização@>+=
-_initialize_memory(filename, line);
+_initialize_memory();
 @
 
 @<API Weaver: Finalização@>+=
