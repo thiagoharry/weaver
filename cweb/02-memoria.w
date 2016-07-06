@@ -946,11 +946,11 @@ void *_alloc(void *arena, size_t size){
   struct _arena_header *header = arena;
   struct _memory_header *mem_header;
   void *mem = NULL, *old_last_element;
-#if W_DEBUG_LEVEL >= 4
-    _assert__arena_header(arena);
-#endif
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(header -> mutex));
+#endif
+#if W_DEBUG_LEVEL >= 4
+    _assert__arena_header(arena);
 #endif
   mem_header = header -> empty_position;
   old_last_element = header -> last_element;
@@ -1036,14 +1036,14 @@ void _free(void *mem){
   struct _arena_header *arena = mem_header -> arena;
   void *last_freed_element;
   size_t memory_freed = 0;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&(arena -> mutex));
+#endif
 #if W_DEBUG_LEVEL >= 4
     _assert__arena_header(arena);
 #endif
 #if W_DEBUG_LEVEL >= 1
     _assert__memory_header(mem_header);
-#endif
-#ifdef W_MULTITHREAD
-  pthread_mutex_lock(&(arena -> mutex));
 #endif
   // Primeiro checamos se não estamos desalocando a ultima memória. Se
   // não é a ultima memória, não precisamos manter o mutex ativo e
@@ -1120,11 +1120,11 @@ int _new_breakpoint(void *arena){
   struct _breakpoint *breakpoint, *old_breakpoint;
   void *old_last_element;
   size_t old_size;
-#if W_DEBUG_LEVEL >= 4
-    _assert__arena_header(arena);
-#endif
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(header -> mutex));
+#endif
+#if W_DEBUG_LEVEL >= 4
+    _assert__arena_header(arena);
 #endif
   if(header -> used + sizeof(struct _breakpoint) > header -> total){
     // Se estamos aqui, não temos espaço para um breakpoint
@@ -1178,12 +1178,12 @@ void Wtrash_arena(void *arena){
   struct _arena_header *header = (struct _arena_header *) arena;
   struct _breakpoint *previous_breakpoint =
     ((struct _breakpoint *) header -> last_breakpoint) -> last_breakpoint;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&(header -> mutex));
+#endif
 #if W_DEBUG_LEVEL >= 4
     _assert__arena_header(arena);
     _assert__breakpoint(header -> last_breakpoint);
-#endif
-#ifdef W_MULTITHREAD
-  pthread_mutex_lock(&(header -> mutex));
 #endif
   if(header -> last_breakpoint == previous_breakpoint){
     // Chegamos aqui se existe apenas 1 breakpoint
@@ -1476,32 +1476,54 @@ nosso? A resposta é o gráfico:
 \cor{0.9 0.0 0.0}{\vrule height 24mm width 23mm}
 }
 
-Entretanto, tais resultados positivos só são obtidos caso usemos a
-macro |W_DEBUG_LEVEL| ajustada para zero, como é recomendado fazer ao
-compilar um jogo pela última vez antes de distribuir. Caso o jogo
-ainda esteja em desenvolvimento e tal macro tenha um valor maior do
-que zero, o desempenho de |Walloc| e |Wfree| pode tornar-se de duas à
-vinte vezes pior devido à estruturas adicionais estarem sendo usadas
-para depuração e devido à mensagens poderem ser escritas na saída
-padrão.
+Via de regra podemos dizer que o desempenho do |malloc| é semelhante
+ao do |Walloc| quando |W_DEBUG_MODE| é igual à 1. Mas quando o
+|W_DEBUG_MODE| é zero, obtemos sempre um desempenho melhor (embora em
+alguns casos a diferença possa ser marginal). Para analizar um caso em
+que o |Walloc| realmente se sobressai, vamos observar o comportamento
+quando compilamos o nosso teste de alocar 1 byte um milhão de vezes
+para Javascript via Emscripten (versão 1.34). Mas o gráfico à seguir
+usará uma escala diferente:
 
-Os bons resultados são ainda mais visíveis caso compilemos nosso
-programa para a Web (ajustando a macro |W_TARGET| para |W_WEB|). Neste
-caso, o desempenho do |malloc| tem uma queda brutal. Ele passa a
-executar 20 vezes mais lentamente no exemplo acima, enquanto as
-funções que desenvolvemos ficam só 1,8 vezes mais lentas. É até
-difícil mostrar isso em gráfico devido à diferença de escala entre as
-medidas. Nos testes, usou-se o Emscripten versão 1.34.
+\hbox{
+\cor{1.0 0.75 0.75}{\vrule height 1mm width 23mm}
+\cor{1.0 0.6 0.6}{\vrule height 8mm width 23mm}
+\cor{1.0 0.45 0.45}{\vrule height 8mm width 23mm}
+\cor{1.0 0.2 0.2}{\vrule height 9mm width 23mm}
+\cor{0.9 0.0 0.0}{\vrule height 10mm width 23mm}
+\cor{0.0 0.0 1.0}{\vrule height 32mm width 23mm}
+}
 
-Mas e se usarmos várias threads para realizarmos este milhão de
-alocações nesta máquina com 2 processadores? Supondo que exista a
-função |test| que realiza todas as alocações e desalocações de um
-milhão de posições de memória divididas pelo número de threads e
-supondo que executemos o seguinte código:
+O gráfico anterior se fosse desenhado usando a mesma escala dos
+outros, teria que ter barras com tamanho dez vezes maior. Enquanto o
+|Walloc| tem uma velocidade 1,8 vezes menor compilado com Emscripten,
+o |malloc| tem uma velocidade 20 vezes menor. Se tentarmos fazer no
+Emscripten o teste em que alocamos 100 bytes ao invés de 1 byte, o
+resultado reduzido em dez vezes fica praticamente igual ao gráfico
+acima.
+
+Este é um caso no qual o |Walloc| se sobressai. Mas há também um caso
+em que o |Walloc| é muito pior: quando usamos várias
+threads. Considere o código abaixo:
 
 @(/tmp/dummy.c@>=
 // Só um exemplo, não faz parte de Weaver
-int main(int argc, char **argv){
+#define NUM_THREADS 10
+#define T (1000000 / NUM_THREADS)
+
+void *test(void *a){
+  long *m[T];
+  long i;
+  for(i = 0; i < T; i ++){
+    m[i] = (long *) Walloc(1);
+    *m[i] = (long) m[i];
+  }
+  for(i = T-1; i >=0; i --){
+    Wfree(m[i]);
+  }
+}
+
+int main(void){
   pthread_t threads[NUM_THREADS];
   int i;
   Winit();
@@ -1517,42 +1539,30 @@ int main(int argc, char **argv){
 }
 @
 
-O resultado é este:
+Neste caso, assumindo que estejamos compilando com a macro
+|W_MULTITHREAD| no arquivo \monoespaco{conf/conf.h}, as threads
+estarão sempre competindo pela arena e passarão boa parte do tempo
+bloqueando umas às outras. O desempenho do |malloc| neste caso será
+duas vezes pior. O desempenho do |Walloc| será 6 vezes pior se
+|W_DEBUG_LEVEL| for zero. Caso |W_DEBUG_LEVEL| seja igual à 1, o
+desempenho ficará cerca de 4 vezes pior. Para valores maiores, o valor
+torna-se tão alto que pode-se esperar alguns minutos para que o código
+acima execute. Sendo assim, torna-se completamente inviável usar
+|Walloc| em um código com muitas threads. Também torna-se inviável
+desenhar um gráfico com valores com ordens de magnitude de diferença.
 
-%\noindent
-%\includegraphics[width=0.75\textwidth]{cweb/diagrams/benchmark_alloc_threads.eps}
+Neste caso, o correto seria criar uma arena para cada thread com
+|Wcreate_arena|, sempre fazer cada thread alocar dentro de sua arena
+com |Walloc_arena|, criar \italico{breakpoints} com
+|Wbreakpoint_arena|, desalocar com |Wfree_arena| e descartar a heap
+até o último \italico{breakpoint} com |Wtrash_arena|. Por fim, cada
+thread deveria finalizar sua arena com |Wdestroy_arena|. Assim
+poderia-se usar o desempenho maior do |Walloc| aproveitando-o melhor
+entre todas as threads. Pode nem ser necessário definir
+|W_MULTITHREAD| se as threads forem bem especializadas e não
+disputarem recursos.
 
-O desempenho de |Walloc| e |Wfree| (em vermelho) passa a deixar muito
-à desejar comparado com o uso de |malloc| e |free| (em azul). Isso
-ocorre porque na nossa função de alocação, para alocarmos e
-desalocarmos, precisamos bloquear um mutex. Desta forma, neste
-exemplo, como tudo o que as threads fazem é alocar e desalocar, na
-maior parte do tempo elas ficam bloqueadas. As funções |malloc| e
-|free| da biblioteca padrão não sofrem com este problema, pois cada
-thread sempre possui a sua própria arena para alocação. Nós não
-podemos fazer isso automaticamente porque no nosso gerenciador de
-memória, para que possamos realizar otimizações, precisamos saber com
-antecedência qual a quantidade máxima de memória que iremos
-alocar. Não temos como deduzir este valor para cada thread.
-
-Mas nós podemos criar manualmente arenas ara as nossas threads por
-meio de |Wcreate_arena| e depois podemos usar |Wdestroy_arena| pouco
-antes da thread encerrar. Desta forma podemos usar |Walloc_arena| para
-alocar a memória em uma arena particular da thread. Com isso,
-conseguimos desempenho equivalente ao |malloc| para uma ou duas
-threads. Para mais threads, conseguimos um desempenho ainda melhor em
-relação ao |malloc|, já que nosso desempenho não sofre tanta
-degradação se usamos mais threads que o número de
-processadores. Podemos analisar o desempenho no gráfico mais abaixo
-por meio da cor verde.
-
-Mas se reservamos manualmente uma arena para cada thread, então somos
-capazes de desalocar toda a memória da arena por meio da
-|Wtrash_arena|. Sendo assim, economizamos o tempo que seria gasto
-desalocando memória. O desempenho desta forma de uso do nosso alocador
-pode ser visto no gráfico em amarelo.
-
-O uso de threads na web por meio de Emscripten no momento da escrita
-deste texto ainda está experimental. Somente o Firefox Nightly suporta
-o recurso no momento. Por este motivo, testes de desempenho envolvendo
-threads em programas web ficarão pendentes.
+Este é um caso em que não podemos verificar o desempenho via
+Emscripten. Até o momento código Javascript não suporta threads,
+exceto na versão Firefox Nightly. Portanto, este é um recurso que não
+pode ser usado caso você queira compilar seu jogo para a Web.
