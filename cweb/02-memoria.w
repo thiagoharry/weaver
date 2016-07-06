@@ -1600,7 +1600,7 @@ processadores é:
 \cor{1.0 0.45 0.45}{\vrule height 10mm width 23mm}
 \cor{1.0 0.2 0.2}{\vrule height 11mm width 23mm}
 \cor{0.9 0.0 0.0}{\vrule height 11mm width 23mm}
-\cor{0.0 0.0 1.0}{\vrule height 45mm width 23mm}
+\cor{0.0 0.0 1.0}{\vrule height 17mm width 23mm}
 }
 
 Infelizmente não poderemos fazer os testes de threads na compilação
