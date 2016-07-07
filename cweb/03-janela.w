@@ -317,6 +317,9 @@ static XSetWindowAttributes at;
 @<Janela: Inicialização@>+=
   {    
     at.override_redirect = True;
+    // Eventos que nos interessam: pressionar e soltar botão do
+    // teclado, pressionar e soltar botão do mouse, movimento do mouse, 
+    // quando a janela é exposta e quando ela muda de tamanho.
     at.event_mask = ButtonPressMask | ButtonReleaseMask | KeyPressMask |
       KeyReleaseMask | PointerMotionMask | ExposureMask | StructureNotifyMask;
     XChangeWindowAttributes(_dpy, _window, CWOverrideRedirect, &at);
@@ -395,20 +398,21 @@ que pode ser desenhada e com buffer duplo.
 {
   int return_value;
   int doubleBufferAttributes[] = {
-    GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT,
-    GLX_RENDER_TYPE,   GLX_RGBA_BIT,
-    GLX_DOUBLEBUFFER,  True,
-    GLX_RED_SIZE,      1,
-    GLX_GREEN_SIZE,    1, 
-    GLX_BLUE_SIZE,     1,
-    GLX_DEPTH_SIZE,    1,
+    GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT, // Desenharemos na tela, não em 'pixmap'
+    GLX_RENDER_TYPE,   GLX_RGBA_BIT, // Definimos as cores via RGBA, não paleta
+    GLX_DOUBLEBUFFER,  True, // Usamos buffers duplos para evitar 'flickering'
+    GLX_RED_SIZE,      1, // Devemos ter ao menso 1 bit de vermelho
+    GLX_GREEN_SIZE,    1, // Ao menos 1 bit de verde
+    GLX_BLUE_SIZE,     1, // Ao menos 1 bit de azul
+    GLX_ALPHA_SIZE,    1, // Ao menos 1 bit para o canal alfa
+    GLX_DEPTH_SIZE,    1, // E ao menos 1 bit de profundidade
     None
   };
   fbConfigs = glXChooseFBConfig(_dpy, screen, doubleBufferAttributes,
                                 &return_value);
   if (fbConfigs == NULL){
     fprintf(stderr,
-            "ERROR: Not possible to create a double-buffered window.\n");
+          "ERROR: Not possible to choose our minimal OpenGL configuration.\n");
     exit(1);
   }
 }
@@ -417,9 +421,10 @@ que pode ser desenhada e com buffer duplo.
 Agora iremos precisar usar uma função chamada
 |glXCreateContextAttribsARB| para criar um contexto OpenGL 3.0. O
 problema é que nem todas as placas de vídeo possuem ela. Algumas podem
-não ter suporte à versões mais novas do openGL. Por causa disso, esta
-função não está delarada em nenhum cabeçalho. Nós mesmos precisamos
-declará-la e obter o seu valor dinamicamente se ela existir:
+não ter suporte à versões mais novas do openGL. Por causa disso, a API
+não sabe se esta função existe ou não e ela não está sequer
+declarada. Nós mesmos precisamos declará-la e obter o seu valor
+dinamicamente verificando se ela existe:
 
 @<Janela: Declaração@>+=
 typedef GLXContext
@@ -433,42 +438,27 @@ criar o contexto:.
 @<Janela: Inicialização@>+=
 {
   int context_attribs[] =
-    {
+    { //  Iremos usar e exigir OpenGL 3.3
       GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
       GLX_CONTEXT_MINOR_VERSION_ARB, 3,
       None
     };
   glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
-
-  @<Checa suporte à glXGetProcAddressARB@>@/
-
+  { // Verificando se a 'glXCreateContextAttribsARB' existe:
+    // Usamox 'glXQueryExtensionsString' para obter lista de extensões
+    const char *glxExts = glXQueryExtensionsString(_dpy, screen);
+    if(strstr(glxExts, "GLX_ARB_create_context") == NULL){
+      fprintf(stderr, "ERROR: Can't create an OpenGL 3.0 context.\n");
+      exit(1);
+    }
+  }
+  // Se estamos aqui, a função existe. Obtemos seu endereço e a usamos
+  // para criar o contexto OpenGL.
   glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
     glXGetProcAddressARB( (const GLubyte *) "glXCreateContextAttribsARB" );
   context = glXCreateContextAttribsARB(_dpy, *fbConfigs, NULL, GL_TRUE,
                                        context_attribs);
   glXMakeCurrent(_dpy, _window, context);
-}
-@
-
-Isso criará o contexto se tivermos suporte à função. Mas e se não
-tivermos? Neste caso, um ponteiro inválido será passado para
-|glXCreateContextAttribsARB| e obteremos uma falha de segmentação
-quando tentarmos executá-lo. A API não tem como sabercom certeza se a
-função existe ou não durante a invocação de
-|glXGetProcAddressARB|. Neste caso, a função não pode nos avisar se
-algo der errado fazendo algo como retornar |NULL|. Portanto, para
-evitarmos a mensagem antipática de falha de segmentação, teremos que
-checar antes se temos suporte à esta função ou não. Se não tivermos,
-temos que cancelar o programa:
-
-@<Checa suporte à glXGetProcAddressARB@>=
-{
-  // Primeiro obtemos lista de extensões OpenGL:
-  const char *glxExts = glXQueryExtensionsString(_dpy, screen);
-  if(strstr(glxExts, "GLX_ARB_create_context") == NULL){
-    fprintf(stderr, "ERROR: Can't create an OpenGL 3.0 context.\n");
-    exit(1);
-  }
 }
 @
 
