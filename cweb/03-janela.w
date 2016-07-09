@@ -498,9 +498,7 @@ Agora definimos o nosso cabeçalho do módulo de ``canvas'':
 #ifdef __cplusplus
   extern "C" {
 #endif
-
-@<Inclui Cabeçalho de Configuração@>@/
-
+@<Inclui Cabeçalho de Configuração@>
 #include "weaver.h"
 #include <stdio.h> // |fprintf|
 #include <stdlib.h> // |exit|
@@ -508,9 +506,7 @@ Agora definimos o nosso cabeçalho do módulo de ``canvas'':
                       // |SDL_Quit|
 void _initialize_canvas(void);
 void _finalize_canvas(void);
-
-@<Canvas: Declaração@>@/
-
+@<Canvas: Declaração@>
 #ifdef __cplusplus
   }
 #endif
@@ -526,18 +522,17 @@ simples, será inteiramente definido abaixo:
 extern int make_iso_compilers_happy;
 #if W_TARGET == W_WEB
 #include "canvas.h"
-
 static SDL_Surface *window;
-
 int W_width, W_height, W_x = 0, W_y = 0;
-
-@<Canvas: Variáveis@>@/
-
+#ifdef W_MULTITHREAD
+pthread_mutex_t _window_mutex;
+#endif
+@<Canvas: Variáveis@>
 void _initialize_canvas(void){
-  SDL_Init(SDL_INIT_VIDEO);
+  SDL_Init(SDL_INIT_VIDEO); // Inicializando SDL com OpenGL 3.3
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-  window = SDL_SetVideoMode(
+  window = SDL_SetVideoMode(// Definindo informações de tamanho do canvas
 #if W_WIDTH > 0
                             W_width = W_WIDTH, // Largura da janela
 #else
@@ -558,17 +553,12 @@ void _initialize_canvas(void){
     fprintf(stderr, "ERROR: Could not create window: %s\n", SDL_GetError());
     exit(1);
   }
-
-  @<Canvas: Inicialização@>@/
+  @<Canvas: Inicialização@>
 }
-
-void _finalize_canvas(void){
+  void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
   SDL_FreeSurface(window);
-
 }
-
-@<Canvas: Definição@>@/
-
+@<Canvas: Definição@>
 #endif
 @
 
@@ -603,11 +593,9 @@ eventos no loop principal:
 @<API Weaver: Imediatamente antes de tratar eventos@>@/
 #if W_TARGET == W_ELF
   {
-    XEvent event;
-    
+    XEvent event;   
     while(XPending(_dpy)){
       XNextEvent(_dpy, &event);
-
       // A variável 'event' terá todas as informações do evento
       @<API Weaver: Trata Evento Xlib@>@/
     }
@@ -616,14 +604,12 @@ eventos no loop principal:
 #if W_TARGET == W_WEB
   {
     SDL_Event event;
-    
     while(SDL_PollEvent(&event)){
       // A variável 'event' terá todas as informações do evento
       @<API Weaver: Trata Evento SDL@>@/
     }
   }
 #endif
-
 @
 
 Por hora definiremos só o tratamento do evento de mudança de tamanho e
@@ -634,26 +620,37 @@ em um navegador web.
 Tudo o que temos que fazer no caso deste evento é atualizar as
 variáveis globais |W_width|, |W_height|, |W_x| e |W_y|. Nem sempre o
 evento |ConfigureNotify| significa que a janela mudou de tamanho ou
-foi movida. Mas mesmo assim, não custa quase nada atualizarmos tais
-dados. Se eles não mudaram, de qualquer forma este código será inócuo:
+foi movida. Talvez ela apenas tenha se movido para frente ou para trás
+em relação à outras janelas empilhadas sobre ela. Ou algo mudou o
+tamanho de sua borda. Mas mesmo assim, não custa quase nada
+atualizarmos tais dados. Se eles não mudaram, de qualquer forma o
+código será inócuo:
 
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == ConfigureNotify){
   XConfigureEvent config = event.xconfigure;
-  
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_window_mutex);
+#endif
   W_x = config.x;
   W_y = config.y;
   W_width = config.width;
   W_height = config.height;
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_window_mutex);
+#endif
   continue;
 }
 @
 
+Não é necessário criar um código análogo para a Web, pois lá será
+impossível mover a nossa ``janela'', que será um \italico{canvas}.
+
 Mas e se nós quisermos mudar o tamanho ou a posição de uma janela
-diretamente? Para mudar o tamanho, definiremos separadamente o código
-tanto para o caso de termos uma janela como para o caso de termos um
-``canvas'' web para o jogo. No caso da janela, usamos uma função XLib
-para isso:
+diretamente? Para mudar o tamanho, precisamos definir separadamente o
+código tanto para o caso de termos uma janela como para o caso de
+termos um \italico{canvas} web para o jogo. No caso da janela, usamos
+uma função XLib para isso:
 
 @<Janela: Declaração@>=
   void Wresize_window(int width, int height);
@@ -661,15 +658,22 @@ para isso:
 
 @<Janela: Definição@>=
 void Wresize_window(int width, int height){
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_window_mutex);
+#endif
   XResizeWindow(_dpy, _window, width, height);
   W_width = width;
   W_height = height;
-  @<Ações após Redimencionar Janela@>@/
+  @<Ações após Redimencionar Janela@>
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_window_mutex);
+#endif
 }
 @
 
 No caso de termos um ``canvas'' web, então usamos SDL para obtermos o
-mesmo efeito:
+mesmo efeito. Basta pedirmos para criar uma nova janela e isso
+funciona como se mudássemos o tamanho da anterior:
 
 @<Canvas: Declaração@>=
   void Wresize_window(int width, int height);
@@ -677,21 +681,26 @@ mesmo efeito:
 
 @<Canvas: Definição@>=
 void Wresize_window(int width, int height){
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_window_mutex);
+#endif
   window = SDL_SetVideoMode(width, height,
                             0, // Bits por pixel, usar o padrão
                             SDL_OPENGL // Inicializar o contexto OpenGL
                             );
   W_width = width;
   W_height = height;
-  @<Ações após Redimencionar Janela@>@/
+  @<Ações após Redimencionar Janela@>
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_window_mutex);
+#endif
 }
 @
 
 Mudar a posição da janela é algo diferente. Isso só faz sentido se
 realmente tivermos uma janela Xlib, e não um ``canvas'' web. De
 qualquer forma, precisaremos definir esta função em ambos os
-casos. Mas caso estejamos diante de um ``canvas'', a função de mudar
-posição deve ser simplesmente ignorada.
+casos.
 
 @<Janela: Declaração@>=
   void Wmove_window(int x, int y);
@@ -699,11 +708,20 @@ posição deve ser simplesmente ignorada.
 
 @<Janela: Definição@>=
 void Wmove_window(int x, int y){
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_window_mutex);
+#endif
   XMoveWindow(_dpy, _window, x, y);
   W_x = x;
   W_y = y;
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_window_mutex);
+#endif
 }
 @
+
+Esta mesma função será definida, mas será ignorada se um usuário a
+invocar em um programa compilado para a Web:
 
 @<Canvas: Declaração@>=
   void Wmove_window(int x, int y);
@@ -726,7 +744,7 @@ melhorar o desempenho, mas ao mesmo tempo podem precisar ocupar a tela
 toda para obter imersão.
 
 Note que isso só faz sentido quando lidamos com uma janela rodando em
-um gerenciador de janelas. Não no ``canvas'' de um navegador.
+um gerenciador de janelas. Não no \italico{canvas} de um navegador.
 
 O primeiro problema que temos é que não dá pra mudar a resolução
 arbitrariamente. Existe apenas um conjunto limitado de resoluções que
@@ -792,12 +810,18 @@ zero, significando um valor indefinido.
 Se não estamos programando para a Web, inicializar tais dados é mais
 complicado. Nós vamos precisar usar a extensão XRandr. E além disso,
 como podemos mudar a resolução da nossa tela, é importante
-memorizarmos os valores iniciais. Usaremos duas variáveis abaixo para
-fazer isso. A primeira é um ID que representa a resolução e a segunta
-é a taxa de atualização a tela. Mais abaixo, uma terceira variável
-armazena a rotação atual da tela. Weaver não permite que rotacionemos
-a tela, mas mesmo assim tal informação deve ser obtida para quando
-depois tivermos que restaurar as configurações iniciais.
+memorizarmos os valores iniciais para podermos restaurá-los antes de
+terminar o programa. Tanto quando o programa encerra naturalmente como
+quando é encerrado à força por meio de uma falha de
+segmentação. Usaremos um punhado de variáveis para armazenar os dadso
+que precisamos para isso.
+
+A primeira é |_orig_size_id|, um ID que representa a resolução e a
+segunta é |_orig_rate|, que representa a taxa de atualização a
+tela. Mais abaixo, |_orig_rotation| armazena a rotação atual da
+tela. Weaver não permite que rotacionemos a tela, mas mesmo assim tal
+informação deve ser obtida para quando depois tivermos que restaurar
+as configurações iniciais.
 
 Por fim, a quarta variável que definimos é uma que irá armazenar as
 informações das configurações relacionadas à resolução e taxa de
@@ -813,24 +837,26 @@ atualização da tela.
 {
   Window root = RootWindow(_dpy, 0); // Janela raíz da tela padrão
   int num_modes, num_rates, i, j, k;
+  // Obtendo uma lista de todas as resoluções possíveis:
   XRRScreenSize *modes = XRRSizes(_dpy, 0, &num_modes);
   short *rates;
-
-  // Obtendo o número de modos
+  // Obtendo lista de taxa de atualização do monitor em cada resolução
+  // e com isso concluindo o número total de modos diferentes:
   Wnumber_of_modes = 0;
   for(i = 0; i < num_modes; i ++){
     rates = XRRRates(_dpy, 0, i, &num_rates);
     Wnumber_of_modes += num_rates;
   }
+  // Alocamos na arena de memória interna espaço para contermos dados
+  // sobre todas as combinações possíveis de resolução e taxa de
+  // atualização:
   Wmodes = (struct _wmodes *) _iWalloc(sizeof(struct _wmodes) *
                                        Wnumber_of_modes);
-
-  // obtendo o valor original de resolução e taxa de atualização:
+  // Obtendo o valor original de resolução e taxa de atualização:
   conf = XRRGetScreenInfo(_dpy, root);
   _orig_rate = XRRConfigCurrentRate(conf);
   _orig_size_id = XRRConfigCurrentConfiguration(conf, &_orig_rotation);
-
-  // Preenchendo as informações dos modos e descobrindo o ID do atual
+  // Preenchendo as informações dos modos e descobrindo o ID do modo atual
   k = 0;
   for(i = 0; i < num_modes; i ++){
     rates = XRRRates(_dpy, 0, i, &num_rates);
@@ -853,10 +879,10 @@ atualização da tela.
 @
 
 Caso modifiquemos a resolução da tela, antes de fechar o programa,
-precisamos fazer tudo voltar ao que era antes. E o mesmo se o programa
-for encerrado devido à uma falha de segmentação, divisão por zero, ou
-algo assim. Independente do que causar o fim do programa, precisamos
-chamar a função que definiremos:
+precisamos fazer tudo voltar ao que era antes. Mesmo se o programa for
+encerrado devido à uma falha de segmentação, divisão por zero, ou algo
+assim. Independente do que causar o fim do programa, precisamos chamar
+a função que definiremos:
 
 @<Janela: Declaração@>=
   void _restore_resolution(void);
@@ -864,10 +890,17 @@ chamar a função que definiremos:
 
 @<Janela: Definição@>=
 void _restore_resolution(void){
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_window_mutex);
+#endif
   Window root = RootWindow(_dpy, 0);
   XRRSetScreenConfigAndRate(_dpy, conf, root, _orig_size_id, _orig_rotation,
                             _orig_rate, CurrentTime);
   XRRFreeScreenConfigInfo(conf);
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_window_mutex);
+#endif
+
 }
 @
 
@@ -880,9 +913,46 @@ finalização imediatamente antes:
   _restore_resolution();
 @
 
-Criamos também uma função |restore_and_quit|, que será a que será
-chamada caso recebamos um sinal fatal que encerre abruptamente nosso
-programa:
+Mas e se o programa tiver que ser encerrado devido à algum sinal
+fatal? Pode ter ocorrido uma falha de segmentação ou uma divisão por
+zero. Neste caso, precisamos restaurar a resolução antes de encerrar o
+programa. Para isso temos que substituir a ação padrão em cada sinal
+letal por uma função que faz isso:
+
+@<Cabeçalhos Weaver@>=
+#if W_TARGET == W_ELF
+#include <signal.h>
+#endif
+@
+@<API Weaver: Inicialização@>+=
+#if W_TARGET == W_ELF
+{
+  struct sigaction sa;
+  memset(&sa, 0, sizeof(struct sigaction));
+  sigemptyset(&sa.sa_mask);
+  // _restore_and_quit é uma função que definiremos logo em
+  // seguida. Ela deverá ser executada ao invés da função normal
+  // associada a cada sinal:
+  sa.sa_sigaction = _restore_and_quit;
+  sa.sa_flags   = SA_SIGINFO;
+  sigaction(SIGHUP, &sa, NULL);
+  sigaction(SIGINT, &sa, NULL);
+  sigaction(SIGQUIT, &sa, NULL);
+  sigaction(SIGILL, &sa, NULL);
+  sigaction(SIGABRT, &sa, NULL);
+  sigaction(SIGFPE, &sa, NULL);
+  sigaction(SIGSEGV, &sa, NULL);
+  sigaction(SIGPIPE, &sa, NULL);
+  sigaction(SIGALRM, &sa, NULL);
+  sigaction(SIGTERM, &sa, NULL);
+  sigaction(SIGUSR1, &sa, NULL);
+  sigaction(SIGUSR2, &sa, NULL);
+}
+#endif
+@
+
+Como indicado pelo código, ao invés da função normal, o que iremos
+executar sempre que recebermos um sinal fatal será a função abaixo:
 
 @<Janela: Declaração@>=
   void _restore_and_quit(int signal, siginfo_t *si, void *arg);
@@ -890,79 +960,53 @@ programa:
 
 @<Janela: Definição@>=
 void _restore_and_quit(int signal, siginfo_t *si, void *arg){
-  fprintf(stderr, "ERROR: Received signal %d (%p %p).\n", signal, 
-          (void *) si, (void *) arg);
-  Wexit();
+  _restore_resolution();
+  // Restaura todos os sinais salvos:
+  switch(signal){
+  case SIGHUP:
+    fprintf(stderr, "Program hangup.\n");
+    break;
+  case SIGINT:
+  case SIGTERM:
+    fprintf(stderr, "Program terminated.\n");
+    break;
+  case SIGQUIT:
+    fprintf(stderr, "Program quited.\n");
+    break;
+  case SIGILL:
+    fprintf(stderr, "Ilegal instruction.\n");
+    break;
+  case SIGABRT:
+    fprintf(stderr, "Program aborted.\n");
+    break;
+  case SIGFPE:
+    fprintf(stderr, "Erroneous arithmetic expression (divided by zero?).\n");
+    break;
+  case SIGSEGV:
+    fprintf(stderr, "Segmentation fault.\n");
+    break;
+  case SIGPIPE:
+    fprintf(stderr, "Broken pipe.\n");
+    break;
+  case SIGALRM:
+    fprintf(stderr, "Program terminated by alarm clock.\n");
+    break;
+  default:
+    fprintf(stderr, "Program terminated by unknown signal.\n");    
+  }
   exit(1);
+  // Este código nunca será executado, mas previne aviso de compilação
+  // por não usarmos os argumentos 'si' e 'arg':
+  *((int *) arg) = *((int *) si);
 }
-@
-
-E por fim, trataremos agora dos sinais. Primeiro precisamos salvar as
-funções responsáveis por tratar os sinais fatais ao mesmo tempo em que
-as redefinimos. Para isso, precisaremos de um vetor:
-
-@<Cabeçalhos Weaver@>=
-#if W_TARGET == W_ELF
-#include <signal.h>
-#endif
-@
-
-@<API Weaver: Definições@>+=
-#if W_TARGET == W_ELF
-static struct sigaction *actions[12];
-#endif
-@
-
-@<API Weaver: Inicialização@>+=
-#if W_TARGET == W_ELF
-{
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(struct sigaction));
-  sigemptyset(&sa.sa_mask);
-  sa.sa_sigaction = _restore_and_quit;
-  sa.sa_flags   = SA_SIGINFO;
-
-  sigaction(SIGHUP, &sa, actions[0]);
-  sigaction(SIGINT, &sa, actions[1]);
-  sigaction(SIGQUIT, &sa, actions[2]);
-  sigaction(SIGILL, &sa, actions[3]);
-  sigaction(SIGABRT, &sa, actions[4]);
-  sigaction(SIGFPE, &sa, actions[5]);
-  sigaction(SIGSEGV, &sa, actions[6]);
-  sigaction(SIGPIPE, &sa, actions[7]);
-  sigaction(SIGALRM, &sa, actions[8]);
-  sigaction(SIGTERM, &sa, actions[9]);
-  sigaction(SIGUSR1, &sa, actions[10]);
-  sigaction(SIGUSR2, &sa, actions[11]);
-}
-#endif
 @
 
 O único caso no qual não seremos capazes de restaurar a resolução é
 quando recebermos um |SIGKILL|. Não há muito a fazer com relação à
 isso. Entretanto, um sinal desta magnitude só pode ser gerado por um
 usuário, nunca será a reação do Sistema Operacional à uma ação do
-programa. Então, teremos que assumir que caso isso aconteça, o usuário
-sabe o que está fazendo e saberá retornar a resolução ao seu estado
-atual.
-
-Precisamos agora durante a finalização da API restaurar os tratamentos
-originais dos sinais. Para isso, usamos o seguinte código:
-
-@<Restaura os Sinais do Programa (SIGINT, SIGTERM, etc)@>=
-  sigaction(SIGHUP, actions[0], NULL);
-  sigaction(SIGINT, actions[1], NULL);
-  sigaction(SIGQUIT, actions[2], NULL);
-  sigaction(SIGILL, actions[3], NULL);
-  sigaction(SIGABRT, actions[4], NULL);
-  sigaction(SIGFPE, actions[5], NULL);
-  sigaction(SIGSEGV, actions[6], NULL);
-  sigaction(SIGPIPE, actions[7], NULL);
-  sigaction(SIGALRM, actions[8], NULL);
-  sigaction(SIGTERM, actions[9], NULL);
-  sigaction(SIGUSR1, actions[10], NULL);
-  sigaction(SIGUSR2, actions[11], NULL);
-@
+programa. Teremos que assumir que caso isso aconteça, o usuário sabe o
+que está fazendo e saberá retornar a resolução ao seu estado atual.
 
 Uma vez que tenhamos garantido que a resolução voltará ao normal após
 o programa se encerrar, podemos fornecer então uma função responsável
@@ -1014,7 +1058,7 @@ janela, a qual será exibida na ausência de qualquer coisa a ser
 mostrada:
 
 @<API Weaver: Inicialização@>+=
-// COm que cor limpamos a tela:
+// Com que cor limpamos a tela:
 glClearColor(W_DEFAULT_COLOR, 1.0f);
 // Ativamos o buffer de profundidade:
 glEnable(GL_DEPTH_TEST);

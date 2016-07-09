@@ -1,11 +1,9 @@
 @* Gerenciamento de memória.
 
-Alocar memória dinamicamente de uma heap é uma operação cujo tempo
-gasto nem sempre pode ser previsto. Isso é algo que depende da
-quantidade de blocos contínuos de memória presentes na heap que o
-gerenciador organiza. Por sua vez, isso depende muito do padrão de uso
-das funções \monoespaco{malloc} e \monoespaco{free}, e por isso não é algo
-fácil de ser previsto.
+Alocar memória dinamicamente é uma operação cujo tempo nem sempre pode
+ser previsto. Depende da quantidade de blocos contínuos de memória
+presentes na heap que o gerenciador organiza. E isso depende muito do
+padrão de uso das funções |malloc| e |free|.
 
 Jogos de computador tradicionalmente evitam o uso contínuo de
 \monoespaco{malloc} e \monoespaco{free} por causa disso. Tipicamente jogos
