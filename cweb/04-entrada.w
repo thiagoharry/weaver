@@ -198,15 +198,16 @@ botões pressionados no \italico{mouse}:
 // List de botões do mouse que estão sendo pressionados e soltos:
   static unsigned _pressed_buttons[5];
   static unsigned _released_buttons[5];
-#ifdef W_MULTITHREAD
-extern pthread_mutex_t _input_mutex;
-#endif
 @
 
-@<Cabeçalhos Weaver@>=
+@<Cabeçalhos Weaver@>+=
 // Depois declaramos o vetor de tempo pressionado para os botões do
 // mouse. Este é para o teclado:
-    extern int Wkeyboard[0xffff];
+  extern int Wkeyboard[0xffff];
+#ifdef W_MULTITHREAD
+  pthread_mutex_t _input_mutex;
+#endif
+
 @
 
 A inicialização de tais valores consiste em deixar todos contendo zero
@@ -242,8 +243,8 @@ precisar finalizá-los:
 @<API Weaver: Finalização@>+=
 #ifdef W_MULTITHREAD
   if(pthread_mutex_destroy(&_input_mutex) != 0){ // Finaliza mutex
-  perror(NULL);
-  exit(1);
+    perror(NULL);
+    exit(1);
 } 
 #endif
 @
@@ -313,6 +314,9 @@ int Wkey_translate(unsigned old_value, unsigned new_value){
        _key_translate[i].original_symbol == old_value){
       _key_translate[i].original_symbol = old_value;
       _key_translate[i].new_symbol = new_value;
+#ifdef W_MULTITHREAD
+      pthread_mutex_unlock(&_input_mutex);
+#endif
       return 1;
     }
   }
@@ -404,7 +408,7 @@ if(event.type == KeyRelease){
       break;
     }
   }
-  for(; i < 19; i ++){
+  for(; i < 19; i ++){// Preenche o buraco que ficou na lista após a remoção
     _pressed_keys[i] = _pressed_keys[i + 1];
   }
   _pressed_keys[19] = 0;
@@ -421,33 +425,40 @@ if(event.type == KeyRelease){
 }
 @
 
-Mas e quando esvaziamos o vetor de teclas soltas? E quando
-incrementamos o valor de cada posição em |Wkeyboard| caso uma tecla
-esteja sendo pressionada? Isso precisa ser feito antes de checarmos os
-eventos de entrada para que desta forma consigamos manter em 1 o valor
-de uma tecla que acabou de ser pressionada neste última iteração, e só
-depois seu valor vá sendo atualizada para outros números. Por isso o
-seguinte código deve ser posicionado antes do tratamento de eventos:
+O evento de pressionar uma tecla faz com que ela vá para a lista de
+teclas pressionadas. O evento de soltar uma tecla remove ela desta
+lista e faz ela ir para a lista de teclas soltas. Mas a
+cada \italico{frame} temos que também limpar a lista de teclas que
+foram soltas no \italico{frame} anterior. E incrementar os valores no
+vetor que mede o tempo em que cada tecla está sendo pressionada para
+cada tecla que está na lista de teclas pressionadas. Isso precisa ser
+feito imediatamente antes de lermos os eventos pendentes. Somente
+imediatamente antes de obtermos os eventos deste \italico{frame}
+devemos terminar de processar todas as ocorrências do \italico{frame}
+anterior. Caso contrário, ocorreriam valores errôneos e nunca
+conseguiríamos manter em 1 o valor de tempo para uma tecla que acabou
+de ser pressionada neste \italico{frame}.
 
 @<API Weaver: Imediatamente antes de tratar eventos@>=
 {
   int i, key;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_input_mutex);
+#endif
   // Limpar o vetor de teclas soltas e zerar seus valores no vetor de teclado:
   for(i = 0; i < 20; i ++){
     key = _released_keys[i];
-    /*
-      Se a tecla está com um valor positivo, isso significa que os
-      eventos de soltar a tecla e apertar ela de novo foram gerados
-      juntos. Isso geralmente acontece quando um usuário pressiona uma
-      tecla por muito tempo. Depois de algum tempo, o servidor passa a
-      interpretar isso como se o usuário estivesse apertando e
-      soltando a tecla sem parar. Isso é útil em editores de texto
-      quando você segura uma tecla e a letra que ela representa começa
-      a ser inserida sem parar após um tempo. Mas aqui isso deixa o
-      ato de medir o tempo cheio de detalhes incômodos. Aqui temos que
-      remover da lista de teclas soltas esta tecla, que provavelmente
-      não foi solta de verdade:
-    */
+    // Se a tecla está com um valor positivo, isso significa que os
+    //  eventos de soltar a tecla e apertar ela de novo foram gerados
+    //  juntos. Isso geralmente acontece quando um usuário pressiona uma
+    //  tecla por muito tempo. Depois de algum tempo, o servidor passa a
+    //  interpretar isso como se o usuário estivesse apertando e
+    //  soltando a tecla sem parar. Isso é útil em editores de texto
+    //  quando você segura uma tecla e a letra que ela representa começa
+    //  a ser inserida sem parar após um tempo. Mas aqui isso deixa o
+    //  ato de medir o tempo cheio de detalhes incômodos. Temos que
+    //  remover da lista de teclas soltas esta tecla, que provavelmente
+    //  não foi solta de verdade:
     while(Wkeyboard[key] > 0){
       int j;
       for(j = i; j < 19; j ++){
@@ -455,26 +466,28 @@ seguinte código deve ser posicionado antes do tratamento de eventos:
       }
       _released_keys[19] = 0;
       key = _released_keys[i];
-    }    
-    if(key == 0) break;
-    
+    }
+    if(key == 0) break; // Chegamos ao fim da lista de teclas pressionadas
+    // Tratando casos especiais de valores que representam mais de uma tecla:
     if(key == W_LEFT_CTRL || key == W_RIGHT_CTRL) Wkeyboard[W_CTRL] = 0;
     else if(key == W_LEFT_SHIFT || key == W_RIGHT_SHIFT) Wkeyboard[W_SHIFT] = 0;
     else if(key == W_LEFT_ALT || key == W_RIGHT_ALT) Wkeyboard[W_ALT] = 0;
+    // Como foi solta no frame anterior, o tempo que ela está pressionada é 0:
     Wkeyboard[key] = 0;
-    _released_keys[i] = 0;
+    _released_keys[i] = 0; // Tecla removida da lista de teclas soltas
   }
-  /* Para teclas pressionadas, incrementar o tempo em que elas estão
-     pressionadas:*/
+  // Para teclas pressionadas, incrementar o seu contador de tempo:
   for(i = 0; i < 20; i ++){
     key = _pressed_keys[i];
-    if(key == 0) break;
+    if(key == 0) break; // Fim da lista, encerrar
+    // Casos especiais:
     if(key == W_LEFT_CTRL || key == W_RIGHT_CTRL) 
       Wkeyboard[W_CTRL] += _elapsed_milisseconds;
     else if(key == W_LEFT_SHIFT || key == W_RIGHT_SHIFT)
       Wkeyboard[W_SHIFT] += _elapsed_milisseconds;
     else if(key == W_LEFT_ALT || key == W_RIGHT_ALT)
       Wkeyboard[W_ALT] += _elapsed_milisseconds;
+    // Aumenta o contador de tempo:
     Wkeyboard[key] += _elapsed_milisseconds;
   }
 }
@@ -484,13 +497,16 @@ Por fim, preenchemos a posição |Wkeyboard[W_ANY]| depois de tratarmos
 todos os eventos:
 
 @<API Weaver: Loop Principal@>+=
-Wkeyboard[W_ANY] = (_pressed_keys[0] != 0);
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_input_mutex);
+#endif
+Wkeyboard[W_ANY] = (_pressed_keys[0] != 0); // Se há alguma tecla pressionada
 @
 
 Isso conclui o código que precisamos para o teclado no Xlib. Mas ainda
 não acabou. Precisamos de macros para representar as diferentes teclas
 de modo que um usuário possa consultar se uma tecla está pressionada
-sem saber o código da tecla no Xlib:0
+sem saber o código da tecla no Xlib:
 
 @<Cabeçalhos Weaver@>=
 #if W_TARGET == W_ELF
@@ -589,7 +605,11 @@ void Wflush_input(void);
 
 @<API Weaver: Definições@>+=
 void Wflush_input(void){
-  { // Limpa informação do teclado
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&_input_mutex);
+#endif
+  {
+ // Limpa informação do teclado
     int i, key;
     for(i = 0; i < 20; i ++){
       key = _pressed_keys[i];
@@ -600,7 +620,10 @@ void Wflush_input(void){
       Wkeyboard[key] = 0;
     }
   }
-  @<Limpar Entrada@>@/
+  @<Limpar Entrada@>
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_input_mutex);
+#endif
 }
 @
 
@@ -609,7 +632,8 @@ em um programa nativo para Linux como em um programa SDL compilado
 para a Web. A única exceção é o tratamento de eventos, que é feita
 usando funções diferentes nas duas bibliotecas.
 
-É preciso inserir o cabeçalho SDL neste caso:
+Para um programa compilado para a Web, precisamos inserir o cabeçalho
+SDL:
 
 @<Cabeçalhos Weaver@>+=
 #if W_TARGET == W_WEB
@@ -632,13 +656,11 @@ if(event.type == SDL_KEYDOWN){
       break;
     }
   }
-  /*
-    Atualiza vetor de teclado se a tecla não estava sendo
-    pressionada. Algumas vezes este evento é gerado repetidas vezes
-    quando apertamos uma tecla por muito tempo. Então só devemos
-    atribuir 1 à posição do vetor se realmente a tecla não estava
-    sendo pressionada antes.
-  */
+    // Atualiza vetor de teclado se a tecla não estava sendo
+    // pressionada. Algumas vezes este evento é gerado repetidas vezes
+    // quando apertamos uma tecla por muito tempo. Então só devemos
+    // atribuir 1 à posição do vetor se realmente a tecla não estava
+    // sendo pressionada antes.
   if(Wkeyboard[code] == 0)
     Wkeyboard[code] = 1;
   else if(Wkeyboard[code] < 0)
@@ -664,7 +686,6 @@ if(event.type == SDL_KEYUP){
     _pressed_keys[i] = _pressed_keys[i + 1];
   }
   _pressed_keys[19] = 0;
-
   // Adiciona na lista de teclas soltas:
   for(i = 0; i < 20; i ++){
     if(_released_keys[i] == 0 || _released_keys[i] == code){
@@ -676,6 +697,7 @@ if(event.type == SDL_KEYUP){
   Wkeyboard[code] *= -1;
   continue;
 }
+
 @
 
 E por fim, a posição das teclas para quando usamos SDL no vetor de
@@ -762,7 +784,7 @@ teclado será diferente e correspondente aos valores usados pelo SDL:
 
 @*1 Invocando o loop principal.
 
-Um jogo ode ter vários loops principais. Um para a animação de
+Um jogo pode ter vários loops principais. Um para a animação de
 abertura. Outro para a tela de título onde escolhe-se o modo do
 jogo. Um para cada fase ou cenário que pode-se visitar. Pode haver
 outro para cada ``fase especial'' ou mesmo para cada batalha em um
@@ -772,28 +794,29 @@ Em cada um dos loops principais, precisamos rodar possivelmente
 milhares de iterações. E em cada uma delas precisamos fazer algumas
 coisas em comum. Imediatamente antes do loop precisamos limpar todos
 os valores prévios armazenados no vetor de teclado. E depois em cada
-iteração precisamos rodar |weaver_rest| para obtermos os eventos de
+iteração precisamos rodar |Wrest| para obtermos os eventos de
 entrada, atualizarmos várias variáveis e poder desenhar na tela.
 
 O problema é que este tipo de coisa depende do ambiente de execução em
 que estamos. Por exemplo, se estamos executando um programa Linux, o
 seguinte loop principal seria válido:
 
-\alinhaverbatim
+@(/tmp/dummy.c@>=
+// Exemplo. Não faz parte de Weaver.
 while(1){
   handle_input();
   handle_objects();
-  weaver_rest(10);
+  Wrest(10);
 }
-\alinhanormal
+@
 
 Além disso poderíamos criar uma condição explícita para sairmos do
 loop e entrarmos em outra logo em seguida. Mas infelizmente se estamos
 executando em um navegador de Internet após termos o código compilado
 para Javascript, isso não é possível. Um loop infinito geraria um loop
 no código Javascript e isso faria com que a função Javascript nunca
-termine. Isso faria com que o navegador congelasse dentro do loop e se
-oferecesse para matar o script problemático, sem poder fazer coisas
+termine. O navegador congelaria dentro do \italico{loop} e se
+ofereceria para matar o script problemático, sem poder fazer coisas
 como desenhar na tela. Talvez o navegador não conseguisse nem mesmo
 detectar teclas pressionadas pelo jogador.
 
@@ -808,21 +831,19 @@ algo ruim, mas podemos minimizar os danos disso usando a palavra-chave
 O que queremos então é que um programa Weaver possa ter então a
 seguinte forma:
 
-\alinhaverbatim
+@(/tmp/dummy.c@>=
+// Exemplo. Não faz parte do Weaver.
 void main_loop(void){
   // ...
-  weaver_rest(10);
+  Wrest(10);
 }
-
 int main(int argc, char **argv){
-  awake_the_weaver();
-
+  Winit();
   // Executa |main_loop| como o loop principal
   Wloop(main_loop);
-
-  weaver_rest();
+  Wrest();
 }
-\alinhanormal
+@
 
 A função |Wloop| então executa a função que recebe como argumento em
 um loop infinito. E esta função deve ser definida de modo diferente
@@ -865,6 +886,8 @@ void Wloop(void (*f)(void)){
   Wflush_input();
   // O segundo argumento é o número de frames por segundo:
   emscripten_set_main_loop(f, 0, 1);
+  // Nunca chegamos nesta parte. Inútil colocar qualquer coisa após
+  // 'emscripten_set_main_loop'.
 }
 #endif
 @
@@ -873,9 +896,9 @@ Tudo isso significa que um loop principal nunca chega ao fim. Podemos
 apenas invocar outro loop principal recursivamente dentro do
 atual. Não há como evitar esta limitação com a atual API Emscripten
 que precisa usar |emscripten_set_main_loop| para ativar o loop sem
-interferir na usabilidade do navegador de Internet. Isso também com
-que todo loop principal seja uma função que não retorna nada e nem
-recebe argumentos.
+interferir na usabilidade do navegador de Internet. Isso também traz a
+limitação de que o \italico{loop} principal seja uma função que não
+retorna nada e nem recebe argumentos.
 
 A única possibilidade de evitar isso seria se fosse possível usar
 clausuras (\italico{closures}). Neste caso, poderíamos definir |Wloop|
@@ -905,11 +928,13 @@ realmente garantidos: o botão direito e esquerdo.
 
 Além dos botões, um mouse possui também uma posição $(x, y)$ na janela
 em que o jogo está. Mas às vezes mais importante do que sabermos a
-posição é sabermos se o mouse está se movendo ou não. E caso esteja se
-movendo, para onde ele está indo e em qual velocidade. Ambas as
-informações podem ser captadas por valores $(dx, dy)$ que capturam em
-qual posição estará no mouse em 1 segundo se ele manter o mesmo
-deslocamento observado entre estre frame e o anterior.
+posição é sabermos a sua velocidade. E caso esteja se movendo, para
+onde ele está indo e em qual velocidade. Ambas as informações podem
+ser captadas por valores $(dx, dy)$ que capturam em qual posição
+estará no mouse em 1 segundo se ele manter o mesmo deslocamento
+observado entre estre frame e o anterior. Em outras palavras, estes
+valores sãoo os componentes de sua velocidade em \italico{pixels} por
+segundo.
 
 Em suma, podemos representar o mouse como a seguinte estrutura:
 
@@ -950,7 +975,7 @@ por:
 Agora podemos inicializar os vetores de botões soltos e pressionados:
 
 @<API Weaver: Inicialização@>+=
-{
+{ // Inicialização das estruturas do mouse
   int i;
   for(i = 0; i < 5; i ++)
     Wmouse.buttons[i] = 0;
@@ -963,7 +988,8 @@ Agora podemos inicializar os vetores de botões soltos e pressionados:
 
 Imediatamente antes de tratarmos eventos, precisamos percorrer a lista
 de botões pressionados para atualizar seus valores e a lista de botões
-recém-soltos para removê-los da lista:
+recém-soltos para removê-los da lista. É essencialmente o mesmo
+trabalho que fazemos com o teclado.
 
 @<API Weaver: Imediatamente antes de tratar eventos@>=
 {
@@ -980,12 +1006,10 @@ recém-soltos para removê-los da lista:
       button = _released_buttons[i];
     }    
     if(button == 0) break;
-    
     Wmouse.buttons[button] = 0;
     _released_buttons[i] = 0;
   }
-  /* Para botões pressionados, incrementar o tempo em que eles estão
-     pressionadas:*/
+  // Para botões pressionados, incrementar o tempo em que estão pressionados:
   for(i = 0; i < 5; i ++){
     button = _pressed_buttons[i];
     if(button == 0) break;
@@ -1009,12 +1033,10 @@ if(event.type == ButtonPress){
       break;
     }
   }
-  /*
-    Atualiza vetor de mouse se a tecla não estava sendo
-    pressionada. Ignoramos se o evento está sendo gerado mais de uma
-    vez sem que o botão seja solto ou caso o evento seja gerado
-    imediatamente depois de um evento de soltar o mesmo botão:
-  */
+    // Atualiza vetor de mouse se a tecla não estava sendo
+    // pressionada. Ignoramos se o evento está sendo gerado mais de uma
+    // vez sem que o botão seja solto ou caso o evento seja gerado
+    // imediatamente depois de um evento de soltar o mesmo botão:
   if(Wmouse.buttons[code] == 0)
     Wmouse.buttons[code] = 1;
   else if(Wmouse.buttons[code] < 0)
@@ -1028,9 +1050,7 @@ E caso um botão seja solto, também tratamos tal evento:
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == ButtonRelease){
   unsigned int code = event.xbutton.button;
-
   int i;
-
   // Remove da lista de botões pressionados
   for(i = 0; i < 5; i ++){
     if(_pressed_buttons[i] == code){
@@ -1042,7 +1062,6 @@ if(event.type == ButtonRelease){
     _pressed_buttons[i] = _pressed_buttons[i + 1];
   }
   _pressed_buttons[4] = 0;
-
   // Adiciona na lista de botões soltos:
   for(i = 0; i < 5; i ++){
     if(_released_buttons[i] == 0 || _released_buttons[i] == code){
@@ -1070,10 +1089,8 @@ if(event.type == SDL_MOUSEBUTTONDOWN){
       break;
     }
   }
-  /*
-    Atualiza vetor de mouse se o botão já não estava sendo pressionado
-    antes.
-  */
+  // Atualiza vetor de mouse se o botão já não estava sendo pressionado
+  // antes.
   if(Wmouse.buttons[code] == 0)
     Wmouse.buttons[code] = 1;
   else if(Wmouse.buttons[code] < 0)
@@ -1099,7 +1116,6 @@ if(event.type == SDL_MOUSEBUTTONUP){
     _pressed_buttons[i] = _pressed_buttons[i + 1];
   }
   _pressed_buttons[4] = 0;
-
   // Adiciona na lista de botões soltos:
   for(i = 0; i < 5; i ++){
     if(_released_buttons[i] == 0 || _released_buttons[i] == code){
@@ -1113,12 +1129,14 @@ if(event.type == SDL_MOUSEBUTTONUP){
 }
 @
 
-
 E finalmente, o caso especial para verificar se qualquer botão foi
 pressionado:
 
 @<API Weaver: Loop Principal@>+=
 Wmouse.buttons[W_ANY] = (_pressed_buttons[0] != 0);
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_input_mutex);
+#endif
 @
 
 @*2 Obtendo o movimento.
@@ -1128,9 +1146,7 @@ do programa devemos zerar tais valores para evitarmos valores absurdos
 na primeira iteração:
 
 @<API Weaver: Inicialização@>+=
-{
   Wmouse.x = Wmouse.y = Wmouse.dx = Wmouse.dy = 0;
-}
 @
 
 
@@ -1141,16 +1157,13 @@ se ele receber, aí de qualquer forma teremos a chance de atualizar os
 valores no tratamento do evento:
 
 @<API Weaver: Imediatamente antes de tratar eventos@>+=
-{
   Wmouse.dx = Wmouse.dy = 0;
-}
 @
 
-  continue;
 Em seguida, cuidamos do caso no qual temos um evento Xlib de movimento
 do mouse:
 
-@<API Weaver: Trata Evento Xlib@>=
+@<API Weaver: Trata Evento Xlib@>+=
 if(event.type == MotionNotify){
   int x, y, dx, dy;
   x = event.xmotion.x;
@@ -1163,11 +1176,14 @@ if(event.type == MotionNotify){
   Wmouse.y = y;
   continue;
 }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_input_mutex); // Último evento Xlib, libera mutex
+#endif
 @
 
 Agora é só usarmos a mesma lógica para tratarmos o evento SDL:
 
-@<API Weaver: Trata Evento SDL@>=
+@<API Weaver: Trata Evento SDL@>+=
 if(event.type == SDL_MOUSEMOTION){
   int x, y, dx, dy;
   x = event.motion.x;
@@ -1180,6 +1196,9 @@ if(event.type == SDL_MOUSEMOTION){
   Wmouse.y = y;
   continue;
 }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_input_mutex); // Último evento SDL, libera mutex
+#endif
 @
 
 E a última coisa que precisamos fazer é zerar e limpar todos os

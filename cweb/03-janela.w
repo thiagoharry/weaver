@@ -154,8 +154,8 @@ da API:
 @<API Weaver: Inicialização@>+=
 #ifdef W_MULTITHREAD
   if(pthread_mutex_init(&_window_mutex, NULL) != 0){ // Inicializa mutex
-  perror(NULL);
-  exit(1);
+    perror(NULL);
+    exit(1);
 } 
 #endif
 #if W_TARGET == W_ELF
@@ -165,8 +165,8 @@ _initialize_window();
 @<API Weaver: Finalização@>+=
 #ifdef W_MULTITHREAD
   if(pthread_mutex_destroy(&_window_mutex) != 0){ // Finaliza mutex
-  perror(NULL);
-  exit(1);
+    perror(NULL);
+    exit(1);
 } 
 #endif
 #if W_TARGET == W_ELF
