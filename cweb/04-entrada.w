@@ -6,8 +6,9 @@ seu teclado ou mouse e isso gerará um evento. Devemos tratar tais
 eventos no mesmo local em que já estamos tratando coisas como o mover
 e o mudar tamanho da janela (algo que também é um evento). Mas devemos
 criar uma interface mais simples para que um usuário possa acompanhar
-quando certas teclas são pressionadas, e por quanto tempo elas estão
-sendo pressionadas.
+quando certas teclas são pressionadas, quando são soltas, por quanto
+tempo elas estão sendo pressionadas e por quanto tempo foram
+pressionadas antes de terem sido soltas.
 
 Nossa proposta é que exista um vetor de inteiros chamado |Wkeyboard|,
 por exemplo, e que cada posição dele represente uma tecla
@@ -17,14 +18,15 @@ positivo, então a tecla está sendo pressionada e o número representa
 por quantos milissegundos a tecla vem sendo pressionada. Caso o valor
 seja um número negativo, significa que a tecla acabou de ser solta e o
 inverso deste número representa por quantos milissegundos a tecla
-ficou pressionada.
+ficou pressionada. E caso o valor seja 1, isso significa que a tecla
+começou a ser pressionada exatamente neste \italico{frame}.
 
 Acompanhar o tempo no qual uma tecla é pressionada é tão importante
 quanto saber se ela está sendo pressionada ou não. Por meio do tempo,
 podemos ser capazes de programar personagens que pulam mais alto ou
 mais baixo, dependendo do quanto um jogador apertou uma tecla, ou
-fazer com que jogadores possam escolher entre dar um soco rápido, mas
-fraco ou devagar, mas forte em outros tipos de jogo. Tudo depende da
+fazer com que jogadores possam escolher entre dar um soco rápido e
+fraco ou lento e forte em outros tipos de jogo. Tudo depende da
 intensidade com a qual eles pressionam os botões.
 
 Entretanto, tanto o Xlib como SDL funcionam reportando apenas o
@@ -43,8 +45,8 @@ não deve causar qualquer problema.
 Até agora estamos falando do teclado, mas o mesmo pode ser
 implementado nos botões do mouse. Mas no caso do mouse, além dos
 botões, temos o seu movimento. Então será importante armazenarmos a
-sua posição $(x, y)$, mas também um vetor representando o seu
-deslocamento. Tal vetor deve considerar como se a posição atual do
+sua posição $(x, y)$, mas também um vetor representando a sua
+velocidade. Tal vetor deve considerar como se a posição atual do
 ponteiro do mouse fosse a $(0,0)$ e deve conter qual a sua posição no
 próximo segundo caso o seu deslocamento continue constante na mesma
 direção e sentido em que vem sendo desde a última iteração. Desta
@@ -55,7 +57,7 @@ mouse pode permitir interações mais ricas com o usuário.
 @*1 Preparando o Loop Principal: Medindo a Passagem de Tempo.
 
 Conforme exposto na introdução, toda vez que estivermos em um loop
-principal do jogo, a função |weaver_rest| deve ser invocada uma vez a
+principal do jogo, a função |Wrest| deve ser invocada uma vez a
 cada iteração. Devemos então manter algumas variáveis controlando a
 passagem do tempo, e tais variáveis devem ser atualizadas sempre
 dentro destas funções.
@@ -119,16 +121,14 @@ prevenir que contenham números absurdos na primeira iteração:
 @
 
 
-E em cada iteração do loop principal, atualizamos os
-valores. Lembrando que realizar a subtração de dois |struct timeval|
-pode ser um pouco chato, mas o próprio manual da biblioteca C GNU
-demonstra como fazer:
+E em cada iteração do loop principal, atualizamos os valores. Assim
+subtraímos dois |struct timeval| para obter os valores de
+|elapsed_milisseconds| e |Wfps| em cada \italico{frame}:
 
 @<API Weaver: Loop Principal@>+=
 {
   _elapsed_milisseconds = (_current_time.tv_sec - _last_time.tv_sec) * 1000;
   _elapsed_milisseconds += (_current_time.tv_usec - _last_time.tv_usec) / 1000;
-
   if(_elapsed_milisseconds > 0)
     Wfps = 1000 / _elapsed_milisseconds;
   else
@@ -138,13 +138,12 @@ demonstra como fazer:
 
 @*1 O Teclado.
 
-Como mencionado, para o teclado, precisaremos de uma variável local ao
-arquivo que armazenará as teclas que já estão sendo pressionadas neste
-momento e uma variável global que será um vetor de números
-representando a quanto tempo cada tecla é pressionada. Adicionalmente,
-também precisamos tomar nota das teclas que acabaram de ser soltas
-para que na iteração seguinte possamos zerar os seus valores no vetor
-do teclado.
+Para o teclado precisaremos de uma variável local que armazenará as
+teclas que já estão sendo pressionadas e uma variável global que será
+um vetor de números representando a quanto tempo cada tecla é
+pressionada. Adicionalmente, também precisamos tomar nota das teclas
+que acabaram de ser soltas para que na iteração seguinte possamos
+zerar os seus valores no vetor de por quanto tempo estão pressionadas.
 
 Mas a primeira questão que temos a responder é que tamanho deve ter
 tal vetor? E como associar cada posição à uma tecla?
@@ -171,9 +170,9 @@ espanhol. Mas algumas coisas ficam de fora, como cirílico, símbolos
 não será algo grave, pois podemos fornecer uma função capaz de
 redefinir alguns destes símbolos para valores dentro de tal
 intervalo. O que significa que vamos precisar também de espaço em
-memória para armazenar tais traduções. Um número de 100 delas pode ser
-estabelecido como máximo, pois a maioria dos teclados tem menos teclas
-que isso.
+memória para armazenar tais traduções de uma tecla para outra. Um
+número de 100 delas pode ser estabelecido como máximo, pois a maioria
+dos teclados tem menos teclas que isso.
 
 Note que este é um problema do XLib. O SDL de qualquer forma já se
 atém somente à 16 bytes para representar suas teclas. Então, podemos
@@ -181,25 +180,32 @@ ignorar com segurança tais traduções quando estivermos programando
 para a Web.
 
 Sabendo disso, o nosso vetor de teclas e vetor de traduções pode ser
-declarado, bem como o vetor de teclas pressionadas. Vamos também já
-deixar declarado um vetor idêntico aos de teclas pressionadas e
-soltas, mas para os botões do teclado:
+declarado, bem como o vetor de teclas pressionadas. Mas além das
+teclas pressionadas do teclado, vamos tar o mesmo tratamento para os
+botões pressionados no \italico{mouse}:
 
 @<API Weaver: Definições@>=
   int Wkeyboard[0xffff];
 #if W_TARGET == W_ELF
-  static struct _k_translate{
+  static struct _k_translate{ // Traduz uma tecla em outra
     unsigned original_symbol, new_symbol;
   } _key_translate[100];
 #endif
+// Lista de teclas do teclado que estão sendo pressionadas e que estão
+// sendo soltas:
   static unsigned _pressed_keys[20];
   static unsigned _released_keys[20];
-
+// List de botões do mouse que estão sendo pressionados e soltos:
   static unsigned _pressed_buttons[5];
   static unsigned _released_buttons[5];
+#ifdef W_MULTITHREAD
+extern pthread_mutex_t _input_mutex;
+#endif
 @
 
 @<Cabeçalhos Weaver@>=
+// Depois declaramos o vetor de tempo pressionado para os botões do
+// mouse. Este é para o teclado:
     extern int Wkeyboard[0xffff];
 @
 
@@ -221,32 +227,52 @@ como valor:
     _pressed_keys[i] = 0;
     _released_keys[i] = 0;
   }
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_init(&_input_mutex, NULL) != 0){ // Inicializa mutex
+    perror(NULL);
+    exit(1);
+  } 
+#endif
 }
 @
 
-Inicializar tais vetores para o valor zero funciona porque nem o SDL e
-nem o XLib associa qualquer tecla ao número zero. De fato, o XLib
-ignora os primeiros 31 valores e o SDL ignora os primeiros 7. Desta
-forma, podemos usar tais espaços com segurança para representar
-conjuntos de teclas ao invés de uma tecla individual. Por exemplo,
-podemos associar a posição 1 como sendo o de todas as teclas. Qualquer
-tecla pressionada faz com que ativemos o seu valor. Outra posição pode
-ser associada ao Shift, que faria com que fosse ativada toda vez que o
-Shift esquerdo ou direito fosse pressionado. O mesmo para o Ctrl e
-Alt. Já o valor zero deve continuar sem uso para que possamos
-reservá-lo para valores inicializados, mas vazios ou indefinidos.
+Assim como inicializamos valores, ao término do programa, podemos
+precisar finalizá-los:
 
-@<Cabeçalhos Weaver@>=
-#define W_SHIFT 2
-#define W_CTRL  3
-#define W_ALT   4
-#define W_ANY   6
+@<API Weaver: Finalização@>+=
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_destroy(&_input_mutex) != 0){ // Finaliza mutex
+  perror(NULL);
+  exit(1);
+} 
+#endif
 @
 
-A consulta de um vetor de traduções consiste em percorrermos ele
-verificando se um determinado símbolo existe nele. Se o encontrarmos,
-retornamos a sua tradução. Caso contrário, retornamos seu valor
-inicial:
+Inicializar a lista de teclas pressionadas com zero funciona porque
+nem o SDL e nem o XLib associa qualquer tecla ao número zero. Então
+podemos usá-lo para representar a ausência de qualquer tecla sendo. De
+fato, o XLib ignora os primeiros 31 valores e o SDL ignora os
+primeiros 7. Desta forma, podemos usar tais espaços com segurança para
+representar conjuntos de teclas ao invés de uma tecla individual. Por
+exemplo, podemos associar a posição 6 como sendo o de todas as
+teclas. Qualquer tecla pressionada faz com que ativemos o seu
+valor. Outra posição pode ser associada ao Shift, que faria com que
+fosse ativada toda vez que o Shift esquerdo ou direito fosse
+pressionado. O mesmo para o Ctrl e Alt. Já o valor zero deve continuar
+sem uso para que possamos reservá-lo para valores inicializados, mas
+vazios ou indefinidos. Os demais valores nos indicam que uma tecla
+específica está sendo pressionada.
+
+@<Cabeçalhos Weaver@>=
+#define W_SHIFT 2 // Shift esquerdo ou direito
+#define W_CTRL  3 // Ctrl esquerdo ou direito
+#define W_ALT   4 // Alt esquerdo ou direito
+#define W_ANY   6 // Qualquer botão
+@
+
+A função que nos permite traduzir uma tecla para outra consiste em
+percorrer o vetor de traduções e verificar se temos uma tradução
+registrada para o símbolo que estamos procurando:
 
 @<API Weaver: Definições@>+=
 #if W_TARGET == W_ELF
@@ -254,11 +280,11 @@ static unsigned _translate_key(unsigned symbol){
   int i;
   for(i = 0; i < 100; i ++){
     if(_key_translate[i].original_symbol == 0)
-      return symbol % 0xffff;
+      return symbol % 0xffff; // Sem mais traduções. Nada encontrado.
     if(_key_translate[i].original_symbol == symbol)
-      return _key_translate[i].new_symbol % 0xffff;    
+      return _key_translate[i].new_symbol % 0xffff; // Retorna tradução
   }
-  return symbol % 0xffff;
+  return symbol % 0xffff; // Vetor percorrido e nenhuma tradução encontrada
 }
 #endif
 @
@@ -279,6 +305,9 @@ void Werase_key_translations(void);
 int Wkey_translate(unsigned old_value, unsigned new_value){
 #if W_TARGET == W_ELF
   int i;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_input_mutex);
+#endif
   for(i = 0; i < 100; i ++){
     if(_key_translate[i].original_symbol == 0 ||
        _key_translate[i].original_symbol == old_value){
@@ -287,6 +316,14 @@ int Wkey_translate(unsigned old_value, unsigned new_value){
       return 1;
     }
   }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_input_mutex);
+#endif
+#else
+  // Isso previne aviso de que os argumentos da função não foram
+  // usados se W_TARGET != W_ELF:
+  old_value = new_value;
+  new_value = old_value;
 #endif
   return 0;
 }
@@ -294,10 +331,16 @@ int Wkey_translate(unsigned old_value, unsigned new_value){
 void Werase_key_translations(void){
 #if W_TARGET == W_ELF
   int i;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_input_mutex);
+#endif
   for(i = 0; i < 100; i ++){
     _key_translate[i].original_symbol = 0;
     _key_translate[i].new_symbol = 0;
   }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_input_mutex);
+#endif
 #endif
 }
 @
@@ -318,20 +361,24 @@ if(event.type == KeyPress){
                                                          event.xkey.keycode, 0,
                                                          0));
   int i;
-  // Adiciona na lista de teclas pressionadas
+  // Adiciona na lista de teclas pressionadas:
   for(i = 0; i < 20; i ++){
     if(_pressed_keys[i] == 0 || _pressed_keys[i] == code){
       _pressed_keys[i] = code;
       break;
     }
   }
-  /*
-    Atualiza vetor de teclado se a tecla não estava sendo
-    pressionada. Algumas vezes este evento é gerado repetidas vezes
-    quando apertamos uma tecla por muito tempo. Então só devemos
-    atribuir 1 à posição do vetor se realmente a tecla não estava
-    sendo pressionada antes:
-  */
+  // Apesar de estarmos aqui, pode ser que esta tecla já estava sendo
+  // pressionada antes. O evento de 'tecla pressionada' pode ser
+  // gerado mais de uma vez se uma tecla for segurada por muito
+  // tempo. Mas só podemos marcar a quantidade de tempo que ela é
+  // pressionada como 1 se ela realmente começou a ser pressionada
+  // agora. E caso contrário, também verificamos se o valor é
+  // negativo. Se for, isso significa que a tecla foi solta e
+  // pressionada ao mesmo tempo no mesmo frame. Esta seqüência de
+  // eventos também pode ser gerada incorretamente se a tecla for
+  // pressionada por muito tempo e precisamos corrigir se isso
+  // ocorrer.
   if(Wkeyboard[code] == 0)
     Wkeyboard[code] = 1;
   else if(Wkeyboard[code] < 0)
@@ -349,9 +396,7 @@ if(event.type == KeyRelease){
   unsigned int code =  _translate_key(XkbKeycodeToKeysym(_dpy,
                                                          event.xkey.keycode, 
                                                          0, 0));
-
   int i;
-
   // Remove da lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
     if(_pressed_keys[i] == code){
@@ -363,7 +408,6 @@ if(event.type == KeyRelease){
     _pressed_keys[i] = _pressed_keys[i + 1];
   }
   _pressed_keys[19] = 0;
-
   // Adiciona na lista de teclas soltas:
   for(i = 0; i < 20; i ++){
     if(_released_keys[i] == 0 || _released_keys[i] == code){
