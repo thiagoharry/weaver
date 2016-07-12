@@ -1560,10 +1560,6 @@ automaticamente todos os cabeçalhos Weaver necessários:
 
 @<Cabeçalhos Weaver@>
 
-// Esta estrutura conterá todas as variáveis e funções definidas pela
-// API Weaver:
-extern struct _weaver_struct W;
-
 #ifdef __cplusplus
   }
 #endif
@@ -1627,13 +1623,6 @@ executável, não se compilado para Javascript).
 
 @<API Weaver: Definições@>
 
-// Esta estrutura conterá todas as variáveis e funções definidas pela
-// API Weaver:
-struct _weaver_struct{
-  @<Variáveis Weaver@>
-  @<Funções Weaver@>
-} W;
-
 void _awake_the_weaver(void){
   @<API Weaver: Inicialização@>
 }
@@ -1681,6 +1670,44 @@ motor de jogo.
   // A definir...
 @
 
+@*1 A estrutura \monoespaco{W}.
+
+As três funções que definimos acima são atípicas. A maioria das
+variáveis e funções que criaremos ao longo do projeto não serão
+definidas globalmente, mas serão atribuídas à uma estrutura. Na
+prática estamos aplicando técnica de orientação à objetos, criando o
+Objeto ``Weaver API'' e definindo seus próprios atributos e métodos ao
+invés de termos que definir variáveis globais.
+
+O objeto terá a forma:
+
+@<Cabeçalhos Weaver@>=
+// Esta estrutura conterá todas as variáveis e funções definidas pela
+// API Weaver:
+extern struct _weaver_struct W;
+@
+
+@<API Weaver: Definições@>=
+struct _weaver_struct{
+  @<Variáveis Weaver@>
+  @<Funções Weaver@>
+} W;
+@
+
+A vantagem de fazermos isso é evitarmos a poluição do espaço de
+nomes. Fazendo isso diminuimos muito a chance de existir algum
+conflito entre o nome que damos a uma variável global e um nome
+exportado por alguma biblioteca. As únicas funções com as quais não
+nos preocuparemos serão aquelas que começam com um ``|_|'', pois elas
+serão internas à API. Nenhum usuário deve criar funções que começam
+com o ``|_|''.
+
+Uma vantagem ainda maior de fazermos isso é que passamos a ser capazes
+de passar a estrutura |W| para \italico{plugins}, que normalmente não
+teriam como acessar coisas que estão como variáveis globais. Mas
+os \italico{plugins} podem definir funções que recebem como argumento
+|W| e assim eles podem ler informações e manipular a API.
+
 @*1 Sumário das Variáveis e Funções da Introdução.
 
 Terminaremos todo capítulo deste livro/programa com um sumário de
@@ -1690,22 +1717,22 @@ como variáveis e funções estáticas serão omitidas. O sumário conterá
 uma descrição rápida e poderá ter algum código adicional que possa ser
 necessário para inicializá-lo e defini-lo.
 
-Este capítulo apresentou 1 nova variável da API Weaver:
+\macronome Este capítulo apresentou 1 nova variável da API Weaver:
 
-\macronome|W|: Uma estrutura que irá armazenar todas as variáveis
+\macrovalor|W|: Uma estrutura que irá armazenar todas as variáveis
 globais da API Weaver, bem como as suas funções globais. Exceto as
 três outras funções definidas neste capítulo. 
 
-Este capítulo apresentou 3 novas funções da API Weaver:
+\macronome Este capítulo apresentou 3 novas funções da API Weaver:
 
-\macronome|void Winit(void)|: Inicializa a API Weaver. Deve ser a
+\macrovalor|void Winit(void)|: Inicializa a API Weaver. Deve ser a
 primeira função invocada pelo programa antes de usar qualquer coisa da
 API Weaver.
 
-\macronome|void Wexit(void)|: Finaliza a API Weaver. Deve ser chamada
+\macrovalor|void Wexit(void)|: Finaliza a API Weaver. Deve ser chamada
 antes de encerrar o programa.
 
-\macronome|void Wrest(unsigned long time)|: Deve ser invocada em cada
+\macrovalor|void Wrest(unsigned long time)|: Deve ser invocada em cada
 iteração do \italico{loop} principal do programa. O argumento
 especifica quantos milissegundos o programa deve ficar ocioso,
 liberando assim parte da CPU para o Sistema Operacional.
