@@ -714,10 +714,8 @@ ponteiro para ela:
   // Se estamos em modo de depuração, a função precisa estar ciente do
   // nome do arquivo e linha em que é invocada:
 void *_Wcreate_arena(size_t size, char *filename, unsigned long line);
-#define Wcreate_arena(a) _Wcreate_arena(a, __FILE__, __LINE__)
 #else
 void *_Wcreate_arena(size_t size);
-#define Wcreate_arena(a) _Wcreate_arena(a)
 #endif
 int Wdestroy_arena(void *);
 @
@@ -728,8 +726,8 @@ O processo de criar a arena funciona alocando todo o espaço de que
 precisamos e em seguida preenchendo o cabeçalho inicial e breakpoint:
 
 @(project/src/weaver/memory.c@>+=
-  // Os argumentos que a função recebe são diferentes no modo de
-  // depuração e no modo final:
+// Os argumentos que a função recebe são diferentes no modo de
+// depuração e no modo final:
 #if W_DEBUG_LEVEL >= 1
 void *_Wcreate_arena(size_t size, char *filename, unsigned long line){
 #else
@@ -788,6 +786,36 @@ padrão ou usasse uma função de biblioteca que usa internamente o
 |malloc|. Como até um simples |sprintf| usa |malloc|, não é prático
 usar o |brk|, pois isso criaria muitos conflitos com outras
 bibliotecas.
+
+Agora vamos declarar e inicializara função de criar arenas dentro da
+variável |W| que conterá nossas variáveis e funções globais:
+
+@<Funções Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+#if W_DEBUG_LEVEL >= 1
+void *(*create_arena)(size_t, char, unsigned long);
+#else
+void *(*create_arena)(size_t);
+#endif
+@
+
+@<API Weaver: Inicialização@>=
+W.create_arena = _Wcreate_arena; 
+@
+
+Mas na prática, para podermos usar o recurso de depuração que nos
+informa o nome do arquivo e linha em que estamos, usamos sempre a
+seguinte macro:
+
+@<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
+  // Se estamos em modo de depuração, a função precisa estar ciente do
+  // nome do arquivo e linha em que é invocada:
+#define Wcreate_arena(a) W.create_arena(a, __FILE__, __LINE__)
+#else
+#define Wcreate_arena(a) W.create_arena(a)
+#endif
+@
 
 @*2 Checando vazamento de memória em uma arena.
 
@@ -884,6 +912,22 @@ int Wdestroy_arena(void *arena){
   else return 1;
 }
 @
+
+Para podermos usar esta função, iremos colocá-la dentro da estrutura |W|:
+
+@<Funções Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+#if W_DEBUG_LEVEL >= 1
+void *(*create_arena)(size_t, char, unsigned long);
+#else
+void *(*create_arena)(size_t);
+#endif
+@
+
+@<API Weaver: Inicialização@>=
+W.create_arena = _Wcreate_arena; 
+@
+
 
 @*1 Alocação e desalocação de memória.
 

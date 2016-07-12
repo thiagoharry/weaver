@@ -1684,7 +1684,10 @@ O objeto terá a forma:
 @<Cabeçalhos Weaver@>=
 // Esta estrutura conterá todas as variáveis e funções definidas pela
 // API Weaver:
-extern struct _weaver_struct W;
+extern struct _weaver_struct{
+  @<Variáveis Weaver@>
+  @<Funções Weaver@>
+} W;
 @
 
 @<API Weaver: Definições@>=
