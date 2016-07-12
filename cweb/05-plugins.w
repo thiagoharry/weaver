@@ -66,24 +66,20 @@ executada toda vez que o \italico{plugin} for desativado por meio de
 executada toda vez que um \italico{plugin} estiver ativado e
 estivermos em uma iteração do \italico{loop} principal.
 
-Além disso, um \italico{plugin} não pode manter qualquer tipo de
-estado em variáveis globais, mesmo que seja em variáveis
-estáticas. Esta é uma restrição bastante séria, mas precis ser
-cumprida especialmente se a ideia é usar \negrito{programação
-interativa}. Qualquer tipo de informação global seria perdida no
-momento em que o \italico{plugin} fôsse modificado urante a execução
-do programa.
+Pode-se usar variáveis globais estáticas, mas deve-se ter em mente que
+o seu conteúdo será perdido e reinicializado toda vez que se desativa
+e ativa o \italico{plugin}. Como a nossa interface atualmente não
+suporta em \italico{plugins} qualquer tipo de variável global ou
+funções com retorno, embora o \italico{plugin} possa ler informações e
+variáveis do programa, ele não tem como passar qualquer tipo de
+informação para o programa principal. Isso talvez mude futuramente,
+mas o formato em que é feita uma comunicação entre o programa
+e \italico{plugins} precisa ser pensado com cuidado antes de
+implementado.
 
-Se a ideia não é suportar a modificação do programa durante a
-execução, então as variáveis globais não são um problema tão grave. De
-qualquer forma, a restrição ainda será mantida a \ialico{engine}
-Weaver não irá fornecer em seu \italico{site} ou qualquer outro canal
-oficial \italico{plugins} que não adotem a restrição. Mesmo que na
-ausência de modificação interativa tais \italico{plugins} funcionem
-sem \italico{bugs}.
-
-Variáveis globais podem ser inseridas por meio de bibliotecas
-externas, então deve-se tomar cuidado com o que se adiciona em
-um \italico{plugin}. Este é um dos motivos pelo qual Weaver adiciona
-estaticamente sua própria versão de funcionalidades de outras
+Deve-se também tomar cuidado com funções de bibliotecas externas
+usadas em \italico{plugins}. Algumas funções podem usar variáveis
+globais que teriam seu valor perdido ao desativar um \italico{plugin}
+e ativá-lo novamente. Este também é um dos motivos pelo qual
+a \italico{engine} Weaver define a sua própria versão de muitas
 bibliotecas.
