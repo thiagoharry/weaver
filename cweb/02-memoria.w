@@ -37,14 +37,14 @@ pode-se alocar coisas. Uma das regiões contínuas será alocada e usada
 pela própria API Weaver à medida que for necessário. A segunda região
 de memória contínua, cujo tamanho deve ser declarada em
 \monoespaco{conf/conf.h} é a região dedicada para que o usuário possa
-alocar por meio de |Walloc| (que funciona como o |malloc|). Além
+alocar por meio de |W.alloc| (que funciona como o |malloc|). Além
 disso, o usuário deve poder criar novas regiões contínuas de memória
 dentro das quais pode-se fazer novas alocações. O nome que tais
 regiões recebem é \negrito{arena}.
 
-Além de um |Walloc|, também existe um |Wfree|. Entretanto, o jeito
+Além de um |W.alloc|, também existe um |W.free|. Entretanto, o jeito
 recomendável de desalocar na maioria das vezes é usando uma outra
-função chamada |Wtrash|. Para explicar a ideia de seu funcionamento,
+função chamada |W.trash|. Para explicar a ideia de seu funcionamento,
 repare que tipicamente um jogo funciona como uma máquina de estados
 onde mudamos várias vezes de estado. Por exemplo, em um jogo de RPG
 clássico como Final Fantasy, podemos encontrar os seguintes estados:
@@ -99,19 +99,19 @@ elimina aquele \italico{breakpoint} (exceto o último na base da pilha
 que não pode ser eliminado). Fazendo isso, o gerenciamento de memória
 fica mais simples de ser usado, pois o próprio gerenciador poderá
 desalocar tudo que for necessário, sem esquecer e sem deixar
-vazamentos de memória. O que a função |Wtrash| faz então é desalocar
+vazamentos de memória. O que a função |W.trash| faz então é desalocar
 na ordem certa toda a memória alocada até o último \italico{breakpoint}
 e destrói o \italico{breakpoint} (exceto o primeiro que nunca é
 removido). Para criar um novo \italico{breakpoint}, usamos a função
-|Wbreakpoint|.
+|W.breakpoint|.
 
 Tudo isso sempre é feito na arena padrão. Mas pode-se criar uma nova
-arena (|Wcreate_arena|) bem como destruir uma arena
-(|Wdestroy_arena|). E pode-se então alocar memória na arena
-personalizada criada (|Walloc_arena|) e desalocar (|Wfree_arena|). Da
+arena (|W.create_arena|) bem como destruir uma arena
+(|W.destroy_arena|). E pode-se então alocar memória na arena
+personalizada criada (|W.alloc_arena|) e desalocar (|W.free_arena|). Da
 mesmo forma, pode-se também criar um \italico{breakpoint} na arena
-personalizada (|Wbreakpoint_arena|) e descartar tudo que foi alocado
-nela até o último \italico{breakpoint} (|Wtrash_arena|).
+personalizada (|W.breakpoint_arena|) e descartar tudo que foi alocado
+nela até o último \italico{breakpoint} (|W.trash_arena|).
 
 Para garantir a inclusão da definição de todas estas funções e
 estruturas, usamos o seguinte código:
@@ -166,14 +166,14 @@ Outra coisa relevante a mencionar é que à partir de agora assumiremos
 que as seguintes macros são definidas em \monoespaco{conf/conf.h}:
 
 \macronome|W_MAX_MEMORY|: O valor máximo em bytes de memória que iremos
-  alocar por meio da função |Walloc| de alocação de memória na arena
+  alocar por meio da função |W.alloc| de alocação de memória na arena
   padrão.
 
 \macronome|W_WEB_MEMORY|: A quantidade de memória adicional em bytes que
   reservaremos para uso caso compilemos o nosso jogo para a Web ao
   invés de gerar um programa executável. O Emscripten precisará de
   memória adicional e a quantidade pode depender do quanto outras
-  funções como |malloc| e |Walloc_arena| são usadas. Este valor deve
+  funções como |malloc| e |W.alloc_arena| são usadas. Este valor deve
   ser aumentado se forem encontrados problemas de falta de memória na
   web. Esta macro será consultada na verdade por um dos
   \monoespaco{Makefiles}, não por código que definiremos neste PDF.
@@ -198,7 +198,7 @@ alocação e \italico{breakpoints} crescerá e diminuirá, sempre
 substituindo o espaço não-alocado ao crescer. O cabeçalho
 e \italico{breakpoint} inicial sempre existirão e não poderão ser
 removidos. O primeiro \italico{breakpoint} é útil para que o comando
-|Wtrash| sempre funcione e seja definido, pois sempre existirá um
+|W.trash| sempre funcione e seja definido, pois sempre existirá um
 último \italico{breakpoint}.
 
 A memória pode ser vista de três formas diferentes:
@@ -252,14 +252,14 @@ As informações encontradas no cabeçalho são:
 
 \macronome \negrito{Último Breakpoint:} Armazenar isso nos permite saber à
   partir de qual posição podemos começar a desalocar memória em caso
-  de um |Wtrash|. Outro |size_t|. Eta informação precisa ser
+  de um |W.trash|. Outro |size_t|. Eta informação precisa ser
   atualizada toda vez que um \italico{breakpoint} for criado ou
   destruído. Um último breakpoint sempre existirá, pois o primeiro
   breakpoint nunca pode ser removido.
 
 \macronome \negrito{Último Elemento:} Endereço do último elemento
   que foi armazenado. É útil guardar esta informação porque quando
-  criamos um novo elemento com |Walloc| ou |Wbreakpoint|, o novo
+  criamos um novo elemento com |W.alloc| ou |W.breakpoint|, o novo
   elemento precisa apontar para o último que havia antes dele. Esta
   informação precisa ser atualizada após qualquer operação de
   alocação, desalocação ou \italico{breakpoint}. Sempre existirá um
@@ -270,7 +270,7 @@ As informações encontradas no cabeçalho são:
 \macronome\negrito{Posição Vazia:} Um ponteiro para a próxima região
   contínua de memória não-alocada. É preciso saber disso para podermos
   criar novas estruturas e retornar um espaço ainda não-utilizado em
-  caso de |Walloc|. Outro |size_t|. Novamente é algo que precisa ser
+  caso de |W.alloc|. Outro |size_t|. Novamente é algo que precisa ser
   atualizado após qualquer uma das operações de memória sobre a
   arena. É possível que não hajam mais regiões vazias caso tudo já
   tenha sido alocado. Neste caso, o ponteiro deverá ser |NULL|.
@@ -421,7 +421,7 @@ o seu sucesso ou fracasso fazendo-a retornar um valor booleano.
 @*2 Breakpoints.
 
 A função primária de um breakpoint é interagir com as função
-|Wbreakpoint| e |Wtrash|. As informações que devem estar presentes
+|W.breakpoint| e |W.trash|. As informações que devem estar presentes
 nele são:
 
 \macronome \negrito{Tipo:} Um número mágico que corresponde sempre à um valor
@@ -435,7 +435,7 @@ nele são:
   deve apontar para ele próprio (e assim o primeiro breakpoint pode
   ser identificado diante dos demais). nos demais casos, ele irá
   apontar para o breakpoint anterior. Desta forma, em caso de
-  |Wtrash|, poderemos restaurar o cabeçalho da arena para apontar para
+  |W.trash|, poderemos restaurar o cabeçalho da arena para apontar para
   o breakpoint anterior, já que o atual está sendo apagado.
 
 \macronome \negrito{Último Elemento:} Para que a lista de elementos de uma
@@ -797,8 +797,8 @@ do programa. Recapitulando, uma arena de memória ao ser alocada
 conterá um cabeçalho de arena, um \italico{breakpoint} inicial e por
 fim, tudo aquilo que foi alocada nela (que podem ser dados de memória
 ou outros \italico{breakpoints}). Sendo assim, se depois de alocar
-tudo com o nosso |Walloc| (que ainda iremos definir) nós desalocarmos
-com o nosso |Wfree| ou |Wtrash| (que também iremos definir), no fim a
+tudo com o nosso |W.alloc| (que ainda iremos definir) nós desalocarmos
+com o nosso |W.free| ou |W.trash| (que também iremos definir), no fim a
 arena ficará vazia sem nada após o
 primeiro \italico{breakpoint}. Exatamente como quando a arena é
 recém-criada.
@@ -1090,7 +1090,7 @@ void _free(void *mem){
 
 Graças ao conceito de \italico{breakpoints}, pode-se desalocar ao mesmo
 tempo todos os elementos alocados desde o último \italico{breakpoint}
-por meio do |Wtrash|.  A criação de um \italico{breakpoit} e descarte
+por meio do |W.trash|.  A criação de um \italico{breakpoit} e descarte
 de memória até ele se dá por meio das funções declaradas abaixo:
 
 @<Declarações de Memória@>+=
@@ -1212,10 +1212,10 @@ não faz nada se existe apenas o \italico{breakpoint} inicial.
 @*1 Usando as arenas de memória padrão.
 
 Ter que se preocupar com arenas geralmente é desnecessário. O usuário
-pode querer simplesmente usar uma função |Walloc| sem ter que se
+pode querer simplesmente usar uma função |W.alloc| sem ter que se
 preocupar com qual arena usar. Weaver simplesmente assumirá a
 existência de uma arena padrão e associada à ela as novas funções
-|Wfree|, |Wbreakpoint| e |Wtrash|.
+|W.free|, |W.breakpoint| e |W.trash|.
 
 Primeiro precisaremos declarar duas variáveis globais. Uma delas será
 uma arena padrão do usuário, a outra deverá ser uma arena usada pelas
@@ -1290,7 +1290,7 @@ void *_Winternal_alloc(size_t size);
 #endif
 @
 
-Destas o usuário irá usar mesmo a |Walloc|. A |iWalloc| será usada
+Destas o usuário irá usar mesmo a |W.alloc|. A |_iWalloc| será usada
 apenas internamente para usarmos a arena de alocações internas da
 API. E precisamos que elas sejam definidas como funções, não como
 macros para poderem manipular as arenas, que são variáveis estáticas à
@@ -1315,9 +1315,9 @@ void *_Winternal_alloc(size_t size){
 #endif
 @
 
-O |Wfree| já foi definido e irá funcionar sem problemas, independente
+O |W.free| já foi definido e irá funcionar sem problemas, independente
 da arena à qual pertence o trecho de memória alocado. Sendo assim,
-resta declarar apenas o |Wbreakpoint| e |Wtrash|:
+resta declarar apenas o |W.breakpoint| e |W.trash|:
 
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
@@ -1375,8 +1375,8 @@ passaram entre uma invocação e outra. Em seguida, escreve-se na saída
 padrão quantos microssegundos se passaram.
 
 Como exemplo de uso das macros, podemos usar a seguinte função |main|
-para obtermos uma medida de performance das funções |Walloc| e
-|Wfree|:
+para obtermos uma medida de performance das funções |W.alloc| e
+|W.free|:
 
 @(/tmp/dummy.c@>=
 // Só um exemplo, não faz parte de Weaver
@@ -1389,12 +1389,12 @@ int main(int argc, char **argv){
   Winit();
   W_TIMER_BEGIN();
   for(i = 0; i < T; i ++){
-    m[i] = Walloc(1);
+    m[i] = W.alloc(1);
   }
   for(i = T-1; i >=0; i --){
-    Wfree(m[i]);
+    W.free(m[i]);
   }
-  Wtrash();
+  W.trash();
   W_TIMER_END();
   Wexit();
   return 0;
@@ -1404,7 +1404,7 @@ int main(int argc, char **argv){
 
 Rodando este código em um Pentium B980 2.40GHz Dual Core, este é o
 gráfico que representa o teste de desempenho. As barras vermellhas
-representam o uso de |Walloc|/|free| em diferentes níveis de depuração
+representam o uso de |W.alloc|/|free| em diferentes níveis de depuração
 (0 é o mais claro e 4 é o mais escuro). Para comparar, em azul podemos
 ver o tempo gasto pelo |malloc|/|free| da biblioteca C GNU versão 2.20.
 
@@ -1438,13 +1438,13 @@ gráfico anterior:
 A diferença não é explicada somente pela diminuição da localidade
 espacial dos dados acessados. Se diminuirmos o número de alocações
 para somente dez mil, mantendo um total alocado de 1 MB, ainda assim o
-|malloc| ficaria na mesma posição se comparado ao |Walloc|. O que
+|malloc| ficaria na mesma posição se comparado ao |W.alloc|. O que
 significa que alocando quantias maiores, o |malloc| é apenas
-ligeiramente pior que o |Walloc| sem recursos de depuração. Mas a
+ligeiramente pior que o |W.alloc| sem recursos de depuração. Mas a
 diferença é apenas marginal.
 
-E se ao invés de desalocarmos memória com |Wfree|, usássemos o
-|Wtrash| para desalocar tudo de uma só vez? O gráfico abaixo mostra
+E se ao invés de desalocarmos memória com |W.free|, usássemos o
+|W.trash| para desalocar tudo de uma só vez? O gráfico abaixo mostra
 este caso para quando alocamos 1 milhão de espaços de 1 byte usando a
 mesma escala:
 
@@ -1475,10 +1475,10 @@ nosso? A resposta é o gráfico:
 }
 
 Via de regra podemos dizer que o desempenho do |malloc| é semelhante
-ao do |Walloc| quando |W_DEBUG_MODE| é igual à 1. Mas quando o
+ao do |W.alloc| quando |W_DEBUG_MODE| é igual à 1. Mas quando o
 |W_DEBUG_MODE| é zero, obtemos sempre um desempenho melhor (embora em
 alguns casos a diferença possa ser marginal). Para analizar um caso em
-que o |Walloc| realmente se sobressai, vamos observar o comportamento
+que o |W.alloc| realmente se sobressai, vamos observar o comportamento
 quando compilamos o nosso teste de alocar 1 byte um milhão de vezes
 para Javascript via Emscripten (versão 1.34). O gráfico à seguir usará
 uma escala diferente.
@@ -1494,14 +1494,14 @@ uma escala diferente.
 
 O gráfico anterior se fosse desenhado usando a mesma escala dos
 outros, teria que ter barras com tamanho dez vezes maior. Enquanto o
-|Walloc| tem uma velocidade 1,8 vezes menor compilado com Emscripten,
+|W.alloc| tem uma velocidade 1,8 vezes menor compilado com Emscripten,
 o |malloc| tem uma velocidade 20 vezes menor. Se tentarmos fazer no
 Emscripten o teste em que alocamos 100 bytes ao invés de 1 byte, o
 resultado reduzido em dez vezes fica praticamente igual ao gráfico
 acima.
 
-Este é um caso no qual o |Walloc| se sobressai. Mas há também um caso
-em que o |Walloc| é muito pior: quando usamos várias
+Este é um caso no qual o |W.alloc| se sobressai. Mas há também um caso
+em que o |W.alloc| é muito pior: quando usamos várias
 threads. Considere o código abaixo:
 
 @(/tmp/dummy.c@>=
@@ -1513,11 +1513,11 @@ void *test(void *a){
   long *m[T];
   long i;
   for(i = 0; i < T; i ++){
-    m[i] = (long *) Walloc(1);
+    m[i] = (long *) W.alloc(1);
     *m[i] = (long) m[i];
   }
   for(i = T-1; i >=0; i --){
-    Wfree(m[i]);
+    W.free(m[i]);
   }
 }
 
@@ -1540,7 +1540,7 @@ int main(void){
 Neste caso, assumindo que estejamos compilando com a macro
 |W_MULTITHREAD| no arquivo \monoespaco{conf/conf.h}, as threads
 estarão sempre competindo pela arena e passarão boa parte do tempo
-bloqueando umas às outras. O desempenho do |Walloc| e |malloc| neste
+bloqueando umas às outras. O desempenho do |W.alloc| e |malloc| neste
 caso será:
 
 \hbox{
@@ -1557,12 +1557,12 @@ caso será:
 }
 
 Neste caso, o correto seria criar uma arena para cada thread com
-|Wcreate_arena|, sempre fazer cada thread alocar dentro de sua arena
-com |Walloc_arena|, criar \italico{breakpoints} com
-|Wbreakpoint_arena|, desalocar com |Wfree_arena| e descartar a heap
-até o último \italico{breakpoint} com |Wtrash_arena|. Por fim, cada
-thread deveria finalizar sua arena com |Wdestroy_arena|. Assim
-poderia-se usar o desempenho maior do |Walloc| aproveitando-o melhor
+|W.create_arena|, sempre fazer cada thread alocar dentro de sua arena
+com |W.alloc_arena|, criar \italico{breakpoints} com
+|W.breakpoint_arena|, desalocar com |W.free_arena| e descartar a heap
+até o último \italico{breakpoint} com |W.trash_arena|. Por fim, cada
+thread deveria finalizar sua arena com |W.destroy_arena|. Assim
+poderia-se usar o desempenho maior do |W.alloc| aproveitando-o melhor
 entre todas as threads. Pode nem ser necessário definir
 |W_MULTITHREAD| se as threads forem bem especializadas e não
 disputarem recursos. 
@@ -1574,16 +1574,16 @@ A nova função de teste que usamos passa a ser:
 void *test(void *a){
   long *m[T];
   long i;
-  void *arena = Wcreate_arena(10000000);
+  void *arena = W.create_arena(10000000);
   for(i = 0; i < T; i ++){
-    m[i] = (long *) Walloc_arena(arena, 1);
+    m[i] = (long *) W.alloc_arena(arena, 1);
     *m[i] = (long) m[i];
   }
   for(i = T-1; i >= 0; i --){
-    Wfree(m[i]);
+    W.free(m[i]);
   }
-  Wtrash_arena(arena);
-  Wdestroy_arena(arena);
+  W.trash_arena(arena);
+  W.destroy_arena(arena);
   return NULL;
 }
 @
@@ -1613,7 +1613,7 @@ que justifica a criação de um gerenciador próprio para Weaver. Como a
 prioridade em nosso gerenciador é a velocidade, o seu uso correto para
 evitar fragmentação excessiva depende de conhecimento e cuidados
 maiores por parte do programador. Por isso espera-se que programadores
-menos experientes continuem usando o |malloc| enquanto o |Walloc| será
+menos experientes continuem usando o |malloc| enquanto o |W.alloc| será
 usado internamente pela nossa engine e estará à disposição daqueles
 que querem pagar o preço por ter um desempenho maior, especialmente em
 certos casos específicos.
