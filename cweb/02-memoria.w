@@ -1400,8 +1400,7 @@ int main(int argc, char **argv){
   return 0;
 }
 @
-% Malloc: 60000
-% Walloc: 30000 55000 56000 55000 68000
+
 
 Rodando este código em um Pentium B980 2.40GHz Dual Core, este é o
 gráfico que representa o teste de desempenho. As barras vermellhas
@@ -1618,3 +1617,15 @@ menos experientes continuem usando o |malloc| enquanto o |Walloc| será
 usado internamente pela nossa engine e estará à disposição daqueles
 que querem pagar o preço por ter um desempenho maior, especialmente em
 certos casos específicos.
+
+@*1 Sumário das Variáveis e Funções de Memória.
+
+% void *Wcreate_arena(size_t size)
+% int Wdestroy_arena(void *arena)
+% void *Walloc_arena(vooid *arena, size_t size)
+% void Wfree(void *mem)
+% int Wbreakpoint_arena(void *arena)
+% void Wtrash_arena(void *arena)
+% void *Walloc(size_t size)
+% int Wbreakpoint(void)
+% void Wtrash(void)

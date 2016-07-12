@@ -1557,7 +1557,13 @@ automaticamente todos os cabeçalhos Weaver necessários:
   extern "C" {
 #endif
 @<Inclui Cabeçalho de Configuração@>
+
 @<Cabeçalhos Weaver@>
+
+// Esta estrutura conterá todas as variáveis e funções definidas pela
+// API Weaver:
+extern struct _weaver_struct W;
+
 #ifdef __cplusplus
   }
 #endif
@@ -1586,13 +1592,6 @@ thread. Todas elas só devem ser usadas pela thread principal. Mesmo
 que você defina a macro |W_MULTITHREAD|, todas as outras funções serão
 seguras para threads, menos estas três.
 
-Como não é razoável pedir para que um programador se preocupar com
-detalhes como o arquivo e linha de execução da função, abaixo das três
-funções definiremos funções de macro que tornarão tais informações
-transparentes e de responsabilidade do compilador. As três funções de
-macro (|Winit|, |Wexit| e |Wrest|) são aquelas que realmente serão
-usadas na prática.
-
 @<Cabeçalhos Weaver@>+=
 void _awake_the_weaver(void);
 void _may_the_weaver_sleep();
@@ -1605,8 +1604,8 @@ void _weaver_rest(unsigned long time);
 
 Definiremos melhor a responsabilidade destas funções ao longo dos
 demais capítulos. Mas colocaremos aqui a definição delas no arquivo
-adequado. E no caso da função |_weaver_rest|, colocaremos aqui algum
-código mínimo.
+adequado. E no caso da função |_weaver_rest|, colocaremos um pouco de
+seu código.
 
 A função |_weaver_rest| é a função a ser executada em cada frame do
 jogo.  Ela executa de forma diferente se o programa está sendo
@@ -1627,6 +1626,13 @@ executável, não se compilado para Javascript).
 #include "weaver.h"
 
 @<API Weaver: Definições@>
+
+// Esta estrutura conterá todas as variáveis e funções definidas pela
+// API Weaver:
+struct _weaver_struct{
+  @<Variáveis Weaver@>
+  @<Funções Weaver@>
+} W;
 
 void _awake_the_weaver(void){
   @<API Weaver: Inicialização@>
@@ -1674,3 +1680,32 @@ motor de jogo.
 @<API Weaver: Finalização@>=
   // A definir...
 @
+
+@*1 Sumário das Variáveis e Funções da Introdução.
+
+Terminaremos todo capítulo deste livro/programa com um sumário de
+todas as funções e variáveis definidas ao longo do capítulo que
+estejam disponíveis na API Weaver. As funções do programa Weaver, bem
+como variáveis e funções estáticas serão omitidas. O sumário conterá
+uma descrição rápida e poderá ter algum código adicional que possa ser
+necessário para inicializá-lo e defini-lo.
+
+Este capítulo apresentou 1 nova variável da API Weaver:
+
+\macronome|W|: Uma estrutura que irá armazenar todas as variáveis
+globais da API Weaver, bem como as suas funções globais. Exceto as
+três outras funções definidas neste capítulo. 
+
+Este capítulo apresentou 3 novas funções da API Weaver:
+
+\macronome|void Winit(void)|: Inicializa a API Weaver. Deve ser a
+primeira função invocada pelo programa antes de usar qualquer coisa da
+API Weaver.
+
+\macronome|void Wexit(void)|: Finaliza a API Weaver. Deve ser chamada
+antes de encerrar o programa.
+
+\macronome|void Wrest(unsigned long time)|: Deve ser invocada em cada
+iteração do \italico{loop} principal do programa. O argumento
+especifica quantos milissegundos o programa deve ficar ocioso,
+liberando assim parte da CPU para o Sistema Operacional.
