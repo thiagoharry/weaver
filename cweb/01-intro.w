@@ -1558,6 +1558,8 @@ automaticamente todos os cabeçalhos Weaver necessários:
 #endif
 @<Inclui Cabeçalho de Configuração@>
 
+#include <stdlib.h>
+
 @<Cabeçalhos Weaver@>
 
 #ifdef __cplusplus
@@ -1691,10 +1693,7 @@ extern struct _weaver_struct{
 @
 
 @<API Weaver: Definições@>=
-struct _weaver_struct{
-  //@<Variáveis Weaver@>
-  @<Funções Weaver@>
-} W;
+struct _weaver_struct W;
 @
 
 A vantagem de fazermos isso é evitarmos a poluição do espaço de

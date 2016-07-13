@@ -136,6 +136,7 @@ parte de declarações, com o nome \monoespaco{Declarações de
 #ifdef __cplusplus
   extern "C" {
 #endif
+#include "weaver.h"
 @<Inclui Cabeçalho de Configuração@>
 @<Declarações de Memória@>
 #ifdef __cplusplus
@@ -793,14 +794,14 @@ variável |W| que conterá nossas variáveis e funções globais:
 @<Funções Weaver@>=
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
 #if W_DEBUG_LEVEL >= 1
-void *(*create_arena)(size_t, char, unsigned long);
+void *(*create_arena)(size_t, char *, unsigned long);
 #else
 void *(*create_arena)(size_t);
 #endif
 @
 
 @<API Weaver: Inicialização@>=
-W.create_arena = _Wcreate_arena; 
+W.create_arena = &_Wcreate_arena; 
 @
 
 Mas na prática, teremos que usar sempre a seguinte macro para criar
@@ -918,11 +919,11 @@ função de destruição de arenas na estrutura |W|:
 
 @<Funções Weaver@>=
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
-int (*destroy_arena)(size_t);
+int (*destroy_arena)(void *);
 @
 
 @<API Weaver: Inicialização@>=
-W.destroy_arena = Wdestroy_arena; 
+W.destroy_arena = &Wdestroy_arena; 
 @
 
 
@@ -1043,14 +1044,14 @@ de alocação em |W|:
 @<Funções Weaver@>=
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
 #if W_DEBUG_LEVEL >= 1
-void *(*alloc_arena)(void *, size_t, char, unsigned long);
+void *(*alloc_arena)(void *, size_t, char *, unsigned long);
 #else
 void *(*alloc_arena)(void *, size_t);
 #endif
 @
 
 @<API Weaver: Inicialização@>=
-W.alloc_arena = _alloc;
+W.alloc_arena = &_alloc;
 @
 
 Na prática usaremos a função na forma da seguinte macro, já que o número de
@@ -1155,14 +1156,14 @@ E por fim, colocamos a nova função definida dentro da estrutura |W|:
 @<Funções Weaver@>+=
 // Esta declaração fica dentro de 'struct _weaver_struct{(...)} W;':
 #if W_DEBUG_LEVEL >= 2
-void (*free)(void *, char, unsigned long);
+void (*free)(void *, char *, unsigned long);
 #else
 void (*free)(void *);
 #endif
 @
 
 @<API Weaver: Inicialização@>=
-W.free = _free;
+W.free = &_free;
 @
 
 Na prática usaremos sempre a seguinte macro, já que o número de
@@ -1264,14 +1265,14 @@ ser colocada em |W|:
 @<Funções Weaver@>=
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
 #if W_DEBUG_LEVEL >= 1
-int (*breakpoint_arena)(void *, char, unsigned long);
+int (*breakpoint_arena)(void *, char *, unsigned long);
 #else
 int (*breakpoint_arena)(void *);
 #endif
 @
 
 @<API Weaver: Inicialização@>=
-W.breakpoint_arena = _new_breakpoint;
+W.breakpoint_arena = &_new_breakpoint;
 @
 
 Para sempre usarmos o número correto de argumentos, na prática
@@ -1333,7 +1334,7 @@ void (*trash_arena)(void *);
 @
 
 @<API Weaver: Inicialização@>=
-W.trash_arena = Wtrash_arena;
+W.trash_arena = &Wtrash_arena;
 @
 
 
@@ -1396,7 +1397,7 @@ _initialize_memory();
 
 @<API Weaver: Finalização@>+=
 // Em "desalocações" desalocamos memória alocada com |Walloc|:
-//@<API Weaver: Desalocações@>
+@<API Weaver: Desalocações@>
 // Só então podemos finalizar o gerenciador de memória:
 _finalize_memory();
 @
@@ -1745,86 +1746,6 @@ menos experientes continuem usando o |malloc| enquanto o |Walloc| será
 usado internamente pela nossa engine e estará à disposição daqueles
 que querem pagar o preço por ter um desempenho maior, especialmente em
 certos casos específicos.
-
-@*1 O gerenciador de memória e a estrutura \monoespaco{W}.
-
-No Capíulo 1 dissemos que iríamos evitar definir variáveis e funções
-globalmente, exceto por funções e variáveis internas que tem seus
-nomes começando com ``|_|''. Mas neste capítulo nós pareemos ignorar
-isso e definimos ao todo 9 funções (algumas delas como macros) fora de
-|W|.
-
-O motivo de estarmos fazendo isso aqui é a excepcionalidade de algumas
-funções do gerenciador de memória. Para que sejamos capazes de usar
-recursos de depuração, como informar o número da linha em que surgiu
-um vazamento de memória, somos obrigados a definir algumas funções
-como macros para que elas usem as informações de |__LINE__| e
-|__FILE__|.
-
-Mas para que tais funções também estejam disponíveis dentro de |W|
-para poderem ser usadas em \italico{plugins}, vamos definir e declarar
-versões especiais delas feitas para isso. Assim, além de |Walloc|
-teremos também um |W.alloc|, além de |Wfree| teremos um |W.free| e
-assim por diante.
-
-As funções dentro da estrutura serão quase idênticas. Mas elas não
-poderão fornecer recursos de depuração e por isso não são tão
-recomendadas, exceto para serem usadas dentro de \italico{plugins}.
-
-@<Declarações de Memória@>+=
-void *_plugin_Wcreate_arena(size_t size);
-void *_plugin_Walloc_arena(void *arena, size_t size);
-void _plugin_Wfree(void *mem);
-int _plugin_Wbreakpoint_arena(void *arena);
-void *_plugin_Walloc(size_t size);
-int _plugin_Wbreakpoint(void);
-@
-
-@(project/src/weaver/memory.c@>+=
-void *_plugin_Wcreate_arena(size_t size){
-#if W_DEBUG_LEVEL >= 1
-  return _Wcreate_arena(size, "", 0);
-#else
-  return _Wcreate_arena(size);
-#endif
-}
-void *_plugin_Walloc_arena(void *arena, size_t size){
-#if W_DEBUG_LEVEL >= 1
-    _return _alloc(arena, size, "", 0);
-#else
-    _return _alloc(arena, size);
-#endif
-}
-void _plugin_Wfree(void *mem){
-#if W_DEBUG_LEVEL >= 2
-  return _free(void *mem, "", 0);
-#else
-  return _free(void *mem);
-#endif
-}
-int _plugin_Wbreakpoint_arena(void *arena){
-#if W_DEBUG_LEVEL >= 1
-  return _new_breakpoint(arena, "", 0);
-#else
-  return _new_breakpoint(arena);
-#endif
-}
-void *_plugin_Walloc(size_t size){
-#if W_DEBUG_LEVEL >= 1
-  return _Walloc(size, "", 0);
-#else
-  return _Walloc(size);
-#endif
-}
-int _plugin_Wbreakpoint(void){
-#if W_DEBUG_LEVEL >= 1
-  return _Wbreakpoint("", 0);
-#else
-  return _Wbreakpoint();
-#endif
-}
-@
-
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
