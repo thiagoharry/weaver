@@ -1186,10 +1186,8 @@ de memória até ele se dá por meio das funções declaradas abaixo:
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
 int _new_breakpoint(void *arena, char *filename, unsigned long line);
-#define Wbreakpoint_arena(a) _new_breakpoint(a, __FILE__, __LINE__)
 #else
 int _new_breakpoint(void *arena);
-#define Wbreakpoint_arena(a) _new_breakpoint(a)
 #endif
 void Wtrash_arena(void *arena);
 @
