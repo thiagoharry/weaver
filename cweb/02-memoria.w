@@ -803,9 +803,9 @@ void *(*create_arena)(size_t);
 W.create_arena = _Wcreate_arena; 
 @
 
-Mas na prática, para podermos usar o recurso de depuração que nos
-informa o nome do arquivo e linha em que estamos, usamos sempre a
-seguinte macro:
+Mas na prática, teremos que usar sempre a seguinte macro para criar
+arenas, pois o número de argumentos de |W.create_arena| pode variar de
+acordo com o nível de depuração:
 
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
@@ -913,19 +913,16 @@ int Wdestroy_arena(void *arena){
 }
 @
 
-Para podermos usar esta função, iremos colocá-la dentro da estrutura |W|:
+Assim como fizemos com a função de criar arenas, vamos colocar a
+função de destruição de arenas na estrutura |W|:
 
 @<Funções Weaver@>=
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
-#if W_DEBUG_LEVEL >= 1
-void *(*create_arena)(size_t, char, unsigned long);
-#else
-void *(*create_arena)(size_t);
-#endif
+int (*destroy_arena)(size_t);
 @
 
 @<API Weaver: Inicialização@>=
-W.create_arena = _Wcreate_arena; 
+W.destroy_arena = Wdestroy_arena; 
 @
 
 
@@ -944,17 +941,13 @@ forte uso de macros abaixo:
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
   void *_alloc(void *arena, size_t size, char *filename, unsigned long line);
-#define Walloc_arena(a, b) _alloc(a, b, __FILE__, __LINE__)
 #else
   void *_alloc(void *arena, size_t size);
-#define Walloc_arena(a, b) _alloc(a, b)
 #endif
 #if W_DEBUG_LEVEL >= 2
   void _free(void *mem, char *filename, unsigned long line);
-#define Wfree(a) _free(a, __FILE__, __LINE__)
 #else
   void _free(void *mem);
-#define Wfree(a) _free(a)
 #endif
 @
 
@@ -1044,6 +1037,33 @@ void *_alloc(void *arena, size_t size){
 }
 @
 
+Para terminar o processo de alocação de memória, vamos coocar a função
+de alocação em |W|:
+
+@<Funções Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+#if W_DEBUG_LEVEL >= 1
+void *(*alloc_arena)(void *, size_t, char, unsigned long);
+#else
+void *(*alloc_arena)(void *, size_t);
+#endif
+@
+
+@<API Weaver: Inicialização@>=
+W.alloc_arena = _alloc;
+@
+
+Na prática usaremos a função na forma da seguinte macro, já que o número de
+argumentos de |W.alloc_arena| pode variar com o nível de depuração:
+
+@<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
+#define Walloc_arena(a, b) W.alloc_arena(a, b, __FILE__, __LINE__)
+#else
+#define Walloc_arena(a, b) W.alloc_arena(a, b)
+#endif
+@
+
 Para desalocar a memória, existem duas possibilidades. Podemos estar
 desalocando a última memória alocada ou não. No primeiro caso, tudo é
 uma questão de atualizar o cabeçalho da arena modificando o valor do
@@ -1130,6 +1150,32 @@ void _free(void *mem){
 }
 @
 
+E por fim, colocamos a nova função definida dentro da estrutura |W|:
+
+@<Funções Weaver@>+=
+// Esta declaração fica dentro de 'struct _weaver_struct{(...)} W;':
+#if W_DEBUG_LEVEL >= 2
+void (*free)(void *, char, unsigned long);
+#else
+void (*free)(void *);
+#endif
+@
+
+@<API Weaver: Inicialização@>=
+W.free = _free;
+@
+
+Na prática usaremos sempre a seguinte macro, já que o número de
+argumentos de |W.free| pode mudar:
+
+@<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 2
+#define Wfree(a) W.free(a, __FILE__, __LINE__)
+#else
+#define Wfree(a) W.free(a)
+#endif
+@
+
 @*1 Usando a heap descartável.
 
 Graças ao conceito de \italico{breakpoints}, pode-se desalocar ao mesmo
@@ -1212,9 +1258,37 @@ int _new_breakpoint(void *arena){
 #endif
   return 1;
 }
+@
 
-@ E a função para descartar toda a memória presente na heap até o
-último breakpoint:
+Esta função de criação de \italico{breakpoints} em uma arena precis
+ser colocada em |W|:
+
+@<Funções Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+#if W_DEBUG_LEVEL >= 1
+int (*breakpoint_arena)(void *, char, unsigned long);
+#else
+int (*breakpoint_arena)(void *);
+#endif
+@
+
+@<API Weaver: Inicialização@>=
+W.breakpoint_arena = _new_breakpoint;
+@
+
+Para sempre usarmos o número correto de argumentos, na prática
+usaremos sempre a função acima na forma da macro:
+
+@<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
+#define Wbreakpoint_arena(a) W.breakpoint_arena(a, __FILE__, __LINE__)
+#else
+#define Wbreakpoint_arena(a) W.breakpoint_arena(a)
+#endif
+@
+
+E a função para descartar toda a memória presente na heap até o
+último breakpoint é definida como:
 
 @(project/src/weaver/memory.c@>+=
 void Wtrash_arena(void *arena){
@@ -1252,6 +1326,18 @@ A função acima é totalmente inócua se não existem dados a serem
 desalocados até o último \italico{breakpoint}. Neste caso ela
 simplesmente apaga o \italico{breakpoint} se ele não for o único, e
 não faz nada se existe apenas o \italico{breakpoint} inicial.
+
+Vamos agora colocá-ladentro de |W|:
+
+@<Funções Weaver@>+=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+void (*trash_arena)(void *);
+@
+
+@<API Weaver: Inicialização@>=
+W.trash_arena = Wtrash_arena;
+@
+
 
 @*1 Usando as arenas de memória padrão.
 
@@ -1312,7 +1398,7 @@ _initialize_memory();
 
 @<API Weaver: Finalização@>+=
 // Em "desalocações" desalocamos memória alocada com |Walloc|:
-@<API Weaver: Desalocações@>@/
+//@<API Weaver: Desalocações@>
 // Só então podemos finalizar o gerenciador de memória:
 _finalize_memory();
 @
