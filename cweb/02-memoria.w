@@ -1597,13 +1597,12 @@ ver o tempo gasto pelo |malloc|/|free| da biblioteca C GNU versão 2.20.
 }
 
 Isso nos mostra que se compilarmos nosso código sem nenhum recurso de
-depuração (como é feito ao compilarmos a versão final), obtemos um
-desempenho duas vezes mais rápido que do |malloc|.
+depuração (como o que é feito ao compilarmos a versão final), obtemos
+um desempenho duas vezes mais rápido que do |malloc|.
 
-E se alocássemos quantidades maiores que 1 byte? Se no programa acima
-estivéssemos alocando um milhão de fragmentos de 100 bytes? O próximo
-gráfico mostra este caso usando exatamente a mesma escala utilizada no
-gráfico anterior:
+E se alocássemos quantidades maiores que 1 byte?  O próximo gráfico
+mostra este caso usando exatamente a mesma escala utilizada no gráfico
+anterior. nele alocamos um milhão de fragmentos de 100 bytes cada um:
 
 \hbox{
 \cor{1.0 0.75 0.75}{\vrule height 20mm width 23mm}
@@ -1623,9 +1622,13 @@ ligeiramente pior que o |Walloc| sem recursos de depuração. Mas a
 diferença é apenas marginal.
 
 E se ao invés de desalocarmos memória com |Wfree|, usássemos o
-|Wtrash| para desalocar tudo de uma só vez? O gráfico abaixo mostra
-este caso para quando alocamos 1 milhão de espaços de 1 byte usando a
-mesma escala:
+|Wtrash| para desalocar tudo de uma só vez? Presume-se que esta é uma
+vantagem de nosso gerenciador, pois ele permite desalocar coisas em
+massa por meio de um recurso de ``heap descartável''. O gráfico abaixo
+mostra este caso para quando alocamos 1 milhão de espaços de 1 byte
+usando a mesma escala do gráfico anterior:
+
+\espaco{5mm}
 
 \hbox{
 \cor{1.0 0.75 0.75}{\vrule height 5mm width 23mm}
@@ -1659,8 +1662,9 @@ ao do |Walloc| quando |W_DEBUG_MODE| é igual à 1. Mas quando o
 alguns casos a diferença possa ser marginal). Para analizar um caso em
 que o |Walloc| realmente se sobressai, vamos observar o comportamento
 quando compilamos o nosso teste de alocar 1 byte um milhão de vezes
-para Javascript via Emscripten (versão 1.34). O gráfico à seguir usará
-uma escala diferente.
+para Javascript via Emscripten (versão 1.34). O gráfico à seguir
+mostra este caso, mas usando uma escala diferente. Nele, as barras
+estão dez vezes menores do que estariam se usássemos a mesma escala:
 
 \hbox{
 \cor{1.0 0.75 0.75}{\vrule height 1mm width 23mm}
@@ -1671,13 +1675,11 @@ uma escala diferente.
 \cor{0.0 0.0 1.0}{\vrule height 32mm width 23mm}
 }
 
-O gráfico anterior se fosse desenhado usando a mesma escala dos
-outros, teria que ter barras com tamanho dez vezes maior. Enquanto o
-|Walloc| tem uma velocidade 1,8 vezes menor compilado com Emscripten,
-o |malloc| tem uma velocidade 20 vezes menor. Se tentarmos fazer no
-Emscripten o teste em que alocamos 100 bytes ao invés de 1 byte, o
-resultado reduzido em dez vezes fica praticamente igual ao gráfico
-acima.
+Enquanto o |Walloc| tem uma velocidade 1,8 vezes menor compilado com
+Emscripten, o |malloc| tem uma velocidade 20 vezes menor. Se tentarmos
+fazer no Emscripten o teste em que alocamos 100 bytes ao invés de 1
+byte, o resultado reduzido em dez vezes fica praticamente igual ao
+gráfico acima.
 
 Este é um caso no qual o |Walloc| se sobressai. Mas há também um caso
 em que o |Walloc| é muito pior: quando usamos várias
@@ -1799,12 +1801,40 @@ certos casos específicos.
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
-% void *Wcreate_arena(size_t size)
-% int Wdestroy_arena(void *arena)
-% void *Walloc_arena(void *arena, size_t size)
-% void Wfree(void *mem)
-% int Wbreakpoint_arena(void *arena)
-% void Wtrash_arena(void *arena)
-% void *Walloc(size_t size)
-% int Wbreakpoint(void)
-% void Wtrash(void)
+\macronome Ao longo deste capítulo, definimos 9 novas funções:
+
+\macrovalor|void *Wcreate_arena(size_t size)|: Cria uma nova região
+contínua de memória, de onde modemos alocar e desalocar regiões e
+retorna ponteiro para ela.
+
+\macrovalor|int Wdestroy_arena(void *arena)|: Desrói uma região
+contínua de memória criada com a função acima. Retorna 1 em caso de
+sucesso e 0 se o pedido falhar.
+
+\macrovalor|void *Walloc_arena(void *arena, size_t size)|: Aloca
+\monoespaco{size} bytes em uma dada região de memória contínua e
+retorna endereço da região alocada.
+
+\macrovalor|void Wfree(void *mem)|: Desaloca região de memória
+alocada.
+
+\macrovalor|int Wbreakpoint_arena(void *arena)|: Cria marcação em
+região de memória contínua. Ver |Wtrash_arena|. Retorna 1 em caso de
+sucesso e 0 em caso de falha.
+
+\macrovalor|void Wtrash_arena(void *arena)|: Desaloca automaticamente
+toda a memória alocada após última marcação em região contínua de
+memória e remove a marcação. Se não houverem marcações adicionadas,
+desaloca tudo o que já foi alocado na região contínua de memória.
+
+\macrovalor|void *Walloc(size_t size)|: Aloca \monoespaco{size} bytes
+de memória de uma região de memória padrão e retorna ponteiro para
+região alocada.
+
+\macrovalor|int Wbreakpoint(void)|: Cria marcação em região de memória
+padrão. Retorna 1 em caso de sucesso e 0 em caso de falha.
+
+\macrovalor|void Wtrash(void)|: Remove tudo o que foi alocado em
+região de memória padrão desde a última marcação. Remove a
+marcação. Na ausência de marcação, desaloca tudo o que já foi alocado
+com |walloc|.
