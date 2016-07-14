@@ -1407,13 +1407,11 @@ arena interna, criaremos a seguinte funções:
 
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
-void *_Walloc(size_t size, char *filename, unsigned int line);
-#define Walloc(n) _Walloc(n, __FILE__, __LINE__)
-void *_Winternal_alloc(size_t size, char *filename, unsigned int line);
+void *_Walloc(size_t size, char *filename, unsigned long line);
+void *_Winternal_alloc(size_t size, char *filename, unsigned long line);
 #define _iWalloc(n) _Winternal_alloc(n, __FILE__, __LINE__)
 #else
 void *_Walloc(size_t size);
-#define Walloc(n) _Walloc(n)
 void *_Winternal_alloc(size_t size);
 #define _iWalloc(n) _Winternal_alloc(n)
 #endif
@@ -1428,10 +1426,10 @@ este capítulo.
 
 @(project/src/weaver/memory.c@>+=
 #if W_DEBUG_LEVEL >= 1
-void *_Walloc(size_t size, char *filename, unsigned int line){
+void *_Walloc(size_t size, char *filename, unsigned long line){
   return _alloc(_user_arena, size, filename, line);
 }
-void *_Winternal_alloc(size_t size, char *filename, unsigned int line){
+void *_Winternal_alloc(size_t size, char *filename, unsigned long line){
   return _alloc(_internal_arena, size, filename, line);
 }
 #else
@@ -1444,6 +1442,32 @@ void *_Winternal_alloc(size_t size){
 #endif
 @
 
+Adicionando alocação à variável |W|:
+
+@<Funções Weaver@>+=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+#if W_DEBUG_LEVEL >= 1
+void *(*alloc)(size_t, char *, unsigned long);
+#else
+void *(*alloc)(size_t);
+#endif
+@
+
+@<API Weaver: Inicialização@>=
+W.alloc = &_Walloc;
+@
+
+Embora na prática usaremos a função dentro da seguinte macro que cuida
+do número de argumentos:
+
+@<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
+#define Walloc(a) W.alloc(a, __FILE__, __LINE__)
+#else
+#define Walloc(a) W.alloc(a)
+#endif
+@
+
 O |Wfree| já foi definido e irá funcionar sem problemas, independente
 da arena à qual pertence o trecho de memória alocado. Sendo assim,
 resta declarar apenas o |Wbreakpoint| e |Wtrash|:
@@ -1451,13 +1475,10 @@ resta declarar apenas o |Wbreakpoint| e |Wtrash|:
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
 int _Wbreakpoint(char *filename, unsigned long line);
-#define Wbreakpoint() _Wbreakpoint(__FILE__, __LINE__)
 #else
-int _Wbreakpoint();
-#define Wbreakpoint() _Wbreakpoint()
+int _Wbreakpoint(void);
 #endif
-void _Wtrash();
-#define Wtrash() _Wtrash()
+void _Wtrash(void);
 @
 
 A definição das funções segue abaixo:
@@ -1468,14 +1489,43 @@ int _Wbreakpoint(char *filename, unsigned long line){
   return _new_breakpoint(_user_arena, filename, line);
 }
 #else
-int _Wbreakpoint(){
+int _Wbreakpoint(void){
   return _new_breakpoint(_user_arena);
 }
 #endif
-void _Wtrash(){
+void _Wtrash(void){
   Wtrash_arena(_user_arena);
 }
 @
+
+E por fim as adicionamos à |W|:
+
+@<Funções Weaver@>+=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+#if W_DEBUG_LEVEL >= 1
+int (*breakpoint)(char *, unsigned long);
+#else
+int *(*breakpoint)(void);
+#endif
+void (*trash)(void);
+@
+
+@<API Weaver: Inicialização@>=
+W.breakpoint = &_Wbreakpoint;
+W.trash = & _Wtrash;
+@
+
+E as macros que nos ajudam a cuidar do número de argumentos:
+
+@<Declarações de Memória@>+=
+#if W_DEBUG_LEVEL >= 1
+#define Wbreakpoint() W.breakpoint(__FILE__, __LINE__)
+#else
+#define Wbreakpoint() W.breakpoint()
+#endif
+#define Wtrash() W.trash()
+@
+
 
 @*1 Medindo o desempenho.
 
