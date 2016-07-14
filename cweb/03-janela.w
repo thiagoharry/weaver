@@ -54,12 +54,19 @@ o mouse aproxime-se dela para fechá-la. Ou um jogo que crie uma janela
 que ao ser movida pela Área de trabalho possa revelar imagens
 diferentes, como se funcionasse como um raio-x da tela.
 
+As variáveis globais de que falamos estarão disponíveis dentro da
+estrutura |W|:
+
+@<Variáveis Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+int width, height, x, y;
+@
+
 Além destas variáveis globais, será importante também criarmos um
 mutex a ser bloqueado sempre que elas forem modificadas em jogos com
 mais de uma thread:
 
 @<Cabeçalhos Weaver@>+=
-extern int W_width, W_height, W_x, W_y;
 #ifdef W_MULTITHREAD
 extern pthread_mutex_t _window_mutex;
 #endif
@@ -130,7 +137,6 @@ condicionalmente:
 extern int make_iso_compilers_happy;
 #if W_TARGET == W_ELF
 #include "window.h"
-  int W_width, W_height, W_x, W_y;
 #ifdef W_MULTITHREAD
   pthread_mutex_t _window_mutex;
 #endif
@@ -268,23 +274,22 @@ Window _window;
 E é inicializada com os seguintes dados:
 
 @<Janela: Inicialização@>+=
-  W_x = 0; // Na inicialização não é necessário ativar o mutex.
-  W_y = 0;
+  W.y = W.x = 0; // Na inicialização não é necessário ativar o mutex.
 #if W_WIDTH > 0
-  W_width = W_WIDTH; // Obtendo largura da janela
+  W.width = W_WIDTH; // Obtendo largura da janela
 #else
-  W_width = DisplayWidth(_dpy, screen);
+  W.width = DisplayWidth(_dpy, screen);
 #endif
 #if W_HEIGHT > 0 // Obtendo altura da janela
-  W_height = W_HEIGHT;
+  W.height = W_HEIGHT;
 #else
-  W_height = DisplayHeight(_dpy, screen);
+  W.height = DisplayHeight(_dpy, screen);
 #endif
   _window = XCreateSimpleWindow(_dpy, //Conexão com o servidor X
                                DefaultRootWindow(_dpy), // A janeela-mãe
-                               W_x, W_y, // Coordenadas da janela
-                               W_width, // Largura da janela
-                               W_height, // Altura da janela
+                               W.x, W.y, // Coordenadas da janela
+                               W.width, // Largura da janela
+                               W.height, // Altura da janela
                                0, 0, // Borda (espessura e cor)
                                0); // Cor padrão
 @
@@ -523,7 +528,6 @@ extern int make_iso_compilers_happy;
 #if W_TARGET == W_WEB
 #include "canvas.h"
 static SDL_Surface *window;
-int W_width, W_height, W_x = 0, W_y = 0;
 #ifdef W_MULTITHREAD
 pthread_mutex_t _window_mutex;
 #endif
@@ -533,15 +537,16 @@ void _initialize_canvas(void){
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
   window = SDL_SetVideoMode(// Definindo informações de tamanho do canvas
+  W.x = W.y = 0;
 #if W_WIDTH > 0
-                            W_width = W_WIDTH, // Largura da janela
+                            W.width = W_WIDTH, // Largura da janela
 #else
-                            W_width = 800, // Largura da janela
+                            W.width = 800, // Largura da janela
 #endif
 #if W_HEIGHT > 0
-                            W_height = W_HEIGHT, // Altura da janela
+                            W.height = W_HEIGHT, // Altura da janela
 #else
-                            W_height = 600, // Altura da janela
+                            W.height = 600, // Altura da janela
 #endif
                             0, // Bits por pixel, usar o padrão
                             SDL_OPENGL // Inicializar o contexto OpenGL
@@ -618,7 +623,7 @@ definidos mais tarde, assim como os eventos SDL caso estejamos rodando
 em um navegador web.
 
 Tudo o que temos que fazer no caso deste evento é atualizar as
-variáveis globais |W_width|, |W_height|, |W_x| e |W_y|. Nem sempre o
+variáveis globais |W.width|, |W.height|, |W.x| e |W.y|. Nem sempre o
 evento |ConfigureNotify| significa que a janela mudou de tamanho ou
 foi movida. Talvez ela apenas tenha se movido para frente ou para trás
 em relação à outras janelas empilhadas sobre ela. Ou algo mudou o
@@ -632,10 +637,10 @@ if(event.type == ConfigureNotify){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_window_mutex);
 #endif
-  W_x = config.x;
-  W_y = config.y;
-  W_width = config.width;
-  W_height = config.height;
+  W.x = config.x;
+  W.y = config.y;
+  W.width = config.width;
+  W.height = config.height;
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
 #endif
@@ -653,7 +658,7 @@ termos um \italico{canvas} web para o jogo. No caso da janela, usamos
 uma função XLib para isso:
 
 @<Janela: Declaração@>=
-  void Wresize_window(int width, int height);
+void Wresize_window(int width, int height);
 @
 
 @<Janela: Definição@>=
@@ -662,8 +667,8 @@ void Wresize_window(int width, int height){
   pthread_mutex_lock(&_window_mutex);
 #endif
   XResizeWindow(_dpy, _window, width, height);
-  W_width = width;
-  W_height = height;
+  W.width = width;
+  W.height = height;
   @<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
@@ -688,8 +693,8 @@ void Wresize_window(int width, int height){
                             0, // Bits por pixel, usar o padrão
                             SDL_OPENGL // Inicializar o contexto OpenGL
                             );
-  W_width = width;
-  W_height = height;
+  W.width = width;
+  W.height = height;
   @<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
@@ -712,8 +717,8 @@ void Wmove_window(int x, int y){
   pthread_mutex_lock(&_window_mutex);
 #endif
   XMoveWindow(_dpy, _window, x, y);
-  W_x = x;
-  W_y = y;
+  W.x = x;
+  W.y = y;
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
 #endif

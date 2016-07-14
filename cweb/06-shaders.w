@@ -279,14 +279,14 @@ multiplicadores:
 {
   _horizontal_multiplier = glGetUniformLocation(_program,
                                                 "Whorizontal_multiplier");
-  if(W_width > W_height)
-    glUniform1f(_horizontal_multiplier, ((float) W_height / (float) W_width));
+  if(W.width > W.height)
+    glUniform1f(_horizontal_multiplier, ((float) W.height / (float) W.width));
   else
     glUniform1f(_horizontal_multiplier, 1.0);
   _vertical_multiplier = glGetUniformLocation(_program,
                                               "Wvertical_multiplier");
-  if(W_height > W_width)
-    glUniform1f(_vertical_multiplier, ((float) W_width / (float) W_height));
+  if(W.height > W.width)
+    glUniform1f(_vertical_multiplier, ((float) W.width / (float) W.height));
   else
     glUniform1f(_vertical_multiplier, 1.0);
 }
@@ -307,12 +307,12 @@ mudado:
 
 @<Ações após Redimencionar Janela@>=
 {
-  if(W_width > W_height)
-    glUniform1f(_horizontal_multiplier, ((float) W_height / (float) W_width));
+  if(W.width > W.height)
+    glUniform1f(_horizontal_multiplier, ((float) W.height / (float) W.width));
   else
     glUniform1f(_horizontal_multiplier, 1.0);
-  if(W_height > W_width)
-    glUniform1f(_vertical_multiplier, ((float) W_width / (float) W_height));
+  if(W.height > W.width)
+    glUniform1f(_vertical_multiplier, ((float) W.width / (float) W.height));
   else
     glUniform1f(_vertical_multiplier, 1.0);
 }

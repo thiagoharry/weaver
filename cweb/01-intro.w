@@ -1687,7 +1687,7 @@ O objeto terá a forma:
 // Esta estrutura conterá todas as variáveis e funções definidas pela
 // API Weaver:
 extern struct _weaver_struct{
-  //@<Variáveis Weaver@>
+  @<Variáveis Weaver@>
   @<Funções Weaver@>
 } W;
 @
