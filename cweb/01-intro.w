@@ -1561,6 +1561,8 @@ automaticamente todos os cabeçalhos Weaver necessários:
 #include <stdlib.h>
 
 @<Cabeçalhos Weaver@>
+// Todas as variáveis e funções globais ficarão no struct abaixo:
+@<Estrutura Global@>
 
 #ifdef __cplusplus
   }
@@ -1683,7 +1685,7 @@ invés de termos que definir variáveis globais.
 
 O objeto terá a forma:
 
-@<Cabeçalhos Weaver@>=
+@<Estrutura Global@>=
 // Esta estrutura conterá todas as variáveis e funções definidas pela
 // API Weaver:
 extern struct _weaver_struct{

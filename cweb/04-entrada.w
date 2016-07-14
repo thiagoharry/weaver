@@ -10,7 +10,7 @@ quando certas teclas são pressionadas, quando são soltas, por quanto
 tempo elas estão sendo pressionadas e por quanto tempo foram
 pressionadas antes de terem sido soltas.
 
-Nossa proposta é que exista um vetor de inteiros chamado |Wkeyboard|,
+Nossa proposta é que exista um vetor de inteiros chamado |W.keyboard|,
 por exemplo, e que cada posição dele represente uma tecla
 diferente. Se o valor dentro de uma posição do vetor é 0, então tal
 tecla não está sendo pressionada. Caso o seu valor seja um número
@@ -97,18 +97,19 @@ por um novo tempo atual:
 Estas medidas de tempo serão realmente usadas para atualizar duas
 variáveis a cada iteração. A primeira será uma variável interna e
 armazenará quantos milissegundos se passaram entre uma iteração e
-outra. A segunda será uma variável global que poderá ser consultada
-por usuários e conterá à quantos frames por segundo o jogo está
-rodando:
+outra. Usaremos ela para gerar a variável global |W.fps| que poderá
+ser consultada por usuários e conterá à quantos frames por segundo o
+jogo está rodando:
 
 @<API Weaver: Definições@>=
   static int _elapsed_milisseconds;
-  int Wfps;
 @
 
-@<Cabeçalhos Weaver@>+=
-    extern int Wfps;
+@<Variáveis Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+int fps;
 @
+
 
 Naturalmente, tais valores também precisam ser inicializados para
 prevenir que contenham números absurdos na primeira iteração:
@@ -116,23 +117,22 @@ prevenir que contenham números absurdos na primeira iteração:
 @<API Weaver: Inicialização@>+=
 {
   _elapsed_milisseconds = 0;
-  Wfps = 0;
+  W.fps = 0;
 }
 @
 
-
 E em cada iteração do loop principal, atualizamos os valores. Assim
 subtraímos dois |struct timeval| para obter os valores de
-|elapsed_milisseconds| e |Wfps| em cada \italico{frame}:
+|elapsed_milisseconds| e |W.fps| em cada \italico{frame}:
 
 @<API Weaver: Loop Principal@>+=
 {
   _elapsed_milisseconds = (_current_time.tv_sec - _last_time.tv_sec) * 1000;
   _elapsed_milisseconds += (_current_time.tv_usec - _last_time.tv_usec) / 1000;
   if(_elapsed_milisseconds > 0)
-    Wfps = 1000 / _elapsed_milisseconds;
+    W.fps = 1000 / _elapsed_milisseconds;
   else
-    Wfps = 0;
+    W.fps = 0;
 }
 @
 
@@ -179,13 +179,17 @@ atém somente à 16 bytes para representar suas teclas. Então, podemos
 ignorar com segurança tais traduções quando estivermos programando
 para a Web.
 
-Sabendo disso, o nosso vetor de teclas e vetor de traduções pode ser
-declarado, bem como o vetor de teclas pressionadas. Mas além das
-teclas pressionadas do teclado, vamos tar o mesmo tratamento para os
-botões pressionados no \italico{mouse}:
+Sabendo disso, o nosso vetor de teclas |W.keyboard| e vetor de
+traduções pode ser declarado, bem como o vetor de teclas
+pressionadas. Além das teclas pressionadas do teclado, vamos dar o
+mesmo tratamento para os botões pressionados no \italico{mouse}:
+
+@<Variáveis Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+  int keyboard[0xffff];
+@
 
 @<API Weaver: Definições@>=
-  int Wkeyboard[0xffff];
 #if W_TARGET == W_ELF
   static struct _k_translate{ // Traduz uma tecla em outra
     unsigned original_symbol, new_symbol;
@@ -201,9 +205,6 @@ botões pressionados no \italico{mouse}:
 @
 
 @<Cabeçalhos Weaver@>+=
-// Depois declaramos o vetor de tempo pressionado para os botões do
-// mouse. Este é para o teclado:
-  extern int Wkeyboard[0xffff];
 #ifdef W_MULTITHREAD
   pthread_mutex_t _input_mutex;
 #endif
@@ -217,7 +218,7 @@ como valor:
 {
   int i;
   for(i = 0; i < 0xffff; i ++)
-    Wkeyboard[i] = 0;
+    W.keyboard[i] = 0;
 #if W_TARGET == W_ELF
   for(i = 0; i < 100; i ++){
     _key_translate[i].original_symbol = 0;
@@ -297,13 +298,13 @@ vamos adicionar mais uma. Neste caso, a função sinaliza isso
 retornando 0 ao invés de 1.
 
 @<Cabeçalhos Weaver@>=
-int Wkey_translate(unsigned old_value, unsigned new_value);
-void Werase_key_translations(void);
+int _Wkey_translate(unsigned old_value, unsigned new_value);
+void _Werase_key_translations(void);
 @
 
 
 @<API Weaver: Definições@>=
-int Wkey_translate(unsigned old_value, unsigned new_value){
+int _Wkey_translate(unsigned old_value, unsigned new_value){
 #if W_TARGET == W_ELF
   int i;
 #ifdef W_MULTITHREAD
@@ -332,7 +333,7 @@ int Wkey_translate(unsigned old_value, unsigned new_value){
   return 0;
 }
 
-void Werase_key_translations(void){
+void _Werase_key_translations(void){
 #if W_TARGET == W_ELF
   int i;
 #ifdef W_MULTITHREAD
@@ -348,6 +349,20 @@ void Werase_key_translations(void){
 #endif
 }
 @
+
+Iremos atribuir tanto a função de adiconar nova tradução como a função
+de remover todas as traduções à estrutura |W|:
+
+@<Funções Weaver@>+=
+int (*key_translate)(unsigned, unsigned);
+void (*erase_key_translations)(void);
+@
+
+@<API Weaver: Inicialização@>=
+W.key_translate = &_Wkey_translate;
+W.erase_key_translations = &_Werase_key_translations;
+@
+
 
 Uma vez que tenhamos preparado as traduções, podemos enfim ir até o
 loop principal e acompanhar o surgimento de eventos para saber quando
@@ -383,10 +398,10 @@ if(event.type == KeyPress){
   // eventos também pode ser gerada incorretamente se a tecla for
   // pressionada por muito tempo e precisamos corrigir se isso
   // ocorrer.
-  if(Wkeyboard[code] == 0)
-    Wkeyboard[code] = 1;
-  else if(Wkeyboard[code] < 0)
-    Wkeyboard[code] *= -1;
+  if(W.keyboard[code] == 0)
+    W.keyboard[code] = 1;
+  else if(W.keyboard[code] < 0)
+    W.keyboard[code] *= -1;
   continue;
 }
 @
@@ -420,7 +435,7 @@ if(event.type == KeyRelease){
     }
   }
   // Atualiza vetor de teclado
-  Wkeyboard[code] *= -1;
+  W.keyboard[code] *= -1;
   continue;
 }
 @
@@ -459,7 +474,7 @@ de ser pressionada neste \italico{frame}.
     //  ato de medir o tempo cheio de detalhes incômodos. Temos que
     //  remover da lista de teclas soltas esta tecla, que provavelmente
     //  não foi solta de verdade:
-    while(Wkeyboard[key] > 0){
+    while(W.keyboard[key] > 0){
       int j;
       for(j = i; j < 19; j ++){
         _released_keys[j] = _released_keys[j+1];
@@ -469,11 +484,12 @@ de ser pressionada neste \italico{frame}.
     }
     if(key == 0) break; // Chegamos ao fim da lista de teclas pressionadas
     // Tratando casos especiais de valores que representam mais de uma tecla:
-    if(key == W_LEFT_CTRL || key == W_RIGHT_CTRL) Wkeyboard[W_CTRL] = 0;
-    else if(key == W_LEFT_SHIFT || key == W_RIGHT_SHIFT) Wkeyboard[W_SHIFT] = 0;
-    else if(key == W_LEFT_ALT || key == W_RIGHT_ALT) Wkeyboard[W_ALT] = 0;
+    if(key == W_LEFT_CTRL || key == W_RIGHT_CTRL) W.keyboard[W_CTRL] = 0;
+    else if(key == W_LEFT_SHIFT || key == W_RIGHT_SHIFT)
+       W.keyboard[W_SHIFT] = 0;
+    else if(key == W_LEFT_ALT || key == W_RIGHT_ALT) W.keyboard[W_ALT] = 0;
     // Como foi solta no frame anterior, o tempo que ela está pressionada é 0:
-    Wkeyboard[key] = 0;
+    W.keyboard[key] = 0;
     _released_keys[i] = 0; // Tecla removida da lista de teclas soltas
   }
   // Para teclas pressionadas, incrementar o seu contador de tempo:
@@ -482,25 +498,25 @@ de ser pressionada neste \italico{frame}.
     if(key == 0) break; // Fim da lista, encerrar
     // Casos especiais:
     if(key == W_LEFT_CTRL || key == W_RIGHT_CTRL) 
-      Wkeyboard[W_CTRL] += _elapsed_milisseconds;
+      W.keyboard[W_CTRL] += _elapsed_milisseconds;
     else if(key == W_LEFT_SHIFT || key == W_RIGHT_SHIFT)
-      Wkeyboard[W_SHIFT] += _elapsed_milisseconds;
+      W.keyboard[W_SHIFT] += _elapsed_milisseconds;
     else if(key == W_LEFT_ALT || key == W_RIGHT_ALT)
-      Wkeyboard[W_ALT] += _elapsed_milisseconds;
+      W.keyboard[W_ALT] += _elapsed_milisseconds;
     // Aumenta o contador de tempo:
-    Wkeyboard[key] += _elapsed_milisseconds;
+    W.keyboard[key] += _elapsed_milisseconds;
   }
 }
 @
 
-Por fim, preenchemos a posição |Wkeyboard[W_ANY]| depois de tratarmos
+Por fim, preenchemos a posição |W.keyboard[W_ANY]| depois de tratarmos
 todos os eventos:
 
 @<API Weaver: Loop Principal@>+=
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_input_mutex);
 #endif
-Wkeyboard[W_ANY] = (_pressed_keys[0] != 0); // Se há alguma tecla pressionada
+W.keyboard[W_ANY] = (_pressed_keys[0] != 0); // Se há alguma tecla pressionada
 @
 
 Isso conclui o código que precisamos para o teclado no Xlib. Mas ainda
@@ -600,11 +616,11 @@ formas de entrada possíveis. Portanto, vamos deixar este trecho de
 código com uma marcação para inserirmos mais coisas depois:
 
 @<Cabeçalhos Weaver@>+=
-void Wflush_input(void);
+void _Wflush_input(void);
 @
 
 @<API Weaver: Definições@>+=
-void Wflush_input(void){
+void _Wflush_input(void){
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(&_input_mutex);
 #endif
@@ -614,10 +630,10 @@ void Wflush_input(void){
     for(i = 0; i < 20; i ++){
       key = _pressed_keys[i];
       _pressed_keys[i] = 0;
-      Wkeyboard[key] = 0;
+      W.keyboard[key] = 0;
       key = _released_keys[i];
       _released_keys[i] = 0;
-      Wkeyboard[key] = 0;
+      W.keyboard[key] = 0;
     }
   }
   @<Limpar Entrada@>
@@ -626,6 +642,17 @@ void Wflush_input(void){
 #endif
 }
 @
+
+E para usar esta função, a adicionamos à estrutura |W|:
+
+@<Funções Weaver@>+=
+void (*flush_input)(void);
+@
+
+@<API Weaver: Inicialização@>=
+W.flush_input = &_Wflush_input;
+@
+
 
 Quase tudo o que foi definido aqui aplica-se tanto para o Xlib rodando
 em um programa nativo para Linux como em um programa SDL compilado
@@ -661,10 +688,10 @@ if(event.type == SDL_KEYDOWN){
     // quando apertamos uma tecla por muito tempo. Então só devemos
     // atribuir 1 à posição do vetor se realmente a tecla não estava
     // sendo pressionada antes.
-  if(Wkeyboard[code] == 0)
-    Wkeyboard[code] = 1;
-  else if(Wkeyboard[code] < 0)
-    Wkeyboard[code] *= -1;
+  if(W.keyboard[code] == 0)
+    W.keyboard[code] = 1;
+  else if(W.keyboard[code] < 0)
+    W.keyboard[code] *= -1;
   continue;
 }
 @
@@ -694,7 +721,7 @@ if(event.type == SDL_KEYUP){
     }
   }
   // Atualiza vetor de teclado
-  Wkeyboard[code] *= -1;
+  W.keyboard[code] *= -1;
   continue;
 }
 
@@ -860,7 +887,7 @@ normal, a definição da função é:
 @<API Weaver: Definições@>+=
 #if W_TARGET == W_ELF
 void Wloop(void (*f)(void)){
-  Wflush_input();
+  W.flush_input();
   for(;;){
     f();
   }
@@ -883,7 +910,7 @@ registrado, precisamos cancelar ele primeiro.
 #if W_TARGET == W_WEB
 void Wloop(void (*f)(void)){
   emscripten_cancel_main_loop();
-  Wflush_input();
+  W.flush_input();
   // O segundo argumento é o número de frames por segundo:
   emscripten_set_main_loop(f, 0, 1);
   // Nunca chegamos nesta parte. Inútil colocar qualquer coisa após
@@ -891,6 +918,14 @@ void Wloop(void (*f)(void)){
 }
 #endif
 @
+
+A função |Wloop| é uma das poucas que não serão colocadas dentro da
+estrutura |W|. Não é do nosso interesse que ela seja invocada
+por \italico{plugins}, somente pelo programa principal. Não havendo
+necessidade de descobrirmos seu endereço, não temos motivos para
+colocá-la dentro da estrutura. Além do mais, o fato dela ser invocada
+como |Wloop| e não como |W.loop| ajuda a lembrar do caráter
+excepcional da função.
 
 Tudo isso significa que um loop principal nunca chega ao fim. Podemos
 apenas invocar outro loop principal recursivamente dentro do
@@ -938,18 +973,20 @@ segundo.
 
 Em suma, podemos representar o mouse como a seguinte estrutura:
 
-@<API Weaver: Definições@>+=
-struct _mouse Wmouse;
-@
-
 @<Cabeçalhos Weaver@>=
-extern struct _mouse{
+struct _mouse{
   /* Posições de 1 a 5 representarão cada um dos botões e o 6 é
      reservado para qualquer tecla.*/
   int buttons[7];
   int x, y, dx, dy;
-} Wmouse;
+};
 @
+
+@<Variáveis Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+  struct _mouse mouse;
+@
+
 
 E a tradução dos botões, dependendo do ambiente de execução será dada
 por:
@@ -978,7 +1015,7 @@ Agora podemos inicializar os vetores de botões soltos e pressionados:
 { // Inicialização das estruturas do mouse
   int i;
   for(i = 0; i < 5; i ++)
-    Wmouse.buttons[i] = 0;
+    W.mouse.buttons[i] = 0;
   for(i = 0; i < 5; i ++){
     _pressed_buttons[i] = 0;
     _released_buttons[i] = 0;
@@ -997,7 +1034,7 @@ trabalho que fazemos com o teclado.
   // Limpar o vetor de botõoes soltos e zerar seus valores no vetor de mouse:
   for(i = 0; i < 5; i ++){
     button = _released_buttons[i];
-    while(Wmouse.buttons[button] > 0){
+    while(W.mouse.buttons[button] > 0){
       int j;
       for(j = i; j < 4; j ++){
         _released_buttons[j] = _released_buttons[j+1];
@@ -1006,14 +1043,14 @@ trabalho que fazemos com o teclado.
       button = _released_buttons[i];
     }    
     if(button == 0) break;
-    Wmouse.buttons[button] = 0;
+    W.mouse.buttons[button] = 0;
     _released_buttons[i] = 0;
   }
   // Para botões pressionados, incrementar o tempo em que estão pressionados:
   for(i = 0; i < 5; i ++){
     button = _pressed_buttons[i];
     if(button == 0) break;
-    Wmouse.buttons[button] += _elapsed_milisseconds;
+    W.mouse.buttons[button] += _elapsed_milisseconds;
   }
 }
 @
@@ -1037,10 +1074,10 @@ if(event.type == ButtonPress){
     // pressionada. Ignoramos se o evento está sendo gerado mais de uma
     // vez sem que o botão seja solto ou caso o evento seja gerado
     // imediatamente depois de um evento de soltar o mesmo botão:
-  if(Wmouse.buttons[code] == 0)
-    Wmouse.buttons[code] = 1;
-  else if(Wmouse.buttons[code] < 0)
-    Wmouse.buttons[code] *= -1;
+  if(W.mouse.buttons[code] == 0)
+    W.mouse.buttons[code] = 1;
+  else if(W.mouse.buttons[code] < 0)
+    W.mouse.buttons[code] *= -1;
   continue;
 }
 @
@@ -1070,7 +1107,7 @@ if(event.type == ButtonRelease){
     }
   }
   // Atualiza vetor de mouse
-  Wmouse.buttons[code] *= -1;
+  W.mouse.buttons[code] *= -1;
   continue;
 }
 @
@@ -1091,10 +1128,10 @@ if(event.type == SDL_MOUSEBUTTONDOWN){
   }
   // Atualiza vetor de mouse se o botão já não estava sendo pressionado
   // antes.
-  if(Wmouse.buttons[code] == 0)
-    Wmouse.buttons[code] = 1;
-  else if(Wmouse.buttons[code] < 0)
-    Wmouse.buttons[code] *= -1;
+  if(W.mouse.buttons[code] == 0)
+    W.mouse.buttons[code] = 1;
+  else if(W.mouse.buttons[code] < 0)
+    W.mouse.buttons[code] *= -1;
   continue;
 }
 @
@@ -1124,7 +1161,7 @@ if(event.type == SDL_MOUSEBUTTONUP){
     }
   }
   // Atualiza vetor de teclado
-  Wmouse.buttons[code] *= -1;
+  W.mouse.buttons[code] *= -1;
   continue;
 }
 @
@@ -1133,7 +1170,7 @@ E finalmente, o caso especial para verificar se qualquer botão foi
 pressionado:
 
 @<API Weaver: Loop Principal@>+=
-Wmouse.buttons[W_ANY] = (_pressed_buttons[0] != 0);
+W.mouse.buttons[W_ANY] = (_pressed_buttons[0] != 0);
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_input_mutex);
 #endif
@@ -1146,7 +1183,7 @@ do programa devemos zerar tais valores para evitarmos valores absurdos
 na primeira iteração:
 
 @<API Weaver: Inicialização@>+=
-  Wmouse.x = Wmouse.y = Wmouse.dx = Wmouse.dy = 0;
+  W.mouse.x = W.mouse.y = W.mouse.dx = W.mouse.dy = 0;
 @
 
 
@@ -1157,7 +1194,7 @@ se ele receber, aí de qualquer forma teremos a chance de atualizar os
 valores no tratamento do evento:
 
 @<API Weaver: Imediatamente antes de tratar eventos@>+=
-  Wmouse.dx = Wmouse.dy = 0;
+  W.mouse.dx = W.mouse.dy = 0;
 @
 
 Em seguida, cuidamos do caso no qual temos um evento Xlib de movimento
@@ -1168,12 +1205,12 @@ if(event.type == MotionNotify){
   int x, y, dx, dy;
   x = event.xmotion.x;
   y = event.xmotion.y;
-  dx = x - Wmouse.x;
-  dy = y - Wmouse.y;
-  Wmouse.dx = ((float) dx / _elapsed_milisseconds) * 1000;
-  Wmouse.dy = ((float) dy / _elapsed_milisseconds) * 1000;
-  Wmouse.x = x;
-  Wmouse.y = y;
+  dx = x - W.mouse.x;
+  dy = y - W.mouse.y;
+  W.mouse.dx = ((float) dx / _elapsed_milisseconds) * 1000;
+  W.mouse.dy = ((float) dy / _elapsed_milisseconds) * 1000;
+  W.mouse.x = x;
+  W.mouse.y = y;
   continue;
 }
 #ifdef W_MULTITHREAD
@@ -1188,12 +1225,12 @@ if(event.type == SDL_MOUSEMOTION){
   int x, y, dx, dy;
   x = event.motion.x;
   y = event.motion.y;
-  dx = x - Wmouse.x;
-  dy = y - Wmouse.y;
-  Wmouse.dx = ((float) dx / _elapsed_milisseconds) * 1000;
-  Wmouse.dy = ((float) dy / _elapsed_milisseconds) * 1000;
-  Wmouse.x = x;
-  Wmouse.y = y;
+  dx = x - W.mouse.x;
+  dy = y - W.mouse.y;
+  W.mouse.dx = ((float) dx / _elapsed_milisseconds) * 1000;
+  W.mouse.dy = ((float) dy / _elapsed_milisseconds) * 1000;
+  W.mouse.x = x;
+  W.mouse.y = y;
   continue;
 }
 #ifdef W_MULTITHREAD
@@ -1214,8 +1251,16 @@ entrarmos em um loop principal:
     _pressed_buttons[i] = 0;
   }
   for(i = 0; i < 7; i ++)
-    Wmouse.buttons[i] = 0;
-  Wmouse.dx = 0;
-  Wmouse.dy = 0;
+    W.mouse.buttons[i] = 0;
+  W.mouse.dx = 0;
+  W.mouse.dy = 0;
 }
 @
+
+% int W.fps, W.keyboard[0xffff];
+% struct{ int buttons[7]; int x, y, dx, dy; } W.mouse;
+
+% int W.key_translate(unsigned old_code, unsigned new_code);
+% void W.erase_key_translations(void);
+% void W.flushinput(void)
+% void Wloop(void (*f)(void));
