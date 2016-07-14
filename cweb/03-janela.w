@@ -1100,11 +1100,47 @@ glEnable(GL_DEPTH_TEST);
 glClear(GL_COLOR_BUFFER_BIT);
 @
 
+@*1 Sumário das Variáveis e Funções Janela.
 
-% int W.x, W.y, W.width, W.height;
-% unsigned W.number_of_modes, W.current_name
-% struct {int width, int height, int rate, int id} modes[W.number_of_modes];
+\macronome As seguintes 7 novas variáveis foram definidas:
 
-% void W.resize_window(int width, int height)
-% void W.move_window(int x, int y)
-% int W.fullscreen_mode(unsigned int mode)
+\macrovalor|int W.x|: Armazena a posição $x$ da janela. Somente para
+leitura, não mude o valor.
+
+\macrovalor|int W.y|: Armazena a posição $y$ da janela. Somente para a
+leitura, não mude o valor.
+
+\macrovalor|int W.width|: Armazena a largura da janela em
+pixels. Somente para leitura, não mude o valor.
+
+\macrovalor|int W.height|: Armazena a altura da janela em
+pixels. Somente para leitura, não mude o valor.
+
+\macrovalor|unsigned W.number_of_modes|: Quantas diferentes
+combinações de resolução e taxa de atualização (em Hz) o monitor em
+que estamos suporta. Somente para leitura, não mude o valor.
+
+\macrovalor|unsigned W.current_mode|: Qual o número de identificação
+da atual combinação de resolução e taxa de atualização (em
+hz). Somente para leitura, não mude. O número pode ser usado como
+índice para consultar o vetor abaixo.
+
+\macrovalor|struct {int width, height, rate, id} W.modes[]|: Um vetor
+com um número de posições igual à |W.number_of_modes| contendo
+informações sobre cada combinação possível de resolução e taxa de
+atualização (|rate|) do monitor em que estamos e sua respectiva
+identificação (|id|). Por exemplo, podemos obter a resolução atual
+lendo |W.modes[W.current_mode].width| e
+|W.modes[W.current_mode].height|.
+
+\macronome As seguintes 3 novas funções foram definidas:
+
+\macrovalor|void W.resize_window(int width, int height)|: Muda o
+tamanho da janela para os valores passados como argumento.
+
+\macrovalor|void W.move_window(int x, int y)|: Move a janela para a
+posição indicada como argumento.
+
+\macrovalor|int W.fullscreen_mode(unsigned int id)|: Deixa a janela
+em tela-cheia usando uma das combinações de resolução e taxa de
+atualização presente em |W.modes| com a identificação de |id|.
