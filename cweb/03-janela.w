@@ -531,7 +531,7 @@ static SDL_Surface *window;
 #ifdef W_MULTITHREAD
 pthread_mutex_t _window_mutex;
 #endif
-@<Canvas: Variáveis@>
+
 void _initialize_canvas(void){
   SDL_Init(SDL_INIT_VIDEO); // Inicializando SDL com OpenGL 3.3
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
@@ -658,11 +658,11 @@ termos um \italico{canvas} web para o jogo. No caso da janela, usamos
 uma função XLib para isso:
 
 @<Janela: Declaração@>=
-void Wresize_window(int width, int height);
+void _Wresize_window(int width, int height);
 @
 
 @<Janela: Definição@>=
-void Wresize_window(int width, int height){
+void _Wresize_window(int width, int height){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_window_mutex);
 #endif
@@ -681,11 +681,11 @@ mesmo efeito. Basta pedirmos para criar uma nova janela e isso
 funciona como se mudássemos o tamanho da anterior:
 
 @<Canvas: Declaração@>=
-  void Wresize_window(int width, int height);
+  void _Wresize_window(int width, int height);
 @
 
 @<Canvas: Definição@>=
-void Wresize_window(int width, int height){
+void _Wresize_window(int width, int height){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_window_mutex);
 #endif
@@ -702,17 +702,28 @@ void Wresize_window(int width, int height){
 }
 @
 
+Independente de como foi definida a opção de mudar tamanho da janela,
+vamos atribuí-la à estrutura |W|:
+
+@<Funções Weaver@>+=
+void (*resize_window)(int, int);
+@
+
+@<API Weaver: Inicialização@>=
+W.resize_window = &_Wresize_window;
+@
+
 Mudar a posição da janela é algo diferente. Isso só faz sentido se
 realmente tivermos uma janela Xlib, e não um ``canvas'' web. De
 qualquer forma, precisaremos definir esta função em ambos os
 casos.
 
 @<Janela: Declaração@>=
-  void Wmove_window(int x, int y);
+  void _Wmove_window(int x, int y);
 @
 
 @<Janela: Definição@>=
-void Wmove_window(int x, int y){
+void _Wmove_window(int x, int y){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_window_mutex);
 #endif
@@ -729,14 +740,25 @@ Esta mesma função será definida, mas será ignorada se um usuário a
 invocar em um programa compilado para a Web:
 
 @<Canvas: Declaração@>=
-  void Wmove_window(int x, int y);
+  void _Wmove_window(int x, int y);
 @
 
 @<Canvas: Definição@>=
-void Wmove_window(int width, int height){
+void _Wmove_window(int width, int height){
   return;
 }
 @
+
+E precisamos depois colocar a função em |W|:
+
+@<Funções Weaver@>+=
+void (*move_window)(int, int);
+@
+
+@<API Weaver: Inicialização@>=
+W.move_window = &_Wmove_window;
+@
+
 
 @*1 Mudando a resolução da tela.
 
@@ -760,32 +782,25 @@ tela em que estamos.
 Cada modo de funcionamento suportado por uma tela possui três valores
 distintos: a resolução horizontal, vertical, e a frequência de
 atualização da tela. A ideia é que nós usemos uma variável
-|Wnumber_of_modes| para armazenar quantos modos diferentes temos,
-|Wcurrent_mode| para sabermos qual o modo atual e aloquemos uma
+|W.number_of_modes| para armazenar quantos modos diferentes temos,
+|W.current_mode| para sabermos qual o modo atual e aloquemos uma
 estrutura formada por um \italico{array} de triplas de números contendo
 os dados de cada modo, a qual pode ser acessada por meio de
-|Wmodes|. Cada um dos modos possíveis terá um número sequencial. E se
+|W.modes|. Cada um dos modos possíveis terá um número sequencial. E se
 quisermos passar para outro modo, usaremos uma função que recebe como
 argumento tal número e facilmente pode checar se está diante de um
 valor inválido.
 
-@<Variáveis de Janela@>+=
-  unsigned Wnumber_of_modes, Wcurrent_mode;
-  struct _wmodes{
-    int width, height, rate, id;
-  } *Wmodes;
-@
-
-@<Canvas: Variáveis@>=
-  unsigned Wnumber_of_modes, Wcurrent_mode;
-  struct _wmodes{
-    int width, height, rate, id;
-  } *Wmodes;
-@
-
 @<Cabeçalhos Weaver@>+=
-  extern unsigned Wnumber_of_modes, Wcurrent_mode;
-  extern struct _wmodes *Wmodes;
+struct _wmodes{
+  int width, height, rate, id;
+};
+@
+
+@<Variáveis Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+  unsigned number_of_modes, current_mode;
+  struct _wmodes *modes;
 @
 
 Agora cabe à nós inicializarmos isso tudo. Se estamos programando para
@@ -798,17 +813,17 @@ zero, significando um valor indefinido.
 @<Canvas: Inicialização@>=
   {
     const SDL_VideoInfo *info = SDL_GetVideoInfo();
-    Wnumber_of_modes = 1;
-    Wcurrent_mode = 0;
-    Wmodes = (struct _wmodes *) _iWalloc(sizeof(struct _wmodes));
-    Wmodes[0].width = info->current_w;
-    Wmodes[0].height = info->current_h;
-    Wmodes[0].rate = 0;
-    Wmodes[0].id = 0;
+    W.number_of_modes = 1;
+    W.current_mode = 0;
+    W.modes = (struct _wmodes *) _iWalloc(sizeof(struct _wmodes));
+    W.modes[0].width = info->current_w;
+    W.modes[0].height = info->current_h;
+    W.modes[0].rate = 0;
+    W.modes[0].id = 0;
   }
 #if W_DEBUG_LEVEL >=3
   fprintf(stderr, "WARNING (3): Screen resolution: %dx%d.\n",
-          Wmodes[0].width, Wmodes[0].height);
+          W.modes[0].width, W.modes[0].height);
 #endif
 @
 
@@ -847,16 +862,16 @@ atualização da tela.
   short *rates;
   // Obtendo lista de taxa de atualização do monitor em cada resolução
   // e com isso concluindo o número total de modos diferentes:
-  Wnumber_of_modes = 0;
+  W.number_of_modes = 0;
   for(i = 0; i < num_modes; i ++){
     rates = XRRRates(_dpy, 0, i, &num_rates);
-    Wnumber_of_modes += num_rates;
+    W.number_of_modes += num_rates;
   }
   // Alocamos na arena de memória interna espaço para contermos dados
   // sobre todas as combinações possíveis de resolução e taxa de
   // atualização:
-  Wmodes = (struct _wmodes *) _iWalloc(sizeof(struct _wmodes) *
-                                       Wnumber_of_modes);
+  W.modes = (struct _wmodes *) _iWalloc(sizeof(struct _wmodes) *
+                                        W.number_of_modes);
   // Obtendo o valor original de resolução e taxa de atualização:
   conf = XRRGetScreenInfo(_dpy, root);
   _orig_rate = XRRConfigCurrentRate(conf);
@@ -866,19 +881,19 @@ atualização da tela.
   for(i = 0; i < num_modes; i ++){
     rates = XRRRates(_dpy, 0, i, &num_rates);
     for(j = 0; j < num_rates; j++){
-      Wmodes[k].width = modes[i].width;
-      Wmodes[k].height = modes[i].height;
-      Wmodes[k].rate = rates[j];
-      Wmodes[k].id = i;
+      W.modes[k].width = modes[i].width;
+      W.modes[k].height = modes[i].height;
+      W.modes[k].rate = rates[j];
+      W.modes[k].id = i;
       if(i == _orig_size_id && rates[j] == _orig_rate)
-        Wcurrent_mode = k;
+        W.current_mode = k;
       k ++;
     }
   }
 #if W_DEBUG_LEVEL >=3
   fprintf(stderr, "WARNING (3): Screen resolution: %dx%d (%dHz).\n",
-          Wmodes[Wcurrent_mode].width, Wmodes[Wcurrent_mode].height, 
-          Wmodes[Wcurrent_mode].rate);
+          W.modes[Wcurrent_mode].width, W.modes[Wcurrent_mode].height, 
+          W.modes[Wcurrent_mode].rate);
 #endif
 }
 @
@@ -1020,23 +1035,24 @@ argumento um número inteiro. Se este número for menor que zero ou
 maior ou igual ao número total de modos que temos em nossa tela, a
 função não fará nada e retornará zero. Caso contrário, ela mudará o
 modo da tela para o representado pelo índice passado como argumento em
-|Wmodes|. Além disso, ela mudará o tamanho da janela para o da nova
+|W.modes|. Além disso, ela mudará o tamanho da janela para o da nova
 resolução, deixando o jogo em tela cheia, e retornará 1:
 
 @<Janela: Declaração@>=
-  int Wfullscreen_mode(unsigned int mode);
+  int _Wfullscreen_mode(unsigned int mode);
 @
 
 @<Janela: Definição@>=
-int Wfullscreen_mode(unsigned int mode){
-  if(mode >= Wnumber_of_modes)
+int _Wfullscreen_mode(unsigned int mode){
+  if(mode >= W.number_of_modes)
     return 0;
   else{
     Window root = RootWindow(_dpy, 0);
-    Wmove_window(0, 0);
-    Wresize_window(Wmodes[mode].width, Wmodes[mode].height);
-    XRRSetScreenConfigAndRate(_dpy, conf, root, Wmodes[mode].id, _orig_rotation,
-                              Wmodes[mode].rate, CurrentTime);
+    W.move_window(0, 0);
+    XRRSetScreenConfigAndRate(_dpy, conf, root, W.modes[mode].id, _orig_rotation,
+                              W.modes[mode].rate, CurrentTime);
+    W.resize_window(W.modes[mode].width, W.modes[mode].height);
+    W.current_mode = mode;
     return 1;
   }
 }
@@ -1047,14 +1063,25 @@ jogo para a Web. Mas neste caso, a função não fará sentido e sempre
 retornará 0:
 
 @<Canvas: Declaração@>=
-  int Wfullscreen_mode(int mode);
+  int _Wfullscreen_mode(unsigned int mode);
 @
 
 @<Canvas: Definição@>=
-int Wfullscreen_mode(int mode){
+int _Wfullscreen_mode(unsigned int mode){
   return 0;
 }
 @
+
+E atribuimos esta função à |W|:
+
+@<Funções Weaver@>+=
+int (*fullscreen_mode)(unsigned int);
+@
+
+@<API Weaver: Inicialização@>=
+W.fullscreen_mode = &_Wfullscreen_mode;
+@
+
 
 @*1 Configurações Básicas OpenGL.
 
@@ -1072,3 +1099,12 @@ glEnable(GL_DEPTH_TEST);
 @<API Weaver: Loop Principal@>+=
 glClear(GL_COLOR_BUFFER_BIT);
 @
+
+
+% int W.x, W.y, W.width, W.height;
+% unsigned W.number_of_modes, W.current_name
+% struct {int width, int height, int rate, int id} modes[W.number_of_modes];
+
+% void W.resize_window(int width, int height)
+% void W.move_window(int x, int y)
+% int W.fullscreen_mode(unsigned int mode)
