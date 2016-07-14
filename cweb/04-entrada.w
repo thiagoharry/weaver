@@ -1257,10 +1257,46 @@ entrarmos em um loop principal:
 }
 @
 
-% int W.fps, W.keyboard[0xffff];
-% struct{ int buttons[7]; int x, y, dx, dy; } W.mouse;
+@*1 Sumário das Variáveis e Funções do Teclado e Mouse.
 
-% int W.key_translate(unsigned old_code, unsigned new_code);
-% void W.erase_key_translations(void);
-% void W.flushinput(void)
-% void Wloop(void (*f)(void));
+\macronome As seguintes 3 novas variáveis foram definidas:
+
+\macrovalor|int W.fps|:A cada \italico{frame} esta variável armazena a
+quantos \italico{frames} por segundo o jogo está rodando. Variável
+somente para leitura, não a modifique.
+
+\macrovalor|int W.keyboard[0xffff]|: Um vetor que contém informações
+sobre cada tecla do teclado. Se ela foi recém-pressionada, a posição
+relacionada à tecla conterá o valor 1. Se ela está sendo pressionada,
+ela terá um valor positivo correspondente à quantos milissegundos ela
+vem sendo pressionada. Se ela foi recém-solta, ela terá um número
+negativo correspondente à quantos milissegundos ela ficou pressionada
+antes de ser solta. Se ela não está sendo pressionada e nem acabou de
+ser solta, ela terá o valor 0. Variável somente para leitura, não
+modifique os valores.
+
+\macrovalor|struct W.mouse{ int buttons[7]; int x, y, dx, dy; }|:
+Contém informações sobre o \italico{mouse}. Em |buttons| pode-se
+encontrar informações sobre os botões usando a mesma lógica da
+apresentada acima para o teclado. Há a posição $x$ e $y$ do mouse, bem
+como as componentes de sua velocidade em pixels por segundo em $dx$ e
+$dy$.
+
+\macronome Também definimos as seguintes 4 novas funções:
+
+\macrovalor|int W.key_translate(unsigned old_code, unsigned new_code)|:
+Faz com que um determinado símbolo de teclado que podia não ser
+reconhecido antes passe a ser associado com um símbolo
+reconhecido. Pode ser necessário pesquisar o valor do código de cada
+símbolo na documentação do Xlib.
+
+\macrovalor|void W.erase_key_translations(void)|: Remove todas as
+associações de um símbolo à outro feitas pela função acima.
+
+\macrovalor|void W.flushinput(void)|: Limpa todos os dados de
+|W.keyboard| e |W.mouse|, incluindo quais teclas estão sendo
+ pressionadas.
+
+\macrovalor|void Wloop(void (*f)(void))|: Inicia um \italico{loop}
+ principal, executando em um \italico{loop} infinito a função passada
+ como argumento.
