@@ -286,6 +286,11 @@ static unsigned _translate_key(unsigned symbol){
     if(_key_translate[i].original_symbol == symbol)
       return _key_translate[i].new_symbol % 0xffff; // Retorna tradução
   }
+#if W_DEBUG_LEVEL >= 2
+  if(symbol >= 0xffff)
+    fprintf(stderr, "WARNING (2): Key with unknown code pressed: %lu",
+           (unsigned long) symbol);
+#endif
   return symbol % 0xffff; // Vetor percorrido e nenhuma tradução encontrada
 }
 #endif
