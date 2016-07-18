@@ -309,8 +309,12 @@ sejam atendidos, mesmo quando estamos em ambientes como o XMonad.
 
 A próxima coisa que fazemos é informar quais eventos devem ser
 notificados para nossa janela. No caso, queremos ser avisados quando
-um botão é pressionado, liberado, bem como botões do mouse e quando a
-janela é revelada ou tem o seu tamanho mudado.
+um botão é pressionado, liberado, bem como botões do mouse, quando a
+janela é revelada ou tem o seu tamanho mudado e quando por algum
+motivo nossa janela perder o foco (o usuário talvez tenha pressionado
+um botão usado como tecla de atalho pelo gerenciador de janela, mas
+como o jogo estará rodando em tela cheia, não podemos deixar que isso
+ocorra).
 
 E por fim, mudamos tais atributos na janela e fazemos o pedido para
 começarmos a ser notificados de quando houverem eventos de entrada:
@@ -326,11 +330,13 @@ static XSetWindowAttributes at;
     // teclado, pressionar e soltar botão do mouse, movimento do mouse, 
     // quando a janela é exposta e quando ela muda de tamanho.
     at.event_mask = ButtonPressMask | ButtonReleaseMask | KeyPressMask |
-      KeyReleaseMask | PointerMotionMask | ExposureMask | StructureNotifyMask;
+      KeyReleaseMask | PointerMotionMask | ExposureMask | StructureNotifyMask |
+      FocusChangeMask;
     XChangeWindowAttributes(_dpy, _window, CWOverrideRedirect, &at);
     XSelectInput(_dpy, _window, StructureNotifyMask | KeyPressMask |
                  KeyReleaseMask | ButtonPressMask | ButtonReleaseMask |
-                 PointerMotionMask | ExposureMask | StructureNotifyMask);
+                 PointerMotionMask | ExposureMask | StructureNotifyMask |
+                 FocusChangeMask);
   }
 @
 
@@ -618,9 +624,9 @@ eventos no loop principal:
 @
 
 Por hora definiremos só o tratamento do evento de mudança de tamanho e
-posição da janela em Xlib. Outros eventos terão seus tratamentos
-definidos mais tarde, assim como os eventos SDL caso estejamos rodando
-em um navegador web.
+posição da janela em Xlib e o que fazer se perdermos o foco da
+janela. Outros eventos terão seus tratamentos definidos mais tarde,
+assim como os eventos SDL caso estejamos rodando em um navegador web.
 
 Tudo o que temos que fazer no caso deste evento é atualizar as
 variáveis globais |W.width|, |W.height|, |W.x| e |W.y|. Nem sempre o
@@ -648,8 +654,25 @@ if(event.type == ConfigureNotify){
 }
 @
 
-Não é necessário criar um código análogo para a Web, pois lá será
-impossível mover a nossa ``janela'', que será um \italico{canvas}.
+Agora um problema com o foco da janela. Se o gerenciador de janelas
+associa alguma tecla à uma função, como a tecla ``Super'' sendo usada
+para aivar algum menu, nossa janela que pode estar em tela-cheia pode
+perder o foco. Se isso acontecer, é muito ruim, pois não podemos mais
+usar teclado e \italico{mouse} para interagir com uma janela que está
+ocupando toda a tela. Precisamos então tentar detectar isso e fazer o
+foco voltar para nós imediatamente:
+
+@<API Weaver: Trata Evento Xlib@>=
+if(event.type == FocusOut){
+  XSetInputFocus(_dpy, _window, RevertToParent, CurrentTime);
+  continue;
+}
+@
+
+Não é necessário criar um código análogo para a Web pra nada disso,
+pois lá será impossível mover a nossa ``janela'' ou fazê-la perder o
+foco. Afinal, ela não será uma janela verdadeira, mas um
+``\italico{canvas}''.
 
 Mas e se nós quisermos mudar o tamanho ou a posição de uma janela
 diretamente? Para mudar o tamanho, precisamos definir separadamente o
