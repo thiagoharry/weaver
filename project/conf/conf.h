@@ -24,6 +24,12 @@
 // program (W_CPP):
 #define W_SOURCE W_C
 
+// To where the game should be installed
+#define W_INSTALL_DIR "/usr/share/games/"W_PROG
+
+// Where should we look for plugins? Directories separated by ':'
+#define W_PLUGIN_PATH W_INSTALL_DIR"/plugins:compiled_plugins"
+
 // The maximum ammount of memory for the game
 #define W_MAX_MEMORY 100000000
 // When compiling for the web, we usually need aditional memory. So we

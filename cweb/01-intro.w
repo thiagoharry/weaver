@@ -1362,8 +1362,9 @@ if(! inside_weaver_directory && have_arg){
     if(err == -1) ERROR();
     mkdir(".weaver", 0755); mkdir("conf", 0755);
     mkdir("src", 0755); mkdir("src/weaver", 0755);
-    mkdir("image", 0755);  mkdir("sound", 0755);
-    mkdir("music", 0755);
+    mkdir("image", 0755); mkdir("sound", 0755);
+    mkdir("music", 0755); mkdir("plugins", 0755);
+    mkdir("compiled_plugins", 0755);
 
     dir_name = concatenate(shared_dir, "project", "");
     if(dir_name == NULL) ERROR();

@@ -1298,7 +1298,7 @@ símbolo na documentação do Xlib.
 \macrovalor|void W.erase_key_translations(void)|: Remove todas as
 associações de um símbolo à outro feitas pela função acima.
 
-\macrovalor|void W.flushinput(void)|: Limpa todos os dados de
+\macrovalor|void W.flush_input(void)|: Limpa todos os dados de
 |W.keyboard| e |W.mouse|, incluindo quais teclas estão sendo
  pressionadas.
 

@@ -8,10 +8,8 @@ Do ponto de vista de um usuário, o que chamamos de \italico{plugin}
 deve ser um único arquivo com código C (digamos que
 seja \monoespaco{myplugin.c}). Este arquivo pode ser copiado e colado
 para o diretório \monoespaco{plugins} de um Projeto Weaver e então
-subitamente o projeto passa a ter acesso à duas funções. Uma delas que
-ativa o \italico{plugin} (que no caso será
-|Wenable_plugin("myplugin")|) e uma que desativa (no caso,
-|Wdisable_plugin("myplugin")|).
+subitamente podemos passar a ativá-lo e desativá-lo por meio das funções
+|W.enable_plugin("myplugin")| e |W.disable_plugin("myplugin")|.
 
 Quando um \italico{plugin} está ativo, ele pode passar a executar
 alguma atividade durante todo \italico{loop} principal e também pode
@@ -33,7 +31,11 @@ Mas as possibilidades não param nisso. Uma pessoa pode projetar um
 jogo de modo que a maior parte das entidades que existam nele sejam na
 verdade \italico{plugins}. Desta forma, um jogador poderia
 personalizar sua instalação do jogo removendo elementos não-desejados
-do jogo ou adicionando outros meramente copiando arquivos.
+do jogo ou adicionando outros meramente copiando arquivos. Da mesma
+forma, ele poderia recompilar os \italico{plugins} enquanto o jogo
+executa e as mudanças que ele faria poderiam ser refletidas
+imediatamente no jogo em execução, sem precisar fechá-lo. Essa técnica
+é chamada de \negrito{programação interativa}.
 
 Neste ponto, esbarramos em algumas limitações do ambiente
 Web. Programas compilados por meio de Emscripten só podem ter os tais
@@ -42,44 +44,55 @@ código do \italico{plugin} deve ser injetado em seu proprio código
 durante a compilação. De fato, pode-se questionar se podemos realmente
 chamar tais coisas de \italico{plugins}.
 
-Já programas compilados para executáveis Linux possuem muito mais
-liberdade. Eles podem checar por seus \italico{plugins} em tempo de
-execução, não de compilação. De fato, isso nos permite recompilar os
-plugins enquanto o nosso programa está executando e assim modificar um
-jogo em desenvolvimento sem a necessidade de interromper sua
-execução. Essa técnica é chamada de \negrito{programação interativa}.
-
 @*1 Interface dos Plugins.
 
-Todo \italico{plugin}, cujo nome é |MYPLUGIN|, e cujo código está
+Todo \italico{plugin}, cujo nome é |MYPLUGIN| (o nome deve ser único
+para cada \italico{plugin}), e cujo código está
 em \monoespaco{plugins/MYPLUGIN.c}, deve definir as seguintes funções:
 
 \macronome|void _init_plugin_MYPLUGIN(void)|: Esta função será
-executada toda vez que o \italico{plugin} for ativado por meio de
-|Wenable_plugin|.
+executada somente uma vez quando o seu jogo detectar a presença do
+\italico{plugin}. Tipicamente isso será durante a inicialização do
+programa. Mas o \italico{plugin} pode ser adicionado à algum diretório
+do jogo no momento em que ele está em execução. Neste caso, o jogo o
+detectará assim que entrar no próximo \italico{loop} principal e
+executará a função neste momento.
 
-\macronome|void _fini_plugin_MYPLUGIN(void)|: Esta função será
-executada toda vez que o \italico{plugin} for desativado por meio de
-|Wdisable_plugin|.
+\macronome|void _fini_plugin_MYPLUGIN(W_PLUGIN)|: Esta função será
+executada apenas uma vez quando o jogo for finalizado.
 
-\macronome|void _run_plugin_MYPLUGIN(void)|: Esta função será
+\macronome|void _run_plugin_MYPLUGIN(W_PLUGIN)|: Esta função será
 executada toda vez que um \italico{plugin} estiver ativado e
 estivermos em uma iteração do \italico{loop} principal.
 
-Pode-se usar variáveis globais estáticas, mas deve-se ter em mente que
-o seu conteúdo será perdido e reinicializado toda vez que se desativa
-e ativa o \italico{plugin}. Como a nossa interface atualmente não
-suporta em \italico{plugins} qualquer tipo de variável global ou
-funções com retorno, embora o \italico{plugin} possa ler informações e
-variáveis do programa, ele não tem como passar qualquer tipo de
-informação para o programa principal. Isso talvez mude futuramente,
-mas o formato em que é feita uma comunicação entre o programa
-e \italico{plugins} precisa ser pensado com cuidado antes de
-implementado.
+\macronome|void _enable_MYPLUGIN(W_PLUGIN)|: Esta função será executada
+toda vez que um plugin for ativado por meio de
+|W.enable_plugin("MYPLUGIN")|.
 
-Deve-se também tomar cuidado com funções de bibliotecas externas
-usadas em \italico{plugins}. Algumas funções podem usar variáveis
-globais que teriam seu valor perdido ao desativar um \italico{plugin}
-e ativá-lo novamente. Este também é um dos motivos pelo qual
-a \italico{engine} Weaver define a sua própria versão de muitas
-bibliotecas.
+\macronome|void _disable_MYPLUGIN(W_PLUGIN)|: Esta função será executada
+toda vez que um plugin for ativado por meio de
+|W.enable_plugin("MYPLUGIN")|.
+
+Um \italico{plugin} terá acesso à todas as funções e variáveis que são
+mencionadas no sumário de cada capítulo, com as notáveis exceções de
+|Winit|, |Wquit|, |Wrest| e |Wloop|. Mesmo nos casos em que o plugin é
+uma biblioteca compartilhada invocada dinamicamente, isso é possível
+graças ao argumento |W_PLUGIN| recebido como argumento pelas
+funções. Ele na verdade é a estrutura |W|:
+
+@<Cabeçalhos Weaver@>+=
+#define W_PLUGIN struct _weaver_struct *_W
+@
+
+A mágica para usar as funções e variáveis na forma |W.flush_input()| e
+não na deselegante forma |W->flush_input()| será obtida por meio de
+macros adicionais inseridas pelo \monoespaco{Makefile} ao invocar o
+compilador para os \italico{plugins}.
+
+Para saber onde encontrar os \italico{plugins} durante a execução,
+definimos em \monoespaco{conf/conf.h} as seguintes macros:
+
+\macronome|W_INSTALL_DIR|: O diretório em que o jogo será instalado.
+
+\macronome|W_PLUGIN_PATH|: Uma string com lista de diretórios
+separadas por dois pontos (``:'').
