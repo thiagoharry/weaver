@@ -1048,6 +1048,10 @@ trabalho que fazemos com o teclado.
       button = _released_buttons[i];
     }    
     if(button == 0) break;
+    // Se recebemos um clique com o botão esquerdo, devemos garantir que
+    // a janela em que estamos receba o foco
+    if(button == W_MOUSE_LEFT)
+      XSetInputFocus(_dpy, _window, RevertToParent, CurrentTime);
     W.mouse.buttons[button] = 0;
     _released_buttons[i] = 0;
   }

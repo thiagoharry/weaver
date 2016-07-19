@@ -624,9 +624,9 @@ eventos no loop principal:
 @
 
 Por hora definiremos só o tratamento do evento de mudança de tamanho e
-posição da janela em Xlib e o que fazer se perdermos o foco da
-janela. Outros eventos terão seus tratamentos definidos mais tarde,
-assim como os eventos SDL caso estejamos rodando em um navegador web.
+posição da janela em Xlib. Outros eventos terão seus tratamentos
+definidos mais tarde, assim como os eventos SDL caso estejamos rodando
+em um navegador web.
 
 Tudo o que temos que fazer no caso deste evento é atualizar as
 variáveis globais |W.width|, |W.height|, |W.x| e |W.y|. Nem sempre o
@@ -654,25 +654,9 @@ if(event.type == ConfigureNotify){
 }
 @
 
-Agora um problema com o foco da janela. Se o gerenciador de janelas
-associa alguma tecla à uma função, como a tecla ``Super'' sendo usada
-para aivar algum menu, nossa janela que pode estar em tela-cheia pode
-perder o foco. Se isso acontecer, é muito ruim, pois não podemos mais
-usar teclado e \italico{mouse} para interagir com uma janela que está
-ocupando toda a tela. Precisamos então tentar detectar isso e fazer o
-foco voltar para nós imediatamente:
-
-@<API Weaver: Trata Evento Xlib@>=
-if(event.type == FocusOut){
-  XSetInputFocus(_dpy, _window, RevertToParent, CurrentTime);
-  continue;
-}
-@
-
 Não é necessário criar um código análogo para a Web pra nada disso,
-pois lá será impossível mover a nossa ``janela'' ou fazê-la perder o
-foco. Afinal, ela não será uma janela verdadeira, mas um
-``\italico{canvas}''.
+pois lá será impossível mover a nossa ``janela''. Afinal, ela não será
+uma janela verdadeira, mas um ``\italico{canvas}''.
 
 Mas e se nós quisermos mudar o tamanho ou a posição de uma janela
 diretamente? Para mudar o tamanho, precisamos definir separadamente o
@@ -1105,6 +1089,45 @@ int (*fullscreen_mode)(unsigned int);
 W.fullscreen_mode = &_Wfullscreen_mode;
 @
 
+@*1 Lidando com perda de foco.
+
+Agora vamos lidar com um problema específico do Xlib.
+
+E se a nossa janela perder o foco? Um gerenciador de janelas pode ter
+umaoperação associada com algumas sequencias de tecla tais como
+Alt+Tab ou com alguma tecla específica como a tecla Super (vulgo Tecla
+do Windows). Se o usuário aperta alguma destas combinações ou teclas
+especiais, o controle passa a ser do gerenciador de janelas. Mas se a
+nossa janela está em tela-cheia, ela continua neste estado, mas sem
+receber mais qualquer resposta do \italico{mouse} e teclado. Então o
+usuário fica preso, vendo a tela do jogo, mas sem poder interagir de
+modo a continuar o jogo ou encerrá-lo.
+
+Para evitar isso, se estivermos ocupando mais da metade da altura ou
+da largura da tela e perdermos o foco, não devemos permiir que isso
+ocorra e devemos voltar para o jogo. Caso nossa janela não seja muito
+grande, o melhor é permitir que ela perca o foco, pois não deverá ser
+um problema para o usuário voltar nela depois usando o gerenciador de
+janelas.
+
+Isso também nos permite lidar com o problema do usuário tentar usar um
+Alt+Tab para sair do jogo quando estivermos em tela-cheia, mas com uma
+resolução menor que o padrão. Neste aso é melhor que ele não veja a
+sua área de trabalho degradada visualmente com uma resolução menor que
+o normal.
+
+@<API Weaver: Trata Evento Xlib@>=
+if(event.type == FocusOut){
+  if(W.width > W.modes[W.current_mode].width / 2 ||
+     W.height > W.modes[W.current_mode].height / 2)
+    XSetInputFocus(_dpy, _window, RevertToParent, CurrentTime);
+  continue;
+}
+@
+
+Lembrando que se a nossa janela perder o foco, sempre podemos voltar
+até ela com um clique. Garantiremos isso no próximo capítulo quando
+tratarmos os eventos de entrada, tais como cliques de \italico{mouse}.
 
 @*1 Configurações Básicas OpenGL.
 
