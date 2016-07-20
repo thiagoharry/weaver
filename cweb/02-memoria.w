@@ -120,8 +120,9 @@ estruturas, usamos o seguinte código:
 
 @<Cabeçalhos Weaver@>=
 #include "memory.h"
+@
 
-@ E também criamos o cabeçalho de memória. À partir de agora, cada
+E também criamos o cabeçalho de memória. À partir de agora, cada
 novo módulo de Weaver terá um nome associado à ele. O deste é
 ``Memória''. E todo cabeçalho \monoespaco{.h} dele conterá, além das
 macros comuns para impedir que ele seja inserido mais de uma vez e

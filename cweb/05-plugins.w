@@ -50,7 +50,7 @@ Todo \italico{plugin}, cujo nome é |MYPLUGIN| (o nome deve ser único
 para cada \italico{plugin}), e cujo código está
 em \monoespaco{plugins/MYPLUGIN.c}, deve definir as seguintes funções:
 
-\macronome|void _init_plugin_MYPLUGIN(void)|: Esta função será
+\macronome|void _init_plugin_MYPLUGIN(W_PLUGIN)|: Esta função será
 executada somente uma vez quando o seu jogo detectar a presença do
 \italico{plugin}. Tipicamente isso será durante a inicialização do
 programa. Mas o \italico{plugin} pode ser adicionado à algum diretório
@@ -96,3 +96,79 @@ definimos em \monoespaco{conf/conf.h} as seguintes macros:
 
 \macronome|W_PLUGIN_PATH|: Uma string com lista de diretórios
 separadas por dois pontos (``:'').
+
+@*1 Estruturas Básicas.
+
+Todas as informações sobre \italico{plugins} serão armazenadas nos
+arquivos \monoespaco{plugins.c} e \monoespaco{plugins.h}:
+
+@<Cabeçalhos Weaver@>=
+#include "plugins.h"
+@
+@(project/src/weaver/plugins.h@>=
+#ifndef _plugins_h_
+#define _plugins_h_
+#ifdef __cplusplus
+  extern "C" {
+#endif
+#include "weaver.h"
+@<Inclui Cabeçalho de Configuração@>
+#if W_TARGET = W_ELF
+#include <dlfcn.h> // dlopen, dlsym, dlclose
+#include <sys/types.h> // stat
+#include <sys/stat.h> // stat
+#include <unistd.h> // stat
+#include <stdbool.h>
+#endif
+@<Declarações de Plugins@>
+#ifdef __cplusplus
+  }
+#endif
+#endif
+@
+@(project/src/weaver/plugins.c@>=
+#include "plugins.h"
+@
+
+Primeiro temos que definir que tipo de informação teremos que
+armazenar para cada plugin. A resposta é a estrutura:
+
+@<Declarações de Plugins@>+=
+struct _plugin_data{
+#if W_TARGET = W_ELF
+  char *library;
+  void *handle;
+  ino_t id;
+#endif
+  void (*_init_plugin)(struct _weaver_struct *);
+  void (*_fini_plugin)(struct _weaver_struct *);
+  void (*_run_plugin)(struct _weaver_struct *);
+  void (*_enable_plugin)(struct _weaver_struct *);
+  void (*_disable_plugin)(struct _weaver_struct *);
+  void *plugin_data;
+  bool defined;
+};
+@
+
+As primeiras variáveis dentro dele são usadas somente se estivermos
+compilando um programa executável. Neste caso carregaremos os plugins
+dinamicamente por meio de funções como |dlopen|. A primeira delas é o
+nome do arquivo onde está o \italico{plugin}, o qual é um biblioteca
+compartilhada. O segundo será o seu \italico{handle} retornado por
+|dlopen|. E o |id| na verdade será o INODE do arquivo. Um valor único
+para ele que mudará toda vez que o arquivo for modificado. Assim
+saberemos quando o nosso \italico{plugin} sofreu alguma mudança
+durante sua execução, mesmo que o novo \italico{plugin} tenha sido
+criado exatamente ao mesmo tempo que o antigo. O nosso comportamento
+esperado será então abandonar o \italico{plugin} antigo e chamar o
+novo.
+
+As próximas 5 variáveis são ponteiros para as funções que
+o \italico{plugin} define conforme listado acima. E por último, há
+|plugin_data| e |defined|. Elas são inicializadas assim que o programa
+é executado como |NULL| e $0$. O |defined| armazena se este é
+realmente um \italico{plugin} existente ou apenas um espaço alocado
+para futuramente armazenarmos um \italico{plugin}.  O |plugin_data| é
+um ponteiro que nunca mudaremos. O espaço é reservado para o
+próprio \italico{plugin} modificar e atribuir como achar melhor. Desta
+forma, ele tem uma forma de se comunicar com o programa principal.
