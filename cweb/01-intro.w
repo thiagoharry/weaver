@@ -1564,7 +1564,7 @@ automaticamente todos os cabeçalhos Weaver necessários:
 @<Cabeçalhos Weaver@>
 // Todas as variáveis e funções globais ficarão no struct abaixo:
 @<Estrutura Global@>
-
+@<Cabeçalhos Gerais Dependentes da Estrutura Global@>
 #ifdef __cplusplus
   }
 #endif

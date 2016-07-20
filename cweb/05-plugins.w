@@ -102,7 +102,7 @@ separadas por dois pontos (``:'').
 Todas as informações sobre \italico{plugins} serão armazenadas nos
 arquivos \monoespaco{plugins.c} e \monoespaco{plugins.h}:
 
-@<Cabeçalhos Weaver@>=
+@<Cabeçalhos Gerais Dependentes da Estrutura Global@>=
 #include "plugins.h"
 @
 @(project/src/weaver/plugins.h@>=
@@ -113,12 +113,16 @@ arquivos \monoespaco{plugins.c} e \monoespaco{plugins.h}:
 #endif
 #include "weaver.h"
 @<Inclui Cabeçalho de Configuração@>
-#if W_TARGET = W_ELF
-#include <dlfcn.h> // dlopen, dlsym, dlclose
+#if W_TARGET == W_ELF
+#include <dlfcn.h> // dlopen, dlsym, dlclose, dlerror
 #include <sys/types.h> // stat
 #include <sys/stat.h> // stat
 #include <unistd.h> // stat
 #include <stdbool.h>
+#include <pthread.h> // pthread_mutex_init, pthread_mutex_destroy
+#include <string.h> // strncpy
+#include <stdio.h> // perror
+#include <libgen.h> // basename
 #endif
 @<Declarações de Plugins@>
 #ifdef __cplusplus
@@ -135,11 +139,15 @@ armazenar para cada plugin. A resposta é a estrutura:
 
 @<Declarações de Plugins@>+=
 struct _plugin_data{
-#if W_TARGET = W_ELF
-  char *library;
+#if W_TARGET == W_ELF
+  char library[256];
   void *handle;
   ino_t id;
+#ifdef W_MULTITHREAD
+  pthread_mutex_t mutex;
 #endif
+#endif
+  char plugin_name[128];
   void (*_init_plugin)(struct _weaver_struct *);
   void (*_fini_plugin)(struct _weaver_struct *);
   void (*_run_plugin)(struct _weaver_struct *);
@@ -163,6 +171,13 @@ criado exatamente ao mesmo tempo que o antigo. O nosso comportamento
 esperado será então abandonar o \italico{plugin} antigo e chamar o
 novo.
 
+Se estamos executando mais de uma \italico{thread}, é importante
+termos um mutex. Afinal, não queremos que alguém tente ativar ou
+desativar o mesmo \italico{plugin} simultaneamente e nem que faça isso
+enquanto ele está sendo recarregado após ser modificado.
+
+A variável |plugin_name| conterá o nome do plugin.
+
 As próximas 5 variáveis são ponteiros para as funções que
 o \italico{plugin} define conforme listado acima. E por último, há
 |plugin_data| e |defined|. Elas são inicializadas assim que o programa
@@ -172,3 +187,122 @@ para futuramente armazenarmos um \italico{plugin}.  O |plugin_data| é
 um ponteiro que nunca mudaremos. O espaço é reservado para o
 próprio \italico{plugin} modificar e atribuir como achar melhor. Desta
 forma, ele tem uma forma de se comunicar com o programa principal.
+
+A próxima função interna será responsável por inicializar
+um \italico{plugin} específico passando como argumento o seu caminho:
+
+@<Declarações de Plugins@>+=
+#if W_TARGET == W_ELF
+void _initialize_plugin(struct _plugin_data *data, char *path);
+#endif
+@
+
+@(project/src/weaver/plugins.c@>+=
+#if W_TARGET == W_ELF
+void _initialize_plugin(struct _plugin_data *data, char *path){
+  struct stat attr;
+  char *p, buffer[256];
+  int i;
+#if W_DEBUG_LEVEL >= 1
+  if(strlen(path) >= 128){
+    fprintf(stderr, "ERROR: Plugin path bigger than 255 characters: %s\n",
+	    path);
+    return;
+  }
+#endif
+  strncpy(data -> library, path, 255);
+  // A biblioteca é carregada agora, suas variáveis estáticas não são
+  // perdidas se ela for cancelada e ligada ao programa de novo:
+  data -> handle = dlopen(data -> library, RTLD_NOW | RTLD_NODELETE);
+  if (!(data -> handle)){
+    fprintf(stderr, "%s\n", dlerror());
+    return;
+  }
+  dlerror(); // Limpa qualquer mensagem de erro existente
+  if(stat(data -> library, &attr) == -1){
+    perror("_initialize_plugin:");
+    return;
+  }
+  data -> id = attr.st_ino; // Obtém id do arquivo
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_init(&(header -> mutex), NULL) != 0){
+    perror("_initialize_plugin:");
+    return false;
+  }
+#endif
+  p = basename(data -> library);
+  for(i = 0; *p != '.'; i ++){
+    if(i > 127){
+      fprintf(stderr, "ERROR: Plugin name bigger than 127 characters: %s\n",
+              path);
+      return;
+    }
+    data -> plugin_name[i] = *p;
+    p ++;
+  }
+  data -> plugin_name[i] = '\0'; // Armazenado nome do plugin
+  // Obtendo nome de _init_plugin_PLUGINNAME e a obtendo:
+  buffer[0] = '\0';
+  strcat(buffer, "_init_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _init_plugin = dlsym(data -> handle, buffer);
+  if(data -> _init_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _init_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // Obtendo _fini_plugin_PLUGINNAME:
+  buffer[0] = '\0';
+  strcat(buffer, "_fini_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _fini_plugin = dlsym(data -> handle, buffer);
+  if(data -> _fini_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _fini_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // Obtendo _run_plugin_PLUGINNAME:
+  buffer[0] = '\0';
+  strcat(buffer, "_run_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _run_plugin = dlsym(data -> handle, buffer);
+  if(data -> _run_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _run_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // Obtendo _enable_PLUGINNAME:
+  buffer[0] = '\0';
+  strcat(buffer, "_enable_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _enable_plugin = dlsym(data -> handle, buffer);
+  if(data -> _enable_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _enable_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // Obtendo _disable_PLUGINNAME:
+  buffer[0] = '\0';
+  strcat(buffer, "_disable_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _enable_plugin = dlsym(data -> handle, buffer);
+  if(data -> _disable_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _disable_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // As últimas variáveis. O 'definded' deve ser a última. Ela atesta
+  // que já temos um plugin com dados válidos:
+  data -> plugin_data = NULL;
+  data -> defined = true;
+}
+#endif
+@
+
+É uma função grande devido à quantidade de coisas que fazemos e à
+checagem de erro inerente à cada uma delas. A maior parte dos erros
+faz com que tenhamos que desistir de inicializar o \italico{plugin}
+devido à ele não atender à requisitos. No caso dele não definir as
+funções que deveria, podemos continuar, mas é importante que
+sinalizemos o erro. A existência dele irá impedir que consigamos gerar
+uma versão funcional quando compilamos usando Emscripten. Mas não
+impede de continuarmos mantendo o \italico{plugin} quando somos um
+executável C. Basta não usarmos a função não-definida. De qualquer
+forma, isso provavelmente indica um erro. A função pode ter sido
+definida com o nome errado.
+
+O uso da macro |RTLD_NODELETE| faz com que este código só funcione em
+versões do glibc maiores ou iguais à 2.2. Atualmente nenhuma das 10
+maiores distribuições Linux suporta versões da biblioteca mais antigas
+que isso. E nem deveriam, pois existem vulnerabilidades críticas
+existentes em tais versões.

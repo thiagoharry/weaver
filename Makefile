@@ -104,6 +104,8 @@ install: uninstall
 	install -c project/src/weaver/aux.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/camera.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/camera.c ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/plugins.h ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/plugins.c ${PROJECT_SHARE}/src/weaver
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver

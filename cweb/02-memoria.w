@@ -404,7 +404,7 @@ static bool _initialize_arena_header(struct _arena_header *header,
 #endif
 #if W_DEBUG_LEVEL >= 1
   header -> line = line;
-  strncpy(header -> file, filename, 32);
+  strncpy(header -> file, filename, 31);
 #endif
 #if W_DEBUG_LEVEL >= 3
   header -> max_used = header -> used;
