@@ -1334,7 +1334,7 @@ ser solta, ela terá o valor 0. Variável somente para leitura, não
 modifique os valores.
 
 \macrovalor|struct W.mouse{ int buttons[7]; int x, y, dx, dy, ddx, ddy; }|:
-Contém informações sobre o \italico{mouse}. Em |buttons| pode-se
+Contém todas as informações sobre o \italico{mouse}. Em |buttons| pode-se
 encontrar informações sobre os botões usando a mesma lógica da
 apresentada acima para o teclado. Há a posição $x$ e $y$ do mouse, bem
 como as componentes de sua velocidade em pixels por segundo em |dx| e
