@@ -1200,8 +1200,7 @@ Agora iremos calcular o movimento do mouse. Primeiramente, no início
 do programa devemos zerar tais valores para evitarmos valores absurdos
 na primeira iteração. Os únicos valores que não são zerados é o da
 posição do cursor, que precisamos descobrir para não parecer no início
-do primeiro movimento do cursor que ele se
-teletransportou.
+do primeiro movimento do cursor que ele se teletransportou.
 
 @<API Weaver: Inicialização@>+=
 #if W_TARGET == W_ELF
@@ -1219,7 +1218,9 @@ teletransportou.
   W.mouse.y = root_y_return;
 }
 #endif
-  // TODO: Obter a mesma informação no SDL
+#if W_TARGET == W_WEB
+  SDL_GetMouseState(&(W.mouse.x), &(W.mouse.y));
+#endif
 W.mouse.ddx = W.mouse.ddy = W.mouse.dx = W.mouse.dy = 0;
 @
 
@@ -1332,12 +1333,12 @@ antes de ser solta. Se ela não está sendo pressionada e nem acabou de
 ser solta, ela terá o valor 0. Variável somente para leitura, não
 modifique os valores.
 
-\macrovalor|struct W.mouse{ int buttons[7]; int x, y, dx, dy; }|:
+\macrovalor|struct W.mouse{ int buttons[7]; int x, y, dx, dy, ddx, ddy; }|:
 Contém informações sobre o \italico{mouse}. Em |buttons| pode-se
 encontrar informações sobre os botões usando a mesma lógica da
 apresentada acima para o teclado. Há a posição $x$ e $y$ do mouse, bem
-como as componentes de sua velocidade em pixels por segundo em $dx$ e
-$dy$.
+como as componentes de sua velocidade em pixels por segundo em |dx| e
+|dy|. As variáveis |ddx| e |ddy| contém os componentes de sua aceleração.
 
 \macronome Também definimos as seguintes 4 novas funções:
 
