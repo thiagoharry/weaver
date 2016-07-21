@@ -462,9 +462,6 @@ de ser pressionada neste \italico{frame}.
 @<API Weaver: Imediatamente antes de tratar eventos@>=
 {
   int i, key;
-#ifdef W_MULTITHREAD
-  pthread_mutex_lock(&_input_mutex);
-#endif
   // Limpar o vetor de teclas soltas e zerar seus valores no vetor de teclado:
   for(i = 0; i < 20; i ++){
     key = _released_keys[i];
@@ -954,6 +951,20 @@ clausuras na forma de funções aninhadas por meio de extensão
 não-portável, mas o GCC não é compatível com Emscripten. Então
 simplesmente não temos como evitar este efeito colateral.
 
+@*1 Ajustando o Mutex de entrada.
+
+Durante o tratamento de eventos em cada loop principal estaremos
+consultando e modificando continuamente variáveis e estruturas
+relacionadas à entrada. O vetor de teclas pressionadas, por
+exemplo. Por causa disso, se necessário iremos bloquear um mutex
+durante todo o tratamento:
+
+@<API Weaver: Imediatamente antes de tratar eventos@>+=
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_input_mutex);
+#endif
+@
+
 @*1 O Mouse.
 
 Um mouse do nosso ponto de vista é como se fosse um teclado, mas com
@@ -968,13 +979,11 @@ realmente garantidos: o botão direito e esquerdo.
 
 Além dos botões, um mouse possui também uma posição $(x, y)$ na janela
 em que o jogo está. Mas às vezes mais importante do que sabermos a
-posição é sabermos a sua velocidade. E caso esteja se movendo, para
-onde ele está indo e em qual velocidade. Ambas as informações podem
-ser captadas por valores $(dx, dy)$ que capturam em qual posição
-estará no mouse em 1 segundo se ele manter o mesmo deslocamento
-observado entre estre frame e o anterior. Em outras palavras, estes
-valores sãoo os componentes de sua velocidade em \italico{pixels} por
-segundo.
+posição é sabermos a sua velocidade ou mesmo a sua aceleração.  A
+velocidade será representada nas variáveis $(dx, dy)$. Elas são o
+componente horizontal e vertical do vetor velocidade
+do \italico{mouse} medido em pixels por segundo. Da mesma forma, a
+aceleração será armazenada nos componentes $(ddx, ddy)$.
 
 Em suma, podemos representar o mouse como a seguinte estrutura:
 
@@ -983,7 +992,7 @@ struct _mouse{
   /* Posições de 1 a 5 representarão cada um dos botões e o 6 é
      reservado para qualquer tecla.*/
   int buttons[7];
-  int x, y, dx, dy;
+  int x, y, dx, dy, ddx, ddy;
 };
 @
 
@@ -1189,22 +1198,67 @@ W.mouse.buttons[W_ANY] = (_pressed_buttons[0] != 0);
 
 Agora iremos calcular o movimento do mouse. Primeiramente, no início
 do programa devemos zerar tais valores para evitarmos valores absurdos
-na primeira iteração:
+na primeira iteração. Os únicos valores que não são zerados é o da
+posição do cursor, que precisamos descobrir para não parecer no início
+do primeiro movimento do cursor que ele se
+teletransportou.
 
 @<API Weaver: Inicialização@>+=
-  W.mouse.x = W.mouse.y = W.mouse.dx = W.mouse.dy = 0;
+#if W_TARGET == W_ELF
+{
+  Window root_return, child_return;
+  int root_x_return, root_y_return, win_x_return, win_y_return;
+  unsigned mask_return;
+  XQueryPointer(_dpy, _window, &root_return, &child_return, &root_x_return,
+		&root_y_return, &win_x_return, &win_y_return, &mask_return);
+  // A função acima falha apenas se o mouse estiver em outra
+  // tela. Neste caso, não há o que fazer, mas adotar o padrão de
+  // assumir que a posição é zero é razoável. Então não precisamos
+  // checar se a função falha.
+  W.mouse.x = root_x_return;
+  W.mouse.y = root_y_return;
+}
+#endif
+  // TODO: Obter a mesma informação no SDL
+W.mouse.ddx = W.mouse.ddy = W.mouse.dx = W.mouse.dy = 0;
 @
 
 
 É importante que no início de cada iteração, antes de tratarmos os
 eventos, nós zeremos os valores $(dx, dy)$ do mouse. Caso o mouse não
-receba nenhum evento de movimento, tais valores estarão corretos. Já
-se ele receber, aí de qualquer forma teremos a chance de atualizar os
-valores no tratamento do evento:
+receba nenhum evento de movimento, tais valores já estarão
+corretos. Caso contrário, atualizaremos eles. Mas isso também
+significa que temos que guardar os valores antigos em variáveis para
+que possamos calcular a aceleração depois do tratamento de eventos:
+
+@<API Weaver: Definições@>+=
+static int old_dx, old_dy;
+@
+
+@<API Weaver: Inicialização@>+=
+  old_dx = old_dy = 0;
+@
 
 @<API Weaver: Imediatamente antes de tratar eventos@>+=
+  old_dx = W.mouse.dx;
+  old_dy = W.mouse.dy;
   W.mouse.dx = W.mouse.dy = 0;
 @
+
+@<API Weaver: Imediatamente após tratar eventos@>=
+  // Cálculo de aceleração:
+  W.mouse.ddx = (int) ((float) (W.mouse.dx - old_dx) / _elapsed_milisseconds) *
+                1000;
+  W.mouse.ddy = (int) ((float) (W.mouse.dy - old_dy) / _elapsed_milisseconds) *
+                1000;
+#ifdef W_MULTITHREAD
+  // Mutex bloqueado antes de tratar eventos:
+  pthread_mutex_unlock(&_input_mutex);
+#endif
+@
+
+Notar que o código acima não é exclusivo do Xlib e funcionará da mesma
+forma ao usar Emscripten.
 
 Em seguida, cuidamos do caso no qual temos um evento Xlib de movimento
 do mouse:
@@ -1222,9 +1276,6 @@ if(event.type == MotionNotify){
   W.mouse.y = y;
   continue;
 }
-#ifdef W_MULTITHREAD
-  pthread_mutex_unlock(&_input_mutex); // Último evento Xlib, libera mutex
-#endif
 @
 
 Agora é só usarmos a mesma lógica para tratarmos o evento SDL:
@@ -1242,9 +1293,6 @@ if(event.type == SDL_MOUSEMOTION){
   W.mouse.y = y;
   continue;
 }
-#ifdef W_MULTITHREAD
-  pthread_mutex_unlock(&_input_mutex); // Último evento SDL, libera mutex
-#endif
 @
 
 E a última coisa que precisamos fazer é zerar e limpar todos os

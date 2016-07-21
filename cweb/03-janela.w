@@ -601,14 +601,14 @@ diante. Por isso, precisamos adicionar código para tratarmos de
 eventos no loop principal:
 
 @<API Weaver: Loop Principal@>=
-@<API Weaver: Imediatamente antes de tratar eventos@>@/
+@<API Weaver: Imediatamente antes de tratar eventos@>
 #if W_TARGET == W_ELF
   {
     XEvent event;   
     while(XPending(_dpy)){
       XNextEvent(_dpy, &event);
       // A variável 'event' terá todas as informações do evento
-      @<API Weaver: Trata Evento Xlib@>@/
+      @<API Weaver: Trata Evento Xlib@>
     }
   }
 #endif
@@ -617,10 +617,11 @@ eventos no loop principal:
     SDL_Event event;
     while(SDL_PollEvent(&event)){
       // A variável 'event' terá todas as informações do evento
-      @<API Weaver: Trata Evento SDL@>@/
+      @<API Weaver: Trata Evento SDL@>
     }
   }
 #endif
+  @<API Weaver: Imediatamente após tratar eventos@>
 @
 
 Por hora definiremos só o tratamento do evento de mudança de tamanho e
