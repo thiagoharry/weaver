@@ -1364,12 +1364,13 @@ escolhemos o padrão). A função guarda em |black| a cor mais próxima do
 preto possível e pedimos para guardar a representação exata do preto
 em RGB na variável |dummy| (não precisamos disso e jogamos fora). A
 cor é usada porque queremos gerar uma imagem preta colorindo um bitmap
-(no caso uma imagem $8\times 8$ formada só por bits 1 e 0). Nós
-preenchemos toda a imagem de preto e também a sua máscara de preto. A
-máscara determina quais pixels da imagem não serão desenhados por
-serem transparentes. No caso, deixamos todos os pixels
-transparentes. Fazendo isso, o nosso cursor vira um quadrado $8\times
-8$ completamente transparente. E com este truque nós o escondemos.
+(no caso uma imagem $8\times 8$ formada só por bits 1 e 0). Pintá-la
+de preto é só uma desculpa para gerarmos a imagem à partir do
+bitmap. O bitmap $8\times 8$ só com bit 0 é usado tanto para definir
+os pixels pintados de preto (nenhum) como as regiões onde a imagem não
+é transparente (nenhuma). Fazendo isso e passando a imagem gerada para
+ser um cursor, o nosso ponteiro de mouse vira um quadrado $8\times 8$
+completamente transparente. E com este truque nós o escondemos.
 
 Vamos agora contrastar a complexidade deste método com o modo de fazer
 isso do SDL para Emscripten:

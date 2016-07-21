@@ -206,7 +206,7 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
 #if W_DEBUG_LEVEL >= 1
   if(strlen(path) >= 128){
     fprintf(stderr, "ERROR: Plugin path bigger than 255 characters: %s\n",
-	    path);
+            path);
     return;
   }
 #endif
