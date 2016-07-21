@@ -543,7 +543,6 @@ void _initialize_canvas(void){
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
   window = SDL_SetVideoMode(// Definindo informações de tamanho do canvas
-  W.x = W.y = 0;
 #if W_WIDTH > 0
                             W.width = W_WIDTH, // Largura da janela
 #else

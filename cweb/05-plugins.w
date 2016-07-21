@@ -118,12 +118,12 @@ arquivos \monoespaco{plugins.c} e \monoespaco{plugins.h}:
 #include <sys/types.h> // stat
 #include <sys/stat.h> // stat
 #include <unistd.h> // stat
-#include <stdbool.h>
 #include <pthread.h> // pthread_mutex_init, pthread_mutex_destroy
 #include <string.h> // strncpy
 #include <stdio.h> // perror
 #include <libgen.h> // basename
 #endif
+#include <stdbool.h>
 @<Declarações de Plugins@>
 #ifdef __cplusplus
   }
