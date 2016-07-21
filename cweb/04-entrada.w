@@ -1317,6 +1317,81 @@ entrarmos em um loop principal:
 }
 @
 
+@*2 Ocultando o Cursor do Mouse.
+
+Nem sempre podemos querer manter o mesmo cursor na tela que o usado
+pelo gerenciador de janelas. Pode ser que queiramos um cursor
+diferente, com o formato de um alvo ou de uma mão. Ou então podemos
+não querer nenhum cursor na frente tampando a visão do jogo. Em
+qualquer um destes casos, começaremos ocultando o cursor. Em Xlib isso
+pode ser feito com o seguinte código:
+
+@<Cabeçalhos Weaver@>=
+void _Whide_cursor(void);
+@
+
+@<API Weaver: Definições@>=
+#if W_TARGET == W_ELF
+void _Whide_cursor(void){
+  Colormap cmap;
+  Cursor no_ptr;
+  XColor black, dummy;
+  static char bm_no_data[] = {0, 0, 0, 0, 0, 0, 0, 0};
+  Pixmap bm_no;
+  cmap = DefaultColormap(_dpy, DefaultScreen(_dpy));
+  XAllocNamedColor(_dpy, cmap, "black", &black, &dummy);
+  bm_no = XCreateBitmapFromData(_dpy, _window, bm_no_data, 8, 8);
+  no_ptr = XCreatePixmapCursor(_dpy, bm_no, bm_no, &black, &black, 0, 0);
+  XDefineCursor(_dpy, _window, no_ptr);
+  XFreeCursor(_dpy, no_ptr);
+  if (bm_no != None)
+    XFreePixmap(_dpy, bm_no);
+  XFreeColors(_dpy, cmap, &black.pixel, 1, 0);
+}
+#endif
+@
+
+O código Xlib é trabalhoso, pois diferentes dispositivos em que o X
+pode funcionar podem tratar cores de forma diferente. Aliás, pode até
+mesmo ser que existam somente duas cores diferentes, uma associada ao
+preto e outra associada ao branco. Então, na tentativa de obter a cor
+mais próxima da desejada precisamos pedir cada cor para o servidor. Na
+prática, hoje em dia é bastante seguro simplesmente assumir uma
+representação RGB, mas para escrever código realmente portável, é
+necessário alocar cores com o |XAllocNamedColor| informando o nome da
+cor, o dispositivo onde colocá-la e o mapa de cores (que no caso
+escolhemos o padrão). A função guarda em |black| a cor mais próxima do
+preto possível e pedimos para guardar a representação exata do preto
+em RGB na variável |dummy| (não precisamos disso e jogamos fora). A
+cor é usada porque queremos gerar uma imagem preta colorindo um bitmap
+(no caso uma imagem $8\times 8$ formada só por bits 1 e 0). Nós
+preenchemos toda a imagem de preto e também a sua máscara de preto. A
+máscara determina quais pixels da imagem não serão desenhados por
+serem transparentes. No caso, deixamos todos os pixels
+transparentes. Fazendo isso, o nosso cursor vira um quadrado $8\times
+8$ completamente transparente. E com este truque nós o escondemos.
+
+Vamos agora contrastar a complexidade deste método com o modo de fazer
+isso do SDL para Emscripten:
+
+@<API Weaver: Definições@>=
+#if W_TARGET == W_WEB
+void _Whide_cursor(void){
+  SDL_ShowCursor(0);
+}
+#endif
+@
+
+Independente da complexidade da função, ela irá para dentro da estrutura |W|:
+
+@<Funções Weaver@>+=
+void (*hide_cursor)(void);
+@
+
+@<API Weaver: Inicialização@>=
+W.hide_cursor = &_Whide_cursor;
+@
+
 @*1 Sumário das Variáveis e Funções do Teclado e Mouse.
 
 \macronome As seguintes 3 novas variáveis foram definidas:
@@ -1342,7 +1417,7 @@ apresentada acima para o teclado. Há a posição $x$ e $y$ do mouse, bem
 como as componentes de sua velocidade em pixels por segundo em |dx| e
 |dy|. As variáveis |ddx| e |ddy| contém os componentes de sua aceleração.
 
-\macronome Também definimos as seguintes 4 novas funções:
+\macronome Também definimos as  5 novas funções:
 
 \macrovalor|int W.key_translate(unsigned old_code, unsigned new_code)|:
 Faz com que um determinado símbolo de teclado que podia não ser
@@ -1352,6 +1427,9 @@ símbolo na documentação do Xlib.
 
 \macrovalor|void W.erase_key_translations(void)|: Remove todas as
 associações de um símbolo à outro feitas pela função acima.
+
+\macrovalor|void W.hide_cursor(void)|: Esconde  a exibição do cursor
+na janela.
 
 \macrovalor|void W.flush_input(void)|: Limpa todos os dados de
 |W.keyboard| e |W.mouse|, incluindo quais teclas estão sendo
