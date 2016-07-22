@@ -469,16 +469,21 @@ E iremos inicializar a estutura desta forma na inicialização:
 
 @<API Weaver: Inicialização@>+=
 if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
-  int all_path_size = strlen(W_PLUGIN_PATH);
+  int all_path_size = strlen(W_PLUGIN_PATH), i = 0;
   char *begin = W_PLUGIN_PATH, *end = W_PLUGIN_PATH;
   char dir[256]; // Nome de diretório
   DIR *directory;
   struct dirent *dp;
-  _number_of_plugins = 0;
+  _max_number_of_plugins = 0;
   while(*end != '\0'){
     end ++;
     while(*end != ':' && *end != '\0') end ++;
     // begin e end agora marcam os limites do caminho de um diretório
+    if(end - begin > 255){
+      fprintf(stderr, "ERROR: Path too big in W_PLUGIN_PATH.\n");
+      begin = end + 1;
+      continue; // Erro: vamos para o próximo diretório
+    }
     strncpy(dir, begin, (size_t) (end - begin));
     dir[(end - begin)] = '\0';
     // dir agora possui o nome do diretório que devemos checar
@@ -493,10 +498,10 @@ if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
       continue;
     }
     // Se não houve erro, iteramos sobre os arquivos do diretório
-    // fazendo a contagem:
     while ((dp = readdir(directory)) != NULL){
       if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG)
-	_max_number_of_plugins ++; // Só levamos em conta arquivos regulares não-ocultos
+	_max_number_of_plugins ++; // Só levamos em conta arquivos
+				   // regulares não-ocultos
     }
     // E preparamos o próximo diretório para a próxima iteração:
     begin = end + 1;
@@ -525,6 +530,51 @@ _plugins = (struct _plugin_data *) _iWalloc(sizeof(struct _plugin_data) *
     Wexit();
   }
 #endif
-
 }
+@
+
+Agora para inicializar os \ialico{plugins} precisamos mais uma vez
+percorrer a árvore de diretórios e procurar por cada um dos arquivos
+como fizemos na contagem:
+
+@<Plugins: Inicialização@>+=
+  begin = end = W_PLUGIN_PATH;
+  while(*end != '\0'){
+    end ++;
+    while(*end != ':' && *end != '\0') end ++;
+    // begin e end agora marcam os limites do caminho de um diretório
+    if(end - begin > 255){
+      fprintf(stderr, "ERROR: Path too big in W_PLUGIN_PATH.\n");
+      begin = end + 1;
+      continue;
+    }
+    strncpy(dir, begin, (size_t) (end - begin));
+    dir[(end - begin)] = '\0';
+    // dir agora possui o nome do diretório que devemos checar
+    directory = opendir(dir);
+    if(directory == NULL){
+#if W_DEBUG_LEVEL >= 1
+      fprinf(stderr, "Trying to access %s: %s\n", dir, strerror(errno));
+#endif
+      // Em caso de erro, desistimos deste diretório e tentamos ir
+      // para o outro:
+      begin = end + 1;
+      continue;
+    }
+    // Se não houve erro, iteramos sobre os arquivos do diretório
+    while ((dp = readdir(directory)) != NULL){
+      if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG){
+	if(strlen(dir) + 1 + strlen(dp -> d_name) > 255){
+	  sprintf(stderr, "Ignoring plugin with too long path: %s/%s.\n",
+		  dir, dp -> d_name);
+	  continue;
+	}
+	strcat(dir, "/");
+	strcat(dir, dp -> d_name);
+	_initialize_plugin(&(_plugins[i]), dir);
+	i ++;
+    }
+    // E preparamos o próximo diretório para a próxima iteração:
+    begin = end + 1;
+  }
 @
