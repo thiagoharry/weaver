@@ -459,6 +459,7 @@ O ponteiro para o vetor de \italico{plugins} será declarado como:
 
 @<Declarações de Plugins@>+=
 struct _plugin_data *_plugins;
+int _max_number_of_plugins;
 #ifdef W_MULTITHREAD
   pthread_mutex_t _plugin_mutex;
 #endif
@@ -473,7 +474,7 @@ if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
   char dir[256]; // Nome de diretório
   DIR *directory;
   struct dirent *dp;
-  int count = 0;
+  _number_of_plugins = 0;
   while(*end != '\0'){
     end ++;
     while(*end != ':' && *end != '\0') end ++;
@@ -495,7 +496,7 @@ if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
     // fazendo a contagem:
     while ((dp = readdir(directory)) != NULL){
       if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG)
-	count ++; // Só levamos em conta arquivos regulares não-ocultos
+	_max_number_of_plugins ++; // Só levamos em conta arquivos regulares não-ocultos
     }
     // E preparamos o próximo diretório para a próxima iteração:
     begin = end + 1;
@@ -507,4 +508,23 @@ if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
 
 Tudo isso foi só para sabermos o número de \italico{plugins} durante a
 inicialização. Ainda não inicializamos nada. Isso só podemos enfim
-fazer de posse deste número, o qual está na variável local |count|:
+fazer de posse deste número, o qual está na variável |_max_number_of_plugins|:
+
+@<Plugins: Inicialização@>=
+_max_number_of_plugins += 25;
+_plugins = (struct _plugin_data *) _iWalloc(sizeof(struct _plugin_data) *
+					    (_max_number_of_plugins));
+{
+  int i;
+  for(i = 0; i < _max_number_of_plugins; i ++){
+    _plugins[i].defined = false;
+  }
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_init(&_plugin_mutex, NULL) != 0){
+    perror("Initializing plugin mutex:");
+    Wexit();
+  }
+#endif
+
+}
+@
