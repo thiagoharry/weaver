@@ -95,7 +95,8 @@ definimos em \monoespaco{conf/conf.h} as seguintes macros:
 \macronome|W_INSTALL_DIR|: O diretório em que o jogo será instalado.
 
 \macronome|W_PLUGIN_PATH|: Uma string com lista de diretórios
-separadas por dois pontos (``:'').
+separadas por dois pontos (``:''). Se for uma string vazia, isso
+significa que o suporte à \italico{plugins} dee ser desativado.
 
 @*1 Estruturas Básicas.
 
@@ -122,6 +123,9 @@ arquivos \monoespaco{plugins.c} e \monoespaco{plugins.h}:
 #include <string.h> // strncpy
 #include <stdio.h> // perror
 #include <libgen.h> // basename
+#include <sys/types.h> // opendir, readdir
+#include <dirent.h> // opendir, readdir
+#include <errno.h>
 #endif
 #include <stdbool.h>
 @<Declarações de Plugins@>
@@ -427,3 +431,80 @@ bool _reload_plugin(struct _plugin_data *data){
 }
 #endif
 @
+
+@*1 Listas de Plugins.
+
+Não é apenas um \italico{plugin} que precisamos suportar. É um número
+desconhecido deles. Para sabver quantos, precisamos checar o número de
+arquivos não-oultos presentes nos diretórios indicados por
+|W_PLUGIN_PATH|. Mas além deles, pode ser que novos \italico{plugins}
+sejam jogados em tais diretórios durante a execução. Por isso,
+precisamos de um espaço adicional para comportar
+novos \italico{plugins}. Não podemos deixar muito espaço ou vamos ter
+que percorrer uma lista muito grande de espaços vazios só para er se
+há algum \italico{plugin} ativo lá. Mas se deixarmos pouco ou nenhum,
+novos \italico{plugins} não poderão ser adicionados durane a
+execução. Nosso gerenciador de memória deliberadamente não aceita
+realocações.
+
+A solução será observar durante a inicialização do programa
+quantos \italico{plugins} existem no momento. Em seguida, alocamos
+espaço para eles e mais 25. Se um número maior de \italico{plugins}
+for instalado, imprimiremos uma mensagem na tela avisando que parra
+poder ativar todos eles será necessário reiniciar o programa. Como
+ainda não temos casos de uso desta funcionalidade
+de \italico{plugins}, isso parece ser o suficiente no momento.
+
+O ponteiro para o vetor de \italico{plugins} será declarado como:
+
+@<Declarações de Plugins@>+=
+struct _plugin_data *_plugins;
+#ifdef W_MULTITHREAD
+  pthread_mutex_t _plugin_mutex;
+#endif
+@
+
+E iremos inicializar a estutura desta forma na inicialização:
+
+@<API Weaver: Inicialização@>+=
+if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
+  int all_path_size = strlen(W_PLUGIN_PATH);
+  char *begin = W_PLUGIN_PATH, *end = W_PLUGIN_PATH;
+  char dir[256]; // Nome de diretório
+  DIR *directory;
+  struct dirent *dp;
+  int count = 0;
+  while(*end != '\0'){
+    end ++;
+    while(*end != ':' && *end != '\0') end ++;
+    // begin e end agora marcam os limites do caminho de um diretório
+    strncpy(dir, begin, (size_t) (end - begin));
+    dir[(end - begin)] = '\0';
+    // dir agora possui o nome do diretório que devemos checar
+    directory = opendir(dir);
+    if(directory == NULL){
+#if W_DEBUG_LEVEL >= 1
+      fprinf(stderr, "Trying to access %s: %s\n", dir, strerror(errno));
+#endif
+      // Em caso de erro, desistimos deste diretório e tentamos ir
+      // para o outro:
+      begin = end + 1;
+      continue;
+    }
+    // Se não houve erro, iteramos sobre os arquivos do diretório
+    // fazendo a contagem:
+    while ((dp = readdir(directory)) != NULL){
+      if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG)
+	count ++; // Só levamos em conta arquivos regulares não-ocultos
+    }
+    // E preparamos o próximo diretório para a próxima iteração:
+    begin = end + 1;
+  }
+  // Fim do loop. Já sabemos quantos plugins são.
+  @<Plugins: Inicialização@>
+}
+@
+
+Tudo isso foi só para sabermos o número de \italico{plugins} durante a
+inicialização. Ainda não inicializamos nada. Isso só podemos enfim
+fazer de posse deste número, o qual está na variável local |count|:
