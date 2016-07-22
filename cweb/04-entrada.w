@@ -890,6 +890,7 @@ normal, a definição da função é:
 #if W_TARGET == W_ELF
 void Wloop(void (*f)(void)){
   W.flush_input();
+  @<Código Imediatamente antes de Loop Principal@>
   for(;;){
     f();
   }
@@ -913,7 +914,9 @@ registrado, precisamos cancelar ele primeiro.
 void Wloop(void (*f)(void)){
   emscripten_cancel_main_loop();
   W.flush_input();
-  // O segundo argumento é o número de frames por segundo:
+  @<Código Imediatamente antes de Loop Principal@>
+  // O segundo argumento é o número de frames por segundo (deixamos a
+  // cargo do navegador):
   emscripten_set_main_loop(f, 0, 1);
   // Nunca chegamos nesta parte. Inútil colocar qualquer coisa após
   // 'emscripten_set_main_loop'.

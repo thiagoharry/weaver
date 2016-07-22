@@ -9,7 +9,9 @@ deve ser um único arquivo com código C (digamos que
 seja \monoespaco{myplugin.c}). Este arquivo pode ser copiado e colado
 para o diretório \monoespaco{plugins} de um Projeto Weaver e então
 subitamente podemos passar a ativá-lo e desativá-lo por meio das funções
-|W.enable_plugin("myplugin")| e |W.disable_plugin("myplugin")|.
+|W.enable_plugin(plugin_id)| e |W.disable_plugin(plugin_id)| sendo que
+o ID do \italico{plugin} pode ser obtido com
+|plugin_id = W.get_plugin("my_plugin")|.
 
 Quando um \italico{plugin} está ativo, ele pode passar a executar
 alguma atividade durante todo \italico{loop} principal e também pode
@@ -67,11 +69,11 @@ estivermos em uma iteração do \italico{loop} principal.
 
 \macronome|void _enable_MYPLUGIN(W_PLUGIN)|: Esta função será executada
 toda vez que um plugin for ativado por meio de
-|W.enable_plugin("MYPLUGIN")|.
+|W.enable_plugin(plugin_id)|.
 
 \macronome|void _disable_MYPLUGIN(W_PLUGIN)|: Esta função será executada
 toda vez que um plugin for ativado por meio de
-|W.enable_plugin("MYPLUGIN")|.
+|W.disable_plugin(plugin_id)|.
 
 Um \italico{plugin} terá acesso à todas as funções e variáveis que são
 mencionadas no sumário de cada capítulo, com as notáveis exceções de
@@ -294,6 +296,9 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   data -> defined = true;
   if(data -> _init_plugin != NULL)
     data -> _init_plugin(&W);
+#if W_DEBUG_LEVEL >= 3
+  fprintf(stderr, "WARNING (3): New plugin loaded: %s.\n", data -> plugin_name);
+#endif
 }
 #endif
 @
@@ -343,6 +348,9 @@ void _finalize_plugin(struct _plugin_data *data){
   if(dlclose(data -> handle) != 0)
     fprintf(stderr, "Error unlinking plugin %s: %s\n", data -> plugin_name,
       dlerror());
+#if W_DEBUG_LEVEL >= 3
+  fprintf(stderr, "WARNING (3): Plugin finalized: %s.\n", data -> plugin_name);
+#endif
 }
 #endif
 @
@@ -429,6 +437,10 @@ bool _reload_plugin(struct _plugin_data *data){
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&(data -> mutex));
 #endif
+#if W_DEBUG_LEVEL >= 3
+  fprintf(stderr, "WARNING (3): New plugin reloaded: %s.\n",
+          data -> plugin_name);
+#endif
   return true;
 }
 #endif
@@ -460,16 +472,19 @@ de \italico{plugins}, isso parece ser o suficiente no momento.
 O ponteiro para o vetor de \italico{plugins} será declarado como:
 
 @<Declarações de Plugins@>+=
+#if W_TARGET == W_ELF
 struct _plugin_data *_plugins;
 int _max_number_of_plugins;
 #ifdef W_MULTITHREAD
   pthread_mutex_t _plugin_mutex;
+#endif
 #endif
 @
 
 E iremos inicializar a estutura desta forma na inicialização:
 
 @<API Weaver: Inicialização@>+=
+#if W_TARGET == W_ELF
 {
   int i = 0;
   if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
@@ -514,6 +529,7 @@ E iremos inicializar a estutura desta forma na inicialização:
     @<Plugins: Inicialização@>
   }
 }
+#endif
 @
 
 Tudo isso foi só para sabermos o número de \italico{plugins} durante a
@@ -557,7 +573,8 @@ como fizemos na contagem:
     while(*end != ':' && *end != '\0') end ++;
     // begin e end agora marcam os limites do caminho de um diretório
     if(end - begin > 255){
-      fprintf(stderr, "ERROR: Path too big in W_PLUGIN_PATH.\n");
+      // Ignoramos caminho grande demais, o aviso disso já foi dado
+      // quando contamos o número de plugins
       begin = end + 1;
       continue;
     }
@@ -603,12 +620,139 @@ estrutura,no seu encerramento iremos precisar finalizá-la fechando a
 ligação com o \italico{plugin} e destruindo o que existe de mutex:
 
 @<API Weaver: Encerramento@>=
+#if W_TARGET == W_ELF
 {
   int j;
   for(j = 0; j < _max_number_of_plugins; j ++)
     if(_plugins[j].defined)
       _finalize_plugin(&(_plugins[j]));
 }
+#endif
 @
 
-Mas e para checar se algum \italico{plugin} foi modificado
+Próximo passo: checar se um \italico{plugin} existe ou não. Esta é a
+hora de definir a função |W.get_plugin| que retorna um número de
+identificação único para cada ID. Tal número nada mas será do que a
+posição que o \italico{plugin} ocupa no vetor de \italico{plugins}. E
+se o \italico{plugin} pedido não existir, a função retornará -1:
+
+@<Declarações de Plugins@>+=
+int _Wget_plugin(char *plugin_name);
+@
+
+@(project/src/weaver/plugins.c@>+=
+int _Wget_plugin(char *plugin_name){
+#if W_TARGET == W_ELF
+  int i;
+  for(i = 0; i < _max_number_of_plugins; i ++)
+    if(!strcmp(plugin_name, _plugins[i].plugin_name))
+      return i;
+#endif
+  return -1; // A função deliberadamente só retorn -1 no Emscripten
+}
+@
+
+Agora adicionamos a função à estrutura |W|:
+
+@<Funções Weaver@>+=
+int (*get_plugin)(char *);
+@
+
+@<API Weaver: Inicialização@>+=
+W.get_plugin = &_Wget_plugin;
+@
+
+
+Mas e para checar se algum \italico{plugin} foi modificado ou se
+existe um novo \italico{plugin} colocado em algum dos diretórios?
+Novamente teremos que usar o código de percorrer os diretórios
+procurando por arquivos. Mas desta vez faremos isso imediatamente
+antes de qualquer \italico{loop} principal:
+
+@<Código Imediatamente antes de Loop Principal@>=
+#if W_TARGET == W_ELF
+{
+  if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
+#ifdef W_MULTITHREAD// Potencialmente modificamos a lista de plugins aqui
+    pthread_mutex_lock(&(_plugin_mutex));
+#endif
+    char *begin = W_PLUGIN_PATH, *end = W_PLUGIN_PATH;
+    char dir[256]; // Nome de diretório
+    DIR *directory;
+    struct dirent *dp;
+    while(*end != '\0'){
+      end ++;
+      while(*end != ':' && *end != '\0') end ++;
+      // begin e end agora marcam os limites do caminho de um diretório
+      if(end - begin > 255){
+	// Caminho gtrande demais, ignoramos
+        begin = end + 1;
+        continue; // Erro: vamos para o próximo diretório
+      }
+      strncpy(dir, begin, (size_t) (end - begin));
+      dir[(end - begin)] = '\0';
+      // dir agora possui o nome do diretório que devemos checar
+      directory = opendir(dir);
+      if(directory == NULL){
+        // Em caso de erro, desistimos deste diretório e tentamos ir
+        // para o outro sem aviso (possivelmente já devemos ter dado o
+        // aviso do erro na inicialização e não vamos ficar repetindo):
+        begin = end + 1;
+        continue;
+      }
+      // Se não houve erro, iteramos sobre os arquivos do diretório
+      while ((dp = readdir(directory)) != NULL){
+        if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG){
+          char buffer[128];
+          int id, i;
+          strncpy(buffer, dp -> d_name, 128);
+          buffer[127] = '\0';
+          for(i = 0; buffer[i] != '.' && buffer[i] != '\0'; i ++);
+          buffer[i] = '\0'; // Nome do plugin obtido
+          id = W.get_plugin(buffer);
+          if(id != -1){
+            // Plugin já conhecido. Temos que ver se ele sofreu modificações.
+            struct stat attr;
+            if(stat(_plugins[id].library, &attr) == -1)
+              continue; // Não conseguimos obter dados do arquivo,
+                        // apenas torceremos para que tudo acabe bem.
+	    if(_plugins[id].id != attr.st_ino){
+	      // O plugin foi modificado!
+	      if(!_reload_plugin(&(_plugins[id]))){
+                _plugins[id].defined = false; // Falhamos em recarregá-lo, vamos
+                                              // desistir dele por hora
+              }
+            }
+          }
+	  else{
+	    // É um novo plugin que não existia antes!
+            if(strlen(dir) + 1 + strlen(dp -> d_name) > 255){
+              fprintf(stderr, "Ignoring plugin with too long path: %s/%s.\n",
+                      dir, dp -> d_name);
+              continue;
+            }
+            strcat(dir, "/");
+            strcat(dir, dp -> d_name);
+            for(i = 0; i < _max_number_of_plugins; i ++){
+              if(_plugins[i].defined == false){
+                _initialize_plugin(&(_plugins[i]), dir);
+                break;
+              }
+            }
+            if(i == _max_number_of_plugins){
+              fprintf(stderr, "WARNING (0): Maximum number of plugins achieved."
+                      " Couldn't load %s.\n", buffer);
+            }
+          }
+        }
+      }
+      // E preparamos o próximo diretório para a próxima iteração:
+      begin = end + 1;
+    } // Fim do loop, passamos por todos os diretórios.
+#ifdef W_MULTITHREAD// Potencialmente modificamos a lista de plugins aqui
+    pthread_mutex_unlock(&(_plugin_mutex));
+#endif
+  }
+}
+#endif
+@
