@@ -285,13 +285,15 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   if(data -> _disable_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define _disable_plugin_%s.\n",
             data -> plugin_name, data -> plugin_name);
-  // As últimas variáveis. O 'definded' deve ser a última. Ela atesta
-  // que já temos um plugin com dados válidos. É ajustada logo após
-  // executar a função de inicialização do plugin
+  // As últimas variáveis. O 'defined' deve ser a última. Ela atesta
+  // que já temos um plugin com dados válidos. Executamos a função de
+  // inicialização do plugin só depois de o marcarmos como definido
+  // para que funções de inicialização de plugins possam obter e usar
+  // dados sobre o próprio plugin em que estão.
   data -> plugin_data = NULL;
+  data -> defined = true;
   if(data -> _init_plugin != NULL)
     data -> _init_plugin(&W);
-  data -> defined = true;
 }
 #endif
 @
@@ -366,7 +368,7 @@ bool _reload_plugin(struct _plugin_data *data);
 @(project/src/weaver/plugins.c@>+=
 #if W_TARGET == W_ELF
 bool _reload_plugin(struct _plugin_data *data){
-  char *p, buffer[256];
+  char buffer[256];
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(data -> mutex));
 #endif
@@ -380,7 +382,7 @@ bool _reload_plugin(struct _plugin_data *data){
   data -> handle = dlopen(data -> library, RTLD_NOW | RTLD_NODELETE);
   if (!(data -> handle)){
     fprintf(stderr, "%s\n", dlerror());
-    return;
+    return false;
   }
   dlerror(); // Limpa qualquer mensagem de erro existente
   // Agora temos que obter novos ponteiros para as funções do plugin
@@ -468,46 +470,48 @@ int _max_number_of_plugins;
 E iremos inicializar a estutura desta forma na inicialização:
 
 @<API Weaver: Inicialização@>+=
-if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
-  int all_path_size = strlen(W_PLUGIN_PATH), i = 0;
-  char *begin = W_PLUGIN_PATH, *end = W_PLUGIN_PATH;
-  char dir[256]; // Nome de diretório
-  DIR *directory;
-  struct dirent *dp;
-  _max_number_of_plugins = 0;
-  while(*end != '\0'){
-    end ++;
-    while(*end != ':' && *end != '\0') end ++;
-    // begin e end agora marcam os limites do caminho de um diretório
-    if(end - begin > 255){
-      fprintf(stderr, "ERROR: Path too big in W_PLUGIN_PATH.\n");
-      begin = end + 1;
-      continue; // Erro: vamos para o próximo diretório
-    }
-    strncpy(dir, begin, (size_t) (end - begin));
-    dir[(end - begin)] = '\0';
-    // dir agora possui o nome do diretório que devemos checar
-    directory = opendir(dir);
-    if(directory == NULL){
+{
+  int i = 0;
+  if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
+    char *begin = W_PLUGIN_PATH, *end = W_PLUGIN_PATH;
+    char dir[256]; // Nome de diretório
+    DIR *directory;
+    struct dirent *dp;
+    _max_number_of_plugins = 0;
+    while(*end != '\0'){
+      end ++;
+      while(*end != ':' && *end != '\0') end ++;
+      // begin e end agora marcam os limites do caminho de um diretório
+      if(end - begin > 255){
+        fprintf(stderr, "ERROR: Path too big in W_PLUGIN_PATH.\n");
+        begin = end + 1;
+        continue; // Erro: vamos para o próximo diretório
+      }
+      strncpy(dir, begin, (size_t) (end - begin));
+      dir[(end - begin)] = '\0';
+      // dir agora possui o nome do diretório que devemos checar
+      directory = opendir(dir);
+      if(directory == NULL){
 #if W_DEBUG_LEVEL >= 1
-      fprinf(stderr, "Trying to access %s: %s\n", dir, strerror(errno));
+        fprintf(stderr, "Trying to access %s: %s\n", dir, strerror(errno));
 #endif
-      // Em caso de erro, desistimos deste diretório e tentamos ir
-      // para o outro:
+        // Em caso de erro, desistimos deste diretório e tentamos ir
+        // para o outro:
+        begin = end + 1;
+        continue;
+      }
+      // Se não houve erro, iteramos sobre os arquivos do diretório
+      while ((dp = readdir(directory)) != NULL){
+        if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG)
+          _max_number_of_plugins ++; // Só levamos em conta arquivos
+                                     // regulares não-ocultos
+      }
+      // E preparamos o próximo diretório para a próxima iteração:
       begin = end + 1;
-      continue;
     }
-    // Se não houve erro, iteramos sobre os arquivos do diretório
-    while ((dp = readdir(directory)) != NULL){
-      if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG)
-	_max_number_of_plugins ++; // Só levamos em conta arquivos
-				   // regulares não-ocultos
-    }
-    // E preparamos o próximo diretório para a próxima iteração:
-    begin = end + 1;
+    // Fim do loop. Já sabemos quantos plugins são.
+    @<Plugins: Inicialização@>
   }
-  // Fim do loop. Já sabemos quantos plugins são.
-  @<Plugins: Inicialização@>
 }
 @
 
@@ -516,11 +520,10 @@ inicialização. Ainda não inicializamos nada. Isso só podemos enfim
 fazer de posse deste número, o qual está na variável |_max_number_of_plugins|:
 
 @<Plugins: Inicialização@>=
+{
 _max_number_of_plugins += 25;
 _plugins = (struct _plugin_data *) _iWalloc(sizeof(struct _plugin_data) *
-					    (_max_number_of_plugins));
-{
-  int i;
+                                       (_max_number_of_plugins));
   for(i = 0; i < _max_number_of_plugins; i ++){
     _plugins[i].defined = false;
   }
@@ -533,11 +536,12 @@ _plugins = (struct _plugin_data *) _iWalloc(sizeof(struct _plugin_data) *
 }
 @
 
-Agora para inicializar os \ialico{plugins} precisamos mais uma vez
+Agora para inicializar os \italico{plugins} precisamos mais uma vez
 percorrer a árvore de diretórios e procurar por cada um dos arquivos
 como fizemos na contagem:
 
 @<Plugins: Inicialização@>+=
+{
   begin = end = W_PLUGIN_PATH;
   while(*end != '\0'){
     end ++;
@@ -554,7 +558,7 @@ como fizemos na contagem:
     directory = opendir(dir);
     if(directory == NULL){
 #if W_DEBUG_LEVEL >= 1
-      fprinf(stderr, "Trying to access %s: %s\n", dir, strerror(errno));
+      fprintf(stderr, "Trying to access %s: %s\n", dir, strerror(errno));
 #endif
       // Em caso de erro, desistimos deste diretório e tentamos ir
       // para o outro:
@@ -564,17 +568,37 @@ como fizemos na contagem:
     // Se não houve erro, iteramos sobre os arquivos do diretório
     while ((dp = readdir(directory)) != NULL){
       if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG){
-	if(strlen(dir) + 1 + strlen(dp -> d_name) > 255){
-	  sprintf(stderr, "Ignoring plugin with too long path: %s/%s.\n",
-		  dir, dp -> d_name);
-	  continue;
-	}
-	strcat(dir, "/");
-	strcat(dir, dp -> d_name);
-	_initialize_plugin(&(_plugins[i]), dir);
-	i ++;
+        if(strlen(dir) + 1 + strlen(dp -> d_name) > 255){
+          fprintf(stderr, "Ignoring plugin with too long path: %s/%s.\n",
+                  dir, dp -> d_name);
+          continue;
+        }
+        if(i >= _max_number_of_plugins){
+          fprintf(stderr, "Ignoring plugin %s/%s, not prepared for so much "
+                  "new plugins being added.\n", dir, dp -> d_name);
+          continue;
+        }
+        strcat(dir, "/");
+        strcat(dir, dp -> d_name);
+        _initialize_plugin(&(_plugins[i]), dir);
+        i ++;
+      }
     }
     // E preparamos o próximo diretório para a próxima iteração:
     begin = end + 1;
   }
+}
+@
+
+Da mesma forma que no começo do programa criamos e preenchemos esta
+estrutura,no seu encerramento iremos precisar finalizá-la fechando a
+ligação com o \italico{plugin} e destruindo o que existe de mutex:
+
+@<API Weaver: Encerramento@>=
+{
+  int j;
+  for(j = 0; j < _max_number_of_plugins; j ++)
+    if(_plugins[j].defined)
+      _finalize_plugin(&(_plugins[j]));
+}
 @
