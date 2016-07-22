@@ -899,8 +899,8 @@ atualização da tela.
   }
 #if W_DEBUG_LEVEL >=3
   fprintf(stderr, "WARNING (3): Screen resolution: %dx%d (%dHz).\n",
-          W.modes[Wcurrent_mode].width, W.modes[Wcurrent_mode].height, 
-          W.modes[Wcurrent_mode].rate);
+          W.modes[W.current_mode].width, W.modes[W.current_mode].height, 
+          W.modes[W.current_mode].rate);
 #endif
 }
 @

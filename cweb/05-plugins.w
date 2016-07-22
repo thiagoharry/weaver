@@ -610,3 +610,5 @@ ligação com o \italico{plugin} e destruindo o que existe de mutex:
       _finalize_plugin(&(_plugins[j]));
 }
 @
+
+Mas e para checar se algum \italico{plugin} foi modificado
