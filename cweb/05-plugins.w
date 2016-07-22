@@ -225,7 +225,7 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   }
   data -> id = attr.st_ino; // Obtém id do arquivo
 #ifdef W_MULTITHREAD
-  if(pthread_mutex_init(&(header -> mutex), NULL) != 0){
+  if(pthread_mutex_init(&(data -> mutex), NULL) != 0){
     perror("_initialize_plugin:");
     return false;
   }
@@ -282,8 +282,11 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
     fprintf(stderr, "ERROR: Plugin %s doesn't define _disable_plugin_%s.\n",
             data -> plugin_name, data -> plugin_name);
   // As últimas variáveis. O 'definded' deve ser a última. Ela atesta
-  // que já temos um plugin com dados válidos:
+  // que já temos um plugin com dados válidos. É ajustada logo após
+  // executar a função de inicialização do plugin
   data -> plugin_data = NULL;
+  if(data -> _init_plugin != NULL)
+    data -> _init_plugin(&W);
   data -> defined = true;
 }
 #endif
@@ -306,3 +309,121 @@ versões do glibc maiores ou iguais à 2.2. Atualmente nenhuma das 10
 maiores distribuições Linux suporta versões da biblioteca mais antigas
 que isso. E nem deveriam, pois existem vulnerabilidades críticas
 existentes em tais versões.
+
+Assim como temos uma função auxiliar para inicializar um plugin, vamos
+ao código para finalizá-lo, o qual é executado na finalização do
+programa em todos os \italico{plugins}:
+
+@<Declarações de Plugins@>+=
+#if W_TARGET == W_ELF
+void _finalize_plugin(struct _plugin_data *data);
+#endif
+@
+
+@(project/src/weaver/plugins.c@>+=
+#if W_TARGET == W_ELF
+void _finalize_plugin(struct _plugin_data *data){
+  // Tornamos inválido o plugin:
+  data -> defined = false;
+  // Começamos chamando a função de finalização:
+  if(data -> _fini_plugin != NULL)
+    data -> _fini_plugin(&W);
+  // Destruimos o mutex:
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_destroy(&(data -> mutex)) != 0)
+    perror("Finalizing plugin %s", data -> plugin_name);
+#endif
+  // Nos desligando do plugin
+  if(dlclose(data -> handle) != 0)
+    fprintf(stderr, "Error unlinking plugin %s: %s\n", data -> plugin_name,
+      dlerror());
+}
+#endif
+@
+
+A função de finalizar um \italico{plugin} pode ser chamada na
+finalização do programa, caso queiramos recarregar um \italico{plugin}
+ou se o \italico{plugin} foi apagado durante a execução do programa.
+
+Mas existe uma outra ação que podemos querer fazer: recarregar
+o \italico{plugin}. Isso ocorreria caso nós detectássemos que o
+arquivo do \italico{plugin} sofreu algum tipo de modificação. Neste
+caso, o que fazemos é semelhante a finalizá-lo e inicializá-lo
+novamente. A diferença é que o \italico{plugin} continua válido
+durante todo o tempo, apenas tem o seu mutex bloqueado caso
+alguma \italico{thread} queira usar ele neste exato momento:
+
+@<Declarações de Plugins@>+=
+#if W_TARGET == W_ELF
+bool _reload_plugin(struct _plugin_data *data);
+#endif
+@
+
+@(project/src/weaver/plugins.c@>+=
+#if W_TARGET == W_ELF
+bool _reload_plugin(struct _plugin_data *data){
+  char *p, buffer[256];
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&(data -> mutex));
+#endif
+  // Removemos o plugin carregado
+  if(dlclose(data -> handle) != 0){
+    fprintf(stderr, "Error unlinking plugin %s: %s\n", data -> plugin_name,
+      dlerror());
+    return false;
+  }
+  // E o abrimos novamente
+  data -> handle = dlopen(data -> library, RTLD_NOW | RTLD_NODELETE);
+  if (!(data -> handle)){
+    fprintf(stderr, "%s\n", dlerror());
+    return;
+  }
+  dlerror(); // Limpa qualquer mensagem de erro existente
+  // Agora temos que obter novos ponteiros para as funções do plugin
+  // Obtendo nome de _init_plugin_PLUGINNAME e a obtendo:
+  buffer[0] = '\0';
+  strcat(buffer, "_init_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _init_plugin = dlsym(data -> handle, buffer);
+  if(data -> _init_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _init_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // Obtendo _fini_plugin_PLUGINNAME:
+  buffer[0] = '\0';
+  strcat(buffer, "_fini_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _fini_plugin = dlsym(data -> handle, buffer);
+  if(data -> _fini_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _fini_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // Obtendo _run_plugin_PLUGINNAME:
+  buffer[0] = '\0';
+  strcat(buffer, "_run_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _run_plugin = dlsym(data -> handle, buffer);
+  if(data -> _run_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _run_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // Obtendo _enable_PLUGINNAME:
+  buffer[0] = '\0';
+  strcat(buffer, "_enable_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _enable_plugin = dlsym(data -> handle, buffer);
+  if(data -> _enable_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _enable_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+  // Obtendo _disable_PLUGINNAME:
+  buffer[0] = '\0';
+  strcat(buffer, "_disable_plugin_");
+  strcat(buffer, data -> plugin_name);
+  data -> _enable_plugin = dlsym(data -> handle, buffer);
+  if(data -> _disable_plugin == NULL)
+    fprintf(stderr, "ERROR: Plugin %s doesn't define _disable_plugin_%s.\n",
+            data -> plugin_name, data -> plugin_name);
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&(data -> mutex));
+#endif
+  return true;
+}
+#endif
+@
