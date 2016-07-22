@@ -1372,7 +1372,7 @@ Que são definidas como:
 @(project/src/weaver/memory.c@>+=
 void _initialize_memory(void){
   _user_arena = Wcreate_arena(W_MAX_MEMORY);
-  _internal_arena = Wcreate_arena(4000); // Cerca de 1 página
+  _internal_arena = Wcreate_arena(400000); // Cerca de 100 páginas
 }
 void _finalize_memory(){
   Wdestroy_arena(_user_arena);

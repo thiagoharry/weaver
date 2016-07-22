@@ -492,8 +492,9 @@ E iremos inicializar a estutura desta forma na inicialização:
       // dir agora possui o nome do diretório que devemos checar
       directory = opendir(dir);
       if(directory == NULL){
-#if W_DEBUG_LEVEL >= 1
-        fprintf(stderr, "Trying to access %s: %s\n", dir, strerror(errno));
+#if W_DEBUG_LEVEL >= 2
+        fprintf(stderr, "WARNING (2): Trying to access %s: %s\n", dir,
+                strerror(errno));
 #endif
         // Em caso de erro, desistimos deste diretório e tentamos ir
         // para o outro:
@@ -521,9 +522,17 @@ fazer de posse deste número, o qual está na variável |_max_number_of_plugins|
 
 @<Plugins: Inicialização@>=
 {
-_max_number_of_plugins += 25;
-_plugins = (struct _plugin_data *) _iWalloc(sizeof(struct _plugin_data) *
-                                       (_max_number_of_plugins));
+  _max_number_of_plugins += 25;
+#if W_DEBUG_LEVEL >= 3
+  printf("WARNING (3): Supporting maximum of %d plugins.\n",
+         _max_number_of_plugins);
+#endif
+  _plugins = (struct _plugin_data *) _iWalloc(sizeof(struct _plugin_data) *
+               (_max_number_of_plugins));
+  if(_plugins == NULL){
+    fprintf(stderr, "ERROR (0): Too many plugins. Not enough memory!\n");
+    Wexit();
+  }
   for(i = 0; i < _max_number_of_plugins; i ++){
     _plugins[i].defined = false;
   }
@@ -557,11 +566,10 @@ como fizemos na contagem:
     // dir agora possui o nome do diretório que devemos checar
     directory = opendir(dir);
     if(directory == NULL){
-#if W_DEBUG_LEVEL >= 1
-      fprintf(stderr, "Trying to access %s: %s\n", dir, strerror(errno));
-#endif
       // Em caso de erro, desistimos deste diretório e tentamos ir
-      // para o outro:
+      // para o outro. Não precia imprimir mensagem de erro
+      // independente do nível de depuração, pois já imprimimos quando
+      // estávamos contando o número de plugins
       begin = end + 1;
       continue;
     }
