@@ -160,7 +160,7 @@ struct _plugin_data{
   void (*_enable_plugin)(struct _weaver_struct *);
   void (*_disable_plugin)(struct _weaver_struct *);
   void *plugin_data;
-  bool defined;
+  bool enabled, defined;
 };
 @
 
@@ -293,6 +293,7 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   // para que funções de inicialização de plugins possam obter e usar
   // dados sobre o próprio plugin em que estão.
   data -> plugin_data = NULL;
+  data -> enabled = false;
   data -> defined = true;
   if(data -> _init_plugin != NULL)
     data -> _init_plugin(&W);
@@ -685,7 +686,7 @@ antes de qualquer \italico{loop} principal:
       while(*end != ':' && *end != '\0') end ++;
       // begin e end agora marcam os limites do caminho de um diretório
       if(end - begin > 255){
-	// Caminho gtrande demais, ignoramos
+        // Caminho gtrande demais, ignoramos
         begin = end + 1;
         continue; // Erro: vamos para o próximo diretório
       }
@@ -716,16 +717,16 @@ antes de qualquer \italico{loop} principal:
             if(stat(_plugins[id].library, &attr) == -1)
               continue; // Não conseguimos obter dados do arquivo,
                         // apenas torceremos para que tudo acabe bem.
-	    if(_plugins[id].id != attr.st_ino){
-	      // O plugin foi modificado!
-	      if(!_reload_plugin(&(_plugins[id]))){
+            if(_plugins[id].id != attr.st_ino){
+              // O plugin foi modificado!
+              if(!_reload_plugin(&(_plugins[id]))){
                 _plugins[id].defined = false; // Falhamos em recarregá-lo, vamos
                                               // desistir dele por hora
               }
             }
           }
-	  else{
-	    // É um novo plugin que não existia antes!
+          else{
+            // É um novo plugin que não existia antes!
             if(strlen(dir) + 1 + strlen(dp -> d_name) > 255){
               fprintf(stderr, "Ignoring plugin with too long path: %s/%s.\n",
                       dir, dp -> d_name);
@@ -749,7 +750,7 @@ antes de qualquer \italico{loop} principal:
       // E preparamos o próximo diretório para a próxima iteração:
       begin = end + 1;
     } // Fim do loop, passamos por todos os diretórios.
-#ifdef W_MULTITHREAD// Potencialmente modificamos a lista de plugins aqui
+#ifdef W_MULTITHREAD
     pthread_mutex_unlock(&(_plugin_mutex));
 #endif
   }
@@ -766,8 +767,74 @@ contínua:
 {
   int i;
   for(i = 0; i < _max_number_of_plugins; i ++)
-    if(_plugins[i].defined)
+    if(_plugins[i].defined && _plugins[i].enabled)
       _plugins[i]._run_plugin(&W);
 }
 #endif
 @
+
+@*1 Funções de Interação com Plugins.
+
+Já vimos que podemos obter um número de identificação
+do \italico{plugin} com |W.get_plugin|. Vamos agora ver o que podemos
+fazer com tal número de identificação. Primeiro podemos ativar e
+desativar um \italico{plugin}, bem como checar se ele está ativado ou
+desativado:
+
+@<Declarações de Plugins@>+=
+void _Wenable_plugin(int plugin_id);
+void _Wdisable_plugin(int plugin_id);
+bool _Wis_enabled(int plugin_id);
+@
+
+@(project/src/weaver/plugins.c@>+=
+void _Wenable_plugin(int plugin_id){
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&(_plugins[plugin_id] -> mutex));
+#endif
+  _plugins[plugin_id].enabled = true;
+  _plugins[plugin_id]._enable_plugin(&W);
+#if W_DEBUG_LEVEL >=3
+  fprintf("WARNING (3): Plugin enabled: %s.\n",
+          _plugins[plugin_id].plugin_name);
+#endif
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&(_plugins[plugin_id] -> mutex));
+#endif
+}
+void _Wdisable_plugin(int plugin_id){
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&(_plugins[plugin_id] -> mutex));
+#endif
+  _plugins[plugin_id].enabled = false;
+  _plugins[plugin_id]._disable_plugin(&W);
+#if W_DEBUG_LEVEL >=3
+  fprintf("WARNING (3): Plugin disabled: %s.\n",
+          _plugins[plugin_id].plugin_name);
+#endif
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&(_plugins[plugin_id] -> mutex));
+#endif
+}
+bool _Wis_enabled(int plugin_id){
+  return _plugins[plugin_id].enabled;
+}
+@
+
+Ativar ou desativar um \italico{plugin} é o que define se ele irá
+executar em um \italico{loop} principal ou não.
+
+Tais funções serão colocadas na estrutura |W|:
+
+@<Funções Weaver@>+=
+void (*enable_plugin)(int);
+void (*disable_plugin)(int);
+bool (*is_plugin_enabled)(int);
+@
+
+@<API Weaver: Inicialização@>+=
+W.enable_plugin = &_Wenable_plugin;
+W.disable_plugin = &_Wdisable_plugin;
+W.is_plugin_enabled = &_Wis_enabled;
+@
+
