@@ -789,6 +789,9 @@ bool _Wis_enabled(int plugin_id);
 
 @(project/src/weaver/plugins.c@>+=
 void _Wenable_plugin(int plugin_id){
+  if(plugin_id >= _max_number_of_plugins ||
+     !(_plugins[plugin_id].defined))
+    return;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(_plugins[plugin_id] -> mutex));
 #endif
@@ -803,6 +806,9 @@ void _Wenable_plugin(int plugin_id){
 #endif
 }
 void _Wdisable_plugin(int plugin_id){
+  if(plugin_id >= _max_number_of_plugins ||
+     !(_plugins[plugin_id].defined))
+    return;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(_plugins[plugin_id] -> mutex));
 #endif
@@ -817,6 +823,9 @@ void _Wdisable_plugin(int plugin_id){
 #endif
 }
 bool _Wis_enabled(int plugin_id){
+  if(plugin_id >= _max_number_of_plugins ||
+     !(_plugins[plugin_id].defined))
+    return false;
   return _plugins[plugin_id].enabled;
 }
 @
