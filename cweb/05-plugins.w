@@ -795,7 +795,7 @@ void _Wenable_plugin(int plugin_id){
   _plugins[plugin_id].enabled = true;
   _plugins[plugin_id]._enable_plugin(&W);
 #if W_DEBUG_LEVEL >=3
-  fprintf("WARNING (3): Plugin enabled: %s.\n",
+  fprintf(stderr, "WARNING (3): Plugin enabled: %s.\n",
           _plugins[plugin_id].plugin_name);
 #endif
 #ifdef W_MULTITHREAD
@@ -809,7 +809,7 @@ void _Wdisable_plugin(int plugin_id){
   _plugins[plugin_id].enabled = false;
   _plugins[plugin_id]._disable_plugin(&W);
 #if W_DEBUG_LEVEL >=3
-  fprintf("WARNING (3): Plugin disabled: %s.\n",
+  fprintf(stderr, "WARNING (3): Plugin disabled: %s.\n",
           _plugins[plugin_id].plugin_name);
 #endif
 #ifdef W_MULTITHREAD

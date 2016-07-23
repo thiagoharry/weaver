@@ -1560,6 +1560,7 @@ automaticamente todos os cabeçalhos Weaver necessários:
 @<Inclui Cabeçalho de Configuração@>
 
 #include <stdlib.h>
+#include <stdbool.h>
 
 @<Cabeçalhos Weaver@>
 // Todas as variáveis e funções globais ficarão no struct abaixo:
