@@ -782,21 +782,22 @@ desativar um \italico{plugin}, bem como checar se ele está ativado ou
 desativado:
 
 @<Declarações de Plugins@>+=
-void _Wenable_plugin(int plugin_id);
-void _Wdisable_plugin(int plugin_id);
+bool _Wenable_plugin(int plugin_id);
+bool _Wdisable_plugin(int plugin_id);
 bool _Wis_enabled(int plugin_id);
 @
 
 @(project/src/weaver/plugins.c@>+=
-void _Wenable_plugin(int plugin_id){
+bool _Wenable_plugin(int plugin_id){
   if(plugin_id >= _max_number_of_plugins ||
      !(_plugins[plugin_id].defined))
-    return;
+    return false;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(_plugins[plugin_id] -> mutex));
 #endif
   _plugins[plugin_id].enabled = true;
-  _plugins[plugin_id]._enable_plugin(&W);
+  if(_plugins[plugin_id]._enable_plugin != NULL)
+    _plugins[plugin_id]._enable_plugin(&W);
 #if W_DEBUG_LEVEL >=3
   fprintf(stderr, "WARNING (3): Plugin enabled: %s.\n",
           _plugins[plugin_id].plugin_name);
@@ -804,16 +805,18 @@ void _Wenable_plugin(int plugin_id){
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&(_plugins[plugin_id] -> mutex));
 #endif
+  return true;
 }
-void _Wdisable_plugin(int plugin_id){
+bool _Wdisable_plugin(int plugin_id){
   if(plugin_id >= _max_number_of_plugins ||
      !(_plugins[plugin_id].defined))
-    return;
+    return false;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(_plugins[plugin_id] -> mutex));
 #endif
   _plugins[plugin_id].enabled = false;
-  _plugins[plugin_id]._disable_plugin(&W);
+  if(_plugins[plugin_id]._disable_plugin != NULL)
+    _plugins[plugin_id]._disable_plugin(&W);
 #if W_DEBUG_LEVEL >=3
   fprintf(stderr, "WARNING (3): Plugin disabled: %s.\n",
           _plugins[plugin_id].plugin_name);
@@ -821,6 +824,7 @@ void _Wdisable_plugin(int plugin_id){
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&(_plugins[plugin_id] -> mutex));
 #endif
+  return true;
 }
 bool _Wis_enabled(int plugin_id){
   if(plugin_id >= _max_number_of_plugins ||
@@ -836,8 +840,8 @@ executar em um \italico{loop} principal ou não.
 Tais funções serão colocadas na estrutura |W|:
 
 @<Funções Weaver@>+=
-void (*enable_plugin)(int);
-void (*disable_plugin)(int);
+bool (*enable_plugin)(int);
+bool (*disable_plugin)(int);
 bool (*is_plugin_enabled)(int);
 @
 
@@ -845,5 +849,49 @@ bool (*is_plugin_enabled)(int);
 W.enable_plugin = &_Wenable_plugin;
 W.disable_plugin = &_Wdisable_plugin;
 W.is_plugin_enabled = &_Wis_enabled;
+@
+
+E agora iremos definir funções para gravar um novo valor no
+|plugin_data| de um \italico{plugin}. Qualquer tipo de estrutura de
+dados pode ser armazenada ali, pois ela é um ponteiro do tipo |void
+*|. Armazenar coisas ali é a única forma que um \italico{plugin} tem
+para se comunicar com o programa principal e também é o modo do
+programa passar informações personalizadas para \italico{plugins}. O
+tipo de informação que será armazenada ali ficará à cargo de quem
+projetar cada \italico{plugin}. Muitos \italico{plugins} talvez optem
+por ignorá-lo por não terem necessidade de se comunicar com o programa
+principal.
+
+@<Declarações de Plugins@>+=
+void *_Wget_plugin_data(int plugin_id);
+bool _Wset_plugin_data(int plugin_id, void *data);
+@
+
+@(project/src/weaver/plugins.c@>+=
+void *_Wget_plugin_data(int plugin_id){
+  if(plugin_id >= _max_number_of_plugins ||
+     !(_plugins[plugin_id].defined))
+    return NULL;
+  return _plugins[plugin_id].plugin_data;
+}
+bool _Wset_plugin_data(int plugin_id, void *data){
+  if(plugin_id >= _max_number_of_plugins ||
+     !(_plugins[plugin_id].defined))
+    return false;
+  _plugins[plugin_id].plugin_data = data;
+  return true;
+}
+@
+
+E como de praxe, armazenamos as novas funções em |W|:
+
+@<Funções Weaver@>+=
+void *(*get_plugin_data)(int);
+bool (*set_plugin_data)(int, void*);
+@
+
+@<API Weaver: Inicialização@>+=
+W.get_plugin_data = &_Wget_plugin_data;
+W.set_plugin_data = &_Wset_plugin_data;
 @
 
