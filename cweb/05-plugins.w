@@ -508,8 +508,8 @@ E iremos inicializar a estutura desta forma na inicialização:
       directory = opendir(dir);
       if(directory == NULL){
 #if W_DEBUG_LEVEL >= 2
-        fprintf(stderr, "WARNING (2): Trying to access %s: %s\n", dir,
-                strerror(errno));
+        fprintf(stderr, "WARNING (2): Trying to access plugin directory %s: "
+                        "%s\n", dir, strerror(errno));
 #endif
         // Em caso de erro, desistimos deste diretório e tentamos ir
         // para o outro:
@@ -753,6 +753,21 @@ antes de qualquer \italico{loop} principal:
     pthread_mutex_unlock(&(_plugin_mutex));
 #endif
   }
+}
+#endif
+@
+
+E finalmente, durante a execução do \italico{loop} principal iremos
+executar a função de cada \italico{plugin} associada à execução
+contínua:
+
+@<API Weaver: Loop Principal@>+=
+#if W_TARGET == W_ELF
+{
+  int i;
+  for(i = 0; i < _max_number_of_plugins; i ++)
+    if(_plugins[i].defined)
+      _plugins[i]._run_plugin(&W);
 }
 #endif
 @
