@@ -83,8 +83,16 @@ graças ao argumento |W_PLUGIN| recebido como argumento pelas
 funções. Ele na verdade é a estrutura |W|:
 
 @<Cabeçalhos Weaver@>+=
-#define W_PLUGIN struct _weaver_struct  __attribute__((__unused__)) *_W
+#define W_PLUGIN struct _weaver_struct *_W
 @
+
+@<Declaração de Cabeçalhos Finais@>=
+// Mágica para fazer plugins entenderem a estrutura W:
+#ifdef W_PLUGIN_CODE
+#define W (*_W)
+#endif
+@
+
 
 A mágica para usar as funções e variáveis na forma |W.flush_input()| e
 não na deselegante forma |W->flush_input()| será obtida por meio de
@@ -253,40 +261,40 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   strcat(buffer, data -> plugin_name);
   data -> _init_plugin = dlsym(data -> handle, buffer);
   if(data -> _init_plugin == NULL)
-    fprintf(stderr, "ERROR: Plugin %s doesn't define _init_plugin_%s.\n",
-            data -> plugin_name, data -> plugin_name);
+    fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
+            data -> plugin_name, buffer);
   // Obtendo _fini_plugin_PLUGINNAME:
   buffer[0] = '\0';
   strcat(buffer, "_fini_plugin_");
   strcat(buffer, data -> plugin_name);
   data -> _fini_plugin = dlsym(data -> handle, buffer);
   if(data -> _fini_plugin == NULL)
-    fprintf(stderr, "ERROR: Plugin %s doesn't define _fini_plugin_%s.\n",
-            data -> plugin_name, data -> plugin_name);
+    fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
+            data -> plugin_name, buffer);
   // Obtendo _run_plugin_PLUGINNAME:
   buffer[0] = '\0';
   strcat(buffer, "_run_plugin_");
   strcat(buffer, data -> plugin_name);
   data -> _run_plugin = dlsym(data -> handle, buffer);
   if(data -> _run_plugin == NULL)
-    fprintf(stderr, "ERROR: Plugin %s doesn't define _run_plugin_%s.\n",
-            data -> plugin_name, data -> plugin_name);
+    fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
+            data -> plugin_name, buffer);
   // Obtendo _enable_PLUGINNAME:
   buffer[0] = '\0';
   strcat(buffer, "_enable_plugin_");
   strcat(buffer, data -> plugin_name);
   data -> _enable_plugin = dlsym(data -> handle, buffer);
   if(data -> _enable_plugin == NULL)
-    fprintf(stderr, "ERROR: Plugin %s doesn't define _enable_plugin_%s.\n",
-            data -> plugin_name, data -> plugin_name);
+    fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
+            data -> plugin_name, buffer);
   // Obtendo _disable_PLUGINNAME:
   buffer[0] = '\0';
   strcat(buffer, "_disable_plugin_");
   strcat(buffer, data -> plugin_name);
-  data -> _enable_plugin = dlsym(data -> handle, buffer);
+  data -> _disable_plugin = dlsym(data -> handle, buffer);
   if(data -> _disable_plugin == NULL)
-    fprintf(stderr, "ERROR: Plugin %s doesn't define _disable_plugin_%s.\n",
-            data -> plugin_name, data -> plugin_name);
+    fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
+            data -> plugin_name, buffer);
   // As últimas variáveis. O 'defined' deve ser a última. Ela atesta
   // que já temos um plugin com dados válidos. Executamos a função de
   // inicialização do plugin só depois de o marcarmos como definido
@@ -569,6 +577,7 @@ como fizemos na contagem:
 @<Plugins: Inicialização@>+=
 {
   begin = end = W_PLUGIN_PATH;
+  i = 0;
   while(*end != '\0'){
     end ++;
     while(*end != ':' && *end != '\0') end ++;
