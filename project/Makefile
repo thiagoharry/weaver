@@ -18,7 +18,7 @@ make-web: shader_data
 	@if [ -e .error ]; then	rm .error; \
 	else make --no-print-directory -j ${CORES} -f Makefile.web; fi
 clean:
-	rm -f *.o *.bc *~ .weaver/*.o .weaver/*.bc src/weaver/*.data
+	rm -f *.o *.bc *~ .weaver/*.o .weaver/*.bc src/weaver/*.data compiled_plugins/*
 distclean: clean
 	rm -f ${PROG}
 	rm -rf web

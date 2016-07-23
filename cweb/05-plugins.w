@@ -83,7 +83,7 @@ graças ao argumento |W_PLUGIN| recebido como argumento pelas
 funções. Ele na verdade é a estrutura |W|:
 
 @<Cabeçalhos Weaver@>+=
-#define W_PLUGIN struct _weaver_struct *_W
+#define W_PLUGIN struct _weaver_struct  __attribute__((__unused__)) *_W
 @
 
 A mágica para usar as funções e variáveis na forma |W.flush_input()| e
@@ -853,8 +853,8 @@ W.is_plugin_enabled = &_Wis_enabled;
 
 E agora iremos definir funções para gravar um novo valor no
 |plugin_data| de um \italico{plugin}. Qualquer tipo de estrutura de
-dados pode ser armazenada ali, pois ela é um ponteiro do tipo |void
-*|. Armazenar coisas ali é a única forma que um \italico{plugin} tem
+dados pode ser armazenada ali, pois ela é um ponteiro do tipo |void *|.
+Armazenar coisas ali é a única forma que um \italico{plugin} tem
 para se comunicar com o programa principal e também é o modo do
 programa passar informações personalizadas para \italico{plugins}. O
 tipo de informação que será armazenada ali ficará à cargo de quem
