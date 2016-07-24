@@ -39,6 +39,10 @@ executa e as mudanças que ele faria poderiam ser refletidas
 imediatamente no jogo em execução, sem precisar fechá-lo. Essa técnica
 é chamada de \negrito{programação interativa}.
 
+O segredo para isso é compilar \italico{plugins} como bibliotecas
+compartilhadas e carregá-los dinamicamente se o nosso programa for
+compilado para um executável Linux.
+
 Neste ponto, esbarramos em algumas limitações do ambiente
 Web. Programas compilados por meio de Emscripten só podem ter os tais
 ``\italico{plugins}'' definidos durante a compilação. Para eles, o
@@ -82,22 +86,18 @@ uma biblioteca compartilhada invocada dinamicamente, isso é possível
 graças ao argumento |W_PLUGIN| recebido como argumento pelas
 funções. Ele na verdade é a estrutura |W|:
 
-@<Cabeçalhos Weaver@>+=
-#define W_PLUGIN struct _weaver_struct *_W
-@
-
 @<Declaração de Cabeçalhos Finais@>=
 // Mágica para fazer plugins entenderem a estrutura W:
+#define W_PLUGIN struct _weaver_struct *_W
 #ifdef W_PLUGIN_CODE
 #define W (*_W)
 #endif
 @
 
-
-A mágica para usar as funções e variáveis na forma |W.flush_input()| e
-não na deselegante forma |W->flush_input()| será obtida por meio de
-macros adicionais inseridas pelo \monoespaco{Makefile} ao invocar o
-compilador para os \italico{plugins}.
+Com a ajuda da macro acima dentro dos \italico{plugins} poderemos usar
+funções e variáveis na forma |W.flush_input()| e não na deselegante
+forma |W->flush_input()|. O nosso Makefile será responsável por
+definir |W_PLUGIN_CODE| para os \italico{plugins}.
 
 Para saber onde encontrar os \italico{plugins} durante a execução,
 definimos em \monoespaco{conf/conf.h} as seguintes macros:
@@ -225,9 +225,12 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   }
 #endif
   strncpy(data -> library, path, 255);
-  // A biblioteca é carregada agora, suas variáveis estáticas não são
-  // perdidas se ela for cancelada e ligada ao programa de novo:
-  data -> handle = dlopen(data -> library, RTLD_NOW | RTLD_NODELETE);
+  // A biblioteca é carregada agora. Pode ser tentador tentar usar a
+  // flag RTLD_NODELETE para que nossos plugins tornem-se capazes de
+  // suportar variáveis globais estáticas, mas se fizermos isso,
+  // perderemos a capacidade de modificá-los enquanto o programa está
+  // em execução.
+  data -> handle = dlopen(data -> library, RTLD_NOW);
   if (!(data -> handle)){
     fprintf(stderr, "%s\n", dlerror());
     return;
@@ -396,7 +399,7 @@ bool _reload_plugin(struct _plugin_data *data){
     return false;
   }
   // E o abrimos novamente
-  data -> handle = dlopen(data -> library, RTLD_NOW | RTLD_NODELETE);
+  data -> handle = dlopen(data -> library, RTLD_NOW);
   if (!(data -> handle)){
     fprintf(stderr, "%s\n", dlerror());
     return false;
@@ -439,7 +442,7 @@ bool _reload_plugin(struct _plugin_data *data){
   buffer[0] = '\0';
   strcat(buffer, "_disable_plugin_");
   strcat(buffer, data -> plugin_name);
-  data -> _enable_plugin = dlsym(data -> handle, buffer);
+  data -> _disable_plugin = dlsym(data -> handle, buffer);
   if(data -> _disable_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define _disable_plugin_%s.\n",
             data -> plugin_name, data -> plugin_name);
@@ -728,6 +731,7 @@ antes de qualquer \italico{loop} principal:
                         // apenas torceremos para que tudo acabe bem.
             if(_plugins[id].id != attr.st_ino){
               // O plugin foi modificado!
+	      _plugins[id].id = attr.st_ino;
               if(!_reload_plugin(&(_plugins[id]))){
                 _plugins[id].defined = false; // Falhamos em recarregá-lo, vamos
                                               // desistir dele por hora
