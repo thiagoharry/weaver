@@ -381,27 +381,53 @@ alguma \italico{thread} queira usar ele neste exato momento:
 
 @<Declarações de Plugins@>+=
 #if W_TARGET == W_ELF
-bool _reload_plugin(struct _plugin_data *data);
+bool _reload_plugin(int plugin_id);
 #endif
 @
 
 @(project/src/weaver/plugins.c@>+=
 #if W_TARGET == W_ELF
-bool _reload_plugin(struct _plugin_data *data){
+bool _reload_plugin(int plugin_id){
   char buffer[256];
+  struct stat attr;
+  struct _plugin_data *data = &(_plugins[plugin_id]);
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(data -> mutex));
 #endif
-  // Removemos o plugin carregado
+  // Primeiro vamos ver se realmente precisamos fazer algo. O plugin
+  // pode não ter mudado, então nada precisaria ser feito com ele. Ele
+  // já está corretamente carregado:
+  if(stat(_plugins[plugin_id].library, &attr) == -1){
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(data -> mutex));
+#endif
+    return false; // Não conseguimos ler informação sobre o arquivo do plugin. 
+  }               // Vamos apenas torcer para que tudo acabe bem.
+  if(data -> id == attr.st_ino){
+    // Plugiin não-modificado. Ele já está certo!
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(data -> mutex));
+#endif
+    return true;
+  }
+  // O plugin foi modificado!
+  data -> id = attr.st_ino;
+  //  Removemos o plugin carregado
   if(dlclose(data -> handle) != 0){
     fprintf(stderr, "Error unlinking plugin %s: %s\n", data -> plugin_name,
       dlerror());
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(data -> mutex));
+#endif
     return false;
   }
   // E o abrimos novamente
   data -> handle = dlopen(data -> library, RTLD_NOW);
   if (!(data -> handle)){
     fprintf(stderr, "%s\n", dlerror());
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(data -> mutex));
+#endif
     return false;
   }
   dlerror(); // Limpa qualquer mensagem de erro existente
@@ -457,6 +483,18 @@ bool _reload_plugin(struct _plugin_data *data){
 }
 #endif
 @
+
+A função de recarregar \italico{plugins} é suficientemente útil para
+que desejemos exportá-la na estrutura |W|:
+
+@<Funções Weaver@>+=
+bool (*reload_plugin)(int);
+@
+
+@<API Weaver: Inicialização@>+=
+W.reload_plugin = &_reload_plugin;
+@
+
 
 @*1 Listas de Plugins.
 
@@ -682,12 +720,19 @@ W.get_plugin = &_Wget_plugin;
 Mas e para checar se algum \italico{plugin} foi modificado ou se
 existe um novo \italico{plugin} colocado em algum dos diretórios?
 Novamente teremos que usar o código de percorrer os diretórios
-procurando por arquivos. Mas desta vez faremos isso imediatamente
-antes de qualquer \italico{loop} principal:
+procurando por arquivos. Iremos então colocar isso dentro de uma
+função que será executada imediatamente antes de todo \italico{loop}
+principal:
 
-@<Código Imediatamente antes de Loop Principal@>=
+@<Declarações de Plugins@>+=
 #if W_TARGET == W_ELF
-{
+void _reload_all_plugins(void);
+#endif
+@
+
+@(project/src/weaver/plugins.c@>+=
+#if W_TARGET == W_ELF
+void _reload_all_plugins(void){
   if(strcmp(W_PLUGIN_PATH, "")){ // Teste para saber se plugins são suportados
 #ifdef W_MULTITHREAD// Potencialmente modificamos a lista de plugins aqui
     pthread_mutex_lock(&(_plugin_mutex));
@@ -727,18 +772,9 @@ antes de qualquer \italico{loop} principal:
           buffer[i] = '\0'; // Nome do plugin obtido
           id = W.get_plugin(buffer);
           if(id != -1){
-            // Plugin já conhecido. Temos que ver se ele sofreu modificações.
-            struct stat attr;
-            if(stat(_plugins[id].library, &attr) == -1)
-              continue; // Não conseguimos obter dados do arquivo,
-                        // apenas torceremos para que tudo acabe bem.
-            if(_plugins[id].id != attr.st_ino){
-              // O plugin foi modificado!
-	      _plugins[id].id = attr.st_ino;
-              if(!_reload_plugin(&(_plugins[id]))){
-                _plugins[id].defined = false; // Falhamos em recarregá-lo, vamos
-                                              // desistir dele por hora
-              }
+            if(!W.reload_plugin(id)){
+              _plugins[id].defined = false; // Falhamos em recarregá-lo, vamos
+                                            // desistir dele por hora
             }
           }
           else{
@@ -771,6 +807,30 @@ antes de qualquer \italico{loop} principal:
 #endif
   }
 }
+#endif
+@
+
+A função de recarregar todos os \italico{plugins} é suficientemente
+importante para que um usuário possa querer usar por conta
+própria. Por exemplo, quando se está usando programação interativa é
+interessante ficar recarregando todos os \italico{plugins}
+periodicamente para poder ver as mudanças feitas no código
+rapidamente. Por isso colocaremos a função dentro de |W|:
+
+@<Funções Weaver@>+=
+void (*reload_all_plugins)(void);
+@
+
+@<API Weaver: Inicialização@>+=
+W.reload_all_plugins = &_reload_all_plugins;
+@
+
+E iremos também invocar esta função automaticamente antes de cada loop
+principal:
+
+@<Código Imediatamente antes de Loop Principal@>=
+#if W_TARGET == W_ELF
+  W.reload_all_plugins();
 #endif
 @
 
