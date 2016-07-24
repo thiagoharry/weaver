@@ -493,9 +493,12 @@ int _max_number_of_plugins;
 #endif
 @
 
-E iremos inicializar a estutura desta forma na inicialização:
+E iremos inicializar a estutura desta forma na inicialização. É
+importante que os \italico{plugins} sejam a última coisa a ser
+inicializada no programa para que suas funções |_init_plugin| já sejam
+capazes de usar todas as funções existentes na API:
 
-@<API Weaver: Inicialização@>+=
+@<API Weaver: Últimas Inicializações@>+=
 #if W_TARGET == W_ELF
 {
   int i = 0;

@@ -1632,6 +1632,7 @@ executável, não se compilado para Javascript).
 
 void _awake_the_weaver(void){
   @<API Weaver: Inicialização@>
+  @<API Weaver: Últimas Inicializações@>
 }
 
 void _may_the_weaver_sleep(void){
