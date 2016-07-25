@@ -540,6 +540,7 @@ sem saber o código da tecla no Xlib:
 #define W_D           XK_d
 #define W_W           XK_w
 #define W_ENTER       XK_Return
+#define W_SPACEBAR    XK_space
 #define W_LEFT_CTRL   XK_Control_L
 #define W_RIGHT_CTRL  XK_Control_R
 #define W_F1          XK_F1
@@ -746,6 +747,7 @@ teclado será diferente e correspondente aos valores usados pelo SDL:
 #define W_D           SDLK_d
 #define W_W           SDLK_w
 #define W_ENTER       SDLK_RETURN
+#define W_SPACEBAR    SDLK_SPACE
 #define W_LEFT_CTRL   SDLK_LCTRL
 #define W_RIGHT_CTRL  SDLK_RCTRL
 #define W_F1          SDLK_F1
