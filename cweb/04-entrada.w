@@ -865,6 +865,9 @@ seguinte forma:
 @(/tmp/dummy.c@>=
 // Exemplo. Não faz parte do Weaver.
 void main_loop(void){
+ BEGIN_LOOP_INITIALIZATION:
+  // Código a ser executado só na 1a iteração do loop principal
+ END_LOOP_INITIALIZATION:
   // ...
   Wrest(10);
 }
@@ -875,6 +878,23 @@ int main(int argc, char **argv){
   Wrest();
 }
 @
+
+O truque para que a função possa ter código que execute só na
+inicialização pode ser obtido com as macros:
+
+@<Cabeçalhos Weaver@>+=
+#define BEGIN_LOOP_INITIALIZATION if(!_loop_begin)\
+   goto _END_LOOP_INITIALIZATION; _BEGIN_LOOP_INITIALIZATION
+#define END_LOOP_INITIALIZATION _loop_begin = 0; if(_loop_begin)\
+   goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION
+int _loop_begin;
+@
+
+Existe alguma redundância inofensiva no código só para que evitemos
+mensagens de rótulos definidos sem serem usados e para ao mesmo tempo
+gerarmos um erro de compilação proposital se alguém colocar no código
+um |BEGIN_LOOP_INITIALIZATION| mas esquecer de colocar um
+|END_LOOP_INITIALIZATION|.
 
 A função |Wloop| então executa a função que recebe como argumento em
 um loop infinito. E esta função deve ser definida de modo diferente
@@ -892,6 +912,7 @@ normal, a definição da função é:
 #if W_TARGET == W_ELF
 void Wloop(void (*f)(void)){
   W.flush_input();
+  _loop_begin = 1;
   @<Código Imediatamente antes de Loop Principal@>
   for(;;){
     f();
@@ -916,6 +937,7 @@ registrado, precisamos cancelar ele primeiro.
 void Wloop(void (*f)(void)){
   emscripten_cancel_main_loop();
   W.flush_input();
+  _loop_begin = 0;
   @<Código Imediatamente antes de Loop Principal@>
   // O segundo argumento é o número de frames por segundo (deixamos a
   // cargo do navegador):
