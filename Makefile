@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 INSTALL_BIN_DIR=/usr/bin/
 INSTALL_SHARE_DIR=/usr/share/weaver
 PROJECT_SHARE=${INSTALL_SHARE_DIR}/project

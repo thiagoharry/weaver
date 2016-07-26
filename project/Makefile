@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 PROG=$(shell cat .weaver/name)
 CORES=$(shell grep -c ^processor /proc/cpuinfo)
 

@@ -1,3 +1,4 @@
+SHELL := /bin/bash
 all-doc:
 	@/bin/echo -ne "Creating \033[32mweaver.pdf\033[m.........."
 	magitex-cweb cweb/weaver.w 
