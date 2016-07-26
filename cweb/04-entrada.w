@@ -902,7 +902,8 @@ dependendo de qual é o nosso ambiente de execução. A declaração dela,
 de qualquer forma, será a mesma:
 
 @<Cabeçalhos Weaver@>+=
-  void Wloop(void (*f)(void));
+  // Um Wloop nunca irá retornar
+void Wloop(void (*f)(void)) __attribute__ ((noreturn));
 @
 
 No caso do nosso ambiente de execução ser o de um programa Linux
