@@ -447,7 +447,6 @@ serão desalocadas no fim do programa, que terá a seguinte estrutura:
 @<Cabeçalhos Incluídos no Programa Weaver@>
 @<Macros do Programa Weaver@>
 @<Funções auxiliares Weaver@>
-
 int main(int argc, char **argv){@/
   int return_value = 0; /* Valor de retorno. */
   bool inside_weaver_directory = false, arg_is_path = false,
@@ -458,21 +457,18 @@ int main(int argc, char **argv){@/
     year = 0;
   char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
     *author_name = NULL, *project_name = NULL; /* Strings UTF-8 */
-
   @<Inicialização@>
-
   @<Caso de uso 1: Imprimir ajuda de criação de projeto@>
   @<Caso de uso 2: Imprimir ajuda de gerenciamento@>
   @<Caso de uso 3: Mostrar versão@>
   @<Caso de uso 4: Atualizar projeto Weaver@>
   @<Caso de uso 5: Criar novo módulo@>
   @<Caso de uso 6: Criar novo projeto@>
-
 END_OF_PROGRAM:
   @<Finalização@>
-
   return return_value;
 }
+@
 
 @*2 Macros do Programa Weaver.
 
@@ -631,12 +627,10 @@ char *concatenate(char *string, ...){
   char *new_string, *current_string = string;
   size_t current_size = strlen(string) + 1;
   char *realloc_return;
-  va_start(arguments, string);
-  
+  va_start(arguments, string); 
   new_string = (char *) malloc(current_size);
   if(new_string == NULL) return NULL;
   strcpy(new_string, string); // Copia primeira string
-
   while(current_string[0] != '\0'){ // Pára quando copiamos o "".
     current_string = va_arg(arguments, char *);
     current_size += strlen(current_string);
@@ -973,7 +967,6 @@ O ano atual é trivial de descobrir usando a função |localtime|:
 {
   time_t current_time;
   struct tm *date;
-
   time(&current_time);
   date = localtime(&current_time);
   year = date -> tm_year + 1900;
@@ -1180,7 +1173,7 @@ int copy_files(char *orig, char *dst){
         if(err == -1) return 0;
         if(S_ISDIR(s.st_mode)){@/
       #endif
-          // Se concluirmos estar lidando com subdiretório via 'stat' ou 'DT_DIR':
+        // Se concluirmos estar lidando com subdiretório via 'stat' ou 'DT_DIR':
           char *new_dst;
           new_dst = concatenate(dst, "/", dir -> d_name, "");
           if(new_dst == NULL){
@@ -1355,7 +1348,6 @@ if(! inside_weaver_directory && have_arg){
     int err;
     char *dir_name;
     FILE *fp;
-
     err = mkdir(argument, S_IRWXU | S_IRWXG | S_IROTH);
     if(err == -1) ERROR();
     err = chdir(argument);
@@ -1365,7 +1357,6 @@ if(! inside_weaver_directory && have_arg){
     mkdir("image", 0755); mkdir("sound", 0755);
     mkdir("music", 0755); mkdir("plugins", 0755);
     mkdir("compiled_plugins", 0755);
-
     dir_name = concatenate(shared_dir, "project", "");
     if(dir_name == NULL) ERROR();
     if(copy_files(dir_name, ".") == 0){
@@ -1379,19 +1370,16 @@ if(! inside_weaver_directory && have_arg){
     fp = fopen(".weaver/name", "w");
     fprintf(fp, "%s\n", basename(argv[1]));
     fclose(fp);
-
     fp = fopen("src/game.c", "w");
     if(fp == NULL) ERROR();
     write_copyright(fp, author_name, argument, year);
     if(append_basefile(fp, shared_dir, "basefile.c") == 0) ERROR();
     fclose(fp);
-
     fp = fopen("src/game.h", "w");
     if(fp == NULL) ERROR();
     write_copyright(fp, author_name, argument, year);
     if(append_basefile(fp, shared_dir, "basefile.h") == 0) ERROR();
     fclose(fp);
-
     fp = fopen("src/includes.h", "w");
     write_copyright(fp, author_name, argument, year);
     fclose(fp);
@@ -1421,9 +1409,7 @@ int append_basefile(FILE *fp, char *dir, char *file){
   char *path = concatenate(dir, file, "");
   if(path == NULL) return 0;
   FILE *origin;
-
-  @<Descobre tamanho do bloco do sistema de arquivos@>@/
-
+  @<Descobre tamanho do bloco do sistema de arquivos@>
   buffer = (char *) malloc(block_size);
   if(buffer == NULL){
     free(path);
@@ -1438,11 +1424,9 @@ int append_basefile(FILE *fp, char *dir, char *file){
   while((bytes_read = fread(buffer, 1, block_size, origin)) > 0){
     fwrite(buffer, 1, bytes_read, fp);
   }
-
   fclose(origin);
   free(buffer);
   free(path);
-
   return 1;
 }
 @
@@ -1532,7 +1516,6 @@ de arquivos da API Weaver é:
 @<Inclui Cabeçalho de Configuração@>=
 #include "conf_begin.h"
 #include "../../conf/conf.h"
-
 @
 
 Note que haverão também cabeçalhos \monoespaco{conf\_begin.h} que cuidarão
@@ -1543,6 +1526,7 @@ começar, criaremos o \monoespaco{conf\_begin.h} para inicializar as macros
 @(project/src/weaver/conf_begin.h@>=
 #define W_ELF 0
 #define W_WEB 1
+@
 
 @*1 Funções básicas Weaver.
 
@@ -1558,10 +1542,8 @@ automaticamente todos os cabeçalhos Weaver necessários:
   extern "C" {
 #endif
 @<Inclui Cabeçalho de Configuração@>
-
 #include <stdlib.h>
 #include <stdbool.h>
-
 @<Cabeçalhos Weaver@>
 // Todas as variáveis e funções globais ficarão no struct abaixo:
 @<Estrutura Global@>
@@ -1571,7 +1553,6 @@ automaticamente todos os cabeçalhos Weaver necessários:
   }
 #endif
 #endif
-
 @
 
 Neste cabeçalho, iremos também declarar três funções. 
@@ -1599,7 +1580,6 @@ seguras para threads, menos estas três.
 void _awake_the_weaver(void);
 void _may_the_weaver_sleep();
 void _weaver_rest(unsigned long time);
-
 #define Winit() _awake_the_weaver()
 #define Wexit() _may_the_weaver_sleep()
 #define Wrest(a) _weaver_rest(a)
@@ -1627,19 +1607,15 @@ executável, não se compilado para Javascript).
 
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
-
 @<API Weaver: Definições@>
-
 void _awake_the_weaver(void){
   @<API Weaver: Inicialização@>
   @<API Weaver: Últimas Inicializações@>
 }
-
 void _may_the_weaver_sleep(void){
   @<API Weaver: Finalização@>
   exit(0);
 }
-
 void _weaver_rest(unsigned long time){
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #if W_TARGET == W_ELF
