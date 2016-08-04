@@ -1802,6 +1802,135 @@ usado internamente pela nossa engine e estará à disposição daqueles
 que querem pagar o preço por ter um desempenho maior, especialmente em
 certos casos específicos.
 
+@*1 O Coletor de Lixo.
+
+O benefício de termos criado o nosso próprio gerenciador de memórias é
+que podemos implementar um coletor de lixo para que o usuário não
+precise usar manualmente as funções |Wfree| e |Wtrash|.
+
+Usaremos um gerenciamento de memória baseada em regiões. Como
+exemplificamos no começo deste capítulo, um jogo pode ser separado em
+vários momentos. O vídeo de abertura, a tela inicial, bem como
+diferentes regiões e momentos de jogo. Cada fase de um jogo de
+plataforma seria também um momento. Bem como cada batalha e parte do
+mapa em um RPG por turnos.
+
+Em cada um destes momentos o jogo está em um loop principal. Alguns
+momentos substituem os momentos anteriores. Como quando você sai da
+tela de abertura para o jogo principal. Ou quando sai de uma fase para
+a outra. Quando isso ocorre, podemos descartar toda a memória alocada
+no momento anterior. Outros momentos apenas interrompem
+temporariamente o momento que havia antes. Como as batalhas de um jogo
+de RPG por turnos clássico. Quando a batalha começa não podemos jogar
+fora a memória alocada no momento anterior, pois após a batalha
+precisamos manter na memória todo o estado que havia antes. Por outro
+lado, a memória alocada para a batalha pode ser jogada fora assim que
+ela termina.
+
+A Engine Weaver implementa isso por meio de funções |Wloop| e
+|Wsubloop|. Ambas as funções recebem como argumento uma função que não
+recebe argumentos e não retorna nada. Uma função deste tipo é uma
+função de loop principal e tem a seguinte forma:
+
+@(/tmp/dummy.c@>=
+// Exemplo. Não faz parte do Weaver.
+MAIN_LOOP main_loop(void){
+ BEGIN_LOOP_INITIALIZATION:
+  // Código a ser executado só na 1a iteração do loop principal
+ END_LOOP_INITIALIZATION:
+  // Código a ser executado em toda iteração do loop principal
+  // (...)
+  Wrest(10); // Gasta 10 milissegundos ocioso e executa operações
+             // internas em cada iteração. 
+}
+@
+
+O tipo |MAIN_LOOP| na verdade será um |bool| que sempre nos dirá se o
+loop deve continuar ou não se o nosso programa for executável
+Linux. Os dois rótulos acima separam o código que irá executar só na
+inicialização do código que executa e cada iteração. O segredo de seu
+funcionamento são na verdade as seguintes macros:
+
+@<Cabeçalhos Weaver@>+=
+#if W_TARGET == W_ELF
+typedef MAIN_LOOP bool;
+#else
+typedef MAIN_LOOP void;
+#endif
+#define BEGIN_LOOP_INITIALIZATION if(!_loop_begin)\
+   goto _END_LOOP_INITIALIZATION; _BEGIN_LOOP_INITIALIZATION
+#define END_LOOP_INITIALIZATION _loop_begin = 0; if(_loop_begin)\
+   goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION
+bool _loop_begin;
+@
+
+O código acima tem uma redundância inofensiva. A condicional em
+|END_LOOP_INITIALIZATION| nunca é verdadeira e portanto o desvio após
+ela nunca ocorre. Mas ela está lá apenas para evitarmos mensagens de
+aviso de compilação envolvendo rótulo não usado e para garantir que
+ocorra um erro de compilação caso um dos rótulos seja usado sem o
+outro em uma função de loop principal.
+
+As funções |Wloop| e |Wsubloop| tem a seguinte declaração:
+
+@<Cabeçalhos Weaver@>+=
+void Wloop(MAIN_LOOP (*f)(void));
+void Wsubloop(MAIN_LOOP (*f)(void));
+@
+
+Um jogo sempre começa com um |Wloop|. O primeiro loop é um caso
+especial. Não podemos descartar a memória prévia, ou acabaremos nos
+livrando de alocações globais. Então vamos usar uma pequena variável
+para sabermos se já iniciamos o primeiro loop ou não:
+
+@<Cabeçalhos Weaver@>+=
+bool _first_loop;
+@
+
+E a inicializaremos como verdadeira. Mas o primeiro loop irá ajustar o
+valor como falso. Para que vários loops possam ser executados
+sequencialmente, o loop que mudar o valor para falso deve deixá-lo
+verdadeiro depois que executar.
+
+@<API Weaver: Inicialização@>+=
+_first_loop = true;
+@
+
+Eis que o código de |Wloop| é:
+
+@<API Weaver: Definições@>+=
+#if W_TARGET == W_ELF
+void Wloop(void (*f)(void)){
+  MAIN_LOOP ret_value = true;
+  bool first_loop = _first_loop;
+  if(_first_loop)
+    _first_loop = false;
+  else
+    Wtrash();
+  Wbreakpoint();
+  _loop_begin = 1;
+  @<Código Imediatamente antes de Loop Principal@>
+  while(ret_value){
+    ret_value = f();
+  }
+  if(first_loop){
+    _first_loop = true;
+    Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
+  }
+}
+#endif
+@
+
+Precisamos também de uma forma de sairmos de um loop principal sem que
+seja invocando outro loop. Para isso podemos usar:
+
+@<Cabeçalhos Weaver@>+=
+#if W_TARGET == W_ELF
+#define Wexit_loop() return false
+#endif
+@
+
+
 @*1 Sumário das Variáveis e Funções de Memória.
 
 \macronome Ao longo deste capítulo, definimos 9 novas funções:

@@ -656,6 +656,12 @@ void (*flush_input)(void);
 W.flush_input = &_Wflush_input;
 @
 
+E esta é uma função importante de ser chamada antes de cada loop
+principal:
+
+@<Código Imediatamente antes de Loop Principal@>=
+W.flush_input();
+@
 
 Quase tudo o que foi definido aqui aplica-se tanto para o Xlib rodando
 em um programa nativo para Linux como em um programa SDL compilado
@@ -828,99 +834,10 @@ os valores prévios armazenados no vetor de teclado. E depois em cada
 iteração precisamos rodar |Wrest| para obtermos os eventos de
 entrada, atualizarmos várias variáveis e poder desenhar na tela.
 
-O problema é que este tipo de coisa depende do ambiente de execução em
-que estamos. Por exemplo, se estamos executando um programa Linux, o
-seguinte loop principal seria válido:
-
-@(/tmp/dummy.c@>=
-// Exemplo. Não faz parte de Weaver.
-while(1){
-  handle_input();
-  handle_objects();
-  Wrest(10);
-}
-@
-
-Além disso poderíamos criar uma condição explícita para sairmos do
-loop e entrarmos em outra logo em seguida. Mas infelizmente se estamos
-executando em um navegador de Internet após termos o código compilado
-para Javascript, isso não é possível. Um loop infinito geraria um loop
-no código Javascript e isso faria com que a função Javascript nunca
-termine. O navegador congelaria dentro do \italico{loop} e se
-ofereceria para matar o script problemático, sem poder fazer coisas
-como desenhar na tela. Talvez o navegador não conseguisse nem mesmo
-detectar teclas pressionadas pelo jogador.
-
-Portanto, não podemos deixar que o loop principal seja um loop neste
-caso. Ele precisa ser uma função que executa de tempos em
-tempos. Infelizmente, a API Emscripten requer que tal função não
-retorne nada e nem receba argumentos. Sendo assim, toda informação
-necessária para o loop principal deve estar em variáveis globais. É
-algo ruim, mas podemos minimizar os danos disso usando a palavra-chave
-|static| para limitar o escopo de nossas variáveis em cada módulo.
-
-O que queremos então é que um programa Weaver possa ter então a
-seguinte forma:
-
-@(/tmp/dummy.c@>=
-// Exemplo. Não faz parte do Weaver.
-void main_loop(void){
- BEGIN_LOOP_INITIALIZATION:
-  // Código a ser executado só na 1a iteração do loop principal
- END_LOOP_INITIALIZATION:
-  // ...
-  Wrest(10);
-}
-int main(int argc, char **argv){
-  Winit();
-  // Executa |main_loop| como o loop principal
-  Wloop(main_loop);
-  Wrest();
-}
-@
-
-O truque para que a função possa ter código que execute só na
-inicialização pode ser obtido com as macros:
-
-@<Cabeçalhos Weaver@>+=
-#define BEGIN_LOOP_INITIALIZATION if(!_loop_begin)\
-   goto _END_LOOP_INITIALIZATION; _BEGIN_LOOP_INITIALIZATION
-#define END_LOOP_INITIALIZATION _loop_begin = 0; if(_loop_begin)\
-   goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION
-int _loop_begin;
-@
-
-Existe alguma redundância inofensiva no código só para que evitemos
-mensagens de rótulos definidos sem serem usados e para ao mesmo tempo
-gerarmos um erro de compilação proposital se alguém colocar no código
-um |BEGIN_LOOP_INITIALIZATION| mas esquecer de colocar um
-|END_LOOP_INITIALIZATION|.
-
-A função |Wloop| então executa a função que recebe como argumento em
-um loop infinito. E esta função deve ser definida de modo diferente
-dependendo de qual é o nosso ambiente de execução. A declaração dela,
-de qualquer forma, será a mesma:
-
-@<Cabeçalhos Weaver@>+=
-  // Um Wloop nunca irá retornar
-void Wloop(void (*f)(void)) __attribute__ ((noreturn));
-@
 
 No caso do nosso ambiente de execução ser o de um programa Linux
 normal, a definição da função é:
 
-@<API Weaver: Definições@>+=
-#if W_TARGET == W_ELF
-void Wloop(void (*f)(void)){
-  W.flush_input();
-  _loop_begin = 1;
-  @<Código Imediatamente antes de Loop Principal@>
-  for(;;){
-    f();
-  }
-}
-#endif
-@
 
 Já se estamos no ambiente de execução de um navegador de Internet,
 temos preocupações adicionais. Precisamos registrar uma função como um
