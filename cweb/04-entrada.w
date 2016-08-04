@@ -1324,6 +1324,7 @@ isso do SDL para Emscripten:
 #if W_TARGET == W_WEB
 void _Whide_cursor(void){
   SDL_ShowCursor(0);
+  emscripten_hide_mouse();
 }
 #endif
 @
