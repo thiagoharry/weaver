@@ -1930,6 +1930,59 @@ seja invocando outro loop. Para isso podemos usar:
 #endif
 @
 
+Tudo isso vale quando compilamos o nosso projeto para um executável
+Linux. Quando compilamos para a Web com Emscripten é um pouco
+diferente. Precisamos que a função de loop principal sempre retorne
+|void| e não um valor booleano para que possamos passá-la para
+|emscripten_set_main_loop|. Por isso não podemos controlar a sua
+execução por meio do valor de retorno. Precisaremos no método menos
+recomendado de usarmos uma variável global para isso:
+
+@<Cabeçalhos Weaver@>+=
+#if W_TARGET == W_WEB
+bool _running_loop;
+#endif
+@
+
+@<API Weaver: Inicialização@>+=
+#if W_TARGET == W_WEB
+_running_loop = false;
+#endif
+@
+
+E usamos esta variável global da seguinte formano |Wloop|:
+
+@<API Weaver: Definições@>+=
+#if W_TARGET == W_WEB
+void Wloop(void (*f)(void)){
+  bool first_loop = _first_loop;
+  if(_first_loop)
+    _first_loop = false;
+  else{
+    emscripten_cancel_main_loop();
+    Wtrash();
+  }
+  Wbreakpoint();
+  _loop_begin = 1;
+  _running_loop = true;
+  @<Código Imediatamente antes de Loop Principal@>
+  // O segundo argumento é o número de frames por segundo (deixamos a
+  // cargo do navegador):
+  emscripten_set_main_loop(f, 0, 1);
+  while(_running_loop){
+    emscripten_sleep(100); // Dorme por 100 milissegundos
+  }
+  if(first_loop){
+    _first_loop = true;
+    Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
+  }
+  else{
+    _running_loop = true; // Ainda há outro loop que deve continuar executando
+  }
+}
+#endif
+@
+
 
 @*1 Sumário das Variáveis e Funções de Memória.
 

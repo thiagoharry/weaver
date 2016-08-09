@@ -850,21 +850,6 @@ registrado, precisamos cancelar ele primeiro.
 #endif
 @
 
-@<API Weaver: Definições@>+=
-#if W_TARGET == W_WEB
-void Wloop(void (*f)(void)){
-  emscripten_cancel_main_loop();
-  W.flush_input();
-  _loop_begin = 0;
-  @<Código Imediatamente antes de Loop Principal@>
-  // O segundo argumento é o número de frames por segundo (deixamos a
-  // cargo do navegador):
-  emscripten_set_main_loop(f, 0, 1);
-  // Nunca chegamos nesta parte. Inútil colocar qualquer coisa após
-  // 'emscripten_set_main_loop'.
-}
-#endif
-@
 
 A função |Wloop| é uma das poucas que não serão colocadas dentro da
 estrutura |W|. Não é do nosso interesse que ela seja invocada
