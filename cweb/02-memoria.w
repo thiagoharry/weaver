@@ -1829,8 +1829,8 @@ ela termina.
 
 A Engine Weaver implementa isso por meio de funções |Wloop| e
 |Wsubloop|. Ambas as funções recebem como argumento uma função que não
-recebe argumentos e não retorna nada. Uma função deste tipo é uma
-função de loop principal e tem a seguinte forma:
+recebe argumentos do tipo |MAIN_LOOP|. Uma função deste tipo tem
+sempre a seguinte forma:
 
 @(/tmp/dummy.c@>=
 // Exemplo. Não faz parte do Weaver.
@@ -1845,18 +1845,16 @@ MAIN_LOOP main_loop(void){
 }
 @
 
-O tipo |MAIN_LOOP| na verdade será um |bool| que sempre nos dirá se o
-loop deve continuar ou não se o nosso programa for executável
-Linux. Os dois rótulos acima separam o código que irá executar só na
-inicialização do código que executa e cada iteração. O segredo de seu
-funcionamento são na verdade as seguintes macros:
+O tipo |MAIN_LOOP| serve para explicitar que uma determinada função é
+um loop principal e também nos dá a opção de implementar o valor de
+retorno deste tipo de função de diferentes formas. Provavelmente ele
+será sempre |void|, mas em futuras arquiteturas pode ser útil fazer
+que tal função retorne um valor passando informações adicionais para
+a \italico{engine}. Abaixo segue também como implementar os rótulos
+que delimitam a região de inicialização:
 
 @<Cabeçalhos Weaver@>+=
-#if W_TARGET == W_ELF
-typedef MAIN_LOOP bool;
-#else
 typedef MAIN_LOOP void;
-#endif
 #define BEGIN_LOOP_INITIALIZATION if(!_loop_begin)\
    goto _END_LOOP_INITIALIZATION; _BEGIN_LOOP_INITIALIZATION
 #define END_LOOP_INITIALIZATION _loop_begin = 0; if(_loop_begin)\
@@ -1881,76 +1879,24 @@ void Wsubloop(MAIN_LOOP (*f)(void));
 Um jogo sempre começa com um |Wloop|. O primeiro loop é um caso
 especial. Não podemos descartar a memória prévia, ou acabaremos nos
 livrando de alocações globais. Então vamos usar uma pequena variável
-para sabermos se já iniciamos o primeiro loop ou não:
+para sabermos se já iniciamos o primeiro loop ou não. Além disso,
+usaremos outra ariável global para nos indicar se um loop principal
+está em execução ou não neste momento.
 
 @<Cabeçalhos Weaver@>+=
-bool _first_loop;
+bool _first_loop, _running_loop;
 @
 
-E a inicializaremos como verdadeira. Mas o primeiro loop irá ajustar o
-valor como falso. Para que vários loops possam ser executados
-sequencialmente, o loop que mudar o valor para falso deve deixá-lo
-verdadeiro depois que executar.
+E a inicializaremos as variáveis. O primeiro loop logo deverá mudar
+seus valores de inicialização e cada loop saberá como deve tratar eles
+após a execução baseando-se em como recebeu tais valores:
 
 @<API Weaver: Inicialização@>+=
 _first_loop = true;
-@
-
-Eis que o código de |Wloop| é:
-
-@<API Weaver: Definições@>+=
-#if W_TARGET == W_ELF
-void Wloop(void (*f)(void)){
-  MAIN_LOOP ret_value = true;
-  bool first_loop = _first_loop;
-  if(_first_loop)
-    _first_loop = false;
-  else
-    Wtrash();
-  Wbreakpoint();
-  _loop_begin = 1;
-  @<Código Imediatamente antes de Loop Principal@>
-  while(ret_value){
-    ret_value = f();
-  }
-  if(first_loop){
-    _first_loop = true;
-    Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
-  }
-}
-#endif
-@
-
-Precisamos também de uma forma de sairmos de um loop principal sem que
-seja invocando outro loop. Para isso podemos usar:
-
-@<Cabeçalhos Weaver@>+=
-#if W_TARGET == W_ELF
-#define Wexit_loop() return false
-#endif
-@
-
-Tudo isso vale quando compilamos o nosso projeto para um executável
-Linux. Quando compilamos para a Web com Emscripten é um pouco
-diferente. Precisamos que a função de loop principal sempre retorne
-|void| e não um valor booleano para que possamos passá-la para
-|emscripten_set_main_loop|. Por isso não podemos controlar a sua
-execução por meio do valor de retorno. Precisaremos no método menos
-recomendado de usarmos uma variável global para isso:
-
-@<Cabeçalhos Weaver@>+=
-#if W_TARGET == W_WEB
-bool _running_loop;
-#endif
-@
-
-@<API Weaver: Inicialização@>+=
-#if W_TARGET == W_WEB
 _running_loop = false;
-#endif
 @
 
-E usamos esta variável global da seguinte formano |Wloop|:
+Eis que o código de |Wloop| para Emscripten é:
 
 @<API Weaver: Definições@>+=
 #if W_TARGET == W_WEB
@@ -1968,7 +1914,7 @@ void Wloop(void (*f)(void)){
   @<Código Imediatamente antes de Loop Principal@>
   // O segundo argumento é o número de frames por segundo (deixamos a
   // cargo do navegador):
-  emscripten_set_main_loop(f, 0, 1);
+  emscripten_set_main_loop(f, 0, 0);
   while(_running_loop){
     emscripten_sleep(100); // Dorme por 100 milissegundos
   }
@@ -1976,12 +1922,47 @@ void Wloop(void (*f)(void)){
     _first_loop = true;
     Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
   }
-  else{
-    _running_loop = true; // Ainda há outro loop que deve continuar executando
+}
+#endif
+@
+
+O |Wloop| ao ser compilado para Linux é ligeiramente mais simples:
+
+@<API Weaver: Definições@>+=
+#if W_TARGET == W_ELF
+void Wloop(void (*f)(void)){
+  bool first_loop = _first_loop;
+  if(_first_loop)
+    _first_loop = false;
+  else
+    Wtrash();
+  Wbreakpoint();
+  _loop_begin = 1;
+  _running_loop = true;
+  @<Código Imediatamente antes de Loop Principal@>
+  while(_running_loop)
+    f();
+  if(first_loop){
+    _first_loop = true;
+    Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
   }
 }
 #endif
 @
+
+Note que se chamarmos vários |Wloop| recursivamente, assim que a
+variável global |_running_loop| tornar-se falsa, todos eles se
+encerrarão tão logo tiverem sua condição de loop avaliada
+novamente. Isso é esperado, pois assume-se que um novo |Wloop|
+substitui completamente o anterior, chegando a desalocar tudo o que
+foi desalocado no anteior. O modo que usaremos para tornar a tal
+variável global falsa é:
+
+@<Cabeçalhos Weaver@>+=
+#define Wexit_loop() (_running_loop = false)
+@
+
+
 
 
 @*1 Sumário das Variáveis e Funções de Memória.
