@@ -1880,11 +1880,15 @@ Um jogo sempre começa com um |Wloop|. O primeiro loop é um caso
 especial. Não podemos descartar a memória prévia, ou acabaremos nos
 livrando de alocações globais. Então vamos usar uma pequena variável
 para sabermos se já iniciamos o primeiro loop ou não. Além disso,
-usaremos outra ariável global para nos indicar se um loop principal
-está em execução ou não neste momento.
+usaremos outra variável global para nos indicar se um loop principal
+está em execução ou não neste momento. Por fim, sempre armazenaremos
+qual o último loop principal invocado. Desta forma, todo novo loop
+principal saberá qual o loop que o invocou. O valor será |NULL| se o
+loop não foi invocado de dentro de outro loop.
 
 @<Cabeçalhos Weaver@>+=
 bool _first_loop, _running_loop;
+MAIN_LOOP (*_last_loop)(void);
 @
 
 E a inicializaremos as variáveis. O primeiro loop logo deverá mudar
@@ -1894,6 +1898,7 @@ após a execução baseando-se em como recebeu tais valores:
 @<API Weaver: Inicialização@>+=
 _first_loop = true;
 _running_loop = false;
+_last_loop = NULL;
 @
 
 Eis que o código de |Wloop| para Emscripten é:
@@ -1902,9 +1907,11 @@ Eis que o código de |Wloop| para Emscripten é:
 #if W_TARGET == W_WEB
 void Wloop(void (*f)(void)){
   bool first_loop = _first_loop;
+  MAIN_LOOP (*parent_loop)(void);
   if(_first_loop)
     _first_loop = false;
   else{
+    parent_loop = _last_loop;
     emscripten_cancel_main_loop();
     Wtrash();
   }
@@ -1912,6 +1919,7 @@ void Wloop(void (*f)(void)){
   _loop_begin = 1;
   _running_loop = true;
   @<Código Imediatamente antes de Loop Principal@>
+  _last_loop = f;
   // O segundo argumento é o número de frames por segundo (deixamos a
   // cargo do navegador):
   emscripten_set_main_loop(f, 0, 0);
@@ -1921,6 +1929,7 @@ void Wloop(void (*f)(void)){
   if(first_loop){
     _first_loop = true;
     Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
+    _parent_loop = NULL;
   }
 }
 #endif
@@ -1961,6 +1970,41 @@ variável global falsa é:
 @<Cabeçalhos Weaver@>+=
 #define Wexit_loop() (_running_loop = false)
 @
+
+Agora vamos implementar a variação: |Wsubloop|. Ele funciona de forma
+semelhante invocando um novo loop principal. Mas esta função não irá
+descartar o loop que a invocou, e assim que ela se encerrar (o que
+pode acontecer também depois que um |Wloop| foi chamado dentro dela e
+se encerrar), o loop anterior será restaurado. Desta forma, pode-se
+voltar ao mapa anterior após uma batalha que o interrompeu em um jogo
+de RPG clássico ou pode-se voltar rapidamente ao jogo após uma tela de
+inventário ser fechada sem a necessidade de ter-se que carregar tudo
+novamente.
+
+@<API Weaver: Definições@>+=
+#if W_TARGET == W_WEB
+void Wloop(void (*f)(void)){
+    emscripten_cancel_main_loop();
+    Wtrash();
+  }
+  Wbreakpoint();
+  _loop_begin = 1;
+  _running_loop = true;
+  @<Código Imediatamente antes de Loop Principal@>
+  // O segundo argumento é o número de frames por segundo (deixamos a
+  // cargo do navegador):
+  emscripten_set_main_loop(f, 0, 0);
+  while(_running_loop){
+    emscripten_sleep(100); // Dorme por 100 milissegundos
+  }
+  if(first_loop){
+    _first_loop = true;
+    Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
+  }
+}
+#endif
+@
+
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
