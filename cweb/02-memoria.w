@@ -1854,7 +1854,7 @@ a \italico{engine}. Abaixo segue também como implementar os rótulos
 que delimitam a região de inicialização:
 
 @<Cabeçalhos Weaver@>+=
-typedef MAIN_LOOP void;
+typedef void MAIN_LOOP;
 #define BEGIN_LOOP_INITIALIZATION if(!_loop_begin)\
    goto _END_LOOP_INITIALIZATION; _BEGIN_LOOP_INITIALIZATION
 #define END_LOOP_INITIALIZATION _loop_begin = 0; if(_loop_begin)\
@@ -1862,12 +1862,12 @@ typedef MAIN_LOOP void;
 bool _loop_begin;
 @
 
-O código acima tem uma redundância inofensiva. A condicional em
-|END_LOOP_INITIALIZATION| nunca é verdadeira e portanto o desvio após
-ela nunca ocorre. Mas ela está lá apenas para evitarmos mensagens de
-aviso de compilação envolvendo rótulo não usado e para garantir que
-ocorra um erro de compilação caso um dos rótulos seja usado sem o
-outro em uma função de loop principal.
+O código acima tem uma redundância inofensiva. A condicional na
+segunda macro nunca é verdadeira e portanto o desvio após ela nunca
+ocorre. Mas ela está lá apenas para evitarmos mensagens de aviso de
+compilação envolvendo rótulo não usado e para garantir que ocorra um
+erro de compilação caso um dos rótulos seja usado sem o outro em uma
+função de loop principal.
 
 As funções |Wloop| e |Wsubloop| tem a seguinte declaração:
 
@@ -1961,9 +1961,6 @@ variável global falsa é:
 @<Cabeçalhos Weaver@>+=
 #define Wexit_loop() (_running_loop = false)
 @
-
-
-
 
 @*1 Sumário das Variáveis e Funções de Memória.
 

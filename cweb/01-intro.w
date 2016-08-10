@@ -1582,11 +1582,7 @@ void _may_the_weaver_sleep();
 void _weaver_rest(unsigned long time);
 #define Winit() _awake_the_weaver()
 #define Wexit() _may_the_weaver_sleep()
-#if W_TARGET == W_ELF
-#define Wrest(a) _weaver_rest(a); return true
-#else
 #define Wrest(a) _weaver_rest(a)
-#endif
 @
 
 Definiremos melhor a responsabilidade destas funções ao longo dos
@@ -1597,13 +1593,7 @@ seu código.
 A função |_weaver_rest| é a função a ser executada em cada frame do
 jogo.  Ela executa de forma diferente se o programa está sendo
 compilado para um executável Linux ou para uma página de Internet via
-Emscripten. Além disso, quando a usamos na forma |Wrest| em
-executáveis Linux, ela também faz a função atual retornar
-verdadeiro. Isso ocorre porque ela só deve ser chamada dentro de uma
-função de loop principal que sempre retorna um valor que indica se ela
-deve continuar sendo executada ou não. Se o programa for compilado
-para a Web, não podemos fazer isso, pois o mecanismo de controle de
-loops principais é diferente conforme será visto no Capítulo 2.
+Emscripten. 
 
 Para dar uma pequena amostra do que ela faz, segue um código para ela
 em que a função limpa os buffers OpenGL (|glClear|), executa todo o
