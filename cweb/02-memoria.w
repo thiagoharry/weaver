@@ -1907,11 +1907,9 @@ Eis que o código de |Wloop| para Emscripten é:
 #if W_TARGET == W_WEB
 void Wloop(void (*f)(void)){
   bool first_loop = _first_loop;
-  MAIN_LOOP (*parent_loop)(void);
   if(_first_loop)
     _first_loop = false;
   else{
-    parent_loop = _last_loop;
     emscripten_cancel_main_loop();
     Wtrash();
   }
@@ -1922,14 +1920,14 @@ void Wloop(void (*f)(void)){
   _last_loop = f;
   // O segundo argumento é o número de frames por segundo (deixamos a
   // cargo do navegador):
-  emscripten_set_main_loop(f, 0, 0);
+  emscripten_set_main_loop(f, 0, 1);
   while(_running_loop){
-    emscripten_sleep(100); // Dorme por 100 milissegundos
+    sleep(1); 
   }
   if(first_loop){
     _first_loop = true;
     Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
-    _parent_loop = NULL;
+    _last_loop = NULL;
   }
 }
 #endif
@@ -1949,11 +1947,13 @@ void Wloop(void (*f)(void)){
   _loop_begin = 1;
   _running_loop = true;
   @<Código Imediatamente antes de Loop Principal@>
+  _last_loop = f;
   while(_running_loop)
     f();
   if(first_loop){
     _first_loop = true;
     Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
+    _last_loop = NULL;
   }
 }
 #endif
@@ -1983,24 +1983,29 @@ novamente.
 
 @<API Weaver: Definições@>+=
 #if W_TARGET == W_WEB
-void Wloop(void (*f)(void)){
-    emscripten_cancel_main_loop();
-    Wtrash();
+void Wsubloop(void (*f)(void)){
+  MAIN_LOOP (*parent_loop)(void);
+  parent_loop = _last_loop;
+#if W_DEBUG_LEVEL >= 1
+  if(parent_loop == NULL){
+    fprintf(stderr, "ERROR: Don't call Wsubloop outside a game loop.\n");
+    Wexit();
   }
+#endif
+  emscripten_cancel_main_loop();
+  Wtrash();
   Wbreakpoint();
   _loop_begin = 1;
   _running_loop = true;
   @<Código Imediatamente antes de Loop Principal@>
+  _last_loop = f;
   // O segundo argumento é o número de frames por segundo (deixamos a
   // cargo do navegador):
   emscripten_set_main_loop(f, 0, 0);
   while(_running_loop){
-    emscripten_sleep(100); // Dorme por 100 milissegundos
+    sleep(1); // Dorme por 100 milissegundos
   }
-  if(first_loop){
-    _first_loop = true;
-    Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
-  }
+  Wtrash();
 }
 #endif
 @

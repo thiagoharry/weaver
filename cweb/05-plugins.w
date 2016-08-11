@@ -492,7 +492,9 @@ bool (*reload_plugin)(int);
 @
 
 @<API Weaver: Inicialização@>+=
+#if W_TARGET == W_ELF
 W.reload_plugin = &_reload_plugin;
+#endif
 @
 
 
@@ -713,7 +715,9 @@ int (*get_plugin)(char *);
 @
 
 @<API Weaver: Inicialização@>+=
+#if W_TARGET == W_ELF
 W.get_plugin = &_Wget_plugin;
+#endif
 @
 
 
@@ -822,7 +826,9 @@ void (*reload_all_plugins)(void);
 @
 
 @<API Weaver: Inicialização@>+=
+#if W_TARGET == W_ELF
 W.reload_all_plugins = &_reload_all_plugins;
+#endif
 @
 
 E iremos também invocar esta função automaticamente antes de cada loop
@@ -864,6 +870,7 @@ bool _Wis_enabled(int plugin_id);
 @
 
 @(project/src/weaver/plugins.c@>+=
+#if W_TARGET == W_ELF
 bool _Wenable_plugin(int plugin_id){
   if(plugin_id >= _max_number_of_plugins ||
      !(_plugins[plugin_id].defined))
@@ -908,6 +915,7 @@ bool _Wis_enabled(int plugin_id){
     return false;
   return _plugins[plugin_id].enabled;
 }
+#endif
 @
 
 Ativar ou desativar um \italico{plugin} é o que define se ele irá
@@ -922,9 +930,11 @@ bool (*is_plugin_enabled)(int);
 @
 
 @<API Weaver: Inicialização@>+=
+#if W_TARGET == W_ELF
 W.enable_plugin = &_Wenable_plugin;
 W.disable_plugin = &_Wdisable_plugin;
 W.is_plugin_enabled = &_Wis_enabled;
+#endif
 @
 
 E agora iremos definir funções para gravar um novo valor no
@@ -944,6 +954,7 @@ bool _Wset_plugin_data(int plugin_id, void *data);
 @
 
 @(project/src/weaver/plugins.c@>+=
+#if W_TARGET == W_ELF
 void *_Wget_plugin_data(int plugin_id){
   if(plugin_id >= _max_number_of_plugins ||
      !(_plugins[plugin_id].defined))
@@ -957,6 +968,7 @@ bool _Wset_plugin_data(int plugin_id, void *data){
   _plugins[plugin_id].plugin_data = data;
   return true;
 }
+#endif
 @
 
 E como de praxe, armazenamos as novas funções em |W|:
@@ -967,7 +979,9 @@ bool (*set_plugin_data)(int, void*);
 @
 
 @<API Weaver: Inicialização@>+=
+#if W_TARGET == W_ELF
 W.get_plugin_data = &_Wget_plugin_data;
 W.set_plugin_data = &_Wset_plugin_data;
+#endif
 @
 

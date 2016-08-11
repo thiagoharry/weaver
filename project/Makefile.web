@@ -4,7 +4,7 @@ PROG=$(shell cat .weaver/name)
 BC=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).bc; done)
 W_BC=$(shell for i in src/weaver/*.c; do echo .weaver/$$(basename $${i%%.c}).bc; done)
 HEADERS=$(shell echo src/*.h)
-FLAGS=-Wall -O2
+FLAGS=-Wall -O2 -s EMTERPRETIFY -s EMTERPRETIFY_ASYNC=1
 LIB=-lm -pthread
 DEFINES=-DW_PROG=\"${PROG}\"
 
