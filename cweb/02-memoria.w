@@ -1916,67 +1916,34 @@ _running_loop = false;
 _number_of_loops = 0;
 @
 
-Eis que o código de |Wloop| para Emscripten é:
+Eis que o código de |Wloop| é:
 
 @<API Weaver: Definições@>+=
-#if W_TARGET == W_WEB
 void Wloop(void (*f)(void)){
-  bool first_loop = _first_loop;
   if(_first_loop)
     _first_loop = false;
   else{
+#if W_TARGET == W_WEB
     emscripten_cancel_main_loop();
+#endif
     Wtrash();
+    printf("Segundo loop.\n");
   }
   Wbreakpoint();
   _loop_begin = 1;
   _running_loop = true;
   @<Código Imediatamente antes de Loop Principal@>
   _loop_stack[_number_of_loops] = f;
-  // O segundo argumento é o número de frames por segundo (deixamos a
-  // cargo do navegador):
+#if W_TARGET == W_WEB
   emscripten_set_main_loop(f, 0, 1);
-}
-#endif
-@
-
-O |Wloop| ao ser compilado para Linux é ligeiramente mais simples:
-
-@<API Weaver: Definições@>+=
-#if W_TARGET == W_ELF
-void Wloop(void (*f)(void)){
-  bool first_loop = _first_loop;
-  if(_first_loop)
-    _first_loop = false;
-  else
-    Wtrash();
-  Wbreakpoint();
-  _loop_begin = 1;
-  _running_loop = true;
-  @<Código Imediatamente antes de Loop Principal@>
-  _last_loop = f;
-  while(_running_loop)
+#else
+  while(1)
     f();
-  if(first_loop){
-    _first_loop = true;
-    Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
-    _last_loop = NULL;
-  }
-}
 #endif
+}
 @
 
-Note que se chamarmos vários |Wloop| recursivamente, assim que a
-variável global |_running_loop| tornar-se falsa, todos eles se
-encerrarão tão logo tiverem sua condição de loop avaliada
-novamente. Isso é esperado, pois assume-se que um novo |Wloop|
-substitui completamente o anterior, chegando a desalocar tudo o que
-foi desalocado no anteior. O modo que usaremos para tornar a tal
-variável global falsa é:
-
-@<Cabeçalhos Weaver@>+=
-#define Wexit_loop() (_running_loop = false)
-@
+// TODO: Wexit_loop
 
 Agora vamos implementar a variação: |Wsubloop|. Ele funciona de forma
 semelhante invocando um novo loop principal. Mas esta função não irá
@@ -1988,35 +1955,7 @@ de RPG clássico ou pode-se voltar rapidamente ao jogo após uma tela de
 inventário ser fechada sem a necessidade de ter-se que carregar tudo
 novamente.
 
-@<API Weaver: Definições@>+=
-#if W_TARGET == W_WEB
-void Wsubloop(void (*f)(void)){
-  MAIN_LOOP (*parent_loop)(void);
-  parent_loop = _last_loop;
-#if W_DEBUG_LEVEL >= 1
-  if(parent_loop == NULL){
-    fprintf(stderr, "ERROR: Don't call Wsubloop outside a game loop.\n");
-    Wexit();
-  }
-#endif
-  emscripten_cancel_main_loop();
-  Wtrash();
-  Wbreakpoint();
-  _loop_begin = 1;
-  _running_loop = true;
-  @<Código Imediatamente antes de Loop Principal@>
-  _last_loop = f;
-  // O segundo argumento é o número de frames por segundo (deixamos a
-  // cargo do navegador):
-  emscripten_set_main_loop(f, 0, 0);
-  while(_running_loop){
-    sleep(1); // Dorme por 100 milissegundos
-  }
-  Wtrash();
-}
-#endif
-@
-
+// TODO: Wsubloop
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
