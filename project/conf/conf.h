@@ -65,3 +65,6 @@
 // How big are the camera lens (usually an orthogonal projection needs
 // bigger lens):
 #define W_CAMERA_SIZE     0.3
+
+/* Various Limits */
+#define W_LIMIT_SUBLOOP 16 // Max number of subloops

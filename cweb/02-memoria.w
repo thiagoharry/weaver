@@ -180,6 +180,11 @@ que as seguintes macros são definidas em \monoespaco{conf/conf.h}:
   web. Esta macro será consultada na verdade por um dos
   \monoespaco{Makefiles}, não por código que definiremos neste PDF.
 
+\macronome|W_LIMIT_SUBLOOP|: O tamanho máximo da pilha de loops
+principais que o jogo pode ter. No exemplo dado acima do Final
+Fantasy, precisamos de um amanho de pelo menos 3 para conter os
+estados ``Tela Inicial'', ``Jogo'' e ``Combate''.
+
 @*1 Estruturas de Dados Usadas.
 
 Vamos considerar primeiro uma \negrito{arena}. Toda \negrito{arena} terá
@@ -1872,23 +1877,33 @@ função de loop principal.
 As funções |Wloop| e |Wsubloop| tem a seguinte declaração:
 
 @<Cabeçalhos Weaver@>+=
-void Wloop(MAIN_LOOP (*f)(void));
-void Wsubloop(MAIN_LOOP (*f)(void));
+void Wloop(MAIN_LOOP (*f)(void)) __attribute__ ((noreturn));
+void Wsubloop(MAIN_LOOP (*f)(void)) __attribute__ ((noreturn));
 @
+
+Note que estas funções nunca retornam. O modo de sair de um loop é
+passar para o outro por meio de alguma condição dentro dele. Colocar
+loops em sequência um após o outro não funcionará, pois o primeiro não
+retornará e nunca passará para o segundo. Isso ocorre para nos
+mantermos dentro das restrições trazidas pelo Emscripten cujo modelo
+de loop principal não prevê um retorno. Mas a restrição também torna
+mais explícita a sequência de loops pela qual um jogo passa.
 
 Um jogo sempre começa com um |Wloop|. O primeiro loop é um caso
 especial. Não podemos descartar a memória prévia, ou acabaremos nos
 livrando de alocações globais. Então vamos usar uma pequena variável
-para sabermos se já iniciamos o primeiro loop ou não. Além disso,
-usaremos outra variável global para nos indicar se um loop principal
-está em execução ou não neste momento. Por fim, sempre armazenaremos
-qual o último loop principal invocado. Desta forma, todo novo loop
-principal saberá qual o loop que o invocou. O valor será |NULL| se o
-loop não foi invocado de dentro de outro loop.
+para sabermos se já iniciamos o primeiro loop ou não. Outra coisa que
+precisamos é de um vetor que armazene as funções de loop que estamos
+executado. Embora um |Wloop| não retorne, precisamos simular um
+retorno no caso de sairmos explicitamente de um |Wsubloop|. Por isso,
+precisamos de uma pilha com todos os dados de cada loop para o qual
+podemos voltar:
 
 @<Cabeçalhos Weaver@>+=
 bool _first_loop, _running_loop;
-MAIN_LOOP (*_last_loop)(void);
+// A pilha de loops principais:
+int _number_of_loops;
+MAIN_LOOP (*_loop_stack[W_LIMIT_SUBLOOP]) (void);
 @
 
 E a inicializaremos as variáveis. O primeiro loop logo deverá mudar
@@ -1898,7 +1913,7 @@ após a execução baseando-se em como recebeu tais valores:
 @<API Weaver: Inicialização@>+=
 _first_loop = true;
 _running_loop = false;
-_last_loop = NULL;
+_number_of_loops = 0;
 @
 
 Eis que o código de |Wloop| para Emscripten é:
@@ -1917,18 +1932,10 @@ void Wloop(void (*f)(void)){
   _loop_begin = 1;
   _running_loop = true;
   @<Código Imediatamente antes de Loop Principal@>
-  _last_loop = f;
+  _loop_stack[_number_of_loops] = f;
   // O segundo argumento é o número de frames por segundo (deixamos a
   // cargo do navegador):
   emscripten_set_main_loop(f, 0, 1);
-  while(_running_loop){
-    sleep(1); 
-  }
-  if(first_loop){
-    _first_loop = true;
-    Wtrash(); // O último Wloop encerrou sem invocar outro Wloop.
-    _last_loop = NULL;
-  }
 }
 #endif
 @
