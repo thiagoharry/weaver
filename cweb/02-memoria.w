@@ -1900,7 +1900,7 @@ precisamos de uma pilha com todos os dados de cada loop para o qual
 podemos voltar:
 
 @<Cabeçalhos Weaver@>+=
-bool _first_loop, _running_loop;
+bool _first_loop;
 // A pilha de loops principais:
 int _number_of_loops;
 MAIN_LOOP (*_loop_stack[W_LIMIT_SUBLOOP]) (void);
@@ -1912,7 +1912,6 @@ após a execução baseando-se em como recebeu tais valores:
 
 @<API Weaver: Inicialização@>+=
 _first_loop = true;
-_running_loop = false;
 _number_of_loops = 0;
 @
 
@@ -1927,11 +1926,9 @@ void Wloop(void (*f)(void)){
     emscripten_cancel_main_loop();
 #endif
     Wtrash();
-    printf("Segundo loop.\n");
   }
   Wbreakpoint();
   _loop_begin = 1;
-  _running_loop = true;
   @<Código Imediatamente antes de Loop Principal@>
   _loop_stack[_number_of_loops] = f;
 #if W_TARGET == W_WEB
@@ -1943,7 +1940,40 @@ void Wloop(void (*f)(void)){
 }
 @
 
-% TODO: Wexit_loop
+Mas se um Wloop nunca retorna, como sair dele? Para sair do programa
+como um todo, pode-se usar |Wexit|. Mas pode ser que estejamos dentro
+de um subloop e queremos encerrá-lo voltando assim para o loop que o
+gerou. Para isso iremos definir a função |Wexi_loop|. Se nunca criamos
+nenhum subloop, a função é essencialmente idêntica à |Wexit|. Podemos
+definir então o |Wexit_loop| como:
+
+@<Cabeçalhos Weaver@>+=
+void Wexit_loop(void);
+@
+
+@<API Weaver: Definições@>+=
+void Wexit_loop(void){
+#if W_DEBUG_LEVEL >= 1
+  if(_first_loop){
+    fprintf(stderr, "ERROR (1): Using Wexit_loop outside a game loop.\n");
+    Wexit();
+  }
+#endif
+  Wtrash();
+  if(_number_of_loops == 0)
+    Wexit();
+  else{
+    _number_of_loops --;
+#if W_TARGET == W_WEB
+    emscripten_cancel_main_loop();
+    emscripten_set_main_loop(_loop_stack[_number_of_loops], 0, 1);
+#else
+  while(1)
+    _loop_stack[_number_of_loops]();
+#endif
+  }
+}
+@
 
 Agora vamos implementar a variação: |Wsubloop|. Ele funciona de forma
 semelhante invocando um novo loop principal. Mas esta função não irá
