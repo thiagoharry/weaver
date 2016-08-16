@@ -41,7 +41,7 @@ seguinte função:
 
 @<API Weaver: Inicialização@>+=
 {
-  glEnable(GL_PRIMITIVE_RESTART);
+  //glEnable(GL_PRIMITIVE_RESTART); // Emscripten reconhece?
 }
 @
 

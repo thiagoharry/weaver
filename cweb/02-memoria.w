@@ -1943,7 +1943,7 @@ void Wloop(void (*f)(void)){
 }
 @
 
-// TODO: Wexit_loop
+% TODO: Wexit_loop
 
 Agora vamos implementar a variação: |Wsubloop|. Ele funciona de forma
 semelhante invocando um novo loop principal. Mas esta função não irá
@@ -1955,7 +1955,7 @@ de RPG clássico ou pode-se voltar rapidamente ao jogo após uma tela de
 inventário ser fechada sem a necessidade de ter-se que carregar tudo
 novamente.
 
-// TODO: Wsubloop
+% TODO: Wsubloop
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
