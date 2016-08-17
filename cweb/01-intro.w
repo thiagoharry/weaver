@@ -1272,12 +1272,12 @@ void write_copyright(FILE *fp, char *author_name, char *project_name, int year){
   char license[] = "/*\nCopyright (c) %s, %d\n\nThis file is part of %s.\n\n%s\
  is free software: you can redistribute it and/or modify\nit under the terms of\
  the GNU General Public License as published by\nthe Free Software Foundation,\
- either version 3 of the License, or\n(at your option) any later version.\
- \n\n%s is distributed in the hope that it will be useful,\nbut WITHOUT ANY\
+ either version 3 of the License, or\n(at your option) any later version.\n\n\
+%s is distributed in the hope that it will be useful,\nbut WITHOUT ANY\
   WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS\
   FOR A PARTICULAR PURPOSE.  See the\nGNU General Public License for more\
   details.\n\nYou should have received a copy of the GNU General Public License\
- \nalong with %s. If not, see <http://www.gnu.org/licenses/>.*/\n\n";
+\nalong with %s. If not, see <http://www.gnu.org/licenses/>.\n*/\n\n";
   fprintf(fp, license, author_name, year, project_name, project_name,
           project_name, project_name);
 }
