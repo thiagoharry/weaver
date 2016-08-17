@@ -1964,6 +1964,7 @@ void Wexit_loop(void){
     Wexit();
   else{
     _number_of_loops --;
+    @<Código Imediatamente antes de Loop Principal@>
 #if W_TARGET == W_WEB
     emscripten_cancel_main_loop();
     emscripten_set_main_loop(_loop_stack[_number_of_loops], 0, 1);
@@ -1985,7 +1986,31 @@ de RPG clássico ou pode-se voltar rapidamente ao jogo após uma tela de
 inventário ser fechada sem a necessidade de ter-se que carregar tudo
 novamente.
 
-% TODO: Wsubloop
+@<API Weaver: Definições@>+=
+void Wsubloop(void (*f)(void)){
+#if W_TARGET == W_WEB
+    emscripten_cancel_main_loop();
+#endif
+  Wbreakpoint();
+  _loop_begin = 1;
+  @<Código Imediatamente antes de Loop Principal@>
+  _number_of_loops ++;
+#if W_DEBUG_LEVEL >= 1
+  if(_number_of_loops >= W_LIMIT_SUBLOOP){
+    fprintf(stderr, "Error (1): Max number of subloops achieved.\n");
+    fprintf(stderr, "Please, increase W_LIMIT_SUBLOOP in conf/conf.h.\n");
+  }
+#endif
+  _loop_stack[_number_of_loops] = f;
+#if W_TARGET == W_WEB
+  emscripten_set_main_loop(f, 0, 1);
+#else
+  while(1)
+    f();
+#endif
+}
+@
+
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
