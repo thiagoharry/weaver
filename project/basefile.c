@@ -1,19 +1,17 @@
 #include "game.h"
 
 MAIN_LOOP main_loop(void){ // The game loop
- BEGIN_LOOP_INITIALIZATION:
-  // Put here initialization code to be executed just in the first iteration
- END_LOOP_INITIALIZATION:
-  if(W.keyboard[W_ANY])
-    Wexit_loop(); // If the user presses any key, quit (you should change this)
-  // (...) Put the loop logic here
+ LOOP_INIT: // Code executed during loop initialization
 
-  Wrest(14); // Spends 14 milisseconds idle (70fps)
+ LOOP_BODY: // Code executed every loop iteration
+    if(W.keyboard[W_ANY])
+        Wexit_loop();
+ LOOP_END: // Code executed at the end of the loop
+    return;
 }
 
 int main(void){
   Winit(); // Initializes Weaver
   Wloop(main_loop); // Enter a new game loop
-  Wexit(); // Quit the program
   return 0;
 }

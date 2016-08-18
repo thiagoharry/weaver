@@ -1840,13 +1840,12 @@ sempre a seguinte forma:
 @(/tmp/dummy.c@>=
 // Exemplo. Não faz parte do Weaver.
 MAIN_LOOP main_loop(void){
- BEGIN_LOOP_INITIALIZATION:
+ LOOP_INIT:
   // Código a ser executado só na 1a iteração do loop principal
- END_LOOP_INITIALIZATION:
+ LOOP_BODY:
   // Código a ser executado em toda iteração do loop principal
-  // (...)
-  Wrest(10); // Gasta 10 milissegundos ocioso e executa operações
-             // internas em cada iteração. 
+ LOOP_END:
+  // Código a ser executado quando o loop se encerrar
 }
 @
 
@@ -1860,19 +1859,22 @@ que delimitam a região de inicialização:
 
 @<Cabeçalhos Weaver@>+=
 typedef void MAIN_LOOP;
-#define BEGIN_LOOP_INITIALIZATION if(!_loop_begin)\
-   goto _END_LOOP_INITIALIZATION; _BEGIN_LOOP_INITIALIZATION
-#define END_LOOP_INITIALIZATION _loop_begin = 0; if(_loop_begin)\
+#define LOOP_INIT if(!_running_loop) _exit_loop(); if(!_running_loop)\
+   goto _LOOP_FINALIZATION; if(!_loop_begin) goto _END_LOOP_INITIALIZATION;\
+   _BEGIN_LOOP_INITIALIZATION
+#define LOOP_BODY _loop_begin = false; if(_loop_begin)\
    goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION
-bool _loop_begin;
+#define LOOP_END Wrest(14); if(_running_loop) return;\
+  _LOOP_FINALIZATION
+bool _loop_begin, _running_loop;
 @
 
-O código acima tem uma redundância inofensiva. A condicional na
-segunda macro nunca é verdadeira e portanto o desvio após ela nunca
-ocorre. Mas ela está lá apenas para evitarmos mensagens de aviso de
-compilação envolvendo rótulo não usado e para garantir que ocorra um
-erro de compilação caso um dos rótulos seja usado sem o outro em uma
-função de loop principal.
+O código acima tem redundâncias inofensivas. Algumas condicionais
+nunca são verdadeiras e portanto seu desvio nunca ocorrerão. Mas elas
+estão lá apenas para evitarmos mensagens de aviso de compilação
+envolvendo rótulo não usados e para garantir que ocorra um erro de
+compilação caso um dos rótulos seja usado sem o outro em uma função de
+loop principal.
 
 As funções |Wloop| e |Wsubloop| tem a seguinte declaração:
 
@@ -1912,6 +1914,7 @@ após a execução baseando-se em como recebeu tais valores:
 
 @<API Weaver: Inicialização@>+=
 _first_loop = true;
+_running_loop = false;
 _number_of_loops = 0;
 @
 
@@ -1931,8 +1934,10 @@ void Wloop(void (*f)(void)){
   _loop_begin = 1;
   @<Código Imediatamente antes de Loop Principal@>
   _loop_stack[_number_of_loops] = f;
+  _running_loop = true;
 #if W_TARGET == W_WEB
-  emscripten_set_main_loop(f, 0, 1);
+  while(1)
+    emscripten_set_main_loop(f, 0, 1);
 #else
   while(1)
     f();
@@ -1943,16 +1948,16 @@ void Wloop(void (*f)(void)){
 Mas se um Wloop nunca retorna, como sair dele? Para sair do programa
 como um todo, pode-se usar |Wexit|. Mas pode ser que estejamos dentro
 de um subloop e queremos encerrá-lo voltando assim para o loop que o
-gerou. Para isso iremos definir a função |Wexi_loop|. Se nunca criamos
+gerou. Para isso iremos definir a função |_exit_loop|. Se nunca criamos
 nenhum subloop, a função é essencialmente idêntica à |Wexit|. Podemos
-definir então o |Wexit_loop| como:
+definir então o |_exit_loop| como:
 
 @<Cabeçalhos Weaver@>+=
-void Wexit_loop(void);
+void _exit_loop(void) __attribute__ ((noreturn));
 @
 
 @<API Weaver: Definições@>+=
-void Wexit_loop(void){
+void _exit_loop(void){
 #if W_DEBUG_LEVEL >= 1
   if(_first_loop){
     fprintf(stderr, "ERROR (1): Using Wexit_loop outside a game loop.\n");
@@ -1965,15 +1970,28 @@ void Wexit_loop(void){
   else{
     _number_of_loops --;
     @<Código Imediatamente antes de Loop Principal@>
+    _running_loop = true;
 #if W_TARGET == W_WEB
     emscripten_cancel_main_loop();
-    emscripten_set_main_loop(_loop_stack[_number_of_loops], 0, 1);
+    while(1)
+      emscripten_set_main_loop(_loop_stack[_number_of_loops], 0, 1);
 #else
   while(1)
     _loop_stack[_number_of_loops]();
 #endif
   }
 }
+@
+
+Conforme visto no código das macros que tem a forma de rótulos dentro
+de funções de loop principal, a função |_exit_loop| é chamada
+automaticamente na próxima iteração quando a variável |_running_loop|
+torna-se falsa dentro da função. Para que isso possa ocorrer,
+definiremos a seguinte função de macro que é o que o usuário deverá
+chamar dentro de funções assim para encerrar o loop:
+
+@<Cabeçalhos Weaver@>+=
+#define Wexit_loop() (_running_loop = false)
 @
 
 Agora vamos implementar a variação: |Wsubloop|. Ele funciona de forma
@@ -2002,15 +2020,16 @@ void Wsubloop(void (*f)(void)){
   }
 #endif
   _loop_stack[_number_of_loops] = f;
+  _running_loop = true;
 #if W_TARGET == W_WEB
-  emscripten_set_main_loop(f, 0, 1);
+  while(1)
+    emscripten_set_main_loop(f, 0, 1);
 #else
   while(1)
     f();
 #endif
 }
 @
-
 
 @*1 Sumário das Variáveis e Funções de Memória.
 

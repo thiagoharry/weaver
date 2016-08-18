@@ -1578,7 +1578,7 @@ seguras para threads, menos estas três.
 
 @<Cabeçalhos Weaver@>+=
 void _awake_the_weaver(void);
-void _may_the_weaver_sleep();
+void _may_the_weaver_sleep(void) __attribute__ ((noreturn));
 void _weaver_rest(unsigned long time);
 #define Winit() _awake_the_weaver()
 #define Wexit() _may_the_weaver_sleep()
