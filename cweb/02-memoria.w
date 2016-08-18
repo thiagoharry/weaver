@@ -1864,7 +1864,7 @@ typedef void MAIN_LOOP;
    _BEGIN_LOOP_INITIALIZATION
 #define LOOP_BODY _loop_begin = false; if(_loop_begin)\
    goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION
-#define LOOP_END Wrest(14); if(_running_loop) return;\
+#define LOOP_END _weaver_rest(14); if(_running_loop) return;\
   _LOOP_FINALIZATION
 bool _loop_begin, _running_loop;
 @
@@ -1875,6 +1875,13 @@ estão lá apenas para evitarmos mensagens de aviso de compilação
 envolvendo rótulo não usados e para garantir que ocorra um erro de
 compilação caso um dos rótulos seja usado sem o outro em uma função de
 loop principal.
+
+Note que depois do corpo do loop chamamos |_weaver_rest|. Ela é a
+função de manutenção que executará tudo que for necessário para fazer
+renderizações e fazer o jogo rodar em uma velocidade previsível
+independente da máquina. Passamos para ela o número 14, pois isso dá à
+ela a informação de que pode gastar 14 milissegundos fazendo isso (o
+que dá 70 frames por segundo no máximo).
 
 As funções |Wloop| e |Wsubloop| tem a seguinte declaração:
 

@@ -1582,7 +1582,6 @@ void _may_the_weaver_sleep(void) __attribute__ ((noreturn));
 void _weaver_rest(unsigned long time);
 #define Winit() _awake_the_weaver()
 #define Wexit() _may_the_weaver_sleep()
-#define Wrest(a) _weaver_rest(a)
 @
 
 Definiremos melhor a responsabilidade destas funções ao longo dos
@@ -1716,7 +1715,3 @@ API Weaver.
 \macrovalor|void Wexit(void)|: Finaliza a API Weaver. Deve ser chamada
 antes de encerrar o programa.
 
-\macrovalor|void Wrest(unsigned long time)|: Deve ser invocada em cada
-iteração do \italico{loop} principal do programa. O argumento
-especifica quantos milissegundos o programa deve ficar ocioso,
-liberando assim parte da CPU para o Sistema Operacional.
