@@ -1585,14 +1585,8 @@ void _weaver_rest(unsigned long time);
 @
 
 Definiremos melhor a responsabilidade destas funções ao longo dos
-demais capítulos. Mas colocaremos aqui a definição delas no arquivo
-adequado. E no caso da função |_weaver_rest|, colocaremos um pouco de
-seu código.
-
-A função |_weaver_rest| é a função a ser executada em cada frame do
-jogo.  Ela executa de forma diferente se o programa está sendo
-compilado para um executável Linux ou para uma página de Internet via
-Emscripten. 
+demais capítulos. A única função que começaremos a definir melhor aqui
+será |_weaver_rest|. 
 
 Para dar uma pequena amostra do que ela faz, segue um código para ela
 em que a função limpa os buffers OpenGL (|glClear|), executa todo o
@@ -1635,7 +1629,8 @@ void _weaver_rest(unsigned long time){
 Mas isso é só uma amostra inicial e uma inicialização dos
 arquivos. Estas funções todas serão mais ricamente definidas a cada
 capítulo à medida que definimos novas responsabilidades para o nosso
-motor de jogo.
+motor de jogo. A única parte que veremos em mais detalhes ainda neste
+capítulo será o loop principal.
 
 @<API Weaver: Loop Principal@>=
   // A definir...
