@@ -1864,7 +1864,7 @@ typedef void MAIN_LOOP;
    _BEGIN_LOOP_INITIALIZATION
 #define LOOP_BODY _loop_begin = false; if(_loop_begin)\
    goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION
-#define LOOP_END _weaver_rest(14); if(_running_loop) return;\
+#define LOOP_END _weaver_rest(); if(_running_loop) return;\
   _LOOP_FINALIZATION
 bool _loop_begin, _running_loop;
 @

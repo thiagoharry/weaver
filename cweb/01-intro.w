@@ -1566,10 +1566,8 @@ A segunda função deve ser a última coisa invocada no programa. Ela
 encerra a API Weaver.
 
 E a terceira função deve ser chamada no loop principal do programa e
-será responsável pro fazer coisas como desenhar na tela, ficar um
-tempo ociosa para não consumir 100\% da CPU e coisas assim. O seu
-argumento representa quantos milissegundos devemos ficar nela sem
-fazer nada para evitar consumo de todo o tempo de CPU.
+será responsável pro fazer coisas como desenhar na tela, rodar a
+engine de física e obter a entrada do usuário. 
 
 Nenhuma destas funções foi feita para ser chamada por mais de uma
 thread. Todas elas só devem ser usadas pela thread principal. Mesmo
@@ -1579,13 +1577,13 @@ seguras para threads, menos estas três.
 @<Cabeçalhos Weaver@>+=
 void _awake_the_weaver(void);
 void _may_the_weaver_sleep(void) __attribute__ ((noreturn));
-void _weaver_rest(unsigned long time);
+void _weaver_rest(void);
 #define Winit() _awake_the_weaver()
 #define Wexit() _may_the_weaver_sleep()
 @
 
 Definiremos melhor a responsabilidade destas funções ao longo dos
-demais capítulos. A única função que começaremos a definir melhor aqui
+demais capítulos. A única função que começaremos a definir logo mais
 será |_weaver_rest|. 
 
 Para dar uma pequena amostra do que ela faz, segue um código para ela
@@ -1609,12 +1607,16 @@ void _may_the_weaver_sleep(void){
   @<API Weaver: Finalização@>
   exit(0);
 }
-void _weaver_rest(unsigned long time){
+void _weaver_rest(void){
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #if W_TARGET == W_ELF
-  struct timespec req = {0, time * 1000000};
+  struct timespec req = {0, 10 * 1000000};
 #endif
-  @<API Weaver: Loop Principal@>@/
+  /* Abaixo são tarefas a serem feitas em cada iteração do loop principal. */
+  @<API Weaver: Loop Principal@>
+  /* Abaixo é o controle do loop principal, onde rodamos a engine de física
+     e renderizamnos. */
+  @<Estrutura do Loop Principal@>
 #if W_TARGET == W_ELF
   glXSwapBuffers(_dpy, _window);
 #else
@@ -1629,8 +1631,8 @@ void _weaver_rest(unsigned long time){
 Mas isso é só uma amostra inicial e uma inicialização dos
 arquivos. Estas funções todas serão mais ricamente definidas a cada
 capítulo à medida que definimos novas responsabilidades para o nosso
-motor de jogo. A única parte que veremos em mais detalhes ainda neste
-capítulo será o loop principal.
+motor de jogo. Embora a estrutura do loop principal seja vista logo
+mais.
 
 @<API Weaver: Loop Principal@>=
   // A definir...
@@ -1650,12 +1652,12 @@ capítulo será o loop principal.
 
 @*1 A estrutura \monoespaco{W}.
 
-As três funções que definimos acima são atípicas. A maioria das
-variáveis e funções que criaremos ao longo do projeto não serão
-definidas globalmente, mas serão atribuídas à uma estrutura. Na
-prática estamos aplicando técnica de orientação à objetos, criando o
-Objeto ``Weaver API'' e definindo seus próprios atributos e métodos ao
-invés de termos que definir variáveis globais.
+As funções que definimos acima são atípicas. A maioria das variáveis e
+funções que criaremos ao longo do projeto não serão definidas
+globalmente, mas serão atribuídas à uma estrutura. Na prática estamos
+aplicando técnica de orientação à objetos, criando o Objeto ``Weaver
+API'' e definindo seus próprios atributos e métodos ao invés de termos
+que definir variáveis globais.
 
 O objeto terá a forma:
 
@@ -1685,6 +1687,16 @@ de passar a estrutura |W| para \italico{plugins}, que normalmente não
 teriam como acessar coisas que estão como variáveis globais. Mas
 os \italico{plugins} podem definir funções que recebem como argumento
 |W| e assim eles podem ler informações e manipular a API.
+
+Como exemplo de variável útil que pode ser colocada na estrutura,
+temos o tempo $t$. Usaremos como unidade de medida de tempo o
+microsegundo ($10^{-6}$s). Quando nosso programa é inicializado, a
+variável |W.t| será inicializada como zero. Depois, em cada iteração
+de loop principal, será atualizada para o valor que corresponde
+quantos microsegundos se passaram desde o começo do programa. Sendo
+assim, precisamos saber também o tempo do sistema de cada última
+iteração (que deve icar em uma variável interna, que portanto não irá
+para dentro de |W|) e cuidar com \italico{overflows}.
 
 @*1 Sumário das Variáveis e Funções da Introdução.
 
