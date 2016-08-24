@@ -86,7 +86,7 @@ No loop principal em si, o valor que temos como o do tempo atual deve
 ser passado para o tempo anterior, e em seguida deve ser sobrescrito
 por um novo tempo atual:
 
-@<API Weaver: Loop Principal@>+=
+@<Código a executar todo loop@>+=
 {
   _last_time.tv_sec = _current_time.tv_sec;
   _last_time.tv_usec = _current_time.tv_usec;
@@ -125,7 +125,7 @@ E em cada iteração do loop principal, atualizamos os valores. Assim
 subtraímos dois |struct timeval| para obter os valores de
 |elapsed_milisseconds| e |W.fps| em cada \italico{frame}:
 
-@<API Weaver: Loop Principal@>+=
+@<Código a executar todo loop@>+=
 {
   _elapsed_milisseconds = (_current_time.tv_sec - _last_time.tv_sec) * 1000;
   _elapsed_milisseconds += (_current_time.tv_usec - _last_time.tv_usec) / 1000;
@@ -514,7 +514,7 @@ de ser pressionada neste \italico{frame}.
 Por fim, preenchemos a posição |W.keyboard[W_ANY]| depois de tratarmos
 todos os eventos:
 
-@<API Weaver: Loop Principal@>+=
+@<Código a executar todo loop@>+=
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_input_mutex);
 #endif
@@ -1119,7 +1119,7 @@ if(event.type == SDL_MOUSEBUTTONUP){
 E finalmente, o caso especial para verificar se qualquer botão foi
 pressionado:
 
-@<API Weaver: Loop Principal@>+=
+@<Código a executar todo loop@>+=
 W.mouse.buttons[W_ANY] = (_pressed_buttons[0] != 0);
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_input_mutex);

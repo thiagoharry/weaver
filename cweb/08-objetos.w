@@ -500,7 +500,7 @@ assim. O modo de fazer isso é percorrer o vetor de classes e cada um
 de seus objetos e fazer as operações adequadas para cada um deles no
 loop principal:
 
-@<API Weaver: Loop Principal@>+=
+@<Código a executar todo loop@>+=
 {
   int i, j;
   for(i = 0; i < W_MAX_CLASSES; i ++){

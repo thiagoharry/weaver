@@ -844,7 +844,7 @@ E finalmente, durante a execução do \italico{loop} principal iremos
 executar a função de cada \italico{plugin} associada à execução
 contínua:
 
-@<API Weaver: Loop Principal@>+=
+@<Código a executar todo loop@>+=
 #if W_TARGET == W_ELF
 {
   int i;

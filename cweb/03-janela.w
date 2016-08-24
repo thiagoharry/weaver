@@ -599,7 +599,7 @@ eventos se o usuário apertar uma tecla, mover o mouse e assim por
 diante. Por isso, precisamos adicionar código para tratarmos de
 eventos no loop principal:
 
-@<API Weaver: Loop Principal@>=
+@<Código a executar todo loop@>=
 @<API Weaver: Imediatamente antes de tratar eventos@>
 #if W_TARGET == W_ELF
   {
@@ -1142,7 +1142,7 @@ glClearColor(W_DEFAULT_COLOR, 1.0f);
 glEnable(GL_DEPTH_TEST);
 @
 
-@<API Weaver: Loop Principal@>+=
+@<Código a executar todo loop@>+=
 glClear(GL_COLOR_BUFFER_BIT);
 @
 

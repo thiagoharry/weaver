@@ -1613,7 +1613,7 @@ void _weaver_rest(void){
   struct timespec req = {0, 10 * 1000000};
 #endif
   /* Abaixo são tarefas a serem feitas em cada iteração do loop principal. */
-  @<API Weaver: Loop Principal@>
+  @<Código a executar todo loop@>
   /* Abaixo é o controle do loop principal, onde rodamos a engine de física
      e renderizamnos. */
   @<Estrutura do Loop Principal@>
@@ -1633,18 +1633,6 @@ arquivos. Estas funções todas serão mais ricamente definidas a cada
 capítulo à medida que definimos novas responsabilidades para o nosso
 motor de jogo. Embora a estrutura do loop principal seja vista logo
 mais.
-
-@<API Weaver: Loop Principal@>=
-  // A definir...
-@
-
-@<API Weaver: Definições@>=
-  // A definir...
-@
-
-@<API Weaver: Inicialização@>=
-  // A definir...
-@
 
 @<API Weaver: Finalização@>=
   // A definir...
@@ -1688,6 +1676,8 @@ teriam como acessar coisas que estão como variáveis globais. Mas
 os \italico{plugins} podem definir funções que recebem como argumento
 |W| e assim eles podem ler informações e manipular a API.
 
+@*1 O Tempo.
+
 Como exemplo de variável útil que pode ser colocada na estrutura,
 temos o tempo $t$. Usaremos como unidade de medida de tempo o
 microsegundo ($10^{-6}$s). Quando nosso programa é inicializado, a
@@ -1696,7 +1686,71 @@ de loop principal, será atualizada para o valor que corresponde
 quantos microsegundos se passaram desde o começo do programa. Sendo
 assim, precisamos saber também o tempo do sistema de cada última
 iteração (que deve icar em uma variável interna, que portanto não irá
-para dentro de |W|) e cuidar com \italico{overflows}.
+para dentro de |W|) e cuidar com \italico{overflows}. É preciso que
+|W.t| tenha pelo menos 32 bits e seja sem sinal para garantir que ele
+nunca irá sofrer \italico{overflow}, a menos que ocorra o absurdo do
+programa se manter em execução sem ser fechado por mais de dois anos.
+
+O nosso valor de tempo e o tempo de sistema medido ficarão nestas
+variáveis:
+
+@<Variáveis Weaver@>=
+// Isso fica dentro da estrutura W:
+unsigned long t;
+@
+
+@<Cabeçalhos Weaver@>=
+struct timeval _last_time;
+@
+
+Ambas as variáveis são inicializadas assim:
+
+@<API Weaver: Inicialização@>=
+W.t = 0;
+gettimeofday(&_last_time, NULL);
+@
+
+Elas terão seus valores atualizados em vários momentos como veremos
+mais adiante. Mas para nos ajudar, projetaremos agora uma função para
+atualizar o valor de |W.t| e que retorna o número de microsegundos que
+se passaram desde a última vez que atualizamos a variável:
+
+@<Cabeçalhos Weaver@>+=
+unsigned long _update_time(void);
+@
+
+@<API Weaver: Definições@>=
+unsigned long _update_time(void){
+  int nsec;
+  unsigned long result;
+  struct timeval _current_time;
+  gettimeofday(&_current_time, NULL);
+  // Aqui temos algo equivalente ao "vai um" do algoritmo da subtração:
+  if(_current_time.tv_uval < -last_time.tv_uval){
+    nsec = (_last_time.tv_usec - _current_time.tv_usec) / 1000000 + 1;
+    _last_time.tv_usec -= 1000000 * nsec;
+    _last_time.tv_sec += nsec;
+  }
+  if(_current_time.tv_usec - _last_time.tv_usec > 1000000){
+    nsec = (_current_time.tv_usec - _last_time.tv_usec) / 1000000;
+    _last_time.tv_usec += 1000000 * nsec;
+    _last_time.tv_sec -= nsec;
+  }
+  if(_current_time.tv_sec < _last_time.tv_sec){
+    // Overflow
+    result = (_current_time.tv_sec - _last_time.tv_sec) * (-1000000);
+    result += (_current_time.v_usec - _last_time.tv_usec); // Sempre positivo
+  }
+  else{
+    result = (_current_time.tv_sec - _last_time.tv_sec) * 1000000;
+    result += (_current_time.v_usec - _last_time.tv_usec);
+  }
+  _last_time.tv_sec = _current_time.tv_sec;
+  _last_time.tv_usec = _current_time.tv_usec;
+  return result;
+}
+@
+
 
 @*1 Sumário das Variáveis e Funções da Introdução.
 
@@ -1707,11 +1761,14 @@ como variáveis e funções estáticas serão omitidas. O sumário conterá
 uma descrição rápida e poderá ter algum código adicional que possa ser
 necessário para inicializá-lo e defini-lo.
 
-\macronome Este capítulo apresentou 1 nova variável da API Weaver:
+\macronome Este capítulo apresentou 2 novas variáveis da API Weaver:
 
 \macrovalor|W|: Uma estrutura que irá armazenar todas as variáveis
 globais da API Weaver, bem como as suas funções globais. Exceto as
 três outras funções definidas neste capítulo. 
+
+\macrovalor|W.t|: O tempo em microsegundos que se passou desde que o
+programa se inicializou. Valor somente para leitura.
 
 \macronome Este capítulo apresentou 3 novas funções da API Weaver:
 

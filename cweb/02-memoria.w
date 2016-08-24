@@ -1942,6 +1942,7 @@ void Wloop(void (*f)(void)){
   @<Código Imediatamente antes de Loop Principal@>
   _loop_stack[_number_of_loops] = f;
   _running_loop = true;
+  _update_time();
 #if W_TARGET == W_WEB
   while(1)
     emscripten_set_main_loop(f, 0, 1);
@@ -1978,6 +1979,7 @@ void _exit_loop(void){
     _number_of_loops --;
     @<Código Imediatamente antes de Loop Principal@>
     _running_loop = true;
+    _update_time();
 #if W_TARGET == W_WEB
     emscripten_cancel_main_loop();
     while(1)
@@ -2028,6 +2030,7 @@ void Wsubloop(void (*f)(void)){
 #endif
   _loop_stack[_number_of_loops] = f;
   _running_loop = true;
+  _update_time();
 #if W_TARGET == W_WEB
   while(1)
     emscripten_set_main_loop(f, 0, 1);
@@ -2037,6 +2040,7 @@ void Wsubloop(void (*f)(void)){
 #endif
 }
 @
+
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
