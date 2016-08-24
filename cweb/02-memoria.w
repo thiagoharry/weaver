@@ -2041,6 +2041,58 @@ void Wsubloop(void (*f)(void)){
 }
 @
 
+@*1 Estrutura de um Loop Principal.
+
+No loop principal de um jogo, temos que lidar com algumas questões. O
+jogo precisa rodar de forma semelhante, tanto em máquinas rápidas como
+lentas. Do ponto de vista da física não devem haver diferenças, cada
+iteração da engine de física deve ocorrer em intervalos fixos de
+tempo, para que assim o jogo torne-se determinístico e não acumule
+mais erros em máquinas rápidas que rodariam um loop mais rápido. Do
+ponto de vista da renderização, queremos realizá-la o mais rápido
+possível. Provavelmente podemos obter a taxa de atualização de nosso
+monitor e queremos tentar atualizar sempre que podemos.
+
+Para isso precisamos manter separadas a física e a renderização. A
+física e a lógica do jogo devem rodar em intervalos fixos e
+conhecidos, tais como a 25 frames por segundo (pode parecer pouco, mas
+é mais rápido que imagens de um filme de cinema). Para coisas como
+obter a entrada de usuário e rodar simulação física, isso é o
+bastante. Já a renderização pode acontecer o mais rápido que podemos
+para que a imagem rode com atualização maior.
+
+Para isso cada loop principalna verdade tem 2 loops. Um mais interno
+que atualiza a física e outro que renderiza. Nem sempre iremos entrar
+no mais interno. Mas devemos sempre ter em mente que como a física se
+atualiza em unidades de tempo discretas, o tempo real em que estamos é
+sempre ligeiramente no futuro disso. Sendo assim, na hora de
+renderizarmos, precisamos extrapolar um pouco a posição de todas as
+coisas sabendo a sua velocidade e sua posição. Essa extrapolação
+ocasionalmente pode falhar, por não levar em conta colisões e coisas
+características da engine de física. Mas mesmo quando ela falha, isso
+é corrigido na próxima iteração e não é tão perceptível.
+
+Existem 3 valores que precisamos levar em conta. Primeiro quanto tempo
+deve durar cada iteração da engine de física e controle de jogo
+(ajustaremos para 25 frames por segundo, o que dá 40000
+microssegundos. Segundo é quanto tempo queremos esperar entre cada
+renderização. O valor depende da taxa de atualização do monitor, mas
+por hora vamos supor que ele estará na variável |_desired_dt|. E por
+fim, precisamos sempre armazenar qual o ``lag'' atual entre o nosso
+tempo e a última execução da engine de física. Para este ``lag''
+iremos usar a seguinte variável:
+
+@<Cabeçalhos Weaver@>+=
+unsigned long _lag;
+@
+
+@<API Weaver: Inicialização@>+=
+_lag = 0;
+@
+
+@<Código Imediatamente antes de Loop Principal@>=
+_lag = 0;
+@
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
@@ -2050,7 +2102,7 @@ void Wsubloop(void (*f)(void)){
 contínua de memória, de onde modemos alocar e desalocar regiões e
 retorna ponteiro para ela.
 
-\macrovalor|int Wdestroy_arena(void *arena)|: Desrói uma região
+\macrovalor|int Wdestroy_arena(void *arena)|: Destrói uma região
 contínua de memória criada com a função acima. Retorna 1 em caso de
 sucesso e 0 se o pedido falhar.
 
