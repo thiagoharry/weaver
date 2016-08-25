@@ -1555,7 +1555,7 @@ automaticamente todos os cabeçalhos Weaver necessários:
 #endif
 @
 
-Neste cabeçalho, iremos também declarar três funções. 
+Neste cabeçalho, iremos também declarar quatro funções. 
 
 A primeira função servirá para inicializar a API Weaver. Seus
 parâmetros devem ser o nome do arquivo em que ela é invocada e o
@@ -1565,9 +1565,9 @@ erro úteis em caso de erro.
 A segunda função deve ser a última coisa invocada no programa. Ela
 encerra a API Weaver.
 
-E a terceira função deve ser chamada no loop principal do programa e
-será responsável pro fazer coisas como desenhar na tela, rodar a
-engine de física e obter a entrada do usuário. 
+As duas outras funções são executadas dentro do loop principal. Uma
+delas executará no mesmo ritmo da engine de física e a outra executará
+durante a renderização do jogo na tela.
 
 Nenhuma destas funções foi feita para ser chamada por mais de uma
 thread. Todas elas só devem ser usadas pela thread principal. Mesmo
@@ -1577,24 +1577,20 @@ seguras para threads, menos estas três.
 @<Cabeçalhos Weaver@>+=
 void _awake_the_weaver(void);
 void _may_the_weaver_sleep(void) __attribute__ ((noreturn));
-void _weaver_rest(void);
+void _update(void);
+void _render(void);
 #define Winit() _awake_the_weaver()
 #define Wexit() _may_the_weaver_sleep()
 @
 
 Definiremos melhor a responsabilidade destas funções ao longo dos
-demais capítulos. A única função que começaremos a definir logo mais
-será |_weaver_rest|. 
+demais capítulos. A única função que começaremos a definir já será a
+função de renderização.
 
-Para dar uma pequena amostra do que ela faz, segue um código para ela
-em que a função limpa os buffers OpenGL (|glClear|), executa todo o
-código relevante ao loop principal do jogo (que iremos definir em
-breve), troca os buffers de desenho na tela (|glXSwapBuffers|, somente
-se formos um programa executável, não algo compilado para Javascript),
-pede que todos os comandos OpenGL pendentes sejam executados
-(|glFlush|) e, se pertinente, pede que o programa fique um tempo
-ocioso para não usar 100\% da CPU (|nanosleep|, só para programa
-executável, não se compilado para Javascript).
+Ela limpa os buffers OpenGL (|glClear|),troca os buffers de desenho na
+tela (|glXSwapBuffers|, somente se formos um programa executável, não
+algo compilado para Javascript) e pede que todos os comandos OpenGL
+pendentes sejam executados (|glFlush|).
 
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
@@ -1607,23 +1603,17 @@ void _may_the_weaver_sleep(void){
   @<API Weaver: Finalização@>
   exit(0);
 }
-void _weaver_rest(void){
-  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-#if W_TARGET == W_ELF
-  struct timespec req = {0, 10 * 1000000};
-#endif
-  /* Abaixo são tarefas a serem feitas em cada iteração do loop principal. */
+
+void _update(void){
   @<Código a executar todo loop@>
-  /* Abaixo é o controle do loop principal, onde rodamos a engine de física
-     e renderizamnos. */
-  @<Estrutura do Loop Principal@>
+}
+
+void _render(void){
+  glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 #if W_TARGET == W_ELF
   glXSwapBuffers(_dpy, _window);
 #else
   glFlush();
-#endif
-#if W_TARGET == W_ELF
-  nanosleep(&req, NULL);
 #endif
 }
 @
@@ -1691,12 +1681,16 @@ para dentro de |W|) e cuidar com \italico{overflows}. É preciso que
 nunca irá sofrer \italico{overflow}, a menos que ocorra o absurdo do
 programa se manter em execução sem ser fechado por mais de dois anos.
 
+Por fim, iremos armazenar também uma variável $dt$, a qual mede a
+diferença de tempo entre uma iteraçã e outra do loop principal (do
+ponto de vista da engine de física).
+
 O nosso valor de tempo e o tempo de sistema medido ficarão nestas
 variáveis:
 
 @<Variáveis Weaver@>=
 // Isso fica dentro da estrutura W:
-unsigned long t;
+unsigned long t, dt;
 @
 
 @<Cabeçalhos Weaver@>=
@@ -1726,7 +1720,7 @@ unsigned long _update_time(void){
   struct timeval _current_time;
   gettimeofday(&_current_time, NULL);
   // Aqui temos algo equivalente ao "vai um" do algoritmo da subtração:
-  if(_current_time.tv_uval < -last_time.tv_uval){
+  if(_current_time.tv_usec < _last_time.tv_usec){
     nsec = (_last_time.tv_usec - _current_time.tv_usec) / 1000000 + 1;
     _last_time.tv_usec -= 1000000 * nsec;
     _last_time.tv_sec += nsec;
@@ -1739,11 +1733,11 @@ unsigned long _update_time(void){
   if(_current_time.tv_sec < _last_time.tv_sec){
     // Overflow
     result = (_current_time.tv_sec - _last_time.tv_sec) * (-1000000);
-    result += (_current_time.v_usec - _last_time.tv_usec); // Sempre positivo
+    result += (_current_time.tv_usec - _last_time.tv_usec); // Sempre positivo
   }
   else{
     result = (_current_time.tv_sec - _last_time.tv_sec) * 1000000;
-    result += (_current_time.v_usec - _last_time.tv_usec);
+    result += (_current_time.tv_usec - _last_time.tv_usec);
   }
   _last_time.tv_sec = _current_time.tv_sec;
   _last_time.tv_usec = _current_time.tv_usec;

@@ -54,88 +54,6 @@ forma, tal vetor também será útil para verificar se o mouse está em
 movimento ou não. E saber a intensidade e direção do movimento do
 mouse pode permitir interações mais ricas com o usuário.
 
-@*1 Preparando o Loop Principal: Medindo a Passagem de Tempo.
-
-Conforme exposto na introdução, toda vez que estivermos em um loop
-principal do jogo, a função |Wrest| deve ser invocada uma vez a
-cada iteração. Devemos então manter algumas variáveis controlando a
-passagem do tempo, e tais variáveis devem ser atualizadas sempre
-dentro destas funções.
-
-No caso, vamos precisar inicialmente de uma variável para armazenar o
-tempo da iteração atual e a da iteração anterior, em escala de
-microssegundos:
-
-@<API Weaver: Definições@>=
-static struct timeval _last_time, _current_time;
-@
-
-É importante que ambos os valores sejam inicializados como zero, caso
-contrário, valores estranhos podem ser derivados caso usemos os
-valores antes de serem corretamente inicializados na primeira iteração
-de um loop principal:
-
-@<API Weaver: Inicialização@>+=
-_last_time.tv_sec = 0;
-_last_time.tv_sec = 0;
-_current_time.tv_sec = 0;
-_current_time.tv_usec = 0;
-@
-
-No loop principal em si, o valor que temos como o do tempo atual deve
-ser passado para o tempo anterior, e em seguida deve ser sobrescrito
-por um novo tempo atual:
-
-@<Código a executar todo loop@>+=
-{
-  _last_time.tv_sec = _current_time.tv_sec;
-  _last_time.tv_usec = _current_time.tv_usec;
-  gettimeofday(&_current_time, NULL);
-}
-@
-
-Estas medidas de tempo serão realmente usadas para atualizar duas
-variáveis a cada iteração. A primeira será uma variável interna e
-armazenará quantos milissegundos se passaram entre uma iteração e
-outra. Usaremos ela para gerar a variável global |W.fps| que poderá
-ser consultada por usuários e conterá à quantos frames por segundo o
-jogo está rodando:
-
-@<API Weaver: Definições@>=
-  static int _elapsed_milisseconds;
-@
-
-@<Variáveis Weaver@>=
-// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
-int fps;
-@
-
-
-Naturalmente, tais valores também precisam ser inicializados para
-prevenir que contenham números absurdos na primeira iteração:
-
-@<API Weaver: Inicialização@>+=
-{
-  _elapsed_milisseconds = 0;
-  W.fps = 0;
-}
-@
-
-E em cada iteração do loop principal, atualizamos os valores. Assim
-subtraímos dois |struct timeval| para obter os valores de
-|elapsed_milisseconds| e |W.fps| em cada \italico{frame}:
-
-@<Código a executar todo loop@>+=
-{
-  _elapsed_milisseconds = (_current_time.tv_sec - _last_time.tv_sec) * 1000;
-  _elapsed_milisseconds += (_current_time.tv_usec - _last_time.tv_usec) / 1000;
-  if(_elapsed_milisseconds > 0)
-    W.fps = 1000 / _elapsed_milisseconds;
-  else
-    W.fps = 0;
-}
-@
-
 @*1 O Teclado.
 
 Para o teclado precisaremos de uma variável local que armazenará as
@@ -500,13 +418,13 @@ de ser pressionada neste \italico{frame}.
     if(key == 0) break; // Fim da lista, encerrar
     // Casos especiais:
     if(key == W_LEFT_CTRL || key == W_RIGHT_CTRL) 
-      W.keyboard[W_CTRL] += _elapsed_milisseconds;
+      W.keyboard[W_CTRL] += W.dt;
     else if(key == W_LEFT_SHIFT || key == W_RIGHT_SHIFT)
-      W.keyboard[W_SHIFT] += _elapsed_milisseconds;
+      W.keyboard[W_SHIFT] += W.dt;
     else if(key == W_LEFT_ALT || key == W_RIGHT_ALT)
-      W.keyboard[W_ALT] += _elapsed_milisseconds;
+      W.keyboard[W_ALT] += W.dt;
     // Aumenta o contador de tempo:
-    W.keyboard[key] += _elapsed_milisseconds;
+    W.keyboard[key] += W.dt;
   }
 }
 @
@@ -1000,7 +918,7 @@ trabalho que fazemos com o teclado.
   for(i = 0; i < 5; i ++){
     button = _pressed_buttons[i];
     if(button == 0) break;
-    W.mouse.buttons[button] += _elapsed_milisseconds;
+    W.mouse.buttons[button] += W.dt;
   }
 }
 @
@@ -1180,9 +1098,9 @@ static int old_dx, old_dy;
 
 @<API Weaver: Imediatamente após tratar eventos@>=
   // Cálculo de aceleração:
-  W.mouse.ddx = (int) ((float) (W.mouse.dx - old_dx) / _elapsed_milisseconds) *
+  W.mouse.ddx = (int) ((float) (W.mouse.dx - old_dx) / W.dt) *
                 1000;
-  W.mouse.ddy = (int) ((float) (W.mouse.dy - old_dy) / _elapsed_milisseconds) *
+  W.mouse.ddy = (int) ((float) (W.mouse.dy - old_dy) / W.dt) *
                 1000;
 #ifdef W_MULTITHREAD
   // Mutex bloqueado antes de tratar eventos:
@@ -1203,8 +1121,8 @@ if(event.type == MotionNotify){
   y = event.xmotion.y;
   dx = x - W.mouse.x;
   dy = y - W.mouse.y;
-  W.mouse.dx = ((float) dx / _elapsed_milisseconds) * 1000;
-  W.mouse.dy = ((float) dy / _elapsed_milisseconds) * 1000;
+  W.mouse.dx = ((float) dx / W.dt) * 1000;
+  W.mouse.dy = ((float) dy / W.dt) * 1000;
   W.mouse.x = x;
   W.mouse.y = y;
   continue;
@@ -1220,8 +1138,8 @@ if(event.type == SDL_MOUSEMOTION){
   y = event.motion.y;
   dx = x - W.mouse.x;
   dy = y - W.mouse.y;
-  W.mouse.dx = ((float) dx / _elapsed_milisseconds) * 1000;
-  W.mouse.dy = ((float) dy / _elapsed_milisseconds) * 1000;
+  W.mouse.dx = ((float) dx / W.dt) * 1000;
+  W.mouse.dy = ((float) dy / W.dt) * 1000;
   W.mouse.x = x;
   W.mouse.y = y;
   continue;

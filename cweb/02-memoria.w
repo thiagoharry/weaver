@@ -1853,35 +1853,33 @@ O tipo |MAIN_LOOP| serve para explicitar que uma determinada função é
 um loop principal e também nos dá a opção de implementar o valor de
 retorno deste tipo de função de diferentes formas. Provavelmente ele
 será sempre |void|, mas em futuras arquiteturas pode ser útil fazer
-que tal função retorne um valor passando informações adicionais para
-a \italico{engine}. Abaixo segue também como implementar os rótulos
-que delimitam a região de inicialização:
+que tal função retorne um valor passando informações adicionais para a
+\italico{engine}. Abaixo segue também como poderíamos implementar os
+rótulos que delimitam a região de inicialização:
 
 @<Cabeçalhos Weaver@>+=
 typedef void MAIN_LOOP;
-#define LOOP_INIT if(!_running_loop) _exit_loop(); if(!_running_loop)\
+/*#define LOOP_INIT if(!_running_loop) _exit_loop(); if(!_running_loop)\
    goto _LOOP_FINALIZATION; if(!_loop_begin) goto _END_LOOP_INITIALIZATION;\
    _BEGIN_LOOP_INITIALIZATION
 #define LOOP_BODY _loop_begin = false; if(_loop_begin)\
    goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION
-#define LOOP_END _weaver_rest(); if(_running_loop) return;\
-  _LOOP_FINALIZATION
+#define LOOP_END _render(); if(_running_loop) return;\
+  _LOOP_FINALIZATION*/
 bool _loop_begin, _running_loop;
 @
 
-O código acima tem redundâncias inofensivas. Algumas condicionais
-nunca são verdadeiras e portanto seu desvio nunca ocorrerão. Mas elas
-estão lá apenas para evitarmos mensagens de aviso de compilação
-envolvendo rótulo não usados e para garantir que ocorra um erro de
-compilação caso um dos rótulos seja usado sem o outro em uma função de
-loop principal.
+O código acima está comentado porque ele na verdade será mais complexo
+que isso. Por hora mostraremos só a parte que cuida do controle de
+fluxo. Note que o código tem redundâncias inofensivas. Algumas
+condicionais nunca são verdadeiras e portanto seu desvio nunca
+ocorrerão. Mas elas estão lá apenas para evitarmos mensagens de aviso
+de compilação envolvendo rótulo não usados e para garantir que ocorra
+um erro de compilação caso um dos rótulos seja usado sem o outro em
+uma função de loop principal.
 
-Note que depois do corpo do loop chamamos |_weaver_rest|. Ela é a
-função de manutenção que executará tudo que for necessário para fazer
-renderizações e fazer o jogo rodar em uma velocidade previsível
-independente da máquina. Passamos para ela o número 14, pois isso dá à
-ela a informação de que pode gastar 14 milissegundos fazendo isso (o
-que dá 70 frames por segundo no máximo).
+Note que depois do corpo do loop chamamos |_render|, a função que
+renderiza as coisas de nosso jogo na tela.
 
 As funções |Wloop| e |Wsubloop| tem a seguinte declaração:
 
@@ -2072,26 +2070,70 @@ ocasionalmente pode falhar, por não levar em conta colisões e coisas
 características da engine de física. Mas mesmo quando ela falha, isso
 é corrigido na próxima iteração e não é tão perceptível.
 
-Existem 3 valores que precisamos levar em conta. Primeiro quanto tempo
-deve durar cada iteração da engine de física e controle de jogo
-(ajustaremos para 25 frames por segundo, o que dá 40000
-microssegundos. Segundo é quanto tempo queremos esperar entre cada
-renderização. O valor depende da taxa de atualização do monitor, mas
-por hora vamos supor que ele estará na variável |_desired_dt|. E por
-fim, precisamos sempre armazenar qual o ``lag'' atual entre o nosso
-tempo e a última execução da engine de física. Para este ``lag''
-iremos usar a seguinte variável:
+Existem 2 valores que precisamos levar em conta. Primeiro quanto tempo
+deve durar cada iteração da engine de física e controle de jogo. É o
+valor de |W.dt| mencionado no capítulo anterior e que precisa ser
+inicializado. E segundo, quanto tempo se passou desde a última
+invocação de nossa engine de física (|_lag|).
+
 
 @<Cabeçalhos Weaver@>+=
 unsigned long _lag;
 @
 
 @<API Weaver: Inicialização@>+=
+W.dt = 40000; // 40000 microssegundos é 25 fps para a engine de física
 _lag = 0;
 @
 
 @<Código Imediatamente antes de Loop Principal@>=
 _lag = 0;
+@
+
+Ocorre que a parte de nosso loop principal dentro dos rótulos
+|LOOP_BODY| e |LOOP_END| é a parte que assumiremos fazer parte da
+física e do controle de jogo, e que portanto executará em intervalos
+de tempo fixos. Para construirmos então este controle, usaremos as
+seguintes definições de macro:
+
+@<Cabeçalhos Weaver@>+=
+#define LOOP_INIT if(!_running_loop) _exit_loop(); if(!_running_loop)\
+   goto _LOOP_FINALIZATION; if(!_loop_begin) goto _END_LOOP_INITIALIZATION;\
+   _BEGIN_LOOP_INITIALIZATION
+#define LOOP_BODY _loop_begin = false; if(_loop_begin)\
+   goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION:\
+   _lag += _update_time(); while(_lag >= 40000){ _update(); _LABEL_0
+#define LOOP_END _lag -= 40000; W.t += 40000; }\
+   _render(); if(_running_loop) return; if(W.t == 0) goto _LABEL_0;\
+   _LOOP_FINALIZATION
+@
+
+Pode parecer confuso o que todas estas macros disfarçadas de rótulos
+fazem. Mas se expandirmos e ignorarmos o código inócuo que está lá só
+para prevenir avisos do compilador e traduzirmos alguns |goto| para
+uma forma estruturada, o que temos é:
+
+@(/tmp/dummy.c@>=
+MAIN_LOOP main_loop(void){
+  if(!_running_loop)
+    _exit_loop();
+  if(initializing){
+    /* Código de usuário da inicialização */
+  }
+  initializing = false;
+  // Código executado toda iteração:
+  _lag += _update_time();
+  while(_lag >= 40000){
+    _update();
+    /* Código do usuário executado toda iteração */
+    _lag -= 40000;
+    W.t += 40000;
+  }
+  _render();
+  if(!running_loop){
+    /* Código de usuário para finalização */
+  }
+}
 @
 
 @*1 Sumário das Variáveis e Funções de Memória.
