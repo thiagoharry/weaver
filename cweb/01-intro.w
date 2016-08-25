@@ -1671,15 +1671,16 @@ os \italico{plugins} podem definir funções que recebem como argumento
 Como exemplo de variável útil que pode ser colocada na estrutura,
 temos o tempo $t$. Usaremos como unidade de medida de tempo o
 microsegundo ($10^{-6}$s). Quando nosso programa é inicializado, a
-variável |W.t| será inicializada como zero. Depois, em cada iteração
-de loop principal, será atualizada para o valor que corresponde
-quantos microsegundos se passaram desde o começo do programa. Sendo
-assim, precisamos saber também o tempo do sistema de cada última
-iteração (que deve icar em uma variável interna, que portanto não irá
-para dentro de |W|) e cuidar com \italico{overflows}. É preciso que
-|W.t| tenha pelo menos 32 bits e seja sem sinal para garantir que ele
-nunca irá sofrer \italico{overflow}, a menos que ocorra o absurdo do
-programa se manter em execução sem ser fechado por mais de dois anos.
+variável \monoespaco{W.t} será inicializada como zero. Depois, em cada
+iteração de loop principal, será atualizada para o valor que
+corresponde quantos microsegundos se passaram desde o começo do
+programa. Sendo assim, precisamos saber também o tempo do sistema de
+cada última iteração (que deve icar em uma variável interna, que
+portanto não irá para dentro de |W|) e cuidar com
+\italico{overflows}. É preciso que \monoespaco{W.t} tenha pelo menos
+32 bits e seja sem sinal para garantir que ele nunca irá sofrer
+\italico{overflow}, a menos que ocorra o absurdo do programa se manter
+em execução sem ser fechado por mais de dois anos.
 
 Por fim, iremos armazenar também uma variável $dt$, a qual mede a
 diferença de tempo entre uma iteraçã e outra do loop principal (do
@@ -1706,8 +1707,9 @@ gettimeofday(&_last_time, NULL);
 
 Elas terão seus valores atualizados em vários momentos como veremos
 mais adiante. Mas para nos ajudar, projetaremos agora uma função para
-atualizar o valor de |W.t| e que retorna o número de microsegundos que
-se passaram desde a última vez que atualizamos a variável:
+atualizar o valor de \monoespaco{W.t} e que retorna o número de
+microsegundos que se passaram desde a última vez que atualizamos a
+variável:
 
 @<Cabeçalhos Weaver@>+=
 unsigned long _update_time(void);
@@ -1745,7 +1747,6 @@ unsigned long _update_time(void){
 }
 @
 
-
 @*1 Sumário das Variáveis e Funções da Introdução.
 
 Terminaremos todo capítulo deste livro/programa com um sumário de
@@ -1761,8 +1762,11 @@ necessário para inicializá-lo e defini-lo.
 globais da API Weaver, bem como as suas funções globais. Exceto as
 três outras funções definidas neste capítulo. 
 
-\macrovalor|W.t|: O tempo em microsegundos que se passou desde que o
-programa se inicializou. Valor somente para leitura.
+\macrovalor|W.@/t|: O tempo em microsegundos que se passou
+desde que o programa se inicializou. Valor somente para leitura.
+
+\macrovalor|W.dt|: O intervalo de tempo que passa entre uma iteração e
+outra no loop principal.
 
 \macronome Este capítulo apresentou 3 novas funções da API Weaver:
 

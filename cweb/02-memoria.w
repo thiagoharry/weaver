@@ -190,8 +190,6 @@ estados ``Tela Inicial'', ``Jogo'' e ``Combate''.
 Vamos considerar primeiro uma \negrito{arena}. Toda \negrito{arena} terá
 a seguinte estrutura:
 
-\quebra
-
 \alinhaverbatim
 +-----------+------------+-------------------------+-------------+
 | Cabeçalho | Breakpoint | Breakpoints e alocações | Não alocado |
@@ -1865,7 +1863,7 @@ typedef void MAIN_LOOP;
 #define LOOP_BODY _loop_begin = false; if(_loop_begin)\
    goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION
 #define LOOP_END _render(); if(_running_loop) return;\
-  _LOOP_FINALIZATION*/
+  _LOOP_FINALIZATION: */
 bool _loop_begin, _running_loop;
 @
 
@@ -2175,3 +2173,15 @@ padrão. Retorna 1 em caso de sucesso e 0 em caso de falha.
 região de memória padrão desde a última marcação. Remove a
 marcação. Na ausência de marcação, desaloca tudo o que já foi alocado
 com |walloc|.
+
+\macrovalor|void Wloop(void (*f)(void))|: Troca o loop principal atual
+por um loop novo representado pela função passada como argumento. Ou
+inicia o primeiro loop principal.
+
+\macrovalor|void Wsubloop(void (*f)(void))|: Inicia um novo loop
+principal que deve rodar dentro do atual. Quando ele se encerrar, o
+loop atual deve retomar sua execução.
+
+\macrovalor|void Wexit_loop(void)|: Sai do loop principal
+atual. Retomamos o último loop interrompido com um |Wsubloop|. Se não
+existe, encerramos o programa.
