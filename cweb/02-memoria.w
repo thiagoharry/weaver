@@ -2076,7 +2076,7 @@ invocação de nossa engine de física (|_lag|).
 
 
 @<Cabeçalhos Weaver@>+=
-unsigned long _lag;
+long _lag;
 @
 
 @<API Weaver: Inicialização@>+=

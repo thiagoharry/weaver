@@ -13,6 +13,14 @@ forma, ambos usarão OpenGL:
 #include <GL/glew.h>
 @
 
+Outra coisa que sempre iremos precisar ter de informação é a resolução
+e taxa de atualização:
+
+@<Variáveis Weaver@>+=
+/* Isso fica dentro da estrutura W: */
+int resolution_x, resolution_y, framerate;
+@
+
 Para criar uma janela, usaremos o Xlib ao invés de bibliotecas de mais
 alto nível. Primeiro porque muitas bibliotecas de alto nível como SDL
 parecem ter problemas em ambientes gráficos mais excêntricos como o
@@ -145,7 +153,6 @@ void _initialize_window(void){
   @<Janela: Inicialização@>
 }
 void _finalize_window(void){
-  @<Janela: Pré-Finalização@>
   @<Janela: Finalização@>
 }
 @<Janela: Definição@>
@@ -275,18 +282,20 @@ E é inicializada com os seguintes dados:
 
 @<Janela: Inicialização@>+=
   W.y = W.x = 0; // Na inicialização não é necessário ativar o mutex.
+  W.resolution_x = DisplayWidth(_dpy, screen);
+  W.resolution_y = DisplayHeight(_dpy, screen);
 #if W_WIDTH > 0
   W.width = W_WIDTH; // Obtendo largura da janela
 #else
-  W.width = DisplayWidth(_dpy, screen);
+  W.width = W.resolution_x;
 #endif
 #if W_HEIGHT > 0 // Obtendo altura da janela
-  W.height = W_HEIGHT;
+  W.height = W.resolution_y;
 #else
   W.height = DisplayHeight(_dpy, screen);
 #endif
   _window = XCreateSimpleWindow(_dpy, //Conexão com o servidor X
-                               DefaultRootWindow(_dpy), // A janeela-mãe
+                               DefaultRootWindow(_dpy), // A janela-mãe
                                W.x, W.y, // Coordenadas da janela
                                W.width, // Largura da janela
                                W.height, // Altura da janela
@@ -542,28 +551,29 @@ void _initialize_canvas(void){
   SDL_Init(SDL_INIT_VIDEO); // Inicializando SDL com OpenGL 3.3
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+  W.resoluion_x = emscripten_run_script_int("window.innerWidth");
+  W.resolution_y = emscripten_run_script_int("window.innerHeight");
   window = SDL_SetVideoMode(// Definindo informações de tamanho do canvas
 #if W_WIDTH > 0
-                            W.width = W_WIDTH, // Largura da janela
+                     W.width = W_WIDTH, // Largura da janela
 #else
-                            W.width = 800, // Largura da janela
+                     W.width = W.resolution_x,
 #endif
 #if W_HEIGHT > 0
-                            W.height = W_HEIGHT, // Altura da janela
+                     W.height = W_HEIGHT, // Altura da janela
 #else
-                            W.height = 600, // Altura da janela
+                     W.height = W.resolution_y,
 #endif
-                            0, // Bits por pixel, usar o padrão
-                            SDL_OPENGL // Inicializar o contexto OpenGL
+                     0, // Bits por pixel, usar o padrão
+                     SDL_OPENGL // Inicializar o contexto OpenGL
 #if W_WIDTH == 0 && W_HEIGHT == 0
-                            | SDL_WINDOW_FULLSCREEN
+                     | SDL_WINDOW_FULLSCREEN
 #endif
-                            );
+                     );
   if (window == NULL) {
     fprintf(stderr, "ERROR: Could not create window: %s\n", SDL_GetError());
     exit(1);
   }
-  @<Canvas: Inicialização@>
 }
   void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
   SDL_FreeSurface(window);
@@ -764,329 +774,6 @@ void (*move_window)(int, int);
 
 @<API Weaver: Inicialização@>=
 W.move_window = &_Wmove_window;
-@
-
-
-@*1 Mudando a resolução da tela.
-
-Inicialmente o Servidor X não possuía qualquer recurso para que fosse
-possível mudar a sua resolução enquanto ele executa, ou coisas como
-rotacionar a janela raiz. A única forma de obter isso era encerrando o
-servidor e iniciando-o novamente com nova configuração. Mas programas
-como jogos podem ter a necessidade de rodar em resolução menor para
-melhorar o desempenho, mas ao mesmo tempo podem precisar ocupar a tela
-toda para obter imersão.
-
-Note que isso só faz sentido quando lidamos com uma janela rodando em
-um gerenciador de janelas. Não no \italico{canvas} de um navegador.
-
-O primeiro problema que temos é que não dá pra mudar a resolução
-arbitrariamente. Existe apenas um conjunto limitado de resoluções que
-são realmente possíveis em um dado monitor. Então a primeira coisa que
-precisamos fazer é descobrir quantos modos são realmente possíveis na
-tela em que estamos.
-
-Cada modo de funcionamento suportado por uma tela possui três valores
-distintos: a resolução horizontal, vertical, e a frequência de
-atualização da tela. A ideia é que nós usemos uma variável
-|W.number_of_modes| para armazenar quantos modos diferentes temos,
-|W.current_mode| para sabermos qual o modo atual e aloquemos uma
-estrutura formada por um \italico{array} de triplas de números contendo
-os dados de cada modo, a qual pode ser acessada por meio de
-|W.modes|. Cada um dos modos possíveis terá um número sequencial. E se
-quisermos passar para outro modo, usaremos uma função que recebe como
-argumento tal número e facilmente pode checar se está diante de um
-valor inválido.
-
-@<Cabeçalhos Weaver@>+=
-struct _wmodes{
-  int width, height, rate, id;
-};
-@
-
-@<Variáveis Weaver@>=
-// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
-  unsigned number_of_modes, current_mode;
-  struct _wmodes *modes;
-@
-
-Agora cabe à nós inicializarmos isso tudo. Se estamos programando para
-a Web, nós não podemos mesmo mudar a resolução. Então, o número de
-modos que temos é sempre um só. E a informação de resolução de tela
-pode ser obtida armazenando o retorno de |SDL_GetVideoInfo| em uma
-estrutura de informação. A taxa de atualização de tela é setada como
-zero, significando um valor indefinido.
-
-@<Canvas: Inicialização@>=
-  {
-    const SDL_VideoInfo *info = SDL_GetVideoInfo();
-    W.number_of_modes = 1;
-    W.current_mode = 0;
-    W.modes = (struct _wmodes *) _iWalloc(sizeof(struct _wmodes));
-    W.modes[0].width = info->current_w;
-    W.modes[0].height = info->current_h;
-    W.modes[0].rate = 0;
-    W.modes[0].id = 0;
-  }
-#if W_DEBUG_LEVEL >=3
-  fprintf(stderr, "WARNING (3): Screen resolution: %dx%d.\n",
-          W.modes[0].width, W.modes[0].height);
-#endif
-@
-
-Se não estamos programando para a Web, inicializar tais dados é mais
-complicado. Nós vamos precisar usar a extensão XRandr. E além disso,
-como podemos mudar a resolução da nossa tela, é importante
-memorizarmos os valores iniciais para podermos restaurá-los antes de
-terminar o programa. Tanto quando o programa encerra naturalmente como
-quando é encerrado à força por meio de uma falha de
-segmentação. Usaremos um punhado de variáveis para armazenar os dadso
-que precisamos para isso.
-
-A primeira é |_orig_size_id|, um ID que representa a resolução e a
-segunta é |_orig_rate|, que representa a taxa de atualização a
-tela. Mais abaixo, |_orig_rotation| armazena a rotação atual da
-tela. Weaver não permite que rotacionemos a tela, mas mesmo assim tal
-informação deve ser obtida para quando depois tivermos que restaurar
-as configurações iniciais.
-
-Por fim, a quarta variável que definimos é uma que irá armazenar as
-informações das configurações relacionadas à resolução e taxa de
-atualização da tela.
-
-@<Variáveis de Janela@>+=
-  static int _orig_size_id, _orig_rate;
-  static Rotation _orig_rotation;
-  static XRRScreenConfiguration *conf;
-@
-
-@<Janela: Inicialização@>+=
-{
-  Window root = RootWindow(_dpy, 0); // Janela raíz da tela padrão
-  int num_modes, num_rates, i, j, k;
-  // Obtendo uma lista de todas as resoluções possíveis:
-  XRRScreenSize *modes = XRRSizes(_dpy, 0, &num_modes);
-  short *rates;
-  // Obtendo lista de taxa de atualização do monitor em cada resolução
-  // e com isso concluindo o número total de modos diferentes:
-  W.number_of_modes = 0;
-  for(i = 0; i < num_modes; i ++){
-    rates = XRRRates(_dpy, 0, i, &num_rates);
-    W.number_of_modes += num_rates;
-  }
-  // Alocamos na arena de memória interna espaço para contermos dados
-  // sobre todas as combinações possíveis de resolução e taxa de
-  // atualização:
-  W.modes = (struct _wmodes *) _iWalloc(sizeof(struct _wmodes) *
-                                        W.number_of_modes);
-  // Obtendo o valor original de resolução e taxa de atualização:
-  conf = XRRGetScreenInfo(_dpy, root);
-  _orig_rate = XRRConfigCurrentRate(conf);
-  _orig_size_id = XRRConfigCurrentConfiguration(conf, &_orig_rotation);
-  // Preenchendo as informações dos modos e descobrindo o ID do modo atual
-  k = 0;
-  for(i = 0; i < num_modes; i ++){
-    rates = XRRRates(_dpy, 0, i, &num_rates);
-    for(j = 0; j < num_rates; j++){
-      W.modes[k].width = modes[i].width;
-      W.modes[k].height = modes[i].height;
-      W.modes[k].rate = rates[j];
-      W.modes[k].id = i;
-      if(i == _orig_size_id && rates[j] == _orig_rate)
-        W.current_mode = k;
-      k ++;
-    }
-  }
-#if W_DEBUG_LEVEL >=3
-  fprintf(stderr, "WARNING (3): Screen resolution: %dx%d (%dHz).\n",
-          W.modes[W.current_mode].width, W.modes[W.current_mode].height, 
-          W.modes[W.current_mode].rate);
-#endif
-}
-@
-
-Caso modifiquemos a resolução da tela, antes de fechar o programa,
-precisamos fazer tudo voltar ao que era antes. Mesmo se o programa for
-encerrado devido à uma falha de segmentação, divisão por zero, ou algo
-assim. Independente do que causar o fim do programa, precisamos chamar
-a função que definiremos:
-
-@<Janela: Declaração@>=
-  void _restore_resolution(void);
-@
-
-@<Janela: Definição@>=
-void _restore_resolution(void){
-#ifdef W_MULTITHREAD
-  pthread_mutex_lock(&_window_mutex);
-#endif
-  Window root = RootWindow(_dpy, 0);
-  XRRSetScreenConfigAndRate(_dpy, conf, root, _orig_size_id, _orig_rotation,
-                            _orig_rate, CurrentTime);
-  XRRFreeScreenConfigInfo(conf);
-#ifdef W_MULTITHREAD
-  pthread_mutex_unlock(&_window_mutex);
-#endif
-
-}
-@
-
-O primeiro caso no qual chamamos esta função é quando encerramos o
-programa normalmente. Mas precisamos chamar ela antes de termos
-fechado a conexão com o servidor X. Por isso colocamos este código de
-finalização imediatamente antes:
-
-@<Janela: Pré-Finalização@>=
-  _restore_resolution();
-@
-
-Mas e se o programa tiver que ser encerrado devido à algum sinal
-fatal? Pode ter ocorrido uma falha de segmentação ou uma divisão por
-zero. Neste caso, precisamos restaurar a resolução antes de encerrar o
-programa. Para isso temos que substituir a ação padrão em cada sinal
-letal por uma função que faz isso:
-
-@<Cabeçalhos Weaver@>=
-#if W_TARGET == W_ELF
-#include <signal.h>
-#endif
-@
-@<API Weaver: Inicialização@>+=
-#if W_TARGET == W_ELF
-{
-  struct sigaction sa;
-  memset(&sa, 0, sizeof(struct sigaction));
-  sigemptyset(&sa.sa_mask);
-  // _restore_and_quit é uma função que definiremos logo em
-  // seguida. Ela deverá ser executada ao invés da função normal
-  // associada a cada sinal:
-  sa.sa_sigaction = _restore_and_quit;
-  sa.sa_flags   = SA_SIGINFO;
-  sigaction(SIGHUP, &sa, NULL);
-  sigaction(SIGINT, &sa, NULL);
-  sigaction(SIGQUIT, &sa, NULL);
-  sigaction(SIGILL, &sa, NULL);
-  sigaction(SIGABRT, &sa, NULL);
-  sigaction(SIGFPE, &sa, NULL);
-  sigaction(SIGSEGV, &sa, NULL);
-  sigaction(SIGPIPE, &sa, NULL);
-  sigaction(SIGALRM, &sa, NULL);
-  sigaction(SIGTERM, &sa, NULL);
-  sigaction(SIGUSR1, &sa, NULL);
-  sigaction(SIGUSR2, &sa, NULL);
-}
-#endif
-@
-
-Como indicado pelo código, ao invés da função normal, o que iremos
-executar sempre que recebermos um sinal fatal será a função abaixo:
-
-@<Janela: Declaração@>=
-  void _restore_and_quit(int signal, siginfo_t *si, void *arg);
-@
-
-@<Janela: Definição@>=
-void _restore_and_quit(int signal, siginfo_t *si, void *arg){
-  _restore_resolution();
-  // Restaura todos os sinais salvos:
-  switch(signal){
-  case SIGHUP:
-    fprintf(stderr, "Program hangup.\n");
-    break;
-  case SIGINT:
-  case SIGTERM:
-    fprintf(stderr, "Program terminated.\n");
-    break;
-  case SIGQUIT:
-    fprintf(stderr, "Program quited.\n");
-    break;
-  case SIGILL:
-    fprintf(stderr, "Ilegal instruction.\n");
-    break;
-  case SIGABRT:
-    fprintf(stderr, "Program aborted.\n");
-    break;
-  case SIGFPE:
-    fprintf(stderr, "Erroneous arithmetic expression (divided by zero?).\n");
-    break;
-  case SIGSEGV:
-    fprintf(stderr, "Segmentation fault.\n");
-    break;
-  case SIGPIPE:
-    fprintf(stderr, "Broken pipe.\n");
-    break;
-  case SIGALRM:
-    fprintf(stderr, "Program terminated by alarm clock.\n");
-    break;
-  default:
-    fprintf(stderr, "Program terminated by unknown signal.\n");    
-  }
-  exit(1);
-  // Este código nunca será executado, mas previne aviso de compilação
-  // por não usarmos os argumentos 'si' e 'arg':
-  *((int *) arg) = *((int *) si);
-}
-@
-
-O único caso no qual não seremos capazes de restaurar a resolução é
-quando recebermos um |SIGKILL|. Não há muito a fazer com relação à
-isso. Entretanto, um sinal desta magnitude só pode ser gerado por um
-usuário, nunca será a reação do Sistema Operacional à uma ação do
-programa. Teremos que assumir que caso isso aconteça, o usuário sabe o
-que está fazendo e saberá retornar a resolução ao seu estado atual.
-
-Uma vez que tenhamos garantido que a resolução voltará ao normal após
-o programa se encerrar, podemos fornecer então uma função responsável
-por mudar a resolução e modo da tela. Esta função deverá receber como
-argumento um número inteiro. Se este número for menor que zero ou
-maior ou igual ao número total de modos que temos em nossa tela, a
-função não fará nada e retornará zero. Caso contrário, ela mudará o
-modo da tela para o representado pelo índice passado como argumento em
-|W.modes|. Além disso, ela mudará o tamanho da janela para o da nova
-resolução, deixando o jogo em tela cheia, e retornará 1:
-
-@<Janela: Declaração@>=
-  int _Wfullscreen_mode(unsigned int mode);
-@
-
-@<Janela: Definição@>=
-int _Wfullscreen_mode(unsigned int mode){
-  if(mode >= W.number_of_modes)
-    return 0;
-  else{
-    Window root = RootWindow(_dpy, 0);
-    W.move_window(0, 0);
-    XRRSetScreenConfigAndRate(_dpy, conf, root, W.modes[mode].id, _orig_rotation,
-                              W.modes[mode].rate, CurrentTime);
-    W.resize_window(W.modes[mode].width, W.modes[mode].height);
-    W.current_mode = mode;
-    return 1;
-  }
-}
-@
-
-Também teremos que definir a mesma função caso estejamos fazendo um
-jogo para a Web. Mas neste caso, a função não fará sentido e sempre
-retornará 0:
-
-@<Canvas: Declaração@>=
-  int _Wfullscreen_mode(unsigned int mode);
-@
-
-@<Canvas: Definição@>=
-int _Wfullscreen_mode(unsigned int mode){
-  return 0;
-}
-@
-
-E atribuimos esta função à |W|:
-
-@<Funções Weaver@>+=
-int (*fullscreen_mode)(unsigned int);
-@
-
-@<API Weaver: Inicialização@>=
-W.fullscreen_mode = &_Wfullscreen_mode;
 @
 
 @*1 Lidando com perda de foco.
