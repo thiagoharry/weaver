@@ -294,6 +294,11 @@ E é inicializada com os seguintes dados:
 #else
   W.height = DisplayHeight(_dpy, screen);
 #endif
+  { /* Obtendo a taxa de atualização da tela: */
+    XRRScreenConfiguration *conf = XRRGetScreenInfo(_dpy, RootWindow(_dpy, 0));
+    W.framerate = XRRConfigCurrentRate(conf);
+    XRRFreeScreenConfigInfo(conf);
+  }
   _window = XCreateSimpleWindow(_dpy, //Conexão com o servidor X
                                DefaultRootWindow(_dpy), // A janela-mãe
                                W.x, W.y, // Coordenadas da janela
@@ -551,8 +556,11 @@ void _initialize_canvas(void){
   SDL_Init(SDL_INIT_VIDEO); // Inicializando SDL com OpenGL 3.3
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
-  W.resoluion_x = emscripten_run_script_int("window.innerWidth");
+  W.resolution_x = emscripten_run_script_int("window.innerWidth");
   W.resolution_y = emscripten_run_script_int("window.innerHeight");
+  /* A taxa de atualização da tela não pode ser obtida no ambiente
+     Emscripten. Vamos usar um valor fictício: */
+  W.framerate = 60;
   window = SDL_SetVideoMode(// Definindo informações de tamanho do canvas
 #if W_WIDTH > 0
                      W.width = W_WIDTH, // Largura da janela
@@ -573,9 +581,9 @@ void _initialize_canvas(void){
   if (window == NULL) {
     fprintf(stderr, "ERROR: Could not create window: %s\n", SDL_GetError());
     exit(1);
-  }
+  }  
 }
-  void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
+void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
   SDL_FreeSurface(window);
 }
 @<Canvas: Definição@>
@@ -805,8 +813,8 @@ o normal.
 
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == FocusOut){
-  if(W.width > W.modes[W.current_mode].width / 2 ||
-     W.height > W.modes[W.current_mode].height / 2)
+  if(W.width > W.resolution_x / 2 ||
+     W.height > W.resolution_y / 2)
     XSetInputFocus(_dpy, _window, RevertToParent, CurrentTime);
   continue;
 }
