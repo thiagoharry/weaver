@@ -81,10 +81,10 @@ toda vez que um plugin for ativado por meio de
 
 Um \italico{plugin} terá acesso à todas as funções e variáveis que são
 mencionadas no sumário de cada capítulo, com as notáveis exceções de
-|Winit|, |Wquit|, |Wrest| e |Wloop|. Mesmo nos casos em que o plugin é
-uma biblioteca compartilhada invocada dinamicamente, isso é possível
-graças ao argumento |W_PLUGIN| recebido como argumento pelas
-funções. Ele na verdade é a estrutura |W|:
+|Winit|, |Wquit|, |Wloop|, |Wsubloop|, |Wexit| e |Wexit_loop|. Mesmo
+nos casos em que o plugin é uma biblioteca compartilhada invocada
+dinamicamente, isso é possível graças ao argumento |W_PLUGIN| recebido
+como argumento pelas funções. Ele na verdade é a estrutura |W|:
 
 @<Declaração de Cabeçalhos Finais@>=
 // Mágica para fazer plugins entenderem a estrutura W:
@@ -107,6 +107,9 @@ definimos em \monoespaco{conf/conf.h} as seguintes macros:
 \macronome|W_PLUGIN_PATH|: Uma string com lista de diretórios
 separadas por dois pontos (``:''). Se for uma string vazia, isso
 significa que o suporte à \italico{plugins} dee ser desativado.
+
+\macronome|W_MAX_PERIODIC_FUNCTIONS|: O número máximo de funções que
+executam periodica e automaicamente em cada subloop.
 
 @*1 Estruturas Básicas.
 
@@ -853,6 +856,42 @@ contínua:
       _plugins[i]._run_plugin(&W);
 }
 #endif
+@
+
+@*1 Adendo: Executando Código Periodicamente.
+
+Mas e se estamos desenvolvendo o jogo e queremos invocar então
+|W.reload_all_plugins| uma vez a cada segundo para podermos usar
+programação interativa de uma forma mais automática e assim o nosso
+jogo em execução se atualize automaticamente à medida que recompilamos
+o código? Será interessante termos para isso uma função tal como
+|W.periodic(W.reload_all_plugins, 1000000)|, que faz com que a função
+passada como argumento seja executada uma vez a cada 1 milhão de
+microssegundos (uma vez por segundo).
+
+Cada subloop deve ter então uma lista de funções que são executadas
+periodicamente. E podemos estipular em |W_MAX_PERIODIC_FUNCTIONS| o
+número máximo de funções periódicas que cad subloop pode ter. Então
+podemos usar uma estrutura como esta para armazenar unções periódicas:
+
+@<Cabeçalhos Weaver@>=
+struct{
+  unsigned long last_execution; // Quando foi executada pela última vez
+  unsigned long period; // De quanto em quanto tempo tem que executar
+  void (*f)(void); // A função em si a ser executada
+} _periodic_functions[W_LIMIT_SUBLOOP][W_MAX_PERIODIC_FUNCTIONS];
+@
+
+Isso precisa ser inicializado preenchendo os valores de cada |f| com
+|NULL| para marcarmos cada posição como vazia:
+
+@<API Weaver: Inicialização@>+=
+{
+  int i, j;
+  for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+    for(j = 0; j < W_MAX_PERIODIC_FUNCTIONS; j ++)
+      _periodic_functions[i][j].f = NULL;
+}
 @
 
 @*1 Funções de Interação com Plugins.
