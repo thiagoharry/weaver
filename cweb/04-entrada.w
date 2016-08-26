@@ -15,9 +15,9 @@ por exemplo, e que cada posição dele represente uma tecla
 diferente. Se o valor dentro de uma posição do vetor é 0, então tal
 tecla não está sendo pressionada. Caso o seu valor seja um número
 positivo, então a tecla está sendo pressionada e o número representa
-por quantos milissegundos a tecla vem sendo pressionada. Caso o valor
+por quantos microssegundos a tecla vem sendo pressionada. Caso o valor
 seja um número negativo, significa que a tecla acabou de ser solta e o
-inverso deste número representa por quantos milissegundos a tecla
+inverso deste número representa por quantos microssegundos a tecla
 ficou pressionada. E caso o valor seja 1, isso significa que a tecla
 começou a ser pressionada exatamente neste \italico{frame}.
 
@@ -104,7 +104,7 @@ mesmo tratamento para os botões pressionados no \italico{mouse}:
 
 @<Variáveis Weaver@>=
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
-  int keyboard[0xffff];
+  long keyboard[0xffff];
 @
 
 @<API Weaver: Definições@>=
@@ -839,7 +839,7 @@ Em suma, podemos representar o mouse como a seguinte estrutura:
 struct _mouse{
   /* Posições de 1 a 5 representarão cada um dos botões e o 6 é
      reservado para qualquer tecla.*/
-  int buttons[7];
+  long buttons[7];
   int x, y, dx, dy, ddx, ddy;
 };
 @
@@ -1250,17 +1250,17 @@ W.hide_cursor = &_Whide_cursor;
 quantos \italico{frames} por segundo o jogo está rodando. Variável
 somente para leitura, não a modifique.
 
-\macrovalor|int W.keyboard[0xffff]|: Um vetor que contém informações
+\macrovalor|long W.keyboard[0xffff]|: Um vetor que contém informações
 sobre cada tecla do teclado. Se ela foi recém-pressionada, a posição
 relacionada à tecla conterá o valor 1. Se ela está sendo pressionada,
-ela terá um valor positivo correspondente à quantos milissegundos ela
+ela terá um valor positivo correspondente à quantos microssegundos ela
 vem sendo pressionada. Se ela foi recém-solta, ela terá um número
-negativo correspondente à quantos milissegundos ela ficou pressionada
+negativo correspondente à quantos microssegundos ela ficou pressionada
 antes de ser solta. Se ela não está sendo pressionada e nem acabou de
 ser solta, ela terá o valor 0. Variável somente para leitura, não
 modifique os valores.
 
-\macrovalor|struct W.mouse{ int buttons[7]; int x, y, dx, dy, ddx, ddy; }|:
+\macrovalor|struct W.mouse{ long buttons[7]; int x, y, dx, dy, ddx, ddy; }|:
 Contém todas as informações sobre o \italico{mouse}. Em |buttons| pode-se
 encontrar informações sobre os botões usando a mesma lógica da
 apresentada acima para o teclado. Há a posição $x$ e $y$ do mouse, bem

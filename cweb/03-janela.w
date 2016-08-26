@@ -857,22 +857,11 @@ pixels. Somente para leitura, não mude o valor.
 \macrovalor|int W.height|: Armazena a altura da janela em
 pixels. Somente para leitura, não mude o valor.
 
-\macrovalor|unsigned W.number_of_modes|: Quantas diferentes
-combinações de resolução e taxa de atualização (em Hz) o monitor em
-que estamos suporta. Somente para leitura, não mude o valor.
+\macrovalor|int W.resolution_x|: A resolução horizontal da tela.
 
-\macrovalor|unsigned W.current_mode|: Qual o número de identificação
-da atual combinação de resolução e taxa de atualização (em
-hz). Somente para leitura, não mude. O número pode ser usado como
-índice para consultar o vetor abaixo.
+\macrovalor|int W.resolution_y|: A resolução vertical da tela.
 
-\macrovalor|struct {int width, height, rate, id} W.modes[]|: Um vetor
-com um número de posições igual à |W.number_of_modes| contendo
-informações sobre cada combinação possível de resolução e taxa de
-atualização (|rate|) do monitor em que estamos e sua respectiva
-identificação (|id|). Por exemplo, podemos obter a resolução atual
-lendo |W.modes[W.current_mode].width| e
-|W.modes[W.current_mode].height|.
+\macrovalor|int W.framerate|: A taxa de atualização do monitor.
 
 \macronome As seguintes 3 novas funções foram definidas:
 
