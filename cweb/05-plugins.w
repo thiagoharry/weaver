@@ -865,13 +865,12 @@ Mas e se estamos desenvolvendo o jogo e queremos invocar então
 programação interativa de uma forma mais automática e assim o nosso
 jogo em execução se atualize automaticamente à medida que recompilamos
 o código? Será interessante termos para isso uma função tal como
-|W.periodic(W.reload_all_plugins, 1000000)|, que faz com que a função
-passada como argumento seja executada uma vez a cada 1 milhão de
-microssegundos (uma vez por segundo).
+|W.periodic(W.reload_all_plugins, 1.0)|, que faz com que a função
+passada como argumento seja executada uma vez a cada 1 segundo.
 
 Cada subloop deve ter então uma lista de funções que são executadas
 periodicamente. E podemos estipular em |W_MAX_PERIODIC_FUNCTIONS| o
-número máximo de funções periódicas que cad subloop pode ter. Então
+número máximo de funções periódicas que cada subloop pode ter. Então
 podemos usar uma estrutura como esta para armazenar unções periódicas:
 
 @<Cabeçalhos Weaver@>=
@@ -891,6 +890,51 @@ Isso precisa ser inicializado preenchendo os valores de cada |f| com
   for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
     for(j = 0; j < W_MAX_PERIODIC_FUNCTIONS; j ++)
       _periodic_functions[i][j].f = NULL;
+}
+@
+
+E imediatamente antes de entrarmos em um novo loop, devemos limpar
+também todas as funções periódicas associadas ao loop em que
+estávamos. Mas não faremos isso no caso de um subloop, pois depois que
+o subloop termina, ainda podemos voltar ao loop atual e retomar a
+execução de suas funções periódicas:
+
+@<Código antes de Loop, mas não de Subloop@>=
+{
+  int i;
+  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++)
+    _periodic_functions[_number_of_loops][i].f = NULL;
+}
+@
+
+Além disso, quando encerramos um Subloop, também é necessário
+limparmos as suas funções periódicas para que elas aabem não sendo
+executadas novamente em outros subloops diferentes:
+
+@<Código após sairmos de Subloop@>=
+{
+  int i;
+  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++)
+    _periodic_functions[_number_of_loops][i].f = NULL;
+}
+@
+
+E toda iteração de loop principal temos que atualizar os valores de
+marcação de tempo de cada função e, se estiver na hora, devemos
+executá-las:
+
+@<Código a executar todo loop@>+=
+{
+  int i;
+  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
+    if(_periodic_functions[_number_of_loops][i].f == NULL)
+      break;
+    if(_periodic_functions[_number_of_loops][i].period >
+       W.t - _periodic_functions[_number_of_loops][i].last_execution){
+      _periodic_functions[_number_of_loops][i].f();
+      _periodic_functions[_number_of_loops][i].last_execution = W.t;
+    }
+  }
 }
 @
 
