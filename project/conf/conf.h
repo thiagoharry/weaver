@@ -68,3 +68,4 @@
 
 /* Various Limits */
 #define W_LIMIT_SUBLOOP 16 // Max number of subloops
+#define W_MAX_PERIODIC_FUNCTIONS 16 // Max periodic functions in a loop

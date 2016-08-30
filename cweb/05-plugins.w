@@ -929,7 +929,7 @@ executá-las:
   for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
     if(_periodic_functions[_number_of_loops][i].f == NULL)
       break;
-    if(_periodic_functions[_number_of_loops][i].period >
+    if(_periodic_functions[_number_of_loops][i].period <
        W.t - _periodic_functions[_number_of_loops][i].last_execution){
       _periodic_functions[_number_of_loops][i].f();
       _periodic_functions[_number_of_loops][i].last_execution = W.t;
@@ -937,6 +937,76 @@ executá-las:
   }
 }
 @
+
+E finalmente funções para interagir com código executado periodicamente:
+
+@<Cabeçalhos Weaver@>+=
+void _periodic(void (*f)(void), float t); // Torna uma função periódica
+void _nonperiodic(void (*f)(void));  // Faz uma função deixar de ser periódica
+bool _is_periodic(void (*f)(void));  // Checa se uma função é periódica
+@
+
+Todas elas interagem sempre com as listas de funções periódicas do
+loop atual.
+
+@<API Weaver: Definições@>+=
+void _periodic(void (*f)(void), float t){
+  int i;
+  unsigned long period = (unsigned long) (t * 1000000);
+  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
+    if(_periodic_functions[_number_of_loops][i].f == NULL){
+      _periodic_functions[_number_of_loops][i].f = f;
+      _periodic_functions[_number_of_loops][i].period = period;
+      _periodic_functions[_number_of_loops][i].last_execution = W.t;
+      return;
+    }
+  }
+  fprintf(stderr, "ERROR (1): Can't use more periodic functions.");
+  fprintf(stderr,
+          "Please, increase W_MAX_PERIODIC_FUNCTIONS in conf/conf.h\n");
+}
+void _nonperiodic(void (*f)(void)){
+  int i;
+  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
+    if(_periodic_functions[_number_of_loops][i].f == f){
+      for(; i < W_MAX_PERIODIC_FUNCTIONS - 1; i ++){
+        _periodic_functions[_number_of_loops][i].f =
+                                  _periodic_functions[_number_of_loops][i+1].f;
+        _periodic_functions[_number_of_loops][i].period =
+                             _periodic_functions[_number_of_loops][i+1].period;
+        _periodic_functions[_number_of_loops][i].last_execution =
+                     _periodic_functions[_number_of_loops][i+1].last_execution;
+      }
+      _periodic_functions[_number_of_loops][i].f = NULL;
+      return;
+    }
+  }
+}
+bool _is_periodic(void (*f)(void)){
+  int i;
+  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++)
+    if(_periodic_functions[_number_of_loops][i].f == f)
+      return true;
+  return false;
+}
+@
+
+E finalmente colocamos tudo isso dentro da estrutura |W|:
+
+@<Funções Weaver@>=
+// Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
+void (*periodic)(void (*f)(void), float);
+void (*nonperiodic)(void (*f)(void));
+bool (*is_periodic)(void (*f)(void));
+@
+
+@<API Weaver: Inicialização@>=
+W.periodic = &_periodic;
+W.nonperiodic = &_nonperiodic;
+W.is_periodic = &_is_periodic;
+@
+
+
 
 @*1 Funções de Interação com Plugins.
 
