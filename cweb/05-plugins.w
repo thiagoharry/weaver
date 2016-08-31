@@ -949,12 +949,20 @@ bool _is_periodic(void (*f)(void));  // Checa se uma função é periódica
 Todas elas interagem sempre com as listas de funções periódicas do
 loop atual.
 
+A função que adiciona uma nova função periódica segue abaixo. É a
+única que precisa se preocupar com o caso de não haver mais espaço
+para novas funções periódicas, caso em que ela imprime um erro na
+tela. Se estamos tornando periódica uma função que já é periódica,
+tudo o que estamos fazendo é atualizar seu valor de freqüência para um
+novo valor.
+
 @<API Weaver: Definições@>+=
 void _periodic(void (*f)(void), float t){
   int i;
   unsigned long period = (unsigned long) (t * 1000000);
   for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
-    if(_periodic_functions[_number_of_loops][i].f == NULL){
+    if(_periodic_functions[_number_of_loops][i].f == NULL ||
+       _periodic_functions[_number_of_loops][i].f == f){
       _periodic_functions[_number_of_loops][i].f = f;
       _periodic_functions[_number_of_loops][i].period = period;
       _periodic_functions[_number_of_loops][i].last_execution = W.t;
@@ -965,6 +973,13 @@ void _periodic(void (*f)(void), float t){
   fprintf(stderr,
           "Please, increase W_MAX_PERIODIC_FUNCTIONS in conf/conf.h\n");
 }
+@
+
+Para fazer com que uma função deixe de ser periódica, o código é o
+abaixo. Chamar esta função para funções que não são periódicas deve
+ser inócuo.
+
+@<API Weaver: Definições@>+=
 void _nonperiodic(void (*f)(void)){
   int i;
   for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
@@ -982,6 +997,11 @@ void _nonperiodic(void (*f)(void)){
     }
   }
 }
+@
+
+Por fim, pode ser importante chacar se uma função é periódica ou não:
+
+@<API Weaver: Definições@>+=
 bool _is_periodic(void (*f)(void)){
   int i;
   for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++)
@@ -1005,8 +1025,6 @@ W.periodic = &_periodic;
 W.nonperiodic = &_nonperiodic;
 W.is_periodic = &_is_periodic;
 @
-
-
 
 @*1 Funções de Interação com Plugins.
 
