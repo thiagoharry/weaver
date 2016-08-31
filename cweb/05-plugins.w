@@ -888,6 +888,16 @@ A grande novidade que temos no código acima é o |#include|. Ele irá
 inserir o código de inicialização de cada plugin que sejá gerado pelo
 Makefile no momento da compilação.
 
+Além desta inclusão iremos inserir também o seguinte cabeçalho gerado
+pelo Makefile durante a compilação e que tem todas as funções
+definidas em cada plugin:
+
+@<Cabeçalhos Gerais Dependentes da Estrutura Global@>+=
+#if W_TARGET == W_WEB
+#include "../../.hidden_code/header.h"
+#endif
+@
+
 @*1 Adendo: Executando Código Periodicamente.
 
 Mas e se estamos desenvolvendo o jogo e queremos invocar então

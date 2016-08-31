@@ -49,6 +49,11 @@ create_plugin_code:
 	echo "_plugins[$${count}].plugin_data = NULL;" >> .hidden_code/initialize_plugin.c; \
 	echo "_plugins[$${count}].enabled = false;" >> .hidden_code/initialize_plugin.c; \
 	echo "_plugins[$${count}].defined = true;" >> .hidden_code/initialize_plugin.c; \
+	echo "void _init_plugin_$${name}(struct _weaver_struct *);" > .hidden_code/header.h; \
+	echo "void _fini_plugin_$${name}(struct _weaver_struct *);" >> .hidden_code/header.h; \
+	echo "void _run_plugin_$${name}(struct _weaver_struct *);" >> .hidden_code/header.h; \
+	echo "void _enable_plugin_$${name}(struct _weaver_struct *);" >> .hidden_code/header.h; \
+	echo "void _disable_plugin_$${name}(struct _weaver_struct *);" >> .hidden_code/header.h; \
         count=$$(($${count}+1)); \
         done
 %.bc: src/%.c ${HEADERS}
