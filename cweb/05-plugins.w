@@ -383,9 +383,7 @@ durante todo o tempo, apenas tem o seu mutex bloqueado caso
 alguma \italico{thread} queira usar ele neste exato momento:
 
 @<Declarações de Plugins@>+=
-#if W_TARGET == W_ELF
 bool _reload_plugin(int plugin_id);
-#endif
 @
 
 @(project/src/weaver/plugins.c@>+=
@@ -495,8 +493,17 @@ bool (*reload_plugin)(int);
 @
 
 @<API Weaver: Inicialização@>+=
-#if W_TARGET == W_ELF
 W.reload_plugin = &_reload_plugin;
+@
+
+No caso de Emscripten, não temos como recarregar dinamicamente um
+plugin. Então esta função não fará nada, apenas retornará verdadeiro:
+
+@(project/src/weaver/plugins.c@>+=
+#if W_TARGET == W_WEB
+bool _reload_plugin(int plugin_id){
+  return (bool) (plugin_id + 1);
+}
 #endif
 @
 
@@ -729,9 +736,7 @@ função que será executada imediatamente antes de todo \italico{loop}
 principal:
 
 @<Declarações de Plugins@>+=
-#if W_TARGET == W_ELF
 void _reload_all_plugins(void);
-#endif
 @
 
 @(project/src/weaver/plugins.c@>+=
@@ -840,19 +845,28 @@ principal:
 #endif
 @
 
+Caso esejamos em Emscripten, a função de recarregar plugins meramente
+será ignorada:
+
+@(project/src/weaver/plugins.c@>+=
+#if W_TARGET == W_WEB
+void _reload_all_plugins(void){
+  return;
+}
+#endif
+@
+
 E finalmente, durante a execução do \italico{loop} principal iremos
 executar a função de cada \italico{plugin} associada à execução
 contínua:
 
 @<Código a executar todo loop@>+=
-#if W_TARGET == W_ELF
 {
   int i;
   for(i = 0; i < _max_number_of_plugins; i ++)
     if(_plugins[i].defined && _plugins[i].enabled)
       _plugins[i]._run_plugin(&W);
 }
-#endif
 @
 
 @*1 Listas de Plugins em ambiente Emscripten.
@@ -896,6 +910,18 @@ definidas em cada plugin:
 #if W_TARGET == W_WEB
 #include "../../.hidden_code/header.h"
 #endif
+@
+
+E da mesma forma que inicializmaos todos os plugins, teremos depois
+que encerrá-los na finalização. Isso será mais fácil que a finalização
+fora do Emscripten:
+
+@<API Weaver: Encerramento@>+=
+{
+  int i;
+  for(i = 0; i < _max_number_of_plugins; i ++)
+    _plugins[i]._fini_plugin(&W);
+}
 @
 
 @*1 Adendo: Executando Código Periodicamente.
@@ -1081,7 +1107,6 @@ bool _Wis_enabled(int plugin_id);
 @
 
 @(project/src/weaver/plugins.c@>+=
-#if W_TARGET == W_ELF
 bool _Wenable_plugin(int plugin_id){
   if(plugin_id >= _max_number_of_plugins ||
      !(_plugins[plugin_id].defined))
@@ -1126,7 +1151,6 @@ bool _Wis_enabled(int plugin_id){
     return false;
   return _plugins[plugin_id].enabled;
 }
-#endif
 @
 
 Ativar ou desativar um \italico{plugin} é o que define se ele irá
