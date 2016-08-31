@@ -4,9 +4,11 @@ PROG=$(shell cat .weaver/name)
 BC=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).bc; done)
 W_BC=$(shell for i in src/weaver/*.c; do echo .weaver/$$(basename $${i%%.c}).bc; done)
 HEADERS=$(shell echo src/*.h)
-FLAGS=-Wall -O2
+PLUGINS=$(shell echo plugins/*.c)
 LIB=-lm -pthread
 DEFINES=-DW_PROG=\"${PROG}\"
+PLUGINS_NUM=$(shell ls -1 plugins | wc -l)
+FLAGS=-Wall -O2 -D_W_NUMBER_OF_PLUGINS=${PLUGINS_NUM}
 
 MAX_MEMORY=$(shell grep "^\#define[ \t]\+W_MAX_MEMORY[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
 WEB_MEMORY=$(shell grep "^\#define[ \t]\+W_WEB_MEMORY[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
@@ -29,9 +31,26 @@ err:
 endif
 
 
-make-web: ${BC} ${W_BC} ${HEADERS} conf/conf.h
+make-web: create_plugin_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
 	mkdir -p web
 	${FINAL_CC} ${DEFINES} ${BC} ${W_BC} ${FINAL_FLAGS} -o web/${PROG}.html ${LIB}
+create_plugin_code:
+	mkdir -p .hidden_code
+	count=0; \
+	for i in plugins/*.c ; do \
+        name=$$(basename $$i); \
+        name=$${name%??}; \
+	echo "strcpy(_plugins[$${count}].plugin_name, \"$${name}\");" > .hidden_code/initialize_plugin.c; \
+	echo "_plugins[$${count}]._init_plugin = _init_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
+	echo "_plugins[$${count}]._fini_plugin = _fini_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
+	echo "_plugins[$${count}]._run_plugin = _run_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
+	echo "_plugins[$${count}]._enable_plugin = _enable_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
+	echo "_plugins[$${count}]._disable_plugin = _disable_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
+	echo "_plugins[$${count}].plugin_data = NULL;" >> .hidden_code/initialize_plugin.c; \
+	echo "_plugins[$${count}].enabled = false;" >> .hidden_code/initialize_plugin.c; \
+	echo "_plugins[$${count}].defined = true;" >> .hidden_code/initialize_plugin.c; \
+        count=$$(($${count}+1)); \
+        done
 %.bc: src/%.c ${HEADERS}
 	${EMCC} ${DEFINES} ${FLAGS} -c $< -o $$(basename $< .c).bc
 .weaver/%.bc: src/weaver/%.c ${HEADERS}

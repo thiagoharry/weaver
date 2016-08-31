@@ -500,7 +500,6 @@ W.reload_plugin = &_reload_plugin;
 #endif
 @
 
-
 @*1 Listas de Plugins.
 
 Não é apenas um \italico{plugin} que precisamos suportar. É um número
@@ -527,12 +526,10 @@ de \italico{plugins}, isso parece ser o suficiente no momento.
 O ponteiro para o vetor de \italico{plugins} será declarado como:
 
 @<Declarações de Plugins@>+=
-#if W_TARGET == W_ELF
 struct _plugin_data *_plugins;
 int _max_number_of_plugins;
 #ifdef W_MULTITHREAD
   pthread_mutex_t _plugin_mutex;
-#endif
 #endif
 @
 
@@ -857,6 +854,39 @@ contínua:
 }
 #endif
 @
+
+@*1 Listas de Plugins em ambiente Emscripten.
+
+Caso estejamos compilando para Javascript, tudo muda. Não temos mais
+acesso à funções como |dlopen|. Não há como executar código em C
+dinamicamente. Só códigos Javascript, o que não iremos suportar. Mas
+como então fazer com que possamos tratar a lista de plugins de forma
+análoga?
+
+Para começar, precisamos saber quantos plugins são. Mas não iremos
+checar os plugins compilados, mas sim o código deles que iremos
+injetar estaticamene. Sendo assim, o próprio Makefile do projeto pode
+nos informar facilmente o número por meio de uma macro
+|_W_NUMBER_OF_PLUGINS|. De posse deste número, podemos inicializar a
+lista de plugins com o número correto deles, que não irá aumentar e
+nem diminuir, pois não podemos adicioná-los ou removê-los
+dinamicamente.
+
+De posse deste número, podemos começar alocando o número correto de
+plugins na nossa lista:
+
+@<API Weaver: Últimas Inicializações@>+=
+{
+_max_number_of_plugins = _W_NUMBER_OF_PLUGINS;
+_plugins = (struct _plugin_data *) Walloc(sizeof(struct _plugin_data) *
+              _max_number_of_plugins);
+#include "../../.hidden_code/initialize_plugin.c"
+}
+@
+
+A grande novidade que temos no código acima é o |#include|. Ele irá
+inserir o código de inicialização de cada plugin que sejá gerado pelo
+Makefile no momento da compilação.
 
 @*1 Adendo: Executando Código Periodicamente.
 
