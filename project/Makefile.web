@@ -3,6 +3,7 @@ EMCC=emcc
 PROG=$(shell cat .weaver/name)
 BC=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).bc; done)
 W_BC=$(shell for i in src/weaver/*.c; do echo .weaver/$$(basename $${i%%.c}).bc; done)
+PLUGIN_BC=$(shell for i in plugins/*.c; do echo $$(basename $${i%%.c}).bc; done)
 HEADERS=$(shell echo src/*.h)
 PLUGINS=$(shell echo plugins/*.c)
 LIB=-lm -pthread
@@ -33,13 +34,13 @@ endif
 
 make-web: create_plugin_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
 	mkdir -p web
-	${FINAL_CC} ${DEFINES} ${BC} ${W_BC} ${FINAL_FLAGS} -o web/${PROG}.html ${LIB}
+	${FINAL_CC} ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} -o web/${PROG}.html ${LIB}
 create_plugin_code:
 	mkdir -p .hidden_code
 	count=0; \
 	for i in plugins/*.c ; do \
-        name=$$(basename $$i); \
-        name=$${name%??}; \
+        filename=$$(basename $$i); \
+        name=$${filename%??}; \
 	echo "strcpy(_plugins[$${count}].plugin_name, \"$${name}\");" > .hidden_code/initialize_plugin.c; \
 	echo "_plugins[$${count}]._init_plugin = _init_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
 	echo "_plugins[$${count}]._fini_plugin = _fini_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
@@ -54,6 +55,7 @@ create_plugin_code:
 	echo "void _run_plugin_$${name}(struct _weaver_struct *);" >> .hidden_code/header.h; \
 	echo "void _enable_plugin_$${name}(struct _weaver_struct *);" >> .hidden_code/header.h; \
 	echo "void _disable_plugin_$${name}(struct _weaver_struct *);" >> .hidden_code/header.h; \
+	${EMCC} ${DEFINES} ${FLAGS} -c plugins/$${filename} -o $${name}.bc; \
         count=$$(($${count}+1)); \
         done
 %.bc: src/%.c ${HEADERS}
