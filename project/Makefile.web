@@ -3,10 +3,10 @@ EMCC=emcc
 PROG=$(shell cat .weaver/name)
 BC=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).bc; done)
 W_BC=$(shell for i in src/weaver/*.c; do echo .weaver/$$(basename $${i%%.c}).bc; done)
-PLUGIN_BC=$(shell for i in plugins/*.c; do echo .plugin/$$(basename $${i%%.c}).bc; done)
+PLUGIN_BC=$(shell if [ "$(ls -A plugins/)" ]; then for i in plugins/*.c; do echo .plugin/$$(basename $${i%%.c}).bc; done; fi)
 HEADERS=$(shell echo src/*.h)
-PLUGINS=$(shell echo plugins/*.c)
-LIB=-lm -pthread
+PLUGINS=$(shell [ "$(ls -A plugins/)" ] && echo plugins/*.c)
+LIB= -lm -pthread
 DEFINES=-DW_PROG=\"${PROG}\"
 PLUGINS_NUM=$(shell ls -1 plugins | wc -l)
 FLAGS=-Wall -O2 -D_W_NUMBER_OF_PLUGINS=${PLUGINS_NUM}
@@ -37,10 +37,14 @@ make-web: create_plugin_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
 	${FINAL_CC} ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} -o web/${PROG}.html ${LIB}
 create_plugin_code:
 	mkdir -p .hidden_code .plugin
+	echo "" > .hidden_code/initialize_plugin.c
+	echo "" > .hidden_code/header.h
 	count=0; \
-	for i in plugins/*.c ; do \
+	if [ "$$(ls -A plugins/)" ]; then for i in plugins/*.c ; do \
+        if [[ -z "$${i// }" ]]; then continue; fi; \
         filename=$$(basename $$i); \
         name=$${filename%??}; \
+        if [ "$${name}" == "*" ]; then continue; fi; \
 	echo "strcpy(_plugins[$${count}].plugin_name, \"$${name}\");" > .hidden_code/initialize_plugin.c; \
 	echo "_plugins[$${count}]._init_plugin = _init_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
 	echo "_plugins[$${count}]._fini_plugin = _fini_plugin_$${name};" >> .hidden_code/initialize_plugin.c; \
@@ -57,7 +61,7 @@ create_plugin_code:
 	echo "void _disable_plugin_$${name}(struct _weaver_struct *);" >> .hidden_code/header.h; \
 	${EMCC} ${DEFINES} ${FLAGS} -c plugins/$${filename} -o .plugin/$${name}.bc; \
         count=$$(($${count}+1)); \
-        done
+        done; fi
 %.bc: src/%.c ${HEADERS}
 	${EMCC} ${DEFINES} ${FLAGS} -c $< -o $$(basename $< .c).bc
 .weaver/%.bc: src/weaver/%.c ${HEADERS}

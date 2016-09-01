@@ -890,12 +890,14 @@ De posse deste número, podemos começar alocando o número correto de
 plugins na nossa lista:
 
 @<API Weaver: Últimas Inicializações@>+=
+#if W_TARGET == W_WEB
 {
 _max_number_of_plugins = _W_NUMBER_OF_PLUGINS;
 _plugins = (struct _plugin_data *) Walloc(sizeof(struct _plugin_data) *
               _max_number_of_plugins);
 #include "../../.hidden_code/initialize_plugin.c"
 }
+#endif
 @
 
 A grande novidade que temos no código acima é o |#include|. Ele irá
@@ -917,11 +919,13 @@ que encerrá-los na finalização. Isso será mais fácil que a finalização
 fora do Emscripten:
 
 @<API Weaver: Encerramento@>+=
+#if W_TARGET == W_WEB
 {
   int i;
   for(i = 0; i < _max_number_of_plugins; i ++)
     _plugins[i]._fini_plugin(&W);
 }
+#endif
 @
 
 @*1 Adendo: Executando Código Periodicamente.

@@ -337,7 +337,6 @@ mouse.
 Além de criar um projeto Weaver novo, o programa Weaver tem outros
 casos de uso. Eis a lista deles:
 
-
 \negrito{Caso de Uso 1: Mostrar mensagem de ajuda de criação de
   novo projeto:} Isso deve ser feito toda vez que o usuário estiver
   fora do diretório de um Projeto Weaver e ele pedir ajuda
@@ -381,6 +380,10 @@ casos de uso. Eis a lista deles:
   qualquer arquivo necessário para o desenvolvimento (por exemplo, não
   deve-se poder criar um projeto chamado \monoespaco{Makefile}).
 
+\negrito{Caso de Uso 7: Criar um novo plugin:} Para isso devemos estar
+no diretório Weaver e devemos receber dois argumentos. O primeiro deve
+ser \monoespaco{--plugin} e o segundo deve ser o nome do plugin, o
+qual deve ser um nome válido seguindo as mesmas regras dos módulos.
 
 @*2 Variáveis do Programa Weaver.
 
@@ -391,6 +394,8 @@ O comportamento de Weaver deve depender das seguintes variáveis:
   invocado de dentro de um projeto Weaver.
 
 |argument|: O primeiro argumento, ou NULL se ele não existir
+
+|argument2|: O segundo argumento, ou NULL se não existir.
 
 |project_version_major|: Se estamos em um projeto Weaver, qual o
   maior número da versão do Weaver usada para gerar o
@@ -416,6 +421,9 @@ O comportamento de Weaver deve depender das seguintes variáveis:
 
 |arg_is_valid_module|: Se o argumento passado seria válido como
   um novo módulo no projeto Weaver atual.
+
+|arg_is_valid_plugin|: Se o segundo argumento existe e se ele é um
+ nome válido para um novo plugin.
 
 |project_path|: Se estamos dentro de um diretório de projeto
   Weaver, qual o caminho para a sua base (onde há o Makefile)
@@ -451,12 +459,13 @@ int main(int argc, char **argv){@/
   int return_value = 0; /* Valor de retorno. */
   bool inside_weaver_directory = false, arg_is_path = false,
     arg_is_valid_project = false, arg_is_valid_module = false,
-    have_arg = false; /* Variáveis booleanas. */
+    have_arg = false, arg_is_valid_plugin = false; /* Variáveis booleanas. */
   unsigned int project_version_major = 0, project_version_minor = 0,
     weaver_version_major = 0, weaver_version_minor = 0,
     year = 0;
+  /* Strings UTF-8: */
   char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
-    *author_name = NULL, *project_name = NULL; /* Strings UTF-8 */
+    *author_name = NULL, *project_name = NULL, *argument2 = NULL;
   @<Inicialização@>
   @<Caso de uso 1: Imprimir ajuda de criação de projeto@>
   @<Caso de uso 2: Imprimir ajuda de gerenciamento@>
@@ -464,6 +473,7 @@ int main(int argc, char **argv){@/
   @<Caso de uso 4: Atualizar projeto Weaver@>
   @<Caso de uso 5: Criar novo módulo@>
   @<Caso de uso 6: Criar novo projeto@>
+  @<Caso de uso 7: Criar novo plugin@>
 END_OF_PROGRAM:
   @<Finalização@>
   return return_value;
@@ -743,7 +753,8 @@ if(inside_weaver_directory){
   fclose(fp);
 }
 
-@*3 Inicializando \monoespaco{have\_arg} e \monoespaco{argument}.
+@*3 Inicializando \monoespaco{have\_arg}, \monoespaco{argument} e
+\monoespaco{argument2}.
 
 Uma das variáveis mais fáceis e triviais de se inicializar. Basta
 consultar |argc| e |argv|.
@@ -751,6 +762,8 @@ consultar |argc| e |argv|.
 @<Inicialização@>+=
 have_arg = (argc > 1);
 if(have_arg) argument = argv[1];
+if(argc > 2) argument2 = argv[2];
+@
 
 @*3 Inicializando \monoespaco{arg\_is\_path}.
 
@@ -881,6 +894,37 @@ if(have_arg && inside_weaver_directory){
   arg_is_valid_module = true;
 }
 NOT_VALID_MODULE:
+
+@*3 Inicializando \monoespaco{arg\_is\_valid\_plugin}.
+
+Para que um argumento seja um nome válido para plugin, ele deve ser
+composto só por caracteres alfanuméricos e não existir no diretório
+\monoespaco{plugin} um arquivo com a extensão \monoespaco{.c} de mesmo
+nome. Também precisamos estar naturalmente, em um diretório Weaver.
+
+@<Inicialização@>+=
+if(argument2 != NULL && inside_weaver_directory){
+  int i, size;
+  char *buffer;
+  size = strlen(argument2);
+  // Checando caracteres inválidos no nome:
+  for(i = 0; i < size; i ++){
+    if(!isalnum(argument2[i])){
+      goto NOT_VALID_PLUGIN;
+    }
+  }
+  // Checando se já existe plugin com mesmo nome:
+  buffer = concatenate(project_path, "plugins/", argument2, ".c", "");
+  if(buffer == NULL) ERROR();
+  if(directory_exist(buffer) != 0){
+    free(buffer);
+    goto NOT_VALID_PLUGIN;
+  }
+  free(buffer);
+  arg_is_valid_plugin = true;
+}
+NOT_VALID_PLUGIN:
+@
 
 @*3 Inicializando \monoespaco{author\_name}.
 
@@ -1028,6 +1072,8 @@ que imprimiremos é semelhante à esta:
         \\/____\\/          Creates NAME.c and NAME.h, updating
         /      \\          the Makefile and headers
        /
+                          weaver --plugin NAME
+                           Creates new plugin in plugin/NAME.c
 \alinhanormal
 
 O que é obtido com o código:
@@ -1043,7 +1089,9 @@ if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
   "       \\ \\/__\\/ /       weaver NAME\n"
   "        \\/____\\/          Creates NAME.c and NAME.h, updating\n"
   "        /      \\          the Makefile and headers\n"
-  "       /\n");
+  "       /\n"
+  "                        weaver --plugin NAME\n"
+  "                         Creates a new plugin in plugin/NAME.c\n");
   END();
 }
 
@@ -1286,7 +1334,8 @@ void write_copyright(FILE *fp, char *author_name, char *project_name, int year){
 Já o código de criação de novo módulo passa a ser:
 
 @<Caso de uso 5: Criar novo módulo@>=
-if(inside_weaver_directory && have_arg){
+if(inside_weaver_directory && have_arg &&
+   strcmp(argument, "--plugin")){
   if(arg_is_valid_module){
     char *filename;
     FILE *fp;
@@ -1434,6 +1483,37 @@ int append_basefile(FILE *fp, char *dir, char *file){
 E isso conclui todo o código do Programa Weaver. Todo o resto de
 código que será apresentado à seguir, não pertence mais ao programa
 Weaver, mas à Projetos Weaver e à API Weaver.
+
+@*2 Caso de uso 7: Criar novo plugin.
+
+Este aso de uso é invocado quando temos dois argumentos, o primeiro é
+|"--plugin"| e o segundo é o nome de um novo plugin, o qual deve ser
+um nome único, sem conflitar com qualquer outro dentro de
+\monoespaco{plugins/}. Devemos estar em um diretório Weaver para fazer
+isso.
+
+@<Caso de uso 7: Criar novo plugin@>=
+if(inside_weaver_directory && have_arg && !strcmp(argument, "--plugin") &&
+   arg_is_valid_plugin){
+  char *buffer;
+  FILE *fp;
+  /* Criando o arquivo: */
+  buffer = concatenate("plugins/", argument2, ".c", "");
+  if(buffer == NULL) ERROR();
+  fp = fopen(buffer, "w");
+  if(fp == NULL) ERROR();
+  write_copyright(fp, author_name, project_name, year);
+  fprintf(fp, "#include \"../src/weaver/weaver.h\"\n\n");
+  fprintf(fp, "void _init_plugin_%s(W_PLUGIN){\n\n}\n\n", argument2);
+  fprintf(fp, "void _fini_plugin_%s(W_PLUGIN){\n\n}\n\n", argument2);
+  fprintf(fp, "void _run_plugin_%s(W_PLUGIN){\n\n}\n\n", argument2);
+  fprintf(fp, "void _enable_plugin_%s(W_PLUGIN){\n\n}\n\n", argument2);
+  fprintf(fp, "void _disable_plugin_%s(W_PLUGIN){\n\n}\n", argument2);
+  fclose(fp);
+  free(buffer);
+  END();
+}
+@
 
 @*1 O arquivo \monoespaco{conf\.h}.
 
