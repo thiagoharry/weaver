@@ -705,13 +705,11 @@ int _Wget_plugin(char *plugin_name);
 
 @(project/src/weaver/plugins.c@>+=
 int _Wget_plugin(char *plugin_name){
-#if W_TARGET == W_ELF
   int i;
   for(i = 0; i < _max_number_of_plugins; i ++)
     if(!strcmp(plugin_name, _plugins[i].plugin_name))
       return i;
-#endif
-  return -1; // A função deliberadamente só retorn -1 no Emscripten
+  return -1; // Caso em que não foi encontrado
 }
 @
 
@@ -1013,7 +1011,7 @@ E finalmente funções para interagir com código executado periodicamente:
 @<Cabeçalhos Weaver@>+=
 void _periodic(void (*f)(void), float t); // Torna uma função periódica
 void _nonperiodic(void (*f)(void));  // Faz uma função deixar de ser periódica
-bool _is_periodic(void (*f)(void));  // Checa se uma função é periódica
+float _period(void (*f)(void));  // Obém o período de uma função periódica
 @
 
 Todas elas interagem sempre com as listas de funções periódicas do
@@ -1069,15 +1067,18 @@ void _nonperiodic(void (*f)(void)){
 }
 @
 
-Por fim, pode ser importante chacar se uma função é periódica ou não:
+Por fim, pode ser importante checar se uma função é periódica ou não e
+obter o seu período. A função abaixo retorna o período de umas função
+periódica e retorna NaN se ela não for uma função periódica.
 
 @<API Weaver: Definições@>+=
-bool _is_periodic(void (*f)(void)){
+float _period(void (*f)(void)){
   int i;
   for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++)
     if(_periodic_functions[_number_of_loops][i].f == f)
-      return true;
-  return false;
+      return (float) (_periodic_functions[_number_of_loops][i].period) /
+             1000000.0;
+  return NAN;
 }
 @
 
@@ -1087,13 +1088,13 @@ E finalmente colocamos tudo isso dentro da estrutura |W|:
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
 void (*periodic)(void (*f)(void), float);
 void (*nonperiodic)(void (*f)(void));
-bool (*is_periodic)(void (*f)(void));
+float (*period)(void (*f)(void));
 @
 
 @<API Weaver: Inicialização@>=
 W.periodic = &_periodic;
 W.nonperiodic = &_nonperiodic;
-W.is_periodic = &_is_periodic;
+W.period = &_period;
 @
 
 @*1 Funções de Interação com Plugins.
@@ -1223,4 +1224,61 @@ W.get_plugin_data = &_Wget_plugin_data;
 W.set_plugin_data = &_Wset_plugin_data;
 #endif
 @
+
+@*1 Sumário das Variáveis e Funções referentes à Plugins.
+
+\macronome As seguintes 11 novas funções foram definidas:
+
+\macrovalor|int W.get_plugin(char *)|: Obtém o número de identificação
+de um plugin dado o seu nome. Se o plugin não for encontrado, retorna
+-1.
+
+\macrovalor|bool W.reload_plugin(int plugin_id)|: Checa se o plugin
+indicado pelo seu número de identificação sofreu qualquer alteração
+enquanto o programa está em execução. Se for o caso, carregamos as
+novas alterações. Ser tudo correr bem, retornamos verdadeiro e se
+algum erro ocorrer ao tentar recarregá-lo, retornamos falso.
+
+\macrovalor|void W.reload_all_plugins(void)|: Faz com que todos os
+plugins que carregamaos sejam recarregados para refletir qualquer
+alteração que possam ter sofrido enquanto o programa está em execução.
+
+\macrovalor|bool enable_plugin(int id)|: Ativa um dado plugin dado o
+seu número de identificação. Um plugin ativado tem o seu código
+específico executado em cada iteração do loop principal. O ato de
+ativar um plugin também pode executar código relevante específico de
+cada plugin. Retorna se tudo correu bem na ativação do plugin.
+
+\macrovalor|bool disable_plugin(int id)|: Desativa um plugin dado o
+seu número de identificação. Um plugin desaivado deixa de ser
+executado todo turno e pode executar código específico dele durante a
+desativação.
+
+\macrovalor|bool is_plugin_enabled(int id)|: Dado um plugin
+identificado pelo seu número de identificação, retorna se ele está
+ativado.
+
+\macrovalor|void *get_plugin_data(int id)|: Dado um plugin
+identificado pelo seu número de identificação, retorna o dado
+arbitrário que ele pode estar armazenando e que é específico do
+plugin. Pode ser |NULL| se não houver dado nenhum armazenado.
+
+\macrovalor|bool set_plugin_data(int id, void *dado)|: Dado um plugin
+caracterizado pelo seu número de identificação, armazena nela o dado
+arbitrário passado como segundo argumento.
+
+\macrovalor|void W.periodic(void (*f)(void), float p)|: Faz com que no
+loop em que estamos, a função |f| seja executada periodicamente a cada
+|p| segundos. Se ela já foi passada antes para a mesma função, então
+apenas atualizamos o seu valor de |p|.
+
+\macrovalor|void W.nonperiodic(void (*f)(void))|: Faz com que a função
+|f| deixe de ser executada periodicamente caso ela tenha sido passada
+previamente para |W.periodic|.
+
+\macrovalor|float W.is_periodic(void (*f)(void))|: Retorna o período
+de uma função periódica e NaN se a função não for periódica. Como a
+ocorrência de um NaN (Not a Number) pode ser testada com a função
+|isnan|, então esta é a forma recomendada de descobrir se uma dada
+função é periódica ou não.
 
