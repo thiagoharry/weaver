@@ -18,6 +18,10 @@ como \italico{plugins}: tanto em tempo de execução como de
 compilação. E para isso precisaremos definir um formato no qual iremos
 permitir nossos \italico{shaders}.
 
+Além de \italico{shaders} sob medida criado por usuários, iremos
+também, fornecer \italico{shaders} padronizados para a renderização
+padrão dos objetos.
+
 @*1 Interfaces.
 
 Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
@@ -30,7 +34,7 @@ Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
 #endif
 #include "weaver.h"
 @<Inclui Cabeçalho de Configuração@>
-//@<Inerface: Declarações@>
+@<Interface: Declarações@>
 #ifdef __cplusplus
   }
 #endif
@@ -43,6 +47,48 @@ Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
 @<Cabeçalhos Weaver@>=
 #include "interface.h"
 @
+
+A primeira coisa a fazer é especificar como iremos medir o tamanho e a
+posição de uma interface. Para elas, o importante é sempre saber sua
+posição no monitor do jogador, não em termos do jogo que se desenvolve
+atrás delas. Por isso, a posição na tela de uma interface deve ser
+dada por uma coordenada da tela que convencionaremos ter a sua origem
+exatamente no centro da tela. O eixo $x$ será o eixo horizontal que
+valerá -1 na extrema esquerda da tela e +1 na extrema direita. A mesma
+lógica será usada para o eixo $y$. A parte inferior da tela fica na
+posição -1 e a superior na +1. Isso faz com que o nosso plano
+cartesiano na tela possa ficar um pouco distorcido, pois geralmente
+monitores não são quadrados. É importante ter em mente isso ao definir
+tamanhos e posições para as interfaces:
+
+\imagem{cweb/diagrams/tela.eps}
+
+A posição de uma dada interface será dada pela posição de seu
+centro. Sua altura será medida em unidades de acordo com o eixo $y$ e
+a largura de acordo com o eixo $x$ da tela. Desta forma, dizemos que
+uma interface localizada na posição $(0, 0)$ de altura $1$ e largura
+$1$ terá sempre uma área igual à $1/4$ da área da tela e estará
+centralizada.
+
+Assim, nossa lista de interfaces é declarada da seguinte forma:
+
+@<Interface: Declarações@>=
+  struct interface {
+      int _type; // Como renderizar
+      float x, y; // Posição
+      float r, g, b, a; // Cor
+      float height, length; // Tamanho
+      void *_data; // Se é uma imagem, ela estará aqui
+      /* Funções a serem executadas em eventos: */
+      void (*onmouseover)(struct interface *);
+      void (*onmouseout)(struct interface *);
+      void (*onleftclick)(struct interface *);
+      void (*onrightclick)}(struct interface *);
+ _interfaces[W_LIMIT_SUBLOOP][W_MAX_INTERFACES];
+@
+
+Notar que cada subloop do jogo tem as suas interfaces. E o número
+máximo para cada subloop deve ser dado por |W_MAX_INTERFACES|.
 
 @*1 Shaders.
 
@@ -64,7 +110,7 @@ biblioteca GLEW:
     Dependendo da versão, glewInit gera um erro completamente inócuo
     acusando valor inválido passado para alguma função. A linha
     seguinte serve apenas para ignorarmos o erro, impedindo-o de se
-    propagar. 
+    propagar.
    */
   dummy = glGetError();
   glewExperimental += dummy;
@@ -441,7 +487,7 @@ void Wset_ambient_light_color(float r, float g, float b){
   Wambient_light.g = g;
   Wambient_light.b = b;
   glUniform3f(Wambient_light._shader_variable, Wambient_light.r,
-              Wambient_light.g, Wambient_light.b);  
+              Wambient_light.g, Wambient_light.b);
 }
 @
 
@@ -569,7 +615,7 @@ void Wset_directional_light_color(float r, float g, float b){
   Wdirectional_light.g = g;
   Wdirectional_light.b = b;
   glUniform3f(Wdirectional_light._shader_variable, Wdirectional_light.r,
-              Wdirectional_light.g, Wdirectional_light.b);  
+              Wdirectional_light.g, Wdirectional_light.b);
 }
 @
 
@@ -586,7 +632,7 @@ void Wset_directional_light_direction(float x, float y, float z){
   Wdirectional_light.y = y;
   Wdirectional_light.z = z;
   glUniform3f(Wdirectional_light._direction_variable, Wdirectional_light.x,
-              Wdirectional_light.y, Wdirectional_light.z);  
+              Wdirectional_light.y, Wdirectional_light.z);
 }
 @
 
