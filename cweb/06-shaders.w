@@ -90,6 +90,58 @@ Assim, nossa lista de interfaces é declarada da seguinte forma:
 Notar que cada subloop do jogo tem as suas interfaces. E o número
 máximo para cada subloop deve ser dado por |W_MAX_INTERFACES|.
 
+O atributo |_type| conterá a regra de renderização sobre como o shader
+deve tratar o elemento. Por hora definiremos dois tipos:
+
+@<Interface: Declarações@>+=
+#define W_NONE                 0
+#define W_INTERFACE_SQUARE    -1
+#define W_INTERFACE_PERIMETER -2
+@
+
+O primeiro valor indica que a interface ainda não foi definida. O
+segundo deverá avisar o \italico{shader} para desenhar a interface
+como um quadrado todo colorido com a cor indicada. O segundo é para
+desenhar apenas o perímetro da superfície, também com as cores
+indicadas. Caso uma interface não tenha sido definida, seu valor
+deverá ser meramente |W_NONE|.
+
+Na inicialização do programa preenchemos a nossa matriz de interfaces:
+
+@<API Weaver: Inicialização@>+=
+{
+    int i, j;
+    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+        for(j = 0; j < W_MAX_INTERFACES; j ++)
+            _interfaces[i][j]._type = W_NONE;
+}
+@
+
+Também precisamos limpar as interfaces de um loop caso estejamos
+descartando ele para começar um novo loop:
+
+@<Código antes de Loop, mas não de Subloop@>+=
+{
+    int i;
+    for(i = 0; i < W_MAX_INTERFACES; i ++)
+        _interfaces[_number_of_loops][i]._type = W_NONE;
+}
+@
+
+E também precisamos fazer a mesma limpeza no caso de estarmos saindo
+de um subloop:
+
+@<Código após sairmos de Subloop@>+=
+{
+    int i;
+    for(i = 0; i < W_MAX_INTERFACES; i ++)
+        _interfaces[_number_of_loops][i]._type = W_NONE;
+}
+@
+
+Desta forma garantimos que ao iniciar um novo loop principal, a lista
+de interfaces que temos estará vazia.
+
 @*1 Shaders.
 
 
