@@ -1,4 +1,51 @@
-@* Shaders.
+@* Shaders e Interface.
+
+Quase todo jogo ou aplicação gráfica possui uma interface visual. Esta
+interface são imagens que possuem um determinado tamanho e posição na
+tela. Elas podem reagir de forma diferente quando um usuário coloca ou
+remove o cursor do mouse sobre ela e quando é clicada com algum dos
+botões do mouse. E ela pode ser ou não animada. Apesar da aparente
+complexidade, é um dos elementos mais simples com os quais temos que
+lidar. Uma interface não interaje com o mundo de nosso jogo, portanto
+ignora a engine de física. O movimento da câmera não muda sua
+posição. E elas também não interagem diretamente entre si. Geralmente
+não precisamos verificar se uma interface colidiu com outra ou não.
+
+Mas para que possamos mostrar interaces visualmente precisaremos enfim
+preencher o código de nosso \italico{shader}. Mas além disso seria
+interessante se os \italico{shaders} pudessem ser modificados tais
+como \italico{plugins}: tanto em tempo de execução como de
+compilação. E para isso precisaremos definir um formato no qual iremos
+permitir nossos \italico{shaders}.
+
+@*1 Interfaces.
+
+Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
+
+@(project/src/weaver/interface.h@>=
+#ifndef _interface_h_
+#define _interface_h_
+#ifdef __cplusplus
+  extern "C" {
+#endif
+#include "weaver.h"
+@<Inclui Cabeçalho de Configuração@>
+//@<Inerface: Declarações@>
+#ifdef __cplusplus
+  }
+#endif
+#endif
+@
+@(project/src/weaver/interface.c@>=
+#include "interface.h"
+//@<Interface: Definições@>
+@
+@<Cabeçalhos Weaver@>=
+#include "interface.h"
+@
+
+@*1 Shaders.
+
 
 Aqui apresentamos todo o código que é executado na GPU ao invés da
 CPU. Como usaremos shaders, precisaremos usar e inicializar também a
@@ -193,9 +240,9 @@ entrada:
 @(project/src/weaver/vertex.glsl@>+=
 void main(){
   gl_Position = vec4(vPosition, 1.0);
-  @<Shader de Vértice: Aplicar Matriz de Modelo@>@/
+  //@<Shader de Vértice: Aplicar Matriz de Modelo@>@/
   @<Shader de Vértice: Ajuste de Resolução@>@/
-  @<Shader de Vértice: Câmera (Perspectiva)@>@/
+  //@<Shader de Vértice: Câmera (Perspectiva)@>@/
   @<Shader de Vértice: Cálculo do Vetor Normal@>@/
 }
 @

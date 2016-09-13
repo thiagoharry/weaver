@@ -1402,8 +1402,6 @@ _initialize_memory();
 @<API Weaver: Finalização@>+=
 // Primeiro a finalização das coisas antes de desalocar memória:
 @<API Weaver: Encerramento@>
-// Em "desalocações" desalocamos memória alocada com |Walloc|:
-@<API Weaver: Desalocações@>
 // Só então podemos finalizar o gerenciador de memória:
 _finalize_memory();
 @
