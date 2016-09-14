@@ -58,18 +58,31 @@ retangulares). O canto superior direito da ela é a posição $(0,0)$.
 Assim, nossa lista de interfaces é declarada da seguinte forma:
 
 @<Interface: Declarações@>=
-  struct interface {
-      int _type; // Como renderizar
-      int x, y; // Posição
-      float r, g, b, a; // Cor
-      int height, length; // Tamanho
-      void *_data; // Se é uma imagem, ela estará aqui
-      /* Funções a serem executadas em eventos: */
-      void (*onmouseover)(struct interface *);
-      void (*onmouseout)(struct interface *);
-      void (*onleftclick)(struct interface *);
-      void (*onrightclick)}(struct interface *);
+struct interface {
+    int _type; // Como renderizar
+    int x, y; // Posição
+    float r, g, b, a; // Cor
+    int height, length; // Tamanho
+    void *_data; // Se é uma imagem, ela estará aqui
+    /* Variáveis necessárias para o OpenGL: */
+    GLuint _vao;
+    GLfloat _vertices[12];
+    float _ofset_x, _offset_y;
+    /* Funções a serem executadas em eventos: */
+    void (*onmouseover)(struct interface *);
+    void (*onmouseout)(struct interface *);
+    void (*onleftclick)(struct interface *);
+    void (*onrightclick)}(struct interface *);
+    /* Mutex: */
+#ifdef W_MULTITHREAD
+    pthread_mutex_t _mutex;
+#endif
  _interfaces[W_LIMIT_SUBLOOP][W_MAX_INTERFACES];
+#ifdef W_MULTITHREAD
+  // Para impedir duas threads de iserirem ou removerem interfaces
+  // desta matriz:
+  pthread_mutex_t _interface_mutex;
+#endif
 @
 
 Notar que cada subloop do jogo tem as suas interfaces. E o número
@@ -97,9 +110,25 @@ Na inicialização do programa preenchemos a nossa matriz de interfaces:
 {
     int i, j;
     for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
-        for(j = 0; j < W_MAX_INTERFACES; j ++){}
+        for(j = 0; j < W_MAX_INTERFACES; j ++)
             _interfaces[i][j]._type = W_NONE;
+#ifdef W_MULTITHREAD
+    if(pthread_mutex_init(&_interface_mutex, NULL) != 0){
+        perror("Initializing interface mutex:");
+        return false;
+    }
+#endif
 }
+@
+
+Durante a finalização, a única preocupação que realmente precisamos
+ter é destruir o mutex:
+
+@<API Weaver: Finalização@>+=
+#ifdef W_MULTITHREAD
+if(pthread_mutex_destroy(&_interface_mutex) != 0)
+    perror("Finalizing interface mutex:", NULL);
+#endif
 @
 
 Também precisamos limpar as interfaces de um loop caso estejamos
@@ -120,6 +149,11 @@ void _flush_interfaces(void){
             //<@Desaloca Interfaces de Vários Tipos@>
         default:
         }
+#ifdef W_MULTITHREAD
+        if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i].mutex)) !=
+           0)
+            perror("Finalizing interface mutex:", NULL);
+#endif
         _interfaces[_number_of_loops][i]._type = W_NONE;
     }
 }
@@ -143,8 +177,77 @@ _flush_interfaces();
 Desta forma garantimos que ao iniciar um novo loop principal, a lista
 de interfaces que temos estará vazia.
 
-@*1 Shaders.
+@*2 Criação e Destruição de Interfaces.
 
+Criar uma interface é só um processo mais complicado porque podem
+haver muitos tipos de interfaces. A verdadeira diferença é como elas
+são renderizadas. Algumas poderão ser imagens animadas, imagens
+estáticas, outras serão coisas completamente customizadas, com seus
+shaders criados pelo usuário e outras, as mais simples, poderão ser
+apenas quadrados preenchidos ou não. São estas últimas que definiremos
+mais explicitamente neste capítulo.
+
+Para gerar uma nova interface, usaremos a função abaixo. O seu número
+de parâmetros será algo dependente do tipo da interrface. Mas no
+mínimo precisaremos informar a posição e o tamanho dela. Um espaço
+vazio é então procurado na nossa matriz de interfaces e o processo
+particular de criação dela dependendo de seu tipo tem início:
+
+@<Interface: Declarações@>+=
+struct interface *_new_interface(int type, int x, int y, int width,
+                                 int height, ...);
+@
+@<Interface: Definições@>=
+  struct interface *_new_interface(struct interface *inter, int x, int y,
+                                   int width, int height, ...){
+    int i;
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&_interface_mutex);
+#endif
+    // Vamos encontrar no pool de interfaces um espaço vazio:
+    for(i = 0; i < W_MAX_INTERFACES; i ++)
+        if(_interfaces[_number_of_loops][i]._type == W_NONE)
+            break;
+    if(i == W_MAX_INTERFACES; i ++){
+        fprintf(stderr, "ERROR (0): Not enough space for interfaces. Please, "
+                "increase the value of W_MAX_INTERFACES at conf/conf.h.\n");
+#ifdef W_MULTITHREAD
+        pthread_mutex_unlock(&_interface_mutex);
+#endif
+        Wexit();
+    }
+    // TODO
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&_interface_mutex);
+#endif
+}
+@
+
+@*2 Movendo Interfaces.
+
+Para mudarmos a cor de uma interface, nós podemos sempre mudar
+manualmente seus valores dentro da estrutura. Para mudar seu
+comportamento em relação ao mouse, podemos também atribuir manualmente
+as funções na estrutura. Mas para mudar a posição, não basta meramente
+mudar os seus valores $(x, y)$, pois precisamos também modificar
+variáveis internas que serão usadas pelo OpenGL durante a
+renderização. Então teremos que fornecer funções específicas para
+mover as interfaces.
+
+Para mudar a posição de uma interface usaremos a função:
+
+@<Interface: Declarações@>+=
+void _move_interface(struct interface *);
+@
+@<Interface: Definições@>=
+void _move_interface(struct interface *inter, int x, int y){
+    inter -> x = x;
+    inter -> y = y;
+    // TODO
+}
+@
+
+@*1 Shaders.
 
 Aqui apresentamos todo o código que é executado na GPU ao invés da
 CPU. Como usaremos shaders, precisaremos usar e inicializar também a
