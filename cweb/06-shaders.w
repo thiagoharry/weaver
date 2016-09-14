@@ -48,36 +48,21 @@ Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
 #include "interface.h"
 @
 
-A primeira coisa a fazer é especificar como iremos medir o tamanho e a
-posição de uma interface. Para elas, o importante é sempre saber sua
-posição no monitor do jogador, não em termos do jogo que se desenvolve
-atrás delas. Por isso, a posição na tela de uma interface deve ser
-dada por uma coordenada da tela que convencionaremos ter a sua origem
-exatamente no centro da tela. O eixo $x$ será o eixo horizontal que
-valerá -1 na extrema esquerda da tela e +1 na extrema direita. A mesma
-lógica será usada para o eixo $y$. A parte inferior da tela fica na
-posição -1 e a superior na +1. Isso faz com que o nosso plano
-cartesiano na tela possa ficar um pouco distorcido, pois geralmente
-monitores não são quadrados. É importante ter em mente isso ao definir
-tamanhos e posições para as interfaces:
-
-\imagem{cweb/diagrams/tela.eps}
-
-A posição de uma dada interface será dada pela posição de seu
-centro. Sua altura será medida em unidades de acordo com o eixo $y$ e
-a largura de acordo com o eixo $x$ da tela. Desta forma, dizemos que
-uma interface localizada na posição $(0, 0)$ de altura $1$ e largura
-$1$ terá sempre uma área igual à $1/4$ da área da tela e estará
-centralizada.
+Cada interface deverá ter no mínimo uma posição e um tamanho. Para
+isso, vamos usar a mesma convenção que já usamos para o cursor do
+mouse. Seu tamanho e posição será dado por números inteiros que
+representam valores em pixels. A posição de uma interface é a
+localização de seu canto superior esquerdo (todas as interfaces são
+retangulares). O canto superior direito da ela é a posição $(0,0)$.
 
 Assim, nossa lista de interfaces é declarada da seguinte forma:
 
 @<Interface: Declarações@>=
   struct interface {
       int _type; // Como renderizar
-      float x, y; // Posição
+      int x, y; // Posição
       float r, g, b, a; // Cor
-      float height, length; // Tamanho
+      int height, length; // Tamanho
       void *_data; // Se é uma imagem, ela estará aqui
       /* Funções a serem executadas em eventos: */
       void (*onmouseover)(struct interface *);
@@ -112,31 +97,47 @@ Na inicialização do programa preenchemos a nossa matriz de interfaces:
 {
     int i, j;
     for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
-        for(j = 0; j < W_MAX_INTERFACES; j ++)
+        for(j = 0; j < W_MAX_INTERFACES; j ++){}
             _interfaces[i][j]._type = W_NONE;
 }
 @
 
 Também precisamos limpar as interfaces de um loop caso estejamos
-descartando ele para começar um novo loop:
+descartando ele para começar um novo loop. Vamos definir como fazer
+isso em uma função auxiliar que invocaremos quando necessário:
+
+@<Interface: Declarações@>+=
+void _flush_interfaces(void);
+@
+@<Interface: Definições@>=
+void _flush_interfaces(void){
+    int i;
+    for(i = 0; i < W_MAX_INTERFACES; i ++){
+        switch(_interfaces[_number_of_loops][i]._type){
+            // Dependendo do tipo da interface, podemos fazer desalocações
+            // específicas aqui. Embora geralmente possamos simplesmente
+            //confiar no coletor de lixo implementado
+            //<@Desaloca Interfaces de Vários Tipos@>
+        default:
+        }
+        _interfaces[_number_of_loops][i]._type = W_NONE;
+    }
+}
+@
+
+Ao usarmos |Wloop|, estamos descartando o loop principal atual e
+trocando por outro. Desta forma, queremos descartar também suas
+interfaces:
 
 @<Código antes de Loop, mas não de Subloop@>+=
-{
-    int i;
-    for(i = 0; i < W_MAX_INTERFACES; i ++)
-        _interfaces[_number_of_loops][i]._type = W_NONE;
-}
+_flush_interfaces();
 @
 
 E também precisamos fazer a mesma limpeza no caso de estarmos saindo
 de um subloop:
 
 @<Código após sairmos de Subloop@>+=
-{
-    int i;
-    for(i = 0; i < W_MAX_INTERFACES; i ++)
-        _interfaces[_number_of_loops][i]._type = W_NONE;
-}
+_flush_interfaces();
 @
 
 Desta forma garantimos que ao iniciar um novo loop principal, a lista
