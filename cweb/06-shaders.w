@@ -318,7 +318,17 @@ bool _destroy_interface(struct interface *inter){
     default: // Nos casos mais simples é só remover o tipo
         _interfaces[_number_of_loops][i]._type == W_NONE;
     }
+    return true;
 }
+@
+
+E adicionamos à estrutura |W|:
+
+@<Funções Weaver@>+=
+  bool (*destroy_interface)(struct interface *);
+@
+@<API Weaver: Inicialização@>+=
+  W.destroy_interface = &_destroy_interface;
 @
 
 @*2 Movendo Interfaces.
