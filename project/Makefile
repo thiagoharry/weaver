@@ -12,10 +12,10 @@ else
 err:
 	$(error Invalid W_TARGET in conf/conf.h)
 endif
-make-prog: shader_data
+make-prog:
 	@if [ -e .error ]; then	rm .error; \
 	else make --no-print-directory -j ${CORES} -f Makefile.prog; fi
-make-web: shader_data
+make-web:
 	@if [ -e .error ]; then	rm .error; \
 	else make --no-print-directory -j ${CORES} -f Makefile.web; fi
 clean:
@@ -25,11 +25,6 @@ distclean: clean
 	rm -f ${PROG}
 	rm -rf web
 	rm -f .weaver/have_*
-shader_data: src/weaver/vertex.data src/weaver/fragment.data
-src/weaver/vertex.data: src/weaver/vertex.glsl
-	cat src/weaver/vertex.glsl | sed 's/^#line.*//' | xxd -i  > src/weaver/vertex.data
-src/weaver/fragment.data: src/weaver/fragment.glsl
-	cat src/weaver/fragment.glsl | sed 's/^#line.*//' | xxd -i  > src/weaver/fragment.data
 test_cc: .weaver/have_cc
 .weaver/have_cc:
 	@echo -n "Testing GCC or CLANG........."

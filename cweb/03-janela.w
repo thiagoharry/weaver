@@ -694,7 +694,7 @@ void _Wresize_window(int width, int height){
   XResizeWindow(_dpy, _window, width, height);
   W.width = width;
   W.height = height;
-  @<Ações após Redimencionar Janela@>
+  //@<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
 #endif
@@ -720,7 +720,7 @@ void _Wresize_window(int width, int height){
                             );
   W.width = width;
   W.height = height;
-  @<Ações após Redimencionar Janela@>
+  //@<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
 #endif

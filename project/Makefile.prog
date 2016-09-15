@@ -2,8 +2,10 @@ SHELL := /bin/bash
 CC=$(shell if which gcc > /dev/null ; then echo "gcc"; else echo "clang"; fi)
 PROG=$(shell cat .weaver/name)
 OBJ=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).o; done)
-PLUGINS=$(shell shopt -s nullglob dotglob; for i in plugins/*.c; do echo compiled_plugins/$$(basename $${i%%.c}).so; done)
-W_OBJ=$(shell for i in src/weaver/*.c; do echo .weaver/$$(basename $${i%%.c}).o; done)
+PLUGINS=$(shell shopt -s nullglob dotglob; for i in plugins/*.c; do\
+         echo compiled_plugins/$$(basename $${i%%.c}).so; done)
+W_OBJ=$(shell for i in src/weaver/*.c; do\
+        echo .weaver/$$(basename $${i%%.c}).o; done)
 HEADERS=$(shell echo src/*.h src/weaver/*.h)
 DEFINES=-DW_PROG=\"${PROG}\"
 FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=gnu11
@@ -29,5 +31,5 @@ all: ${OBJ} ${W_OBJ} ${HEADERS} ${PLUGINS} conf/conf.h
 	${CC} ${DEFINES} ${FLAGS} -c $<
 compiled_plugins/%.so: plugins/%.c ${HEADERS} conf/conf.h
 	${CC} ${DEFINES} -DW_PLUGIN_CODE -Wno-unused-parameter ${FLAGS} -fPIC -shared -o $@ $<
-.weaver/%.o : src/weaver/%.c ${HEADERS} conf/conf.h src/weaver/vertex.glsl src/weaver/fragment.glsl
+.weaver/%.o : src/weaver/%.c ${HEADERS} conf/conf.h
 	${CC} ${DEFINES} ${FLAGS} -c $< -o $(subst src/weaver/,.weaver/,$(subst .c,.o,$<))
