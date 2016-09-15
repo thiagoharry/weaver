@@ -281,6 +281,46 @@ struct interface *_new_interface(int type, int x, int y,
 }
 @
 
+Após a definirmos, atribuiremos esta função à estrutura |W|:
+
+@<Funções Weaver@>+=
+struct interface *(*new_interface)(int, int, int, int, int, ...);
+@
+
+@<API Weaver: Inicialização@>+=
+W.new_interface = &_new_interface;
+@
+
+
+Uma vez que criamos a função que cria interface para nós, precisamos
+de uma que a remova. Todas as interfaces de qualquer forma são
+descartadas pelo coletor de lixo ao abandonarmos o loop em que elas
+são geradas, mas pode ser necessário descartá-las antes para liberar
+espaço. É quando usamos a seguinte função:
+
+@<Interface: Declarações@>+=
+bool _destroy_interface(struct interface *inter);
+@
+@<Interface: Definições@>=
+bool _destroy_interface(struct interface *inter){
+    int i;
+    // Só iremos remover uma dada interface se ela pertence ao loop atual:
+    for(i = 0; i < W_MAX_INTERFACES; i ++)
+        if(&(_interfaces[_number_of_loops][i]) == inter)
+            break;
+    if(i == W_MAX_INTERFACES)
+        return false; // Não encontrada
+    switch(_interfaces[_number_of_loops][i]._type){
+    //@<Desaloca Interfaces de Vários Tipos@>
+    case W_INTERFACE_SQUARE:
+    case W_INTERFACE_PERIMETER:
+    case W_NONE:
+    default: // Nos casos mais simples é só remover o tipo
+        _interfaces[_number_of_loops][i]._type == W_NONE;
+    }
+}
+@
+
 @*2 Movendo Interfaces.
 
 Para mudarmos a cor de uma interface, nós podemos sempre mudar
