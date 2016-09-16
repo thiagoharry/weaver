@@ -60,8 +60,9 @@ Assim, nossa lista de interfaces é declarada da seguinte forma:
 
 @<Interface: Declarações@>=
 struct interface {
-    int _type; // Como renderizar
+    int type; // Como renderizar
     int x, y; // Posição
+    float rotation;
     float r, g, b, a; // Cor
     int height, width; // Tamanho
     void *_data; // Se é uma imagem, ela estará aqui
@@ -89,7 +90,7 @@ struct interface {
 Notar que cada subloop do jogo tem as suas interfaces. E o número
 máximo para cada subloop deve ser dado por |W_MAX_INTERFACES|.
 
-O atributo |_type| conterá a regra de renderização sobre como o shader
+O atributo |type| conterá a regra de renderização sobre como o shader
 deve tratar o elemento. Por hora definiremos dois tipos:
 
 @<Interface: Declarações@>+=
@@ -112,7 +113,7 @@ Na inicialização do programa preenchemos a nossa matriz de interfaces:
     int i, j;
     for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
         for(j = 0; j < W_MAX_INTERFACES; j ++)
-            _interfaces[i][j]._type = W_NONE;
+            _interfaces[i][j].type = W_NONE;
 #ifdef W_MULTITHREAD
     if(pthread_mutex_init(&_interface_mutex, NULL) != 0){
         perror("Initializing interface mutex:");
@@ -143,13 +144,13 @@ void _flush_interfaces(void);
 void _flush_interfaces(void){
     int i;
     for(i = 0; i < W_MAX_INTERFACES; i ++){
-        switch(_interfaces[_number_of_loops][i]._type){
+        switch(_interfaces[_number_of_loops][i].type){
             // Dependendo do tipo da interface, podemos fazer desalocações
             // específicas aqui. Embora geralmente possamos simplesmente
             //confiar no coletor de lixo implementado
             //@<Desaloca Interfaces de Vários Tipos@>
         default:
-            _interfaces[_number_of_loops][i]._type = W_NONE;
+            _interfaces[_number_of_loops][i].type = W_NONE;
         }
 #ifdef W_MULTITHREAD
         if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i].mutex)) !=
@@ -209,7 +210,7 @@ struct interface *_new_interface(int type, int x, int y,
 #endif
     // Vamos encontrar no pool de interfaces um espaço vazio:
     for(i = 0; i < W_MAX_INTERFACES; i ++)
-        if(_interfaces[_number_of_loops][i]._type == W_NONE)
+        if(_interfaces[_number_of_loops][i].type == W_NONE)
             break;
     if(i == W_MAX_INTERFACES){
         fprintf(stderr, "ERROR (0): Not enough space for interfaces. Please, "
@@ -223,6 +224,7 @@ struct interface *_new_interface(int type, int x, int y,
     // Posição:
     _interfaces[_number_of_loops][i].x = x;
     _interfaces[_number_of_loops][i].y = y;
+    _interfaces[_number_of_loops][i].rotation = 0.0;
     // Posição OpenGL:
     _interfaces[_number_of_loops][i]._offset_x = ((float) (2 * x) /
                                                   (float) W.width) - 1.0;
@@ -269,10 +271,10 @@ struct interface *_new_interface(int type, int x, int y,
         _interfaces[_number_of_loops][i].b = va_arg(valist, double);
         _interfaces[_number_of_loops][i].a = va_arg(valist, double);
         va_end(valist);
-        _interfaces[_number_of_loops][i]._type = type;
+        _interfaces[_number_of_loops][i].type = type;
     //@<Interface: Leitura de Argumentos e Inicialização@>
     default:
-        _interfaces[_number_of_loops][i]._type = type;
+        _interfaces[_number_of_loops][i].type = type;
     }
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_interface_mutex);
@@ -310,14 +312,21 @@ bool _destroy_interface(struct interface *inter){
             break;
     if(i == W_MAX_INTERFACES)
         return false; // Não encontrada
-    switch(_interfaces[_number_of_loops][i]._type){
+    switch(_interfaces[_number_of_loops][i].type){
     //@<Desaloca Interfaces de Vários Tipos@>
     case W_INTERFACE_SQUARE:
     case W_INTERFACE_PERIMETER:
     case W_NONE:
     default: // Nos casos mais simples é só remover o tipo
-        _interfaces[_number_of_loops][i]._type == W_NONE;
+        _interfaces[_number_of_loops][i].type == W_NONE;
     }
+#ifdef W_MULTITHREAD
+    if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex),
+                          NULL) != 0){
+        perror("Error destroying mutex from interface:");
+        Wexit();
+    }
+#endif
     return true;
 }
 @
@@ -340,17 +349,32 @@ as funções na estrutura. Mas para mudar a posição, não basta meramente
 mudar os seus valores $(x, y)$, pois precisamos também modificar
 variáveis internas que serão usadas pelo OpenGL durante a
 renderização. Então teremos que fornecer funções específicas para
-mover as interfaces.
+podermos movê-las.
 
 Para mudar a posição de uma interface usaremos a função:
 
 @<Interface: Declarações@>+=
-  //void _move_interface(struct interface *);
+void _move_interface(struct interface *, int x, int y, float rotation);
 @
+
+Esta mesma função permite que movamos o canto superior esquerdo da
+interface para a posição passada como argumento e em seguida
+rotacionemos a interface em relação à um eixo perpendicular à tela que
+passa pelo seu centro. A rotação é dada em radianos e assumimos que o
+sentido anti-horário é o seu sentido positivo.
+
 @<Interface: Definições@>=
-  /*void _move_interface(struct interface *inter, int x, int y){
+void _move_interface(struct interface *inter, int x, int y, float rotation){
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(inter -> _mutex);
+#endif
     inter -> x = x;
     inter -> y = y;
-    // TODO
-    }*/
+    inter -> _offset_x = ((float) (2 * x) / (float) W.width) - 1.0;
+    inter -> _offset_y = ((float) (2 * y) / (float) W.height) - 1.0;
+    inter -> rotation = rotation;
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(inter -> _mutex);
+#endif
+}
 @
