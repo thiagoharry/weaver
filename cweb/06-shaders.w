@@ -62,7 +62,7 @@ Assim, nossa lista de interfaces é declarada da seguinte forma:
 struct interface {
     int type; // Como renderizar
     int x, y; // Posição
-    float rotation;
+    float rotation, zoom;
     float r, g, b, a; // Cor
     int height, width; // Tamanho
     void *_data; // Se é uma imagem, ela estará aqui
@@ -225,6 +225,7 @@ struct interface *_new_interface(int type, int x, int y,
     _interfaces[_number_of_loops][i].x = x;
     _interfaces[_number_of_loops][i].y = y;
     _interfaces[_number_of_loops][i].rotation = 0.0;
+    _interfaces[_number_of_loops][i].zoom = 1.0;
     // Posição OpenGL:
     _interfaces[_number_of_loops][i]._offset_x = ((float) (2 * x) /
                                                   (float) W.width) - 1.0;
@@ -318,7 +319,7 @@ bool _destroy_interface(struct interface *inter){
     case W_INTERFACE_PERIMETER:
     case W_NONE:
     default: // Nos casos mais simples é só remover o tipo
-        _interfaces[_number_of_loops][i].type == W_NONE;
+        _interfaces[_number_of_loops][i].type = W_NONE;
     }
 #ifdef W_MULTITHREAD
     if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex),
@@ -340,7 +341,7 @@ E adicionamos à estrutura |W|:
   W.destroy_interface = &_destroy_interface;
 @
 
-@*2 Movendo Interfaces.
+@*2 Movendo e usando Zoom em Interfaces.
 
 Para mudarmos a cor de uma interface, nós podemos sempre mudar
 manualmente seus valores dentro da estrutura. Para mudar seu
@@ -376,5 +377,123 @@ void _move_interface(struct interface *inter, int x, int y, float rotation){
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(inter -> _mutex);
 #endif
+}
+@
+
+E adicionamos isso à estrutura |W|:
+
+@<Funções Weaver@>+=
+void (*move_interface)(struct interface *, int, int, float);
+@
+
+@<API Weaver: Inicialização@>+=
+W.move_interface = &_move_interface;
+@
+
+Outra transformação importante é o ``zoom'' que podemos dar em uma
+interface. Basta definirmos um valor e o tamanho original da interface
+é multiplicado por ele. se usarmos o valor 0, a função não tem efeito.
+
+@<Interface: Declarações@>+=
+void _zoom_interface(struct interface *inter, float zoom);
+@
+
+@<Interface: Definições@>=
+void _zoom_interface(struct interface *inter, float zoom){
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(inter -> _mutex);
+#endif
+    if(zoom != 0.0){ // Ignoramos zoom de 0x.
+        // A interface pode já ter sofrido um zoom antes. Então temos que
+        // obter seus valores iniciais de (x, y) altura e largura.
+        float width = ((float) inter -> width) / inter -> zoom;
+        float height = ((float) inter -> height) / inter -> zoom;
+        float x = ((float) inter -> x) -
+            (((float) inter -> width) - width) / 2;
+        float y = ((float) inter -> y) -
+            (((float) inter -> height) - width) / 2;
+        // Para dar o zoom, nós ampliamos a altura e a largura
+        // multiplicando-as pelo valor. Além disso a posição (x, y) também
+        // precisa ser multiplicada.
+        x -= (width * zoom - width) / 2;
+        y -= (height * zoom - height) / 2;
+        width *= zoom;
+        height *= zoom;
+        inter -> x = (int) x;
+        inter -> y = (int) y;
+        inter -> width = (int) width;
+        inter -> height = (int) height;
+        inter -> zoom = zoom;
+    }
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(inter -> _mutex);
+#endif
+}
+@
+
+E por fim, adicionamos tudo isso à estrutura |W|:
+
+@<Funções Weaver@>+=
+void (*zoom_interface)(struct interface *, float);
+@
+
+@<API Weaver: Inicialização@>+=
+W.zoom_interface = &_zoom_interface;
+@
+
+@*2 Funções de Interação com Interfaces.
+
+Podemos atribuir às interfaces algumas funções especiais. Elas serão
+invocadas quando o mouse passar por cima delas, quando sair de cima
+delas e quando elas forem clicadas com o botão esquerdo ou direito.
+
+Mas para isso precisamos inserir algumas modificações no nosso código
+do controle do \italico{mouse}, pois para fazer isso de forma mais
+eficiente é importante que o próprio \italico{mouse} memorize se o
+cursor está ou não sobre um elemento de interface e verifique se
+durante o movimento ele ainda está ou não sobre tal elemento:
+
+@<Atributos Adicionais do Mouse@>=
+struct interface *_interface_under_mouse;
+@
+
+Durante a inicialização e antes de entrar em qualquer loop
+ou subloop, precisamos deixar o valor nulo:
+
+@<API Weaver: Inicialização@>+=
+  W.mouse._interface_under_mouse = NULL;
+@
+
+@<Código antes de um loop novo@>=
+// Este código executa antes de um loop e subloop interiramente
+// novos. Mas não quando saímos de um subloop para retornar em um loop
+// em que já estávamos:
+W.mouse._interface_under_mouse = NULL;
+@
+
+As coisas são um pouco diferentes quando saímos de um subloop e
+voltamos para um loop em que já estávamos antes. Potencialmente podem
+haver interfaces já existentes ali. Não chegamos em um local
+vazio. Sendo assim, cabe ao \italico{mouse} verificar se ele está no
+presente momento em cima de uma interface ou não. Isso será
+representado pela função:
+
+@<Interface: Declarações@>+=
+void _mouse_seek_interface(void);
+@
+@<Interface: Definições@>=
+void _mouse_seek_interface(void){
+    int i;
+    W.mouse._interface_under_mouse = NULL;
+    for(i = 0; i < W_MAX_INTERFACES; i ++){
+        if(W.mouse.x >= _interfaces[_number_of_loops][i].x &&
+           W.mouse.y >= _interfaces[_number_of_loops][i].y &&
+           W.mouse.x - _interfaces[_number_of_loops][i].x <=
+           _interfaces[_number_of_loops][i].width &&
+           W.mouse.y - _interfaces[_number_of_loops][i].y <=
+           _interfaces[_number_of_loops][i].height){
+            W.mouse._interface_under_mouse = &_interfaces[_number_of_loops][i];
+        }
+    }
 }
 @
