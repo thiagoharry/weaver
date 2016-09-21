@@ -424,6 +424,7 @@ void _zoom_interface(struct interface *inter, float zoom){
         inter -> width = (int) width;
         inter -> height = (int) height;
         inter -> zoom = zoom;
+        @<Inicialização de Interface@>
     }
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(inter -> _mutex);
@@ -493,6 +494,62 @@ void _mouse_seek_interface(void){
            W.mouse.y - _interfaces[_number_of_loops][i].y <=
            _interfaces[_number_of_loops][i].height){
             W.mouse._interface_under_mouse = &_interfaces[_number_of_loops][i];
+            break;
+        }
+    }
+    if(W.mouse._interface_under_mouse != NULL &&
+       W.mouse._interface_under_mouse -> onmouseover != NULL){
+        W.mouse._interface_under_mouse ->
+            onmouseover(W.mouse._interface_under_mouse);
+    }
+}
+@
+
+Após voltarmos de um subloop precisamos então executar esta função:
+
+@<Código Logo Após voltar de Subloop@>=
+_mouse_seek_interface(void);
+@
+
+Nos demais casos, nós estaremos em um loop, mas não haverão
+interfaces. Elas ainda estarão para ser inicializadas. Nestes casos,
+são as próprias interfaces que verificarão se estão ou não sob o
+cursor do mouse:
+
+@<Inicialização de Interface@>=
+// Aqui a nova interface que foi gerada é apontada pelo ponteiro 'inter':
+{
+    if(W.mouse.x >= inter -> x &&
+       W.mouse.y >= inter -> y &&
+       W.mouse.x - inter -> x <= inter -> width &&
+       W.mouse.y - inter -> y <= inter -> height){
+        W.mouse._interface_under_mouse = inter;
+        if(inter -> onmouseover != NULL)
+            inter -> onmouseover(inter);
+    }
+}
+@
+
+Mas o mouse irá se mover. E a cada movimento, se estamos sobre uma
+interface, precisamos verificar se não saímos dela. E se não estamos,
+temos que verificar se não entramos. Além disso, no caso em que
+saímos, podemos sair de cima de uma para ir pra cima de outra:
+
+@<Código a executar todo loop@>+=
+{
+    if(W.mouse.dx != 0 || W.mouse.dy != 0){
+        struct interface *inter = W.mouse._interface_under_mouse;
+        if(inter != NULL){
+            if(W.mouse.x < inter -> x ||
+               W.mouse.y < inter -> y ||
+               W.mouse.x - inter -> x > inter -> width ||
+               W.mouse.y - inter -> y > inter -> height){
+                if(inter -> onmouseout != NULL)
+                    inter -> onmouseout(inter);
+                _mouse_seek_interface();
+        }
+        else{
+            _mouse_seek_interface();
         }
     }
 }

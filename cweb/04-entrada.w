@@ -737,68 +737,6 @@ teclado será diferente e correspondente aos valores usados pelo SDL:
 #endif
 @
 
-@*1 Invocando o loop principal.
-
-Um jogo pode ter vários loops principais. Um para a animação de
-abertura. Outro para a tela de título onde escolhe-se o modo do
-jogo. Um para cada fase ou cenário que pode-se visitar. Pode haver
-outro para cada ``fase especial'' ou mesmo para cada batalha em um
-jogo de RPG.
-
-Em cada um dos loops principais, precisamos rodar possivelmente
-milhares de iterações. E em cada uma delas precisamos fazer algumas
-coisas em comum. Imediatamente antes do loop precisamos limpar todos
-os valores prévios armazenados no vetor de teclado. E depois em cada
-iteração precisamos rodar |Wrest| para obtermos os eventos de
-entrada, atualizarmos várias variáveis e poder desenhar na tela.
-
-
-No caso do nosso ambiente de execução ser o de um programa Linux
-normal, a definição da função é:
-
-
-Já se estamos no ambiente de execução de um navegador de Internet,
-temos preocupações adicionais. Precisamos registrar uma função como um
-loop principal. Mas se já existe um loop principal anteriormente
-registrado, precisamos cancelar ele primeiro. 
-
-@<Cabeçalhos Weaver@>+=
-#if W_TARGET == W_WEB
-#include <emscripten.h>
-#endif
-@
-
-
-A função |Wloop| é uma das poucas que não serão colocadas dentro da
-estrutura |W|. Não é do nosso interesse que ela seja invocada
-por \italico{plugins}, somente pelo programa principal. Não havendo
-necessidade de descobrirmos seu endereço, não temos motivos para
-colocá-la dentro da estrutura. Além do mais, o fato dela ser invocada
-como |Wloop| e não como |W.loop| ajuda a lembrar do caráter
-excepcional da função.
-
-Tudo isso significa que um loop principal nunca chega ao fim. Podemos
-apenas invocar outro loop principal recursivamente dentro do
-atual. Não há como evitar esta limitação com a atual API Emscripten
-que precisa usar |emscripten_set_main_loop| para ativar o loop sem
-interferir na usabilidade do navegador de Internet. Isso também traz a
-limitação de que o \italico{loop} principal seja uma função que não
-retorna nada e nem recebe argumentos.
-
-A única possibilidade de evitar isso seria se fosse possível usar
-clausuras (\italico{closures}). Neste caso, poderíamos definir |Wloop|
-como uma macro que expandiria para a definição de uma clausura que
-poderia ter acesso à todas as variáveis da função atual ao mesmo tempo
-em que ela poderia ser passada para a função de invocaçã do loop. O
-único compilador compatível com Emscripten é o Clang, que até
-implementa clausuras por meio de uma extensão não-portável chamada de
-``blocos''. O problema é que um bloco não é intercambiável e nem pode
-ser convertido para uma função. Então não seria possível passá-lo para
-a atual função da API Emscripten que espera uma função. O GCC suporta
-clausuras na forma de funções aninhadas por meio de extensão
-não-portável, mas o GCC não é compatível com Emscripten. Então
-simplesmente não temos como evitar este efeito colateral.
-
 @*1 Ajustando o Mutex de entrada.
 
 Durante o tratamento de eventos em cada loop principal estaremos
@@ -1286,6 +1224,3 @@ na janela.
 |W.keyboard| e |W.mouse|, incluindo quais teclas estão sendo
  pressionadas.
 
-\macrovalor|void Wloop(void (*f)(void))|: Inicia um \italico{loop}
- principal, executando em um \italico{loop} infinito a função passada
- como argumento.

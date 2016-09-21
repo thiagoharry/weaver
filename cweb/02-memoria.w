@@ -1974,6 +1974,7 @@ void _exit_loop(void){
   else{
     @<Código após sairmos de Subloop@>
     _number_of_loops --;
+    @<Código Logo Após voltar de Subloop@>
     @<Código Imediatamente antes de Loop Principal@>
     _running_loop = true;
     _update_time();
