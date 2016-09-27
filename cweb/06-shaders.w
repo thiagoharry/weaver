@@ -73,8 +73,10 @@ struct interface {
     /* Funções a serem executadas em eventos: */
     void (*onmouseover)(struct interface *);
     void (*onmouseout)(struct interface *);
-    void (*onleftclick)(struct interface *);
-    void (*onrightclick)(struct interface *);
+    void (*onleftclick)(struct interface *, int, int);
+    void (*onrightclick)(struct interface *, int, int);
+    void (*outleftclick)(struct interface *, int, int);
+    void (*outrightclick)(struct interface *, int, int);
     /*
       Valores que dependem de alguns eventos:
 
@@ -270,6 +272,8 @@ struct interface *_new_interface(int type, int x, int y,
     _interfaces[_number_of_loops][i].onmouseout = NULL;
     _interfaces[_number_of_loops][i].onleftclick = NULL;
     _interfaces[_number_of_loops][i].onrightclick = NULL;
+    _interfaces[_number_of_loops][i].outleftclick = NULL;
+    _interfaces[_number_of_loops][i].outrightclick = NULL;
 #ifdef W_MULTITHREAD
     if(pthread_mutex_init(&(_interfaces[_number_of_loops][i]._mutex),
                           NULL) != 0){
@@ -539,7 +543,7 @@ interfaces. Elas ainda estarão para ser inicializadas. Nestes casos,
 são as próprias interfaces que verificarão se estão ou não sob o
 cursor do mouse:
 
-    @<Interface: Inicialização@>=
+@<Interface: Inicialização@>=
 // Aqui a nova interface que foi gerada é apontada pelo ponteiro 'inter':
 {
     if(W.mouse.x >= inter -> x &&
@@ -608,6 +612,86 @@ modificações:
     }
     if(W.mouse._interface_under_mouse != NULL) {
         W.mouse._interface_under_mouse -> mouseover += W.dt;
+    }
+}
+@
+
+A próxima coisa é começarmos a verificar quando clicamos com os botões
+esquerdo e direito sobre uma interface. E quando deixamos de clicar
+sobre uma interface.
+
+Para checar se neste frame estamos clicando, masta checarmos os
+valores dos botões do mouse junto com a informação que diz se o mouse
+está sobre uma interface ou não:
+
+@<API Weaver: Imediatamente após tratar eventos@>+=
+{
+    struct interface *inter = W.mouse._interface_under_mouse;
+    if(inter != NULL){
+        if(W.mouse.buttons[W_MOUSE_LEFT] == 1){
+            inter -> leftclick = 1;
+            if(inter -> onleftclick != NULL)
+                inter -> onleftclick(inter, W.mouse.x - inter -> x,
+                                     W.mouse.y - inter -> y);
+        }
+        else if(W.mouse.buttons[W_MOUSE_LEFT] > 1 &&
+                inter -> leftclick > 0)
+            inter -> leftclick += W.t;
+        else if(W.mouse.buttons[W_MOUSE_LEFT] < 0){
+            inter -> leftclick *= -1;
+            if(inter -> outleftclick != NULL)
+                inter -> outleftclick(inter, W.mouse.x - inter -> x,
+                                      W.mouse.y - inter -> y);
+        }
+        if(W.mouse.buttons[W_MOUSE_RIGHT] == 1){
+            inter -> rightclick = 1;
+            if(inter -> onrightclick != NULL)
+                inter -> onrightclick(inter, W.mouse.x - inter -> x,
+                                      W.mouse.y - inter -> y);
+        }
+        else if(W.mouse.buttons[W_MOUSE_RIGHT] > 1 &&
+                inter -> rightclick > 0)
+            inter -> rightclick += W.t;
+        else if(W.mouse.buttons[W_MOUSE_RIGHT] < 0){
+            inter -> rightclick *= -1;
+            if(inter -> outrightclick != NULL)
+                inter -> outrightclick(inter, W.mouse.x - inter -> x,
+                                      W.mouse.y - inter -> y);
+        }
+    }
+}
+@
+
+Notar que tomamos nota da quantidade de tempo na qual o mouse é
+pressionado sobre uma interface. Mas existem alguns detalhes. Só
+levamos em conta o tempo no qual o cursor do mouse realmente está
+sobre a interface. E o mouse pode clicar sobre uma interface, sair de
+cima dela e então soltar o clique. Neste caso, a interface irá ser
+considerada como clicada mesmo que o mouse não esteja mais tendo o seu
+botão pressionado. O modo corretos de tratar tais casos irá variar de
+acordo com o jogo (e talvez tais casos nem sejam relevantes). Por ausa
+disso é responsabilidade do programador ficar com este modelo de
+funcionamento e ajustá-lo por meio das funções |onrightclick|,
+|onleftclick|, |onmousein|, |onmouseout|, |outrightclick| e
+|outleftclick|.
+
+De qualquer forma, precisamos também colocar o seguinte código para
+que a nossa contagem de tempo do quanto está durando um clique volte à
+zero no frame seguinte:
+
+@<API Weaver: Imediatamente antes de tratar eventos@>+=
+{
+    if(W.mouse._previous_interface_under_mouse != NULL){
+        if(W.mouse._previous_interface_under_mouse -> leftclick < 0)
+            W.mouse._previous_interface_under_mouse -> leftclick = 0;
+        if(W.mouse._previous_interface_under_mouse -> rightclick < 0)
+            W.mouse._previous_interface_under_mouse -> rightclick = 0;
+    }
+    if(W.mouse._interface_under_mouse != NULL){
+        if(W.mouse._interface_under_mouse -> leftclick < 0)
+            W.mouse._interface_under_mouse -> leftclick = 0;
+        if(W.mouse._interface_under_mouse -> rightclick < 0)
+            W.mouse._interface_under_mouse -> rightclick = 0;
     }
 }
 @
