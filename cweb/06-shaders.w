@@ -695,3 +695,136 @@ zero no frame seguinte:
     }
 }
 @
+
+@*1 Shaders.
+
+E agora temos que lidar com a questão de que não podemos renderizar
+nada usando a GPU e OpenGL sem recorrermos aos Shaders. Estes são
+programas de computador que são executados paralelamente dentro da
+placa de vídeo ao invés da CPU. Alguns são executados para cada
+vértice individual da imagem (shaders de vértice) e outros chegam a
+ser executados para cada pixel (shaders de fragmento).
+
+Os programas de GPU, ou seja, os shaders são compilados durante a
+execução do nosso projeto Weaver. E pode ser modificado e recompilado
+durante a execução quantas vezes quisermos. É responsabilidade da
+implementação OpenGL de fornecer a função para compilar tais
+programas.
+
+Tipicamene os Shaders são usados para, além de botar as coisas na
+tela, calcular efeitos de luz e sombra. E além disso, eles podem fazer
+virtualmente qualquer coisa com a imagem fornecendo um modo eficiente
+e paralelo de calcular e mostrar efeitos especiais. Será importante
+para a Engine Weaver que o usuário seja capaz de modificar e fornecer
+seus próprios Shaders e iremos fornecer um formato para isso.
+
+Como isto tudo é uma tarefa relativamente complexa, vamos colocar o
+código para lidar com shaders todo na mesma unidade de compilação:
+
+@(project/src/weaver/shaders.h@>=
+#ifndef _shaders_h_
+#define _shaders_h_
+#ifdef __cplusplus
+  extern "C" {
+#endif
+#include "weaver.h"
+@<Inclui Cabeçalho de Configuração@>
+@<Shaders: Declarações@>
+#ifdef __cplusplus
+  }
+#endif
+#endif
+@
+@(project/src/weaver/shaders.c@>=
+#include "shaders.h"
+//@<Shaders: Definições@>
+@
+@<Cabeçalhos Weaver@>+=
+#include "shaders.h"
+@
+
+Vamos começar criando o nosso shader de vértice e de fragmento:
+
+@<Shaders: Declarações@>=
+GLuint _vertex_shader, _fragment_shader;
+@
+
+Durante a inicialização devemos informar OpenGL que queremos criar
+tais shaders:
+
+@<API Weaver: Inicialização@>+=
+{
+    _vertex_shader = glCreateShader(GL_VERTEX_SHADER);
+    _fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+}
+@
+
+Mas agora precisamos de um código-fonte para o Shader. No caso do
+shader de vértice, o formato dele será do tipo:
+
+@(/tmp/vertex.glsl@>=
+// Usamos GLSLES 1.0 que é suportado por Emscripten
+#version 100
+
+// Todos os atributos individuais de cada vértice
+attribute vec3 vertex_position;
+
+// Atributos do objeto a ser renderizado (basicamente as coisas dentro
+// do struct que representam o objeto)
+uniform int type;
+uniform vec4 color; // A cor do objeto
+
+void main(){
+    switch(type){
+        /*
+          Nesta parte código definido pelo usuário deve ser injetado e
+          ele pode fazer o que quiser com os valores recebidos. Apenas
+          deve atribuir um gl_Position no final.
+         */
+    case -1: // Uma interface quadrada
+        /*
+          Aqui vai o código para quando a interface que queremos
+          desenhar é do tipo W_INTERFACE_SQUARE (vulgo -1).
+        */
+    case -2:
+        /*
+          Aqui vai o código para quando a interface que queremos
+          desenhar é do tipo W_INTERFACE_PERIMETER (vulgo -2).
+        */
+    default:
+        gl_Position = vec4(vertex_position, 1.0);
+    }
+}
+@
+
+Na verdade o código verdadeiro deve possuir muitoi mais atributos de
+vértice e mais variáveis uniformes que serão enviadas para a GPU em
+cada objeto a ser desenhado. Mas este é um modelo simplificado que nos
+mostra o que temos que fazer. Cada tipo de objeto que definimos na API
+Weaver (por enquanto |W_INTERFACE_SQUARE| e |W_INTERFACE_PERIMETER|
+será representado por um número negativo. Os números positivos serão
+reservados para código shader fornecido pelo usuário.
+
+A ideia é que o usuário sempre escreva seus shaders e os coloque em um
+diretório adequado. O nome de tais arquivos com código shader sempre
+deverá começar com dígitos seguidos de um traço ``-''. Os dígitos
+devem sempre representar um número único para cada shader de um mesmo
+tipo. Supondo que um shader de vértice esteja dentro de um arquivo
+chamado \monoespaco{5-meu\_shader.glsl}. Neste caso, iremos injetar no
+código que vemos acima o seguinte trecho, dentro do |switch|:
+
+@(/tmp/vertex.glsl@>=
+case 5:
+  // Cópia verbatim do que tem dentro do arquivo 5-meu_shader.glsl
+break;
+@
+
+Desta forma seremos capazes de dar aos usuários liberdade de escrever
+seus próprios shaders e modificar como as coisas serão renderizadas na
+tela.
+
+Notar então que o código do shader de vértice é formado por:
+cabeçalho, lista de atributos, lista de uniformes, cabeçalho da função
+principal, código de usuário injetado, tratamento da renderização
+padrão e finalização. São 7 partes diferentes que deixaremos na
+seguinte estrutura de dados:
