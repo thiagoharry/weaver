@@ -800,15 +800,12 @@ shader de vértice, o formato dele será do tipo:
 @(/tmp/vertex.glsl@>=
 // Usamos GLSLES 1.0 que é suportado por Emscripten
 #version 100
-
 // Todos os atributos individuais de cada vértice
 attribute vec3 vertex_position;
-
 // Atributos do objeto a ser renderizado (basicamente as coisas dentro
 // do struct que representam o objeto)
 uniform int type;
 uniform vec4 color; // A cor do objeto
-
 void main(){
     switch(type){
         /*
@@ -870,7 +867,7 @@ pelo usuário ficará nas seguintes estruturas:
 static char vertex_begin[] = {
 #include "vertex_begin.data"
         , 0x00};
-static char *vertex_user;
+char *_vertex_user;
 static char vertex_end[] = {
 #include "vertex_end.data"
     , 0x00};
@@ -891,17 +888,14 @@ do código do Shader de vértice da seguinte forma:
 @(project/src/weaver/vertex_begin.glsl@>=
 // Usamos GLSLES 1.0 que é suportado por Emscripten
 #version 100
-
 // Todos os atributos individuais de cada vértice
 attribute vec3 vertex_position;
 //@<Shader de Vértice: Atributos@>
-
 // Atributos do objeto a ser renderizado (basicamente as coisas dentro
 // do struct que representam o objeto)
 uniform int type;
 uniform vec4 color; // A cor do objeto
 //@<Shader de Vértice: Uniformes@>
-
 void main(){
     switch(type){
     // Aqui termina o vertex_begin.glsl e em seguida segue o código
@@ -917,4 +911,85 @@ E após o código injetado pelo usuário temos:
             gl_Position = vec4(vertex_position, 1.0);
   } // Fim do switch
 } // Fim do main
+@
+
+Agora temos que lidar com o código injetado pelo usuário. Iremos
+alocar espaço na memória para armazená-lo. Mas o quanto devemos
+alocar? Ao contrário de programas comuns, Weaver não tem à sua
+disposição memória infinita, mas somente a memória configurada para a
+engine. Em outras pelavras, o limite é mais explícito. Mas uma vez que
+lemos e compilamos o shader, podemos querer recompilá-lo após
+modificações. Isso só ocorrerá durante o desenolvimento e no caso de
+programas nativos para Linux, não no caso do Emscripten. Isso ocorre
+apenas quando um desenvolvedor está testando código de shader
+interaivamente e deseja ver as mudanças quase imediatamente sem ter
+que ficar fechando o programa e executando novamente.
+
+Sendo assim, é seguro alocarmos para o código injetado somente o
+espaço estritamente necessário para isso. Se formos instruídos a
+recompilar o shader e ainda formos uma versão em desenolvimento, então
+podemos com segurança desalocar o que foi alocado anteriormente e usar
+o |malloc| para este caso.
+
+Então, a inicialização de código de shader de vértice criado pelo
+usuário funciona contando quantos arquios que são código de shader de
+vértice nós temos. Se não formos a versão final do jogo, consultaremos
+o diretório \monoespaco{shaders/vertex/}. Se formos, consultaremos
+este mesmo diretório, mas no local em que o jogo foi instalado.
+
+O código de cada arquivo precisa de 7 bytes para conter o
+``\monoespaco{case XXX:}'' (sem o ``XXX''), o número de
+bytescorrespondente ao número e o número de bytes que representa o
+próprio conteúdo do arquivo. A contagem deste valor precisa ser
+armazenada na variável abaixo. E podemos precisar de um mutex para o
+código de shader:
+
+@<Shaders: Declarações@>+=
+#ifdef W_MULTITHREAD
+pthread_mutex_t _shader_mutex;
+#endif
+int _vertex_source_size;
+@
+
+Se por ventura jogarmos fora a alocação inicial e usarmos o |malloc|,
+iremos representar isso ajustando esta variável para |-1|. Com isso,
+na hora de encerrarmos o programa podemos desalocar o que for alocado
+com o |malloc| usando:
+
+@<API Weaver: Finalização@>+=
+{
+    if(_vertex_source_size == -1){
+        free(_vertex_user);
+    }
+#ifdef W_MULTITHREAD
+    if(pthread_mutex_destroy(&_shader_mutex) != 0)
+        perror("Finalizing shader mutex:", NULL);
+#endif
+}
+@
+
+Claro, na inicialização precisamos também ter o cuidado de inicializar
+o mutex se precisar:
+
+@<API Weaver: Inicialização@>+=
+{
+#ifdef W_MULTITHREAD
+    if(pthread_mutex_init(&_shader_mutex, NULL) != 0){
+        perror("Initializing shader mutex:");
+        exit(1);
+    }
+#endif
+}
+@
+
+E a parte de contar quantos bytes são necessários pode ficar com esta
+função:
+
+@<Shaders: Declarações@>
+int _get_vertex_source_size(void);
+@
+@<Shaders: Definições@>
+int _get_vertex_source_size(void){
+
+}
 @
