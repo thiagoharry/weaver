@@ -5,9 +5,9 @@ CORES=$(shell grep -c ^processor /proc/cpuinfo)
 TARGET_TEST=$(shell grep "\#define[ \t]\+W_TARGET[ \t]\+W_" conf/conf.h | grep -o "\(W_WEB\|W_ELF\)")
 
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
-web: test_emcc make-web
+web: test_emcc shader_data make-web
 else ifeq ($(strip $(TARGET_TEST)),W_ELF)
-prog: test_cc make-prog
+prog: test_cc shader_data make-prog
 else
 err:
 	$(error Invalid W_TARGET in conf/conf.h)
@@ -18,6 +18,13 @@ make-prog:
 make-web:
 	@if [ -e .error ]; then	rm .error; \
 	else make --no-print-directory -j ${CORES} -f Makefile.web; fi
+shader_data: src/weaver/vertex_begin.data src/weaver/vertex_end.data
+src/weaver/vertex_begin.data: src/weaver/vertex_begin.glsl
+	cat src/weaver/vertex_begin.glsl | sed 's/^#line.*//' | \
+	xxd -i > src/weaver/vertex_begin.data
+src/weaver/vertex_end.data: src/weaver/vertex_end.glsl
+	cat src/weaver/vertex_end.glsl | sed 's/^#line.*//' | \
+	xxd -i > src/weaver/vertex_end.data
 clean:
 	rm -f *.o *.bc *~ .weaver/*.o .weaver/*.bc src/weaver/*.data
 	rm -f compiled_plugins/* .plugin/*

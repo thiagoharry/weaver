@@ -737,10 +737,34 @@ código para lidar com shaders todo na mesma unidade de compilação:
 @
 @(project/src/weaver/shaders.c@>=
 #include "shaders.h"
-//@<Shaders: Definições@>
+@<Shaders: Definições@>
 @
 @<Cabeçalhos Weaver@>+=
 #include "shaders.h"
+@
+
+Agora além disso, para usarmos Shaders, precisamos inicializar anes a
+biblioeca GLEW que gerará um conexo de renderização para nós:
+
+@<API Weaver: Inicialização@>+=
+{
+  GLenum dummy;
+  glewExperimental = GL_TRUE;
+  GLenum err = glewInit();
+  if (err != GLEW_OK){
+    fprintf(stderr, "ERROR: GLW not supported.\n");
+    exit(1);
+  }
+  /*
+    Dependendo da versão, glewInit gera um erro completamente inócuo
+    acusando valor inválido passado para alguma função. A linha
+    seguinte serve apenas para ignorarmos o erro, impedindo-o de se
+    propagar.
+   */
+  dummy = glGetError();
+  glewExperimental += dummy;
+  glewExperimental -= dummy;
+}
 @
 
 Vamos começar criando o nosso shader de vértice e de fragmento:
@@ -758,6 +782,17 @@ tais shaders:
     _fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
 }
 @
+
+E na finalização precisamos encerrar tais shaders:
+
+@<API Weaver: Finalização@>+=
+{
+  glDeleteShader(_vertex_shader);
+  glDeleteShader(_fragment_shader);
+}
+@
+
+@*2 Shader de Vértice.
 
 Mas agora precisamos de um código-fonte para o Shader. No caso do
 shader de vértice, o formato dele será do tipo:
@@ -826,5 +861,60 @@ tela.
 Notar então que o código do shader de vértice é formado por:
 cabeçalho, lista de atributos, lista de uniformes, cabeçalho da função
 principal, código de usuário injetado, tratamento da renderização
-padrão e finalização. São 7 partes diferentes que deixaremos na
-seguinte estrutura de dados:
+padrão e finalização. São 7 partes diferentes. Quatro delas vão antes
+do código de usuário a ser injetado, a outra é o código injetado em si
+e aí vem duas depois. O código antes, durante e após a parte injetada
+pelo usuário ficará nas seguintes estruturas:
+
+@<Shaders: Definições@>=
+static char vertex_begin[] = {
+#include "vertex_begin.data"
+        , 0x00};
+static char *vertex_user;
+static char vertex_end[] = {
+#include "vertex_end.data"
+    , 0x00};
+@
+
+Cada um destes arquivos com extensão \monoespaco{.data} é gerado
+durante a compilação através de arquivos \monoespaco{.glsl} que
+conterão o código-fonte dos shaders. O arquivo de dados contém toda a
+string presente no arquivo fonte após ser convertida para uma
+representação hexadecimal e separada por vírgulas. A conversão é feita
+pelo próprio \monoespaco{Makefile} com o comando \monoespaco{xxd}.
+
+Fazendo desta forma, podemos escrever e representar neste livro e
+projeto CWEB o código dos shaders exatamente da mesma forma como
+fazemos com o código C da engine em si. Representamos as sete partes
+do código do Shader de vértice da seguinte forma:
+
+@(project/src/weaver/vertex_begin.glsl@>=
+// Usamos GLSLES 1.0 que é suportado por Emscripten
+#version 100
+
+// Todos os atributos individuais de cada vértice
+attribute vec3 vertex_position;
+//@<Shader de Vértice: Atributos@>
+
+// Atributos do objeto a ser renderizado (basicamente as coisas dentro
+// do struct que representam o objeto)
+uniform int type;
+uniform vec4 color; // A cor do objeto
+//@<Shader de Vértice: Uniformes@>
+
+void main(){
+    switch(type){
+    // Aqui termina o vertex_begin.glsl e em seguida segue o código
+    // injetado pelo usuário
+@
+
+E após o código injetado pelo usuário temos:
+
+@(project/src/weaver/vertex_end.glsl@>=
+        case -1: // W_INTERFACE_SQUARE
+        case -2: // W_INTERFACE_PERIMETER
+        default:
+            gl_Position = vec4(vertex_position, 1.0);
+  } // Fim do switch
+} // Fim do main
+@
