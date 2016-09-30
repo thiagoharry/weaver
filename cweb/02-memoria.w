@@ -171,14 +171,18 @@ que as seguintes macros são definidas em \monoespaco{conf/conf.h}:
   alocar por meio da função |Walloc| de alocação de memória na arena
   padrão.
 
+\macronome|W_INTERNAL_MEMORY|: Quantidade de memória que será alocada apenas
+para operações internas da engine.
+
 \macronome|W_WEB_MEMORY|: A quantidade de memória adicional em bytes que
   reservaremos para uso caso compilemos o nosso jogo para a Web ao
   invés de gerar um programa executável. O Emscripten precisará de
   memória adicional e a quantidade pode depender do quanto outras
   funções como |malloc| e |Walloc_arena| são usadas. Este valor deve
   ser aumentado se forem encontrados problemas de falta de memória na
-  web. Esta macro será consultada na verdade por um dos
-  \monoespaco{Makefiles}, não por código que definiremos neste PDF.
+  web. Esta macro será consultada na verdade por um
+  dos \monoespaco{Makefiles}, não por código que definiremos neste
+  PDF.
 
 \macronome|W_LIMIT_SUBLOOP|: O tamanho máximo da pilha de loops
 principais que o jogo pode ter. No exemplo dado acima do Final
@@ -403,7 +407,7 @@ static bool _initialize_arena_header(struct _arena_header *header,
 #ifdef W_MULTITHREAD
   if(pthread_mutex_init(&(header -> mutex), NULL) != 0){
     return false;
-  }  
+  }
 #endif
 #if W_DEBUG_LEVEL >= 1
   header -> line = line;
@@ -485,7 +489,7 @@ struct _breakpoint{
   struct _breakpoint *last_breakpoint;
   size_t size;
 };
-@ 
+@
 
 Se todos os elementos estiverem presentes, espera-se que
 um \italico{breakpoint} tenha por volta de 72 bytes. Naturalmente, isso
@@ -770,7 +774,7 @@ void *_Wcreate_arena(size_t size){
   }
   return arena;
 }
-@ 
+@
 
 Então usar esta função nos dá como retorno |NULL| ou um ponteiro
 para uma nova arena cujo tamanho total é no mínimo o pedido como
@@ -805,7 +809,7 @@ void *(*create_arena)(size_t);
 @
 
 @<API Weaver: Inicialização@>=
-W.create_arena = &_Wcreate_arena; 
+W.create_arena = &_Wcreate_arena;
 @
 
 Mas na prática, teremos que usar sempre a seguinte macro para criar
@@ -898,7 +902,7 @@ int Wdestroy_arena(void *arena){
 #if W_DEBUG_LEVEL >= 3
   fprintf(stderr,
           "WARNING (3): Max memory used in arena %s:%lu: %lu/%lu\n",
-          ((struct _arena_header *) arena) -> file, 
+          ((struct _arena_header *) arena) -> file,
           ((struct _arena_header *) arena) -> line,
           (unsigned long) ((struct _arena_header *) arena) -> max_used,
           (unsigned long) ((struct _arena_header *) arena) -> total);
@@ -927,7 +931,7 @@ int (*destroy_arena)(void *);
 @
 
 @<API Weaver: Inicialização@>=
-W.destroy_arena = &Wdestroy_arena; 
+W.destroy_arena = &Wdestroy_arena;
 @
 
 
@@ -998,7 +1002,7 @@ void *_alloc(void *arena, size_t size){
   // Calcular o verdadeiro tamanho múltiplo de 'long' a se alocar:
   size_t real_size = (size_t) (ceil((float) size / (float) sizeof(long)) *
                                sizeof(long));
-  if(header -> used + real_size + sizeof(struct _memory_header) > 
+  if(header -> used + real_size + sizeof(struct _memory_header) >
      header -> total){
     // Chegamos aqui neste 'if' se não há memória suficiente
 #if W_DEBUG_LEVEL >= 1
@@ -1368,14 +1372,14 @@ arenas com as seguinte funções:
 @<Declarações de Memória@>+=
 void _initialize_memory();
 void _finalize_memory();
-@ 
+@
 
 Que são definidas como:
 
 @(project/src/weaver/memory.c@>+=
 void _initialize_memory(void){
   _user_arena = Wcreate_arena(W_MAX_MEMORY);
-  _internal_arena = Wcreate_arena(400000); // Cerca de 100 páginas
+  _internal_arena = Wcreate_arena(W_INTERNAL_MEMORY);
 }
 void _finalize_memory(){
   Wdestroy_arena(_user_arena);
@@ -1750,7 +1754,7 @@ thread deveria finalizar sua arena com |Wdestroy_arena|. Assim
 poderia-se usar o desempenho maior do |Walloc| aproveitando-o melhor
 entre todas as threads. Pode nem ser necessário definir
 |W_MULTITHREAD| se as threads forem bem especializadas e não
-disputarem recursos. 
+disputarem recursos.
 
 A nova função de teste que usamos passa a ser:
 

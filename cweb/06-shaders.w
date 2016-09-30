@@ -938,38 +938,21 @@ o diretório \monoespaco{shaders/vertex/}. Se formos, consultaremos
 este mesmo diretório, mas no local em que o jogo foi instalado.
 
 O código de cada arquivo precisa de 7 bytes para conter o
-``\monoespaco{case XXX:}'' (sem o ``XXX''), o número de
-bytescorrespondente ao número e o número de bytes que representa o
-próprio conteúdo do arquivo. A contagem deste valor precisa ser
-armazenada na variável abaixo. E podemos precisar de um mutex para o
-código de shader:
+``\monoespaco{case XXX:}'' (sem o ``XXX''), o número de bytes
+correspondente ao número e o número de bytes que representa o próprio
+conteúdo do arquivo. Vamos precisar contar o valor, mas vamos precisar
+também de um mutex para bloquear toda vez que formos modificar o
+código de shader. Além do mutex, é útil saber se o código injetado foi
+ou não alocado por um malloc:
 
 @<Shaders: Declarações@>+=
 #ifdef W_MULTITHREAD
 pthread_mutex_t _shader_mutex;
 #endif
-int _vertex_source_size;
+bool _malloc_shader;
 @
 
-Se por ventura jogarmos fora a alocação inicial e usarmos o |malloc|,
-iremos representar isso ajustando esta variável para |-1|. Com isso,
-na hora de encerrarmos o programa podemos desalocar o que for alocado
-com o |malloc| usando:
-
-@<API Weaver: Finalização@>+=
-{
-    if(_vertex_source_size == -1){
-        free(_vertex_user);
-    }
-#ifdef W_MULTITHREAD
-    if(pthread_mutex_destroy(&_shader_mutex) != 0)
-        perror("Finalizing shader mutex:", NULL);
-#endif
-}
-@
-
-Claro, na inicialização precisamos também ter o cuidado de inicializar
-o mutex se precisar:
+Vamos inicializar estas duas variáveis:
 
 @<API Weaver: Inicialização@>+=
 {
@@ -979,17 +962,39 @@ o mutex se precisar:
         exit(1);
     }
 #endif
+_malloc_shader = false;
 }
 @
 
-E a parte de contar quantos bytes são necessários pode ficar com esta
-função:
+Na finalização encerramos o mutex, mas também veridficamos se vamos
+precisar usar um |free|:
+
+@<API Weaver: Finalização@>+=
+{
+    if(_malloc_shader){
+        free(_vertex_user);
+    }
+#ifdef W_MULTITHREAD
+    if(pthread_mutex_destroy(&_shader_mutex) != 0)
+        perror("Finalizing shader mutex:", NULL);
+#endif
+}
+@
+
+Já para lermos e gerarmos o código de usuário para o shader de vértice
+que será injetado, faremos uso da seguinte função:
 
 @<Shaders: Declarações@>
-int _get_vertex_source_size(void);
+int _get_vertex_source_size(bool use_malloc);
 @
 @<Shaders: Definições@>
-int _get_vertex_source_size(void){
+int _get_vertex_source_size(bool use_malloc){
+    // Primeiro vamos ter que checar o tamanho necessário para fazer a
+    // alocação.
+#if W_DEBUG_LEVEL > 0
 
+#else
+
+#endif
 }
 @
