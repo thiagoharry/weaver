@@ -740,6 +740,8 @@ código para lidar com shaders todo na mesma unidade de compilação:
 @<Shaders: Definições@>
 @
 @<Cabeçalhos Weaver@>+=
+#include <string.h> // strlen, strcpy
+#include <dirent.h> // opendir
 #include "shaders.h"
 @
 
@@ -989,12 +991,86 @@ int _get_vertex_source_size(bool use_malloc);
 @
 @<Shaders: Definições@>
 int _get_vertex_source_size(bool use_malloc){
-    // Primeiro vamos ter que checar o tamanho necessário para fazer a
-    // alocação.
+    char *shader_directory;
+    DIR  *d;
+    int i;
+    // Obtendo em qual diretório devemos procurar por shaders de vértice:
 #if W_DEBUG_LEVEL > 0
-
+    shader_directory = (char *) _iWalloc(strlen(W_INSTALL_DIR) +
+                                         strlen("/shaders/vertex/") + 1);
+    if(shader_directory == NULL){
+        fprintf(stderr, "ERROR (0): No enough internal memory. Please, "
+                "increase the value of W_INTERNAL_MEMORY at conf/conf.h.");
+        Wexit();
+    }
+    strcpy(shader_directory, W_INSTALL_DIR);
+    strcpy(shader_directory, "/shaders/vertex/");
 #else
-
+    shader_directory = (char *) _iWalloc(strlen("/shaders/vertex/") + 1);
+    if(shader_directory == NULL){
+        fprintf(stderr, "ERROR (0): No enough internal memory. Please, "
+                "increase the value of W_INTERNAL_MEMORY at conf/conf.h.");
+        Wexit();
+    }
+    strcpy(shader_directory, "shaders/vertex/");
 #endif
+    d = opendir(shader_directory);
+    // Abrindo o diretório e contando o tamanho necessário:
+    if(d){
+        struct dirent *dir;
+        int size = 0;
+        while((dir = readdir(d)) != NULL){
+            // Lendo o nome em dir -> dname para ver o tamanho do dígito:
+            if(dir -> d_name[0] == '.') continue; // Arquivo oculto.
+            if(!isdigit(dir -> d_name[0]) || dir -> d_name[0] == '0'){
+                fprintf(stderr, "WARNING (0): Vertex shader being ignored. "
+                        "%s%s deve começar com dígito diferente de zero.\n",
+                        shader_directory, dir -> d_name);
+                continue;
+            }
+            else{
+                struct stat;
+                char *filename;
+                filename = (char *) iWalloc(strlen(shader_directory) +
+                                            strlen(dir -> d_name) + 1);
+                if(filename == NULL){
+                    fprintf(sderr,
+                            "ERROR (0): No enough internal memory. Please, "
+                            "increase the value of W_INTERNAL_MEMORY at "
+                            "conf/conf.h.");
+                    Wexit();
+                }
+                strcpy(filename, shader_directory);
+                strcpy(filename, dir -> d_name);
+                // Caso em que o shader tem nome correto. Contando o dígito.
+                for(i = 0; !isdigit(dir -> d_name[i]); i ++) size ++;
+                // Contando o "\ncase X:\n" (sem o X) da mais 8 bytes:
+                size += 8;
+                // Adicionando o conteúdo dos arquivos:
+                if(stat(filename, &stat) == 0)
+                    size += (int) stat.st_size;
+                // Adicionando o "\nbreak;\n" no fim da mais 8 bytes:
+                size += 8;
+                Wfree(filename);
+            }
+        }
+        closedir(d);
+        // Temos o tamanho em 'size'. Agora vamos alocar:
+        if(use_malloc){
+            _vertex_user = (char *) malloc(sizeof(size + 1));
+            _malloc_shader = true;
+        }
+        else{
+            _vertex_user = (char *) Walloc(sizeof(size + 1));
+        }
+        // E recomeçamos a percorrer os arquivos de novo, apenas sem
+        // imprimir mensagens de erro:
+        d = opendir(shader_directory);
+        while((dir = readdir(d)) != NULL){
+            if(dir -> d_name[0] == '.' || !isdigit(dir -> d_name[0]) ||
+               dir -> d_name[0] == '0') continue;
+
+        }
+    }
 }
 @
