@@ -18,13 +18,20 @@ make-prog:
 make-web:
 	@if [ -e .error ]; then	rm .error; \
 	else make --no-print-directory -j ${CORES} -f Makefile.web; fi
-shader_data: src/weaver/vertex_begin.data src/weaver/vertex_end.data
+shader_data: src/weaver/vertex_begin.data src/weaver/vertex_end.data \
+              src/weaver/fragment_begin.data src/weaver/fragment_end.data
 src/weaver/vertex_begin.data: src/weaver/vertex_begin.glsl
 	cat src/weaver/vertex_begin.glsl | sed 's/^#line.*//' | \
 	xxd -i > src/weaver/vertex_begin.data
 src/weaver/vertex_end.data: src/weaver/vertex_end.glsl
 	cat src/weaver/vertex_end.glsl | sed 's/^#line.*//' | \
 	xxd -i > src/weaver/vertex_end.data
+src/weaver/fragment_begin.data: src/weaver/fragment_begin.glsl
+	cat src/weaver/fragment_begin.glsl | sed 's/^#line.*//' | \
+	xxd -i > src/weaver/fragment_begin.data
+src/weaver/fragment_end.data: src/weaver/fragment_end.glsl
+	cat src/weaver/fragment_end.glsl | sed 's/^#line.*//' | \
+	xxd -i > src/weaver/fragment_end.data
 clean:
 	rm -f *.o *.bc *~ .weaver/*.o .weaver/*.bc src/weaver/*.data
 	rm -f compiled_plugins/* .plugin/*

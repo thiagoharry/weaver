@@ -794,7 +794,7 @@ E na finalização precisamos encerrar tais shaders:
 }
 @
 
-@*2 Shader de Vértice.
+@*2 Montando os Shaders.
 
 Mas agora precisamos de um código-fonte para o Shader. No caso do
 shader de vértice, o formato dele será do tipo:
@@ -831,11 +831,43 @@ void main(){
 }
 @
 
+O Shader de fragmento é bastante semelhante:
+
+@(/tmp/fragment.glsl@>=
+#version 100
+// Atributos do objeto a ser renderizado (basicamente as coisas dentro
+// do struct que representam o objeto)
+uniform int type;
+uniform vec4 color; // A cor do objeto
+void main(){
+    switch(type){
+        /*
+          Nesta parte código definido pelo usuário deve ser injetado e
+          ele pode fazer o que quiser com os valores recebidos. Apenas
+          deve atribuir um gl_Position no final.
+         */
+    case -1: // Uma interface quadrada
+        /*
+          Aqui vai o código para quando a interface que queremos
+          desenhar é do tipo W_INTERFACE_SQUARE (vulgo -1).
+        */
+    case -2:
+        /*
+          Aqui vai o código para quando a interface que queremos
+          desenhar é do tipo W_INTERFACE_PERIMETER (vulgo -2).
+        */
+    default:
+        gl_Position = vec4(vertex_position, 1.0);
+    }
+}
+@
+@
+
 Na verdade o código verdadeiro deve possuir muitoi mais atributos de
 vértice e mais variáveis uniformes que serão enviadas para a GPU em
 cada objeto a ser desenhado. Mas este é um modelo simplificado que nos
 mostra o que temos que fazer. Cada tipo de objeto que definimos na API
-Weaver (por enquanto |W_INTERFACE_SQUARE| e |W_INTERFACE_PERIMETER|
+Weaver (por enquanto |W_INTERFACE_SQUARE| e |W_INTERFACE_PERIMETER|)
 será representado por um número negativo. Os números positivos serão
 reservados para código shader fornecido pelo usuário.
 
@@ -844,8 +876,10 @@ diretório adequado. O nome de tais arquivos com código shader sempre
 deverá começar com dígitos seguidos de um traço ``-''. Os dígitos
 devem sempre representar um número único para cada shader de um mesmo
 tipo. Supondo que um shader de vértice esteja dentro de um arquivo
-chamado \monoespaco{5-meu\_shader.glsl}. Neste caso, iremos injetar no
-código que vemos acima o seguinte trecho, dentro do |switch|:
+chamado \monoespaco{shader/vertex/5-meu\_shader.glsl} que pode ter
+também um \monoespaco{shader/fragment/5-meu\_shader.glsl}. Neste caso,
+iremos injetar no código que vemos acima o seguinte trecho, dentro do
+|switch|:
 
 @(/tmp/vertex.glsl@>=
 case 5:
@@ -857,21 +891,26 @@ Desta forma seremos capazes de dar aos usuários liberdade de escrever
 seus próprios shaders e modificar como as coisas serão renderizadas na
 tela.
 
-Notar então que o código do shader de vértice é formado por:
-cabeçalho, lista de atributos, lista de uniformes, cabeçalho da função
-principal, código de usuário injetado, tratamento da renderização
-padrão e finalização. São 7 partes diferentes. Quatro delas vão antes
-do código de usuário a ser injetado, a outra é o código injetado em si
-e aí vem duas depois. O código antes, durante e após a parte injetada
-pelo usuário ficará nas seguintes estruturas:
+O código de ambos os shaders é formado por uma parte antes e uma parte
+depois do código gerado dinamicamente após lermos o código de sdhader
+personalizado do usuário:
 
 @<Shaders: Definições@>=
+// Código antes:
 static char vertex_begin[] = {
 #include "vertex_begin.data"
         , 0x00};
-char *_vertex_user;
+static char fragment_begin[] = {
+#include "fragment_begin.data"
+    , 0x00};
+// Código injetado em si:
+char *_vertex_user, *_fragment_user;
+// Código após o shader de usuário:
 static char vertex_end[] = {
 #include "vertex_end.data"
+    , 0x00};
+static char fragment_end[] = {
+#include "fragment_end.data"
     , 0x00};
 @
 
@@ -1063,13 +1102,37 @@ int _get_vertex_source_size(bool use_malloc){
         else{
             _vertex_user = (char *) Walloc(sizeof(size + 1));
         }
+        _vertex_user[0] = '\0';
         // E recomeçamos a percorrer os arquivos de novo, apenas sem
         // imprimir mensagens de erro:
         d = opendir(shader_directory);
         while((dir = readdir(d)) != NULL){
+            int number, pos = 0, ret;
+            char *filename;
+            FILE *fp;
             if(dir -> d_name[0] == '.' || !isdigit(dir -> d_name[0]) ||
                dir -> d_name[0] == '0') continue;
-
+            number = atoi(dir -> d_name);
+            fp = fopen(filename, "r");
+            if(fp == NULL){
+#if W_DEBUG_LEVEL > 0
+                fprintf(stderr, "WARNING (1): Couldn't read shader file %s.\n",
+                        filename);
+#endif
+                continue; // Em caso de erro, ignore o arquivo
+            }
+            filename = (char *) iWalloc(strlen(shader_directory) +
+                                        strlen(dir -> d_name) + 1);
+            sprintf(*(_vertex_user[pos]), "\ncase %s:\n", number);
+            pos += strlen(*(_vertex_user[pos]));
+            do{
+                ret = (fread(*(_vertex_user[pos]), sizeof(char), 1024, FP));
+                pos += ret;
+            } while(ret != 1024);
+            sprintf(*(_vertex_user[pos]), "\nbreak;\n", number);
+            pos += strlen(*(_vertex_user[pos]));
+            fclose(fp);
+            Wfree(filename);
         }
     }
 }

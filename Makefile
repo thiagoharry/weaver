@@ -105,7 +105,10 @@ install: uninstall
 						${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/vertex_end.glsl \
 						${PROJECT_SHARE}/src/weaver
-#	install -c project/src/weaver/fragment.glsl ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/fragment_begin.glsl \
+	                                        ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/fragment_end.glsl \
+	                                        ${PROJECT_SHARE}/src/weaver
 #	install -c project/src/weaver/aux.h ${PROJECT_SHARE}/src/weaver
 #	install -c project/src/weaver/aux.c ${PROJECT_SHARE}/src/weaver
 #	install -c project/src/weaver/camera.h ${PROJECT_SHARE}/src/weaver
