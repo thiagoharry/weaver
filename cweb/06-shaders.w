@@ -895,6 +895,10 @@ O código de ambos os shaders é formado por uma parte antes e uma parte
 depois do código gerado dinamicamente após lermos o código de sdhader
 personalizado do usuário:
 
+@<Shaders: Declarações@>=
+// Código injetado em si:
+char *_vertex_user, *_fragment_user;
+@
 @<Shaders: Definições@>=
 // Código antes:
 static char vertex_begin[] = {
@@ -903,8 +907,6 @@ static char vertex_begin[] = {
 static char fragment_begin[] = {
 #include "fragment_begin.data"
     , 0x00};
-// Código injetado em si:
-char *_vertex_user, *_fragment_user;
 // Código após o shader de usuário:
 static char vertex_end[] = {
 #include "vertex_end.data"
@@ -923,8 +925,8 @@ pelo próprio \monoespaco{Makefile} com o comando \monoespaco{xxd}.
 
 Fazendo desta forma, podemos escrever e representar neste livro e
 projeto CWEB o código dos shaders exatamente da mesma forma como
-fazemos com o código C da engine em si. Representamos as sete partes
-do código do Shader de vértice da seguinte forma:
+fazemos com o código C da engine em si. Representamos as partes do
+shader de vértice da seguinte forma:
 
 @(project/src/weaver/vertex_begin.glsl@>=
 // Usamos GLSLES 1.0 que é suportado por Emscripten
@@ -954,25 +956,54 @@ E após o código injetado pelo usuário temos:
 } // Fim do main
 @
 
+Já no código do shader de fragmento, temos:
+
+@(project/src/weaver/fragment_begin.glsl@>=
+// Usamos GLSLES 1.0 que é suportado por Emscripten
+#version 100
+// Todos os atributos individuais de cada vértice
+//@<Shader de Vértice: Atributos@>
+// Atributos do objeto a ser renderizado (basicamente as coisas dentro
+// do struct que representam o objeto)
+uniform int type;
+uniform vec4 color; // A cor do objeto
+//@<Shader de Vértice: Uniformes@>
+void main(){
+    switch(type){
+    // Aqui termina o vertex_begin.glsl e em seguida segue o código
+    // injetado pelo usuário
+@
+
+@(project/src/weaver/fragment_end.glsl@>=
+case -1: // W_INTERFACE_SQUARE
+case -2: // W_INTERFACE_PERIMETER
+default:
+        gl_FragColor = color;
+    } // Fim do switch
+} // Fim do main
+@
+
+
 Agora temos que lidar com o código injetado pelo usuário. Iremos
 alocar espaço na memória para armazená-lo. Mas o quanto devemos
 alocar? Ao contrário de programas comuns, Weaver não tem à sua
 disposição memória infinita, mas somente a memória configurada para a
 engine. Em outras pelavras, o limite é mais explícito. Mas uma vez que
 lemos e compilamos o shader, podemos querer recompilá-lo após
-modificações. Isso só ocorrerá durante o desenolvimento e no caso de
-programas nativos para Linux, não no caso do Emscripten. Isso ocorre
-apenas quando um desenvolvedor está testando código de shader
-interaivamente e deseja ver as mudanças quase imediatamente sem ter
-que ficar fechando o programa e executando novamente.
+modificações. Iremos suportar isso apenas caso o programa seja nativo
+para Linux. O caso mais típico de uso desta função é o desenvolvimento
+interativo, quando o usuário está testando modificações no shader e
+deseja vê-las imediatamente sem precisar recompilar e re-executar o
+programa. Alternativamente, o usuário pode estar criando um editor
+inteerativo de shaders.
 
-Sendo assim, é seguro alocarmos para o código injetado somente o
-espaço estritamente necessário para isso. Se formos instruídos a
-recompilar o shader e ainda formos uma versão em desenolvimento, então
-podemos com segurança desalocar o que foi alocado anteriormente e usar
-o |malloc| para este caso.
+De qualquer forma, lidaremos com o código de recompilação recorrendo
+ao |malloc| para gerar novos espaços de memória, já que entre uma
+recompilação e outra o código pode crescer arbitrariamente. Como só
+suportamos isso em programas nativos e em casos bastante especiais,
+não será um problema o uso de |malloc|.
 
-Então, a inicialização de código de shader de vértice criado pelo
+A inicialização de código de shader de vértice criado pelo
 usuário funciona contando quantos arquios que são código de shader de
 vértice nós temos. Se não formos a versão final do jogo, consultaremos
 o diretório \monoespaco{shaders/vertex/}. Se formos, consultaremos
@@ -990,7 +1021,7 @@ ou não alocado por um malloc:
 #ifdef W_MULTITHREAD
 pthread_mutex_t _shader_mutex;
 #endif
-bool _malloc_shader;
+bool _malloc_vertex_shader, _malloc_fragment_shader;
 @
 
 Vamos inicializar estas duas variáveis:
@@ -1003,7 +1034,8 @@ Vamos inicializar estas duas variáveis:
         exit(1);
     }
 #endif
-_malloc_shader = false;
+    _malloc_vertex_shader = false;
+    _malloc_fragment_shader = false;
 }
 @
 
@@ -1012,8 +1044,11 @@ precisar usar um |free|:
 
 @<API Weaver: Finalização@>+=
 {
-    if(_malloc_shader){
+    if(_malloc_vertex_shader){
         free(_vertex_user);
+    }
+    if(_malloc_fragment_shader){
+        free(_fragment_user);
     }
 #ifdef W_MULTITHREAD
     if(pthread_mutex_destroy(&_shader_mutex) != 0)
@@ -1026,38 +1061,57 @@ Já para lermos e gerarmos o código de usuário para o shader de vértice
 que será injetado, faremos uso da seguinte função:
 
 @<Shaders: Declarações@>
-int _get_vertex_source_size(bool use_malloc);
+    int _get_vertex_source_size(bool use_malloc, bool vertex);
 @
+
+O primeiro argumento diz se devemos ou não usar um |malloc|. O segundo
+argumento diz se estamos querendo gerar o código do shader de vértice
+(se não, só pode ser o shader de fragmento):
+
 @<Shaders: Definições@>
-int _get_vertex_source_size(bool use_malloc){
-    char *shader_directory;
+int _get_vertex_source_size(bool use_malloc, bool vertex){
+    char *shader_directory, char **dst;
     DIR  *d;
     int i;
-    // Obtendo em qual diretório devemos procurar por shaders de vértice:
-#if W_DEBUG_LEVEL > 0
-    shader_directory = (char *) _iWalloc(strlen(W_INSTALL_DIR) +
-                                         strlen("/shaders/vertex/") + 1);
+    if(vertex) dst = &_vertex_user;
+    else dst = &_fragment_user;
+    // Obtendo em qual diretório devemos procurar por shaders:
+#if W_DEBUG_LEVEL > 0 // Se esta é uma versão em desenolvimento:
+    if(vertex)
+        shader_directory = (char *) _iWalloc(strlen(W_INSTALL_DIR) +
+                                             strlen("/shaders/vertex/") + 1);
+    else
+        shader_directory = (char *) _iWalloc(strlen(W_INSTALL_DIR) +
+                                             strlen("/shaders/fragment/") + 1);
     if(shader_directory == NULL){
         fprintf(stderr, "ERROR (0): No enough internal memory. Please, "
                 "increase the value of W_INTERNAL_MEMORY at conf/conf.h.");
         Wexit();
     }
     strcpy(shader_directory, W_INSTALL_DIR);
-    strcpy(shader_directory, "/shaders/vertex/");
-#else
-    shader_directory = (char *) _iWalloc(strlen("/shaders/vertex/") + 1);
+    if(vertex) strcpy(shader_directory, "/shaders/vertex/");
+    else strcpy(shader_directory, "/shaders/fragment/");
+#else // Se ese é o programa em sua versão final:
+    if(vertex)
+        shader_directory = (char *) _iWalloc(strlen("/shaders/vertex/") + 1);
+    else
+        shader_directory = (char *) _iWalloc(strlen("/shaders/fragment/") + 1);
     if(shader_directory == NULL){
         fprintf(stderr, "ERROR (0): No enough internal memory. Please, "
                 "increase the value of W_INTERNAL_MEMORY at conf/conf.h.");
         Wexit();
     }
-    strcpy(shader_directory, "shaders/vertex/");
+    if(vertex) strcpy(shader_directory, "shaders/vertex/");
+    else strcpy(shader_directory, "shaders/fragment/");
 #endif
+    // Abrindo o diretório e contando o tamanho necessário para
+    // armazenar o código:
     d = opendir(shader_directory);
-    // Abrindo o diretório e contando o tamanho necessário:
     if(d){
         struct dirent *dir;
         int size = 0;
+        // Lendo todos os arquivos do diretório atual e vendo o
+        // tamanho necessário para eles:
         while((dir = readdir(d)) != NULL){
             // Lendo o nome em dir -> dname para ver o tamanho do dígito:
             if(dir -> d_name[0] == '.') continue; // Arquivo oculto.
@@ -1096,13 +1150,15 @@ int _get_vertex_source_size(bool use_malloc){
         closedir(d);
         // Temos o tamanho em 'size'. Agora vamos alocar:
         if(use_malloc){
-            _vertex_user = (char *) malloc(sizeof(size + 1));
-            _malloc_shader = true;
+            *dst = (char *) malloc(sizeof(size + 1));
+            *dst[0] = '\0';
+            if(vertex) _malloc_vertex_shader = true;
+            else _malloc_fragment_shader = true;
         }
         else{
-            _vertex_user = (char *) Walloc(sizeof(size + 1));
+            *dst = (char *) Walloc(sizeof(size + 1));
+            *dst[0] = '\0';
         }
-        _vertex_user[0] = '\0';
         // E recomeçamos a percorrer os arquivos de novo, apenas sem
         // imprimir mensagens de erro:
         d = opendir(shader_directory);
@@ -1123,14 +1179,14 @@ int _get_vertex_source_size(bool use_malloc){
             }
             filename = (char *) iWalloc(strlen(shader_directory) +
                                         strlen(dir -> d_name) + 1);
-            sprintf(*(_vertex_user[pos]), "\ncase %s:\n", number);
-            pos += strlen(*(_vertex_user[pos]));
+            sprintf(&(*dst[pos]), "\ncase %s:\n", number);
+            pos += strlen(&(*dst[pos]));
             do{
-                ret = (fread(*(_vertex_user[pos]), sizeof(char), 1024, FP));
+                ret = (fread(&(*dst[pos]), sizeof(char), 1024, FP));
                 pos += ret;
-            } while(ret != 1024);
-            sprintf(*(_vertex_user[pos]), "\nbreak;\n", number);
-            pos += strlen(*(_vertex_user[pos]));
+            } while(ret == 1024);
+            sprintf(&(*dst[pos]), "\nbreak;\n", number);
+            pos += strlen(&(*dst[pos]));
             fclose(fp);
             Wfree(filename);
         }
