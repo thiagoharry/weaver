@@ -736,12 +736,14 @@ código para lidar com shaders todo na mesma unidade de compilação:
 #endif
 @
 @(project/src/weaver/shaders.c@>=
+#include <string.h> // strlen, strcpy
+#include <dirent.h> // opendir
+#include <ctype.h> // isdigit
 #include "shaders.h"
 @<Shaders: Definições@>
 @
 @<Cabeçalhos Weaver@>+=
-#include <string.h> // strlen, strcpy
-#include <dirent.h> // opendir
+#include <GL/gl.h>
 #include "shaders.h"
 @
 
@@ -773,6 +775,8 @@ Vamos começar criando o nosso shader de vértice e de fragmento:
 
 @<Shaders: Declarações@>=
 GLuint _vertex_shader, _fragment_shader;
+// Depois de compilarmos os shaders, os ligaresmos a este programa:
+GLuint _shader_program;
 @
 
 Durante a inicialização devemos informar OpenGL que queremos criar
@@ -782,6 +786,7 @@ tais shaders:
 {
     _vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     _fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
+    _shader_program = glCreateProgram();
 }
 @
 
@@ -789,8 +794,9 @@ E na finalização precisamos encerrar tais shaders:
 
 @<API Weaver: Finalização@>+=
 {
-  glDeleteShader(_vertex_shader);
-  glDeleteShader(_fragment_shader);
+    glDeleteProgram(_program_shader);
+    glDeleteShader(_vertex_shader);
+    glDeleteShader(_fragment_shader);
 }
 @
 
@@ -896,22 +902,20 @@ depois do código gerado dinamicamente após lermos o código de sdhader
 personalizado do usuário:
 
 @<Shaders: Declarações@>=
-// Código injetado em si:
-char *_vertex_user, *_fragment_user;
-@
-@<Shaders: Definições@>=
 // Código antes:
-static char vertex_begin[] = {
+char _vertex_begin[] = {
 #include "vertex_begin.data"
         , 0x00};
-static char fragment_begin[] = {
+char _fragment_begin[] = {
 #include "fragment_begin.data"
     , 0x00};
+// Código injetado em si:
+char *_vertex_user, *_fragment_user;
 // Código após o shader de usuário:
-static char vertex_end[] = {
+char _vertex_end[] = {
 #include "vertex_end.data"
     , 0x00};
-static char fragment_end[] = {
+char _fragment_end[] = {
 #include "fragment_end.data"
     , 0x00};
 @
@@ -1060,19 +1064,19 @@ precisar usar um |free|:
 Já para lermos e gerarmos o código de usuário para o shader de vértice
 que será injetado, faremos uso da seguinte função:
 
-@<Shaders: Declarações@>
-    int _get_vertex_source_size(bool use_malloc, bool vertex);
+@<Shaders: Declarações@>+=
+bool _get_shader_source(bool use_malloc, bool vertex);
 @
 
 O primeiro argumento diz se devemos ou não usar um |malloc|. O segundo
 argumento diz se estamos querendo gerar o código do shader de vértice
 (se não, só pode ser o shader de fragmento):
 
-@<Shaders: Definições@>
-int _get_vertex_source_size(bool use_malloc, bool vertex){
-    char *shader_directory, char **dst;
+@<Shaders: Definições@>=
+bool _get_shader_source(bool use_malloc, bool vertex){
+    char *shader_directory, **dst;
     DIR  *d;
-    int i;
+    int i, pos = 0;
     if(vertex) dst = &_vertex_user;
     else dst = &_fragment_user;
     // Obtendo em qual diretório devemos procurar por shaders:
@@ -1084,9 +1088,10 @@ int _get_vertex_source_size(bool use_malloc, bool vertex){
         shader_directory = (char *) _iWalloc(strlen(W_INSTALL_DIR) +
                                              strlen("/shaders/fragment/") + 1);
     if(shader_directory == NULL){
-        fprintf(stderr, "ERROR (0): No enough internal memory. Please, "
-                "increase the value of W_INTERNAL_MEMORY at conf/conf.h.");
-        Wexit();
+        fprintf(stderr, "WARNING (0): No enough internal memory for shader "
+                "source code. Please, increase the value of W_INTERNAL_MEMORY "
+                "at conf/conf.h.");
+        return false;
     }
     strcpy(shader_directory, W_INSTALL_DIR);
     if(vertex) strcpy(shader_directory, "/shaders/vertex/");
@@ -1097,9 +1102,10 @@ int _get_vertex_source_size(bool use_malloc, bool vertex){
     else
         shader_directory = (char *) _iWalloc(strlen("/shaders/fragment/") + 1);
     if(shader_directory == NULL){
-        fprintf(stderr, "ERROR (0): No enough internal memory. Please, "
-                "increase the value of W_INTERNAL_MEMORY at conf/conf.h.");
-        Wexit();
+        fprintf(stderr, "WARNING (0): Not enough internal memory for shader "
+                "source code. Please, increase the value of W_INTERNAL_MEMORY "
+                "at conf/conf.h.");
+        return false;
     }
     if(vertex) strcpy(shader_directory, "shaders/vertex/");
     else strcpy(shader_directory, "shaders/fragment/");
@@ -1109,7 +1115,7 @@ int _get_vertex_source_size(bool use_malloc, bool vertex){
     d = opendir(shader_directory);
     if(d){
         struct dirent *dir;
-        int size = 0;
+        int size = 1;
         // Lendo todos os arquivos do diretório atual e vendo o
         // tamanho necessário para eles:
         while((dir = readdir(d)) != NULL){
@@ -1122,12 +1128,12 @@ int _get_vertex_source_size(bool use_malloc, bool vertex){
                 continue;
             }
             else{
-                struct stat;
+                struct stat st;
                 char *filename;
-                filename = (char *) iWalloc(strlen(shader_directory) +
+                filename = (char *) _iWalloc(strlen(shader_directory) +
                                             strlen(dir -> d_name) + 1);
                 if(filename == NULL){
-                    fprintf(sderr,
+                    fprintf(stderr,
                             "ERROR (0): No enough internal memory. Please, "
                             "increase the value of W_INTERNAL_MEMORY at "
                             "conf/conf.h.");
@@ -1140,8 +1146,8 @@ int _get_vertex_source_size(bool use_malloc, bool vertex){
                 // Contando o "\ncase X:\n" (sem o X) da mais 8 bytes:
                 size += 8;
                 // Adicionando o conteúdo dos arquivos:
-                if(stat(filename, &stat) == 0)
-                    size += (int) stat.st_size;
+                if(stat(filename, &st) == 0)
+                    size += (int) st.st_size;
                 // Adicionando o "\nbreak;\n" no fim da mais 8 bytes:
                 size += 8;
                 Wfree(filename);
@@ -1163,12 +1169,14 @@ int _get_vertex_source_size(bool use_malloc, bool vertex){
         // imprimir mensagens de erro:
         d = opendir(shader_directory);
         while((dir = readdir(d)) != NULL){
-            int number, pos = 0, ret;
+            int number, ret;
             char *filename;
             FILE *fp;
             if(dir -> d_name[0] == '.' || !isdigit(dir -> d_name[0]) ||
                dir -> d_name[0] == '0') continue;
             number = atoi(dir -> d_name);
+            filename = (char *) _iWalloc(strlen(shader_directory) +
+                                         strlen(dir -> d_name) + 1);
             fp = fopen(filename, "r");
             if(fp == NULL){
 #if W_DEBUG_LEVEL > 0
@@ -1177,19 +1185,162 @@ int _get_vertex_source_size(bool use_malloc, bool vertex){
 #endif
                 continue; // Em caso de erro, ignore o arquivo
             }
-            filename = (char *) iWalloc(strlen(shader_directory) +
-                                        strlen(dir -> d_name) + 1);
-            sprintf(&(*dst[pos]), "\ncase %s:\n", number);
+            sprintf(&(*dst[pos]), "\ncase %d:\n", number);
             pos += strlen(&(*dst[pos]));
             do{
-                ret = (fread(&(*dst[pos]), sizeof(char), 1024, FP));
+                ret = (fread(&(*dst[pos]), sizeof(char), 1024, fp));
                 pos += ret;
             } while(ret == 1024);
-            sprintf(&(*dst[pos]), "\nbreak;\n", number);
+            sprintf(&(*dst[pos]), "\nbreak;\n");
             pos += strlen(&(*dst[pos]));
             fclose(fp);
             Wfree(filename);
         }
     }
+    *dst[pos] = '\0';
+    Wfree(shader_directory);
+    return true;
+}
+@
+
+Esta função é chamada com parâmetros diferentes toda vez que formos
+compilar ou recompilar os shaders, pois precisamos montar o
+código-fonte personalizado dependendo do código que foi deixado ou
+modificado pelo usuário. Durante a inicialização, nós geramos o código
+personalizado pela primeira vez:
+
+@<API Weaver: Inicialização@>+=
+{
+    // Gera shader de vértice e fragmento sem usar o malloc:
+    if(!_get_shader_source(false, true))
+        exit(1);
+    if(!_get_shader_source(false, false))
+        exit(1);
+}
+@
+
+E uma vez que nós tenhamos o nósso código de shader pronto, precisamos
+compilá-lo, ligá-lo e passá-lo para o OpenGL. Primeiro compilamos o
+shader de vértice:
+
+@<API Weaver: Inicialização@>+=
+{
+    GLint success = 0, logSize = 0;
+    // Agrupando o código do shader de vértice
+    char **code = _iWalloc(3 * sizeof(char *));
+    if(code == NULL){
+        fprintf(stderr, "ERROR (0): Not enough internal memory for shader "
+                "compilation. Please, increase the value of W_INTERNAL_MEMORY "
+                "at conf/conf.h.");
+        exit(1);
+    }
+    code[0] = _vertex_begin; code[1] = _vertex_user; code[2] = _vertex_end;
+    // GLuint _vertex_shader, _fragment_shader; já declarados acima
+    // Precisamos associá-los ao código-fonte de shader que produzimos:
+    glShaderSource(_vertex_shader, 3, (const GLchar **) code, NULL);
+    glCompileShader(_vertex_shader);
+    // Checando por erros de compilação do shader de vértice:
+    glGetShaderiv(_vertex_shader, GL_COMPILE_STATUS, &success);
+    if(success == GL_FALSE){
+        char *buffer;
+        glGetShaderiv(_vertex_shader, GL_INFO_LOG_LENGTH​, &logSize);
+        buffer = (char *) _iWalloc(logSize);
+        if(buffer == NULL){
+            fprintf(stderr, "ERROR (0): Vertex Shader failed to compile. "
+                    "It wasn't possible to discover why because there's no "
+                    "enough internal memory to make queries. Please, increase "
+                    "the value of W_INTERNAL_MEMORY at conf/conf.h and try "
+                    "to run this program again.\n");
+            exit(1);
+        }
+        glGetShaderInfoLog(_vertex_shader, logSize, NULL, buffer);
+        fprintf(stderr, "ERROR (0): Failed to compile vertex shader: %s\n",
+                buffer);
+        Wfree(buffer);
+        Wexit();
+    }
+    Wfree(code);
+}
+@
+
+Agora fazemos o mesmo com o shader de fragmento:
+
+@<API Weaver: Inicialização@>+=
+{
+    GLint success = 0, logSize = 0;
+    // Agrupando o código do shader de vértice
+    char **code = _iWalloc(3 * sizeof(char *));
+    if(code == NULL){
+        fprintf(stderr, "ERROR (0): Not enough internal memory for shader "
+                "compilation. Please, increase the value of W_INTERNAL_MEMORY "
+                "at conf/conf.h.");
+        exit(1);
+    }
+    code[0] = _fragment_begin; code[1] = _fragment_user;
+    code[2] = _fragment_end;
+    glShaderSource(_fragment_shader, 3, (const GLchar **) code, NULL);
+    glCompileShader(_fragment_shader);
+    // Checando por erros de compilação do shader de vértice:
+    glGetShaderiv(_fragment_shader, GL_COMPILE_STATUS, &success);
+    if(success == GL_FALSE){
+        char *buffer;
+        glGetShaderiv(_fragment_shader, GL_INFO_LOG_LENGTH, &logSize);
+        buffer = (char *) _iWalloc(logSize);
+        if(buffer == NULL){
+            fprintf(stderr, "ERROR (0): Fragment Shader failed to compile. "
+                    "It wasn't possible to discover why because there's no "
+                    "enough internal memory to make queries. Please, increase "
+                    "the value of W_INTERNAL_MEMORY at conf/conf.h and try "
+                    "to run this program again.\n");
+            exit(1);
+        }
+        glGetShaderInfoLog(_fragment_shader, logSize, NULL, buffer);
+        fprintf(stderr, "ERROR (0): Failed to compile fragment shader: %s\n",
+                buffer);
+        Wfree(buffer);
+        Wexit();
+    }
+    Wfree(code);
+}
+@
+
+Ambos os Shaders já foram compilados por sucesso. Podemos agora
+inclusive desalocarmos a memória que usamos para construir o
+código-fonte deles e em seguida ligamos os shaders à nosso programa de
+shader:
+
+@<API Weaver: Inicialização@>+=
+{
+    Wfree(_fragment_user);
+    Wfree(_vertex_user);
+    glAttachShader(_program_shader, _vertex_shader);
+    glAttachShader(_program_shader, _fragment_shader);
+    glLinkProgram(_program_shader);
+    // Ligar o shader pode falhar. Testando por erros:
+    {
+        int isLinked = 0;
+        GLint logSize = 0;
+        glGetProgramiv(_program_shader, GL_LINK_STATUS, &isLinked);
+        if(isLinked == GL_FALSE){
+            char *buffer;
+            glGetShaderiv(_program_shader, GL_INFO_LOG_LENGTH, &logSize);
+            buffer = (char *) _iWalloc(logSize);
+            if(buffer == NULL){
+                fprintf(stderr, "ERROR (0): Shaders failed to link. It wasn't "
+                        "possible to discover why because there's no enough "
+                        "internal memory to make queries. Please, increase "
+                        "the value of W_INTERNAL_MEMORY at conf/conf.h and try "
+                        "to run this program again.\n");
+                exit(1);
+            }
+            glGetShaderInfoLog(_program_shader, logSize, NULL, buffer);
+            fprintf(stderr, "ERROR (0): Failed to link shader: %s\n", buffer);
+            Wfree(buffer);
+            Wexit();
+        }
+    }
+    glDetachShader(_program_shader, _vertex_shader);
+    glDetachShader(_program_shader, _fragment_shader);
+    glUseProgram(_program_shader);
 }
 @
