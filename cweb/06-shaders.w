@@ -736,6 +736,7 @@ código para lidar com shaders todo na mesma unidade de compilação:
 #endif
 @
 @(project/src/weaver/shaders.c@>=
+#include <sys/stat.h> // stat
 #include <string.h> // strlen, strcpy
 #include <dirent.h> // opendir
 #include <ctype.h> // isdigit
@@ -743,11 +744,10 @@ código para lidar com shaders todo na mesma unidade de compilação:
 @<Shaders: Definições@>
 @
 @<Cabeçalhos Weaver@>+=
-#include <GL/gl.h>
 #include "shaders.h"
 @
 
-Agora além disso, para usarmos Shaders, precisamos inicializar anes a
+Agora além disso, para usarmos Shaders, precisamos inicializar antes a
 biblioeca GLEW que gerará um conexo de renderização para nós:
 
 @<API Weaver: Inicialização@>+=
@@ -776,7 +776,7 @@ Vamos começar criando o nosso shader de vértice e de fragmento:
 @<Shaders: Declarações@>=
 GLuint _vertex_shader, _fragment_shader;
 // Depois de compilarmos os shaders, os ligaresmos a este programa:
-GLuint _shader_program;
+GLuint _program_shader;
 @
 
 Durante a inicialização devemos informar OpenGL que queremos criar
@@ -786,7 +786,7 @@ tais shaders:
 {
     _vertex_shader = glCreateShader(GL_VERTEX_SHADER);
     _fragment_shader = glCreateShader(GL_FRAGMENT_SHADER);
-    _shader_program = glCreateProgram();
+    _program_shader = glCreateProgram();
 }
 @
 
@@ -903,15 +903,21 @@ personalizado do usuário:
 
 @<Shaders: Declarações@>=
 // Código antes:
+extern char _vertex_begin[];
+extern char _fragment_begin[];
+// Código injetado em si:
+char *_vertex_user, *_fragment_user;
+// Código após o shader de usuário:
+extern char _vertex_end[];
+extern char _fragment_end[];
+@
+@<Shaders: Definições@>=
 char _vertex_begin[] = {
 #include "vertex_begin.data"
         , 0x00};
 char _fragment_begin[] = {
 #include "fragment_begin.data"
     , 0x00};
-// Código injetado em si:
-char *_vertex_user, *_fragment_user;
-// Código após o shader de usuário:
 char _vertex_end[] = {
 #include "vertex_end.data"
     , 0x00};
@@ -934,7 +940,7 @@ shader de vértice da seguinte forma:
 
 @(project/src/weaver/vertex_begin.glsl@>=
 // Usamos GLSLES 1.0 que é suportado por Emscripten
-#version 100
+#version 130
 // Todos os atributos individuais de cada vértice
 attribute vec3 vertex_position;
 //@<Shader de Vértice: Atributos@>
@@ -964,7 +970,7 @@ Já no código do shader de fragmento, temos:
 
 @(project/src/weaver/fragment_begin.glsl@>=
 // Usamos GLSLES 1.0 que é suportado por Emscripten
-#version 100
+#version 130
 // Todos os atributos individuais de cada vértice
 //@<Shader de Vértice: Atributos@>
 // Atributos do objeto a ser renderizado (basicamente as coisas dentro
@@ -1080,7 +1086,7 @@ bool _get_shader_source(bool use_malloc, bool vertex){
     if(vertex) dst = &_vertex_user;
     else dst = &_fragment_user;
     // Obtendo em qual diretório devemos procurar por shaders:
-#if W_DEBUG_LEVEL > 0 // Se esta é uma versão em desenolvimento:
+#if W_DEBUG_LEVEL == 0 // Se esta é uma versão final:
     if(vertex)
         shader_directory = (char *) _iWalloc(strlen(W_INSTALL_DIR) +
                                              strlen("/shaders/vertex/") + 1);
@@ -1096,11 +1102,11 @@ bool _get_shader_source(bool use_malloc, bool vertex){
     strcpy(shader_directory, W_INSTALL_DIR);
     if(vertex) strcpy(shader_directory, "/shaders/vertex/");
     else strcpy(shader_directory, "/shaders/fragment/");
-#else // Se ese é o programa em sua versão final:
+#else // Se ese é um programa em desenvolvimento:
     if(vertex)
-        shader_directory = (char *) _iWalloc(strlen("/shaders/vertex/") + 1);
+        shader_directory = (char *) _iWalloc(strlen("shaders/vertex/") + 1);
     else
-        shader_directory = (char *) _iWalloc(strlen("/shaders/fragment/") + 1);
+        shader_directory = (char *) _iWalloc(strlen("shaders/fragment/") + 1);
     if(shader_directory == NULL){
         fprintf(stderr, "WARNING (0): Not enough internal memory for shader "
                 "source code. Please, increase the value of W_INTERNAL_MEMORY "
@@ -1243,7 +1249,7 @@ shader de vértice:
     glGetShaderiv(_vertex_shader, GL_COMPILE_STATUS, &success);
     if(success == GL_FALSE){
         char *buffer;
-        glGetShaderiv(_vertex_shader, GL_INFO_LOG_LENGTH​, &logSize);
+        glGetShaderiv(_vertex_shader, GL_INFO_LOG_LENGTH, &logSize);
         buffer = (char *) _iWalloc(logSize);
         if(buffer == NULL){
             fprintf(stderr, "ERROR (0): Vertex Shader failed to compile. "

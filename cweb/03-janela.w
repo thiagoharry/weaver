@@ -546,6 +546,7 @@ simples, será inteiramente definido abaixo:
 @<Inclui Cabeçalho de Configuração@>@/
 extern int make_iso_compilers_happy;
 #if W_TARGET == W_WEB
+#include <emscripten.h> // emscripten_run_script_init
 #include "canvas.h"
 static SDL_Surface *window;
 #ifdef W_MULTITHREAD
