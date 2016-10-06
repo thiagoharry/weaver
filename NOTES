@@ -1,0 +1,48 @@
+* Atualmente shaders um único e gigantesco shader é gerado por meio do
+  código fornecido pelo usuário. Mas pelo que estou vendo, é
+  absurdamente errado fazer o que estou fazendo. Ao invés disso, cada
+  diferente forma de aplicar um código shader dee estar em um shader
+  diferente. Há uma perda de performance muito grande quando se usa
+  coisas como "if" ou "switch" em shaders de fragmento, por exemplo. O
+  jeito correto de lidar com isso então é fazer vários programas
+  diferentes com shaders diferentes e usar "glUseProgram" antes de
+  renderizar cada objeto. Na verdade, eles devem ser ordenados de
+  acordo com o shader para minimizar tal chamada.
+
+  Eu poderia deixar assim por um tempo. Isso me permitiria testar os
+  dois casos e ver se em hardwares mais novos isso realmente é um
+  problema. Afinal, o controle de fluxo denro do shader como está
+  agora envolve apenas comparação entre constantes e uniformes. Por
+  outro lado, podem haver muitas comparações, o que provaelmente irá
+  fazer com que deixe de ser aceitável.
+
+  Ao invés disso, talvez o melhor mesmo seja aceitar que para casos
+  não-triviais é melhor mesmo ter vários programas de shaders do que
+  um só com tantas condicionais. Neste caso, eu poderia lidar comisso
+  com uma lista de códigos de shaders inseridas em tempo de
+  compilação:
+
+  char shader[N][] = {
+    {
+  #include "shader1.data"
+    , 0x00},
+    {
+  #include "shader2.data"
+    , 0x00},
+    (...)
+  };
+
+  Mas para isso, tal código deve ser gerado em tempo de compilação,
+  talvez de forma semelhante como já faço envolvendo os
+  plugins. Afinal, só terei como saber o valor de N analizando os
+  diretórios de shaders. Outra coisa que isso traria é uma dificuldade
+  maior de atualizar shaders durante a execução. Teria que pensar
+  melhor se eu ainda gostaria de suportar esta opção por mais que ela
+  seja desejável.
+
+  Por outro lado, esta abordagem daria ao usuário a capacidade de
+  escrever programas inteiros de shaders. E isso é muito desejável. Os
+  exemplos de shaders que se obtém na Internet são sempre de exemplos
+  inteiros.
+
+
