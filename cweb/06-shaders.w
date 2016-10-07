@@ -711,12 +711,27 @@ durante a execução quantas vezes quisermos. É responsabilidade da
 implementação OpenGL de fornecer a função para compilar tais
 programas.
 
-Tipicamene os Shaders são usados para, além de botar as coisas na
-tela, calcular efeitos de luz e sombra. E além disso, eles podem fazer
-virtualmente qualquer coisa com a imagem fornecendo um modo eficiente
-e paralelo de calcular e mostrar efeitos especiais. Será importante
-para a Engine Weaver que o usuário seja capaz de modificar e fornecer
-seus próprios Shaders e iremos fornecer um formato para isso.
+Tipicamente os Shaders são usados para, além de botar as coisas na
+tela, calcular efeitos de luz e sombra. Embora o nome ``shader'' possa
+indicar que o que ele faz tem relação com cores, na verdade eles
+tambémsão capazes de provocar distorções e mudanças nos vértices das
+imagens e muito mais coisas que se relacionam com a geometria além das
+cores.
+
+Basicamente dois tipos de shaders (um de vértice e um de fragmento)
+podem se combinar e formar um programa de computador. Mas este
+programa não é executado pela CPU, mas pela GPU. Cada código do shader
+de vértice é executado para cada vértice da imagem, podendo com isso
+modificar a posição do vértice na imagem ou então gerar valores
+passados para o shader de fragmento para cada vértice. E cada pixel da
+imagem anes de ser desenhado na tela é passado para um shader de
+fragmento, o qual pode mudar sua cor, adicionar texturas e outros
+efeitos. Os pixels que estão exatamente no vértice de uma imagem
+recebeem valores diretamente do shader de vértice (que valores ele
+escolhe passar pode vasriar). Os demais recebem os mesmos valores, mas
+que são obtidos por meio da interpolação linear dos valores passados
+pelos três vértices ao redor (todos os polígonos desenhados devem ser
+triângulos).
 
 Como isto tudo é uma tarefa relativamente complexa, vamos colocar o
 código para lidar com shaders todo na mesma unidade de compilação:
@@ -770,6 +785,63 @@ biblioeca GLEW que gerará um conexo de renderização para nós:
   glewExperimental -= dummy;
 }
 @
+
+Vamos agora entender as complexidades de escreer um código para os
+shaders.
+
+Os shaders são escritos em um código bastante similar ao C (só que com
+ainda mais armadilhas), o qual é chamado de GLSL. Tais códigos
+precisam estar no nosso programa na forma de strings. Então eles podem
+ser codificados diretamente no programa ou podem ser lidos de um
+arquivo em tempo de execução. Isso é uma grande força e uma grande
+fraqueza.
+
+Primeiro torna chato o desenvolvimento do código GLSL. Faz com que
+tais códigos sempre precisem ser compilados na execução do
+programa. Mas por outro lado, dá uma grande flexibilidade que temos
+que abraçar. Tal como no caso dos plugins, podemos modificar os
+shaders durante a execução para termos um desenvolvimento
+interativo. Um programa pode até mesmo ser um ambiente de
+desenvolvimento de shaders capaz de mostrar praticamente em tempo real
+as modificações que são feitas no código.
+
+Não é de se surpreender que escolhamos então tratar shaders de forma
+semelhante aos plugins. Seus códigos precisarão estar sempre dentro de
+diretórios específicos para isso e é lá que podemos verificar se eles
+foram modificados e se precisam ser recarregados.
+
+Tal como no caso de plugins, é algo que no ambiente Emscripten, não
+suportaremos modificações de código em tempo de execução. Esta é uma
+restrição mais devido ao excesso de dificuldades que deido à
+impossibilidade como no caso dos plugins. E por causa disso, tal como
+para plugins, o código dos shaders será injetado dinamicamente no
+programa caso estejamos compilando para Emscripten.
+
+Como iremos armazenar internamente os shaders? Recorreremos à seguinte
+estrutura:
+
+@<Shaders: Declarações@>=
+struct _shader{
+    GLuint program_shader; // Referência ao programa compilado em si
+#if W_TARGET == W_ELF
+    char *vertex_source, *fragment_source; // Arquivo do código-fonte
+    // Os inodes dos arquivos nos dizem se o código-fonte foi
+    // modificado desde a última vez que o compilamos:
+    ino_t vertex_inode, fragment_inode;
+#endif
+} *_shader_list;
+@
+
+Comparados aos plugins, uma grande vantagem que temos é que ao
+executarmos o programa, podemos descobrir o número exato de shaders
+que temos. Basta checar o número de arquivos adequados dentro dos
+diretórios relevantes.
+
+Mas antes temos mais uma decisão a ser tomada. Para um programa de
+shader, precisamos de pelo menos dois códigos-fonte: um de vértice e
+outro de fragmento.
+
+% XXX: A PARTE ABAIXO PRECISA SER REESCRITA
 
 Vamos começar criando o nosso shader de vértice e de fragmento:
 
