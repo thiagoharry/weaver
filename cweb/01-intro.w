@@ -1213,13 +1213,13 @@ int copy_files(char *orig, char *dst){
           }
       #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
         // Se suportamos DT_DIR, não precisamos chamar a função 'stat':
-        if(dir -> d_type == DT_DIR){@/
+        if(dir -> d_type == DT_DIR){
       #else
         struct stat s;
         int err;
         err = stat(file, &s);
         if(err == -1) return 0;
-        if(S_ISDIR(s.st_mode)){@/
+        if(S_ISDIR(s.st_mode)){
       #endif
         // Se concluirmos estar lidando com subdiretório via 'stat' ou 'DT_DIR':
           char *new_dst;
