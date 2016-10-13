@@ -822,9 +822,10 @@ estrutura:
 
 @<Shaders: Declarações@>=
 struct _shader{
+    bool initialized;
     GLuint program_shader; // Referência ao programa compilado em si
     char name[128];        // Nome do shader
-    bool have_vertex, hae_fragment; // If he has code for the shaders
+    bool have_vertex, have_fragment; // If he has code for the shaders
 #if W_TARGET == W_ELF
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
     // Os inodes dos arquivos nos dizem se o código-fonte foi
@@ -924,7 +925,12 @@ alocarmos o espaço para eles na lista de shaders:
                 "at conf/conf.h.");
         exit(1);
     }
-//} E coninua abaixo
+    {
+        int i; // Marcando os programas de shader como não-inicializados
+        for(i = 0; i < number_of_shaders; i ++)
+            _shader_list[i].initialized = false;
+    }
+//} E continua abaixo
 #endif
 @
 
@@ -947,7 +953,7 @@ o Shader.
             if(dir -> d_name[0] == '.') continue; // Ignore arquivos ocultos
             if(!isdigit(dir -> d_name[0]) || dir -> d_name[0] == '0')
                 continue;
-#if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
+#if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)
             if(dir -> d_type != DT_DIR) continue; // Ignora não-diretórios
 #else
             { // Ignorando não-diretórios se não pudermos checar o
@@ -962,6 +968,28 @@ o Shader.
             // Código quase idêntico ao anterior. Mas ao invés de
             // contar os shaders, vamos percorrê-los e compilá-los.
             // TODO: ...
+            {
+                int shader_number = atoi(dir -> d_name);
+                if(shader_number >= number_of_shaders){
+#if W_DEBUG_LEVEL >= 1
+                    fprintf(stderr, "WARNING (1): Non-sequential shader "
+                            "enumeration at %s.\n", directory);
+#endif
+                    continue;
+                }
+                if(_shader_list[shader_number - 1].initialized == true){
+#if W_DEBUG_LEVEL >= 1
+                    fprintf(stderr, "WARNING (1): Two shaders enumerated "
+                            "with number %d at %s.\n", shader_number,
+                            directory);
+#endif
+                    continue;
+                }
+                // Usando função auxiliar para o trabalho de compilar
+                // e inicializar cada programa de shader:
+                _compile_and_insert_new_shader(dir -> d_name, _shader_list,
+                                               sheder_number - 1);
+            }
         }
     }
 }
