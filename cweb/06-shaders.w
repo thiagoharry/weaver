@@ -986,7 +986,8 @@ o Shader.
                     continue;
                 }
                 // Usando função auxiliar para o trabalho de compilar
-                // e inicializar cada programa de shader:
+                // e inicializar cada programa de shader. Ela ainda
+                // precisa ser declarada e definida:
                 _compile_and_insert_new_shader(dir -> d_name, _shader_list,
                                                sheder_number - 1);
             }
@@ -994,6 +995,57 @@ o Shader.
     }
 }
 #endif
+@
+
+Antes de definirmos a função que compila os shaders encontrados em um
+diretório, precisamos definir a forma dos shaders padronizados que
+serão usados toda vez que não forem encontrados os
+arquivos \monoespaco{vertex.glsl} e \monoespaco{fragment.glsl} no
+diretório de shaders.
+
+No caso do shader de vértice:
+
+@(project/src/weaver/vertex_interface.glsl@>=
+// Usamos GLSLES 1.3 que é suportado por Emscripten
+#version 130
+// Todos os atributos individuais de cada vértice
+@<Shader: Atributos@>
+// Atributos do objeto a ser renderizado (basicamente as coisas dentro
+// do struct que representam o objeto)
+@<Shader: Uniformes@>
+void main(){
+    // Apenas passamos adiante a posição que recebemos
+    gl_Position = vec4(vertex_position, 1.0);
+}
+@
+
+E no shader de fragmento:
+
+@(project/src/weaver/fragment_interface.glsl@>=
+// Usamos GLSLES 1.0 que é suportado por Emscripten
+#version 130
+// Todos os atributos individuais de cada vértice
+@<Shader: Atributos@>
+// Atributos do objeto a ser renderizado (basicamente as coisas dentro
+// do struct que representam o objeto)
+@<Shader: Uniformes@>
+void main(){
+        gl_FragColor = color;
+} // Fim do main
+@
+
+Dois atributos que eles terão (potencialmente únicos em cada execução
+do shader) são:
+
+@<Shader: Atributos@>=
+attribute vec3 position;
+@
+
+Já os uniformes que eles tem (potencialmente únicos para cada objeto a
+ser renderizado) são:
+
+@<Shader: Uniformes@>=
+uniform vec4 object_color; // A cor do objeto
 @
 
 % XXX: A PARTE ABAIXO PRECISA SER REESCRITA
