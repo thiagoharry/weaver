@@ -20,18 +20,12 @@ make-web:
 	else make --no-print-directory -j ${CORES} -f Makefile.web; fi
 shader_data: src/weaver/vertex_begin.data src/weaver/vertex_end.data \
               src/weaver/fragment_begin.data src/weaver/fragment_end.data
-src/weaver/vertex_begin.data: src/weaver/vertex_begin.glsl
-	cat src/weaver/vertex_begin.glsl | sed 's/^#line.*//' | \
-	xxd -i > src/weaver/vertex_begin.data
-src/weaver/vertex_end.data: src/weaver/vertex_end.glsl
-	cat src/weaver/vertex_end.glsl | sed 's/^#line.*//' | \
-	xxd -i > src/weaver/vertex_end.data
-src/weaver/fragment_begin.data: src/weaver/fragment_begin.glsl
-	cat src/weaver/fragment_begin.glsl | sed 's/^#line.*//' | \
-	xxd -i > src/weaver/fragment_begin.data
-src/weaver/fragment_end.data: src/weaver/fragment_end.glsl
-	cat src/weaver/fragment_end.glsl | sed 's/^#line.*//' | \
-	xxd -i > src/weaver/fragment_end.data
+src/weaver/vertex_begin.data: src/weaver/vertex_interface.glsl
+	cat src/weaver/vertex_interface.glsl | sed 's/^#line.*//' | \
+	xxd -i > src/weaver/vertex_interface.data
+src/weaver/fragment_begin.data: src/weaver/fragment_interface.glsl
+	cat src/weaver/fragment_interface.glsl | sed 's/^#line.*//' | \
+	xxd -i > src/weaver/fragment_interface.data
 clean:
 	rm -f *.o *.bc *~ .weaver/*.o .weaver/*.bc src/weaver/*.data
 	rm -f compiled_plugins/* .plugin/*
