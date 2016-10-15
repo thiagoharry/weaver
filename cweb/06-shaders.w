@@ -762,6 +762,7 @@ código para lidar com shaders todo na mesma unidade de compilação:
 @<Shaders: Definições@>
 @
 @<Cabeçalhos Weaver@>+=
+#include <ctype.h> // isdigit
 #include "shaders.h"
 @
 
@@ -807,7 +808,7 @@ Um exemplo simples de shader de vértice:
 @<Shader: Uniformes@>
 void main(){
     // Apenas passamos adiante a posição que recebemos
-    gl_Position = vec4(vertex_position, 1.0);
+    gl_Position = vec4(position, 1.0);
 }
 @
 
@@ -816,13 +817,11 @@ E de shader de fragmento:
 @(project/src/weaver/fragment_interface.glsl@>=
 // Usamos GLSLES 1.0 que é suportado por Emscripten
 #version 130
-// Todos os atributos individuais de cada vértice
-@<Shader: Atributos@>
 // Atributos do objeto a ser renderizado (basicamente as coisas dentro
 // do struct que representam o objeto)
 @<Shader: Uniformes@>
 void main(){
-        gl_FragColor = color;
+        gl_FragColor = object_color;
 } // Fim do main
 @
 
@@ -849,6 +848,7 @@ inserir tal código estaticamente em tempo de compilação com:
 @<Shaders: Declarações@>=
 extern char _vertex_interface[];
 extern char _fragment_interface[];
+GLuint _default_interface_shader;
 @
 @<Shaders: Definições@>=
 char _vertex_interface[] = {
@@ -857,14 +857,13 @@ char _vertex_interface[] = {
 char _fragment_interface[] = {
 #include "fragment_interface.data"
     , 0x00};
-GLuint _default_interface_shader;
 @
 
 Como compilar um shader de vértice e fragmento? Para isso usaremos a
 função auxiliar e macros auxiliares:
 
 @<Shaders: Declarações@>+=
-GLint _compile_shader(char *source, bool vertex);
+GLuint _compile_shader(char *source, bool vertex);
 #define _compile_vertex_shader(source) _compile_shader(source, true)
 #define _compile_fragment_shader(source) _compile_shader(source, false)
 @
@@ -879,7 +878,7 @@ GLuint _compile_shader(char *source, bool vertex){
     else
         shader = glCreateShader(GL_FRAGMENT_SHADER);
     // Associando-o ao código-fonte do shader:
-    glShaderSource(shader, 3, (const GLchar **) source, NULL);
+    glShaderSource(shader, 1, (const GLchar **) &source, NULL);
     // Compilando:
     glCompileShader(shader);
     // Checando por erros de compilação do shader de vértice:
@@ -915,11 +914,11 @@ GLuint _link_and_clean_shaders(GLuint vertex, GLuint fragment);
 @
 
 @<Shaders: Definições@>+=
-  GLuint _link_and_clean_shaders(GLuint vertex, GLuint fragment){
-    GLuint program;
+GLuint _link_and_clean_shaders(GLuint vertex, GLuint fragment){
+    GLuint program = glCreateProgram();
     glAttachShader(program, vertex);
     glAttachShader(program, fragment);
-    glLinkProgram(_program_shader);
+    glLinkProgram(program);
     // Ligar o shader pode falhar. Testando por erros:
     {
         int isLinked = 0;
@@ -1050,6 +1049,7 @@ inicialização, para podermos inicializar a nossa lista de shaders é
 verificar o al diretório que armazena shaders:
 
 @<API Weaver: Inicialização@>+=
+  /*
 #if W_TARGET == W_ELF
 {
     int number_of_shaders = 0;
@@ -1062,7 +1062,7 @@ verificar o al diretório que armazena shaders:
     strcat(directory, "shaders/");
     // Pra começar, abrimos o diretório e percorremos os arquivos para
     // contar quantos diretórios tem ali:
-    d = opendir(shader_directory);
+    d = opendir(directory);
     if(d){
         struct dirent *dir;
         // Lendo o nome para checar se é um diretório não-oculto cujo
@@ -1092,12 +1092,14 @@ verificar o al diretório que armazena shaders:
     }
 #endif
 // } Coninua abaixo
+*/
 @
 
 Após sabermos quantos shaders nosso programa vai usar, é hora de
 alocarmos o espaço para eles na lista de shaders:
 
 @<API Weaver: Inicialização@>+=
+  /*
 #if W_TARGET == W_ELF
 //{ Continua do código acima
     _shader_list = (struct _shader *) _iWalloc(sizeof(struct _shader) *
@@ -1115,19 +1117,21 @@ alocarmos o espaço para eles na lista de shaders:
     }
 //} E continua abaixo
 #endif
+  */
 @
 
-E agora que alocamos, podemos começar a percorrer os shaders e: chegar
+E agora que alocamos, podemos começar a percorrer os shaders e checar
 se todos eles podem ficar em uma posição de acordo com seu número no
 vetor alocado, checar se dois deles não possuem o mesmo número (isso
 garante que todos eles possuem números seqüenciais) e também compilar
 o Shader.
 
-    @<API Weaver: Inicialização@>+=
+@<API Weaver: Inicialização@>+=
+  /*
 #if W_TARGET == W_ELF
 { //Continua do código acima
     if(d) closedir(d);
-    d = opendir(shader_directory);
+    d = opendir(directory);
     if(d){
         struct dirent *dir;
         // Lendo o nome para checar se é um diretório não-oculto cujo
@@ -1171,13 +1175,14 @@ o Shader.
                 // Usando função auxiliar para o trabalho de compilar
                 // e inicializar cada programa de shader. Ela ainda
                 // precisa ser declarada e definida:
-                _compile_and_insert_new_shader(dir -> d_name, _shader_list,
-                                               sheder_number - 1);
+                //_compile_and_insert_new_shader(dir -> d_name, _shader_list,
+                //                               sheder_number - 1);
             }
         }
     }
 }
 #endif
+  */
 @
 
 Antes de definirmos a função que compila os shaders encontrados em um
