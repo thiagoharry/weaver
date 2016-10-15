@@ -18,12 +18,11 @@ make-prog:
 make-web:
 	@if [ -e .error ]; then	rm .error; \
 	else make --no-print-directory -j ${CORES} -f Makefile.web; fi
-shader_data: src/weaver/vertex_begin.data src/weaver/vertex_end.data \
-              src/weaver/fragment_begin.data src/weaver/fragment_end.data
-src/weaver/vertex_begin.data: src/weaver/vertex_interface.glsl
+shader_data: src/weaver/vertex_interface.data src/weaver/fragment_interface.data
+src/weaver/vertex_interface.data: src/weaver/vertex_interface.glsl
 	cat src/weaver/vertex_interface.glsl | sed 's/^#line.*//' | \
 	xxd -i > src/weaver/vertex_interface.data
-src/weaver/fragment_begin.data: src/weaver/fragment_interface.glsl
+src/weaver/fragment_interface.data: src/weaver/fragment_interface.glsl
 	cat src/weaver/fragment_interface.glsl | sed 's/^#line.*//' | \
 	xxd -i > src/weaver/fragment_interface.data
 clean:
