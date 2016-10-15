@@ -958,6 +958,13 @@ shaders padrão para interfaces, vamos usá-las para compilá-los:
     vertex = _compile_vertex_shader(_vertex_interface);
     fragment = _compile_fragment_shader(_fragment_interface);
     _default_interface_shader = _link_and_clean_shaders(vertex, fragment);
+}
+@
+
+E na finalização do programa precisamos desalocar o shader compilado:
+
+@<API Weaver: Finalização@>+=
+glDeleteProgram(_default_interface_shader);
 @
 
 @*2 Shaders personalizados.
