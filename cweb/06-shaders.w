@@ -857,6 +857,7 @@ char _vertex_interface[] = {
 char _fragment_interface[] = {
 #include "fragment_interface.data"
     , 0x00};
+GLuint _default_interface_shader;
 @
 
 Como compilar um shader de vértice e fragmento? Para isso usaremos a
@@ -914,7 +915,7 @@ GLuint _link_and_clean_shaders(GLuint vertex, GLuint fragment);
 @
 
 @<Shaders: Definições@>+=
-GLuint _link_and_clean_shaders(GLuint vertex, GLuint fragment){
+  GLuint _link_and_clean_shaders(GLuint vertex, GLuint fragment){
     GLuint program;
     glAttachShader(program, vertex);
     glAttachShader(program, fragment);
@@ -946,6 +947,17 @@ GLuint _link_and_clean_shaders(GLuint vertex, GLuint fragment){
     glDetachShader(program, fragment);
     return program;
 }
+@
+
+Ambas as funções devem ser usadas em conjunto sempre. No caso dos
+shaders padrão para interfaces, vamos usá-las para compilá-los:
+
+@<API Weaver: Inicialização@>+=
+{
+    GLuint vertex, fragment;
+    vertex = _compile_vertex_shader(_vertex_interface);
+    fragment = _compile_fragment_shader(_fragment_interface);
+    _default_interface_shader = _link_and_clean_shaders(vertex, fragment);
 @
 
 @*2 Shaders personalizados.
