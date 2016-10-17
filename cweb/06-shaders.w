@@ -1049,30 +1049,29 @@ inicialização, para podermos inicializar a nossa lista de shaders é
 verificar o al diretório que armazena shaders:
 
 @<API Weaver: Inicialização@>+=
-  /*
 #if W_TARGET == W_ELF
 {
     int number_of_shaders = 0;
-    char directory[256];
+    char shader_directory[256];
     DIR *d;
-    directory[0] = '\0';
+    shader_directory[0] = '\0';
 #if W_DEBUG_LEVEL == 0
-    strcat(directory, W_INSTALL_DIR);
+    strcat(shader_directory, W_INSTALL_DIR);
 #endif
-    strcat(directory, "shaders/");
+    strcat(shader_directory, "shaders/");
     // Pra começar, abrimos o diretório e percorremos os arquivos para
     // contar quantos diretórios tem ali:
-    d = opendir(directory);
+    d = opendir(shader_directory);
     if(d){
         struct dirent *dir;
         // Lendo o nome para checar se é um diretório não-oculto cujo
         // nome segue a convenção necessária:
         while((dir = readdir(d)) != NULL){
             if(dir -> d_name[0] == '.') continue; // Ignore arquivos ocultos
-            if(!isdigit(dir -> d_name[0]) || dir -> d_name[0] == '0'){
+            if(atoi(dir -> d_name) == 0){
                 fprintf(stderr, "WARNING (0): Shader being ignored. "
-                        "%s/%s deve começar com dígito diferente de zero.\n",
-                        directory, dir -> d_name);
+                        "%s%s should start with number different than zero.\n",
+                        shader_directory, dir -> d_name);
                 continue;
             }
 #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
@@ -1091,17 +1090,15 @@ verificar o al diretório que armazena shaders:
         }
     }
 #endif
-// } Coninua abaixo
-*/
+    //} //Coninua abaixo
 @
 
 Após sabermos quantos shaders nosso programa vai usar, é hora de
 alocarmos o espaço para eles na lista de shaders:
 
 @<API Weaver: Inicialização@>+=
-  /*
 #if W_TARGET == W_ELF
-//{ Continua do código acima
+    //{ Continua do código acima
     _shader_list = (struct _shader *) _iWalloc(sizeof(struct _shader) *
                                                number_of_shaders);
     if(_shader_list == NULL){
@@ -1117,7 +1114,6 @@ alocarmos o espaço para eles na lista de shaders:
     }
 //} E continua abaixo
 #endif
-  */
 @
 
 E agora que alocamos, podemos começar a percorrer os shaders e checar
@@ -1127,11 +1123,10 @@ garante que todos eles possuem números seqüenciais) e também compilar
 o Shader.
 
 @<API Weaver: Inicialização@>+=
-  /*
 #if W_TARGET == W_ELF
-{ //Continua do código acima
+    //{ //Continua do código acima
     if(d) closedir(d);
-    d = opendir(directory);
+    d = opendir(shader_directory);
     if(d){
         struct dirent *dir;
         // Lendo o nome para checar se é um diretório não-oculto cujo
@@ -1160,7 +1155,7 @@ o Shader.
                 if(shader_number >= number_of_shaders){
 #if W_DEBUG_LEVEL >= 1
                     fprintf(stderr, "WARNING (1): Non-sequential shader "
-                            "enumeration at %s.\n", directory);
+                            "enumeration at %s.\n", shader_directory);
 #endif
                     continue;
                 }
@@ -1168,7 +1163,7 @@ o Shader.
 #if W_DEBUG_LEVEL >= 1
                     fprintf(stderr, "WARNING (1): Two shaders enumerated "
                             "with number %d at %s.\n", shader_number,
-                            directory);
+                            shader_directory);
 #endif
                     continue;
                 }
@@ -1182,11 +1177,4 @@ o Shader.
     }
 }
 #endif
-  */
 @
-
-Antes de definirmos a função que compila os shaders encontrados em um
-diretório, precisamos definir a forma dos shaders padronizados que
-serão usados toda vez que não forem encontrados os
-arquivos \monoespaco{vertex.glsl} e \monoespaco{fragment.glsl} no
-diretório de shaders.

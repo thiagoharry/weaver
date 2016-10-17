@@ -1406,8 +1406,7 @@ if(! inside_weaver_directory && have_arg){
     mkdir("image", 0755); mkdir("sound", 0755);
     mkdir("music", 0755); mkdir("plugins", 0755);
     mkdir("compiled_plugins", 0755);
-    mkdir("shaders", 0755); mkdir("shaders/vertex", 0755);
-    mkdir("shaders/fragment", 0755);
+    mkdir("shaders", 0755);
     dir_name = concatenate(shared_dir, "project", "");
     if(dir_name == NULL) ERROR();
     if(copy_files(dir_name, ".") == 0){
