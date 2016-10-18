@@ -758,6 +758,7 @@ código para lidar com shaders todo na mesma unidade de compilação:
 #include <string.h> // strlen, strcpy
 #include <dirent.h> // opendir
 #include <ctype.h> // isdigit
+#include <unistd.h> // access
 #include "shaders.h"
 @<Shaders: Definições@>
 @
@@ -1007,7 +1008,6 @@ struct _shader{
     bool initialized;
     GLuint program_shader; // Referência ao programa compilado em si
     char name[128];        // Nome do shader
-    bool have_vertex, have_fragment; // If he has code for the shaders
 #if W_TARGET == W_ELF
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
     // Os inodes dos arquivos nos dizem se o código-fonte foi
@@ -1170,11 +1170,95 @@ o Shader.
                 // Usando função auxiliar para o trabalho de compilar
                 // e inicializar cada programa de shader. Ela ainda
                 // precisa ser declarada e definida:
-                //_compile_and_insert_new_shader(dir -> d_name, _shader_list,
-                //                               sheder_number - 1);
+                _compile_and_insert_new_shader(dir -> d_name, _shader_list,
+                                               shader_number - 1);
             }
         }
     }
 }
 #endif
+@
+
+A função |_compile_and_insert_new_shader(nome, lista, posicao)| usada
+acima ainda não foi definida. A função dela será abrir o diretório
+cujo nome é passado como primeiro argumento e preencher em
+|lista[posicao]| as informações do shader. Isso envolve compilar e
+gerar o shader, bem como adquirir outras informações referentes à ele
+e que fazem parte de um |struct shader|.
+
+Declaremos e definamos a função:
+
+@<Shaders: Declarações@>+=
+  void _link_and_clean_shaders(char *dir, struct _shader *list, int position);
+@
+
+@<Shaders: Definições@>+=
+void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
+    /*
+    bool initialized;
+    GLuint program_shader; // Referência ao programa compilado em si
+    char name[128];        // Nome do shader
+    bool have_vertex, have_fragment; // If he has code for the shaders
+#if W_TARGET == W_ELF
+    char *vertex_source, *fragment_source; // Arquivo do código-fonte
+    // Os inodes dos arquivos nos dizem se o código-fonte foi
+    // modificado desde a última vez que o compilamos:
+    ino_t vertex_inode, fragment_inode;
+#endif
+    */
+    char *vertex_file, *fragment_file;
+    // Checando existência do código-fonte de shader de vértice:
+    vertex_file = (char *) _iWalloc(strlen(dir) + strlen("vertex.glsl" + 1));
+    vertex_file[0] = '\0';
+    strcat(vertex_file, dir);
+    strcat(vertex_file, "vertex.glsl");
+    if(access(vertex_file, F_OK))
+        _shader_list[position].vertex_source = vertex_file;
+    else{
+#if W_DEBUG_LEVEL >= 1
+        fprintf(stderr, "WARNING (1): Vertex shader source code not found. "
+                "File %s was expected. Using a default shader instead.\n",
+                vertex_file);
+#endif
+        _shader_list[position].vertex_source = NULL;
+        Wfree(vertex_file);
+    }
+    // Checando existência do código-fonte de shader de fragmento:
+    fragment_file = (char *) _iWalloc(strlen(dir) + strlen("fragment.glsl" +
+                                                           1));
+    fragment_file[0] = '\0';
+    strcat(fragment_file, dir);
+    strcat(fragment_file, "vertex.glsl");
+    if(access(fragment_file, F_OK))
+        _shader_list[position].fragment_source = fragment_file;
+    else{
+#if W_DEBUG_LEVEL >= 1
+        fprintf(stderr, "WARNING (1): Fragment shader source code not found. "
+                "File %s was expected. Using a default shader instead.\n",
+                fragment_file);
+#endif
+        _shader_list[position].fragment_source = NULL;
+        Wfree(fragment_file);
+    }
+    // Se o arquivo com código do shader de vértice existe, obter o
+    // seu inode (para sabermos se ele vai ser modificado ou não):
+    if(_shader_list[position].vertex_source != NULL){
+        int fd;
+        struct stat attr;
+        fd = open(_shader_list[position].vertex_source, O_RDONLY);
+        if (fd < 0) {
+#if W_DEBUG_LEVEL >= 1
+            fprintf(stderr, "WARNING (1): Can't read fragment shader source"
+                    " code at %s. Using a default shader instead.\n",
+                    _shader_list[position].vertex_source);
+#endif
+            // Not freeing _shader_list[position].vertex_source. This
+            // is an anomalous situation. In some cases we can't free
+            // the memory at the correct order, so we will tolerate
+            // this leak until the end of the program, when it finally
+            // will be freed
+            _shader_list[position].vertex_source = NULL;
+        }
+    }
+}
 @

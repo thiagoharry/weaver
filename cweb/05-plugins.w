@@ -405,7 +405,7 @@ bool _reload_plugin(int plugin_id){
     return false; // Não conseguimos ler informação sobre o arquivo do plugin. 
   }               // Vamos apenas torcer para que tudo acabe bem.
   if(data -> id == attr.st_ino){
-    // Plugiin não-modificado. Ele já está certo!
+    // Plugin não-modificado. Ele já está certo!
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&(data -> mutex));
 #endif
