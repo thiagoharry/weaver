@@ -1244,7 +1244,6 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
     // seu inode (para sabermos se ele vai ser modificado ou não):
     if(_shader_list[position].vertex_source != NULL){
         int fd;
-        struct stat attr;
         fd = open(_shader_list[position].vertex_source, O_RDONLY);
         if (fd < 0) {
 #if W_DEBUG_LEVEL >= 1
@@ -1259,6 +1258,53 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
             // will be freed
             _shader_list[position].vertex_source = NULL;
         }
+        else{
+            int ret;
+            struct stat attr;
+            ret = fstat(fd, &attr);
+            if(ret < 0){ // Can't get file stats
+#if W_DEBUG_LEVEL >= 1
+                fprintf(stderr, "WARNING (1): Can't read shader source file"
+                        " stats: %s. Ignoring source code and using a default"
+                        "shader code.\n",
+                        _shader_list[position].vertex_source);
+#endif
+                _shader_list[position].vertex_source = NULL;
+            }
+            else _shader_list[position].vertex_inode = attr.st_ino;
+            close(fd);
+        }
     }
+    // Fazer o mesmo para o arquivo com código do shader de fragmento:
+    if(_shader_list[position].fragment_source != NULL){
+        int fd;
+        struct stat attr;
+        fd = open(_shader_list[position].fragment_source, O_RDONLY);
+        if (fd < 0) {
+#if W_DEBUG_LEVEL >= 1
+            fprintf(stderr, "WARNING (1): Can't read fragment shader source"
+                    " code at %s. Using a default shader instead.\n",
+                    _shader_list[position].fragment_source);
+#endif
+            _shader_list[position].fragment_source = NULL;
+        }
+        else{
+            int ret;
+            struct stat attr;
+            ret = fstat(fd, &attr);
+            if(ret < 0){ // Can't get file stats
+#if W_DEBUG_LEVEL >= 1
+                fprintf(stderr, "WARNING (1): Can't read shader source file"
+                        " stats: %s. Ignoring source code and using a default"
+                        "shader code.\n",
+                        _shader_list[position].fragment_source);
+#endif
+                _shader_list[position].fragment_source = NULL;
+            }
+            else _shader_list[position].fragment_inode = attr.st_ino;
+            close(fd);
+        }
+    }
+
 }
 @
