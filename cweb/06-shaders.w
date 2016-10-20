@@ -1207,6 +1207,16 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
 #endif
     */
     char *vertex_file, *fragment_file;
+    char *p;
+    int i;
+    // Começamos obtendo o nome do shader, que é o nome do diretório
+    // passado (mas sem o seu caminho completo)
+    for(p = dir; *p != '\0'; p ++); // Vamos ao fim da string
+    while(*(p - 1) == '/') p --; // Voltamos se ela termina em '/'
+    while(*(p - 1) != '/' && p - 1 != dir) p --; // Vamos ao começo do nome
+    for(i = 0; p[i] != '\0' && p[i] != '/' && i < 127; i ++)
+        _shader_list[position].name[i] = p[i]; // Copiando
+    _shader_list[position].name[i] = '\0'; // Encerrando
     // Checando existência do código-fonte de shader de vértice:
     vertex_file = (char *) _iWalloc(strlen(dir) + strlen("vertex.glsl" + 1));
     vertex_file[0] = '\0';
