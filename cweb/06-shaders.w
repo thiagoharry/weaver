@@ -1198,7 +1198,6 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
     bool initialized;
     GLuint program_shader; // Referência ao programa compilado em si
     char name[128];        // Nome do shader
-    bool have_vertex, have_fragment; // If he has code for the shaders
 #if W_TARGET == W_ELF
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
     // Os inodes dos arquivos nos dizem se o código-fonte foi
@@ -1207,8 +1206,12 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
 #endif
     */
     char *vertex_file, *fragment_file;
+    char *vertex_source, *fragment_source;
+    off_t vertex_size, fragment_size;
     char *p;
     int i;
+    // Marcamos o shader como inicializado:
+    _shader_list[position].initialized = true;
     // Começamos obtendo o nome do shader, que é o nome do diretório
     // passado (mas sem o seu caminho completo)
     for(p = dir; *p != '\0'; p ++); // Vamos ao fim da string
@@ -1256,11 +1259,9 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
         int fd;
         fd = open(_shader_list[position].vertex_source, O_RDONLY);
         if (fd < 0) {
-#if W_DEBUG_LEVEL >= 1
-            fprintf(stderr, "WARNING (1): Can't read fragment shader source"
+            fprintf(stderr, "WARNING (0): Can't read fragment shader source"
                     " code at %s. Using a default shader instead.\n",
                     _shader_list[position].vertex_source);
-#endif
             // Not freeing _shader_list[position].vertex_source. This
             // is an anomalous situation. In some cases we can't free
             // the memory at the correct order, so we will tolerate
@@ -1273,15 +1274,16 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
             struct stat attr;
             ret = fstat(fd, &attr);
             if(ret < 0){ // Can't get file stats
-#if W_DEBUG_LEVEL >= 1
-                fprintf(stderr, "WARNING (1): Can't read shader source file"
+                fprintf(stderr, "WARNING (0): Can't read shader source file"
                         " stats: %s. Ignoring source code and using a default"
                         "shader code.\n",
                         _shader_list[position].vertex_source);
-#endif
                 _shader_list[position].vertex_source = NULL;
             }
-            else _shader_list[position].vertex_inode = attr.st_ino;
+            else{
+                _shader_list[position].vertex_inode = attr.st_ino;
+                vertex_size = attr.st_size;
+            }
             close(fd);
         }
     }
@@ -1291,11 +1293,9 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
         struct stat attr;
         fd = open(_shader_list[position].fragment_source, O_RDONLY);
         if (fd < 0) {
-#if W_DEBUG_LEVEL >= 1
-            fprintf(stderr, "WARNING (1): Can't read fragment shader source"
+            fprintf(stderr, "WARNING (0): Can't read fragment shader source"
                     " code at %s. Using a default shader instead.\n",
                     _shader_list[position].fragment_source);
-#endif
             _shader_list[position].fragment_source = NULL;
         }
         else{
@@ -1303,18 +1303,43 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
             struct stat attr;
             ret = fstat(fd, &attr);
             if(ret < 0){ // Can't get file stats
-#if W_DEBUG_LEVEL >= 1
-                fprintf(stderr, "WARNING (1): Can't read shader source file"
+                fprintf(stderr, "WARNING (0): Can't read shader source file"
                         " stats: %s. Ignoring source code and using a default"
                         "shader code.\n",
                         _shader_list[position].fragment_source);
-#endif
                 _shader_list[position].fragment_source = NULL;
+                else{
+                    _shader_list[position].fragment_inode = attr.st_ino;
+                    fragment_size = attr.st_size;
+                }
             }
-            else _shader_list[position].fragment_inode = attr.st_ino;
             close(fd);
         }
     }
-
+    // Alocando espaço para colocar na memória o código-fonte dos shaders:
+    if(_shader_list[position].vertex_source != NULL){
+        vertex_source = (char *) _iWalloc(vertex_size);
+        if(vertex_source == NULL){
+            fprintf(stderr, "WARNING (0): Can't read shader source code at %s."
+                    " File too big.\n", vertex_file);
+#if W_DEBUG_LEVEL >= 1
+            fprintf(stderr, "WARNING (1): You should increase the value of "
+                    "W_INTERNAL_MEMORY at conf/conf.h.\n");
+#endif
+            _shader_list[position].vertex_source = NULL;
+        }
+    }
+    if(_shader_list[position].fragment_source != NULL){
+        fragment_source = (char *) _iWalloc(fragment_size);
+        if(fragment_source == NULL){
+            fprintf(stderr, "WARNING (0): Can't read shader source code at %s."
+                    " File too big.\n", fragment_file);
+#if W_DEBUG_LEVEL >= 1
+            fprintf(stderr, "WARNING (1): You should increase the value of "
+                    "W_INTERNAL_MEMORY at conf/conf.h.\n");
+#endif
+            _shader_list[position].fragment_source = NULL;
+        }
+    }
 }
 @
