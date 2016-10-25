@@ -754,11 +754,13 @@ código para lidar com shaders todo na mesma unidade de compilação:
 #endif
 @
 @(project/src/weaver/shaders.c@>=
-#include <sys/stat.h> // stat
+#include <sys/types.h> // open
+#include <sys/stat.h> // stat, open
 #include <string.h> // strlen, strcpy
 #include <dirent.h> // opendir
 #include <ctype.h> // isdigit
 #include <unistd.h> // access
+#include <fcntl.h> // open
 #include "shaders.h"
 @<Shaders: Definições@>
 @
@@ -1149,7 +1151,6 @@ o Shader.
 #endif
             // Código quase idêntico ao anterior. Mas ao invés de
             // contar os shaders, vamos percorrê-los e compilá-los.
-            // TODO: ...
             {
                 int shader_number = atoi(dir -> d_name);
                 if(shader_number >= number_of_shaders){
@@ -1170,7 +1171,7 @@ o Shader.
                 // Usando função auxiliar para o trabalho de compilar
                 // e inicializar cada programa de shader. Ela ainda
                 // precisa ser declarada e definida:
-                _compile_and_insert_new_shader(dir -> d_name, _shader_list,
+                _compile_and_insert_new_shader(dir -> d_name,
                                                shader_number - 1);
             }
         }
@@ -1179,35 +1180,25 @@ o Shader.
 #endif
 @
 
-A função |_compile_and_insert_new_shader(nome, lista, posicao)| usada
+A função |_compile_and_insert_new_shader(nome, posicao)| usada
 acima ainda não foi definida. A função dela será abrir o diretório
 cujo nome é passado como primeiro argumento e preencher em
-|lista[posicao]| as informações do shader. Isso envolve compilar e
+|_shader_list[posicao]| as informações do shader. Isso envolve compilar e
 gerar o shader, bem como adquirir outras informações referentes à ele
 e que fazem parte de um |struct shader|.
 
 Declaremos e definamos a função:
 
 @<Shaders: Declarações@>+=
-  void _link_and_clean_shaders(char *dir, struct _shader *list, int position);
+void _compile_and_insert_new_shader(char *dir, int position);
 @
 
 @<Shaders: Definições@>+=
-void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
-    /*
-    bool initialized;
-    GLuint program_shader; // Referência ao programa compilado em si
-    char name[128];        // Nome do shader
-#if W_TARGET == W_ELF
-    char *vertex_source, *fragment_source; // Arquivo do código-fonte
-    // Os inodes dos arquivos nos dizem se o código-fonte foi
-    // modificado desde a última vez que o compilamos:
-    ino_t vertex_inode, fragment_inode;
-#endif
-    */
-    char *vertex_file, *fragment_file;
-    char *vertex_source, *fragment_source;
-    off_t vertex_size, fragment_size;
+void _compile_and_insert_new_shader(char *dir, int position){
+    char *vertex_file = NULL, *fragment_file = NULL;
+    char *vertex_source = NULL, *fragment_source = NULL;
+    off_t vertex_size = 0, fragment_size = 0;
+    GLuint vertex, fragment;
     char *p;
     int i;
     // Marcamos o shader como inicializado:
@@ -1235,6 +1226,7 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
 #endif
         _shader_list[position].vertex_source = NULL;
         Wfree(vertex_file);
+        vertex_file = NULL;
     }
     // Checando existência do código-fonte de shader de fragmento:
     fragment_file = (char *) _iWalloc(strlen(dir) + strlen("fragment.glsl" +
@@ -1252,6 +1244,7 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
 #endif
         _shader_list[position].fragment_source = NULL;
         Wfree(fragment_file);
+        fragment_file = NULL;
     }
     // Se o arquivo com código do shader de vértice existe, obter o
     // seu inode (para sabermos se ele vai ser modificado ou não):
@@ -1300,7 +1293,6 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
         }
         else{
             int ret;
-            struct stat attr;
             ret = fstat(fd, &attr);
             if(ret < 0){ // Can't get file stats
                 fprintf(stderr, "WARNING (0): Can't read shader source file"
@@ -1308,10 +1300,10 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
                         "shader code.\n",
                         _shader_list[position].fragment_source);
                 _shader_list[position].fragment_source = NULL;
-                else{
-                    _shader_list[position].fragment_inode = attr.st_ino;
-                    fragment_size = attr.st_size;
-                }
+            }
+            else{
+                _shader_list[position].fragment_inode = attr.st_ino;
+                fragment_size = attr.st_size;
             }
             close(fd);
         }
@@ -1341,5 +1333,47 @@ void _link_and_clean_shaders(char *dir, struct _shader *list, int position){
             _shader_list[position].fragment_source = NULL;
         }
     }
+    // Após alocar o espaço, lemos o conteúdo dos arquivos para a memória
+    if(_shader_list[position].vertex_source != NULL) {
+        FILE *fd = fopen(_shader_list[position].vertex_source, "r");
+        if(fd == NULL){
+            fprintf(stderr, "WARNING (0): Can't read shader source code at"
+                    " %s.\n", vertex_file);
+            perror(NULL);
+            _shader_list[position].vertex_source = NULL;
+        }
+        else{
+            fread(vertex_source, sizeof(char), vertex_size, fd);
+            fclose(fd);
+        }
+    }
+    if(_shader_list[position].fragment_source != NULL) {
+        FILE *fd = fopen(_shader_list[position].fragment_source, "r");
+        if(fd == NULL){
+            fprintf(stderr, "WARNING (0): Can't read shader source code at"
+                    " %s.\n", fragment_file);
+            perror(NULL);
+            _shader_list[position].fragment_source = NULL;
+        }
+        else{
+            fread(fragment_source, sizeof(char), fragment_size, fd);
+            fclose(fd);
+        }
+    }
+    // Tendo feito isso, o que resta a fazer é enfim compilar e ligar
+    // o programa.
+    if(_shader_list[position].vertex_source != NULL)
+        vertex = _compile_vertex_shader(vertex_source);
+    else
+        vertex = _compile_vertex_shader(_vertex_interface);
+    if(_shader_list[position].fragment_source != NULL)
+        fragment = _compile_fragment_shader(fragment_source);
+    else
+        fragment = _compile_fragment_shader(_fragment_interface);
+    _shader_list[position].program_shader = _link_and_clean_shaders(vertex,
+                                                                    fragment);
+    // Desalocando se ainda não foram desalocados:
+    if(fragment_source != NULL) Wfree(fragment_source);
+    if(vertex_source != NULL) Wfree(vertex_source);
 }
 @
