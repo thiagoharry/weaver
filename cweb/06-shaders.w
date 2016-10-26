@@ -1377,3 +1377,31 @@ void _compile_and_insert_new_shader(char *dir, int position){
     if(vertex_source != NULL) Wfree(vertex_source);
 }
 @
+
+@*1 Renderizando.
+
+Interfaces que tem o mesmo shader devem ser renderizadas em sequência
+para evitarmos aso máximo a ação de termos que trocar de shaders. Por
+isso, é importante que mantenhamos uma lista de ponteiros para shaders
+e que seja ordenada de acordo com o seu shader. E cada loop também
+deve possuir a sua própria lista de interfaces.
+
+@<Interface: Declarações@>+=
+struct interface *_interface_queue[W_LIMIT_SUBLOOP][W_MAX_INTERFACES];
+@
+
+A nossa lista de interfaces deve ser inicializada:
+
+@<API Weaver: Inicialização@>+=
+{
+    int i, j;
+    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+        for(j = 0; j < W_MAX_INTERFACES; j ++)
+            _inerface_queue[i][j] = NULL;
+}
+@
+
+Temos agora que definir funções para inserir e remover elementos da
+lista. E uma terceira função para limpar todo o seu conteúdo. Ao
+manipular uma lista de ponteiros para interfaces, fazemos isso sempre
+na lista do loop atual, nunca interferindo nos demais loops.
