@@ -1397,7 +1397,7 @@ A nossa lista de interfaces deve ser inicializada:
     int i, j;
     for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
         for(j = 0; j < W_MAX_INTERFACES; j ++)
-            _inerface_queue[i][j] = NULL;
+            _interface_queue[i][j] = NULL;
 }
 @
 
@@ -1405,3 +1405,139 @@ Temos agora que definir funções para inserir e remover elementos da
 lista. E uma terceira função para limpar todo o seu conteúdo. Ao
 manipular uma lista de ponteiros para interfaces, fazemos isso sempre
 na lista do loop atual, nunca interferindo nos demais loops.
+
+Para inserir elementos, como eles estarão todos ordenados, podemos
+usar uma busca binária para achar a posição na qual inserir. Lembrando
+que o loop atual é armazenado em |_number_of_loops| conforme definido
+no Capítulo 2.
+
+Assim, eis o nosso código de inserção:
+
+@<Interface: Declarações@>+=
+void _insert_interface_queue(struct interface *inter);
+@
+
+@<Interface: Definições@>+=
+void _insert_interface_queue(struct interface *inter){
+    int begin, end, middle, tmp;
+    int type = inter -> type;
+    if(_interface_queue[_number_of_loops][W_MAX_INTERFACES - 1] != NULL){
+        fprintf(stderr, "WARNING (0): Couldn't create new interface. You should "
+                "increase the value of W_MAX_INTERFACES at cont/conf.h or "
+                "decrease the number of inerfaces created.\n");
+        return;
+    }
+    begin = 0;
+    end = W_MAX_INTERFACES - 1;
+    middle = (begin + end) / 2;
+    while((_interface_queue[_number_of_loops][middle] == NULL ||
+           _interface_queue[_number_of_loops][middle] -> type != type) &&
+          begin != end){
+        if(_interface_queue[_number_of_loops][middle] == NULL ||
+           _interface_queue[_number_of_loops][middle] -> type < type){
+            tmp = (middle + end) / 2;
+            if(tmp == end) end --;
+            else end = tmp;
+            middle = (begin + end) / 2;
+        }
+        else{
+            tmp = (middle + begin) / 2;
+            if(tmp == begin) begin ++;
+            else begin = tmp;
+            middle = (begin + end) / 2;
+        }
+    }
+    // Agora a posição 'middle' contém o local em que iremos inserir
+    // Vamos abrir espaço para ela
+    for(tmp = W_MAX_INTERFACES - 1; tmp >= middle; tmp --)
+        _interface_queue[_number_of_loops][tmp] =
+            _interface_queue[_number_of_loops][tmp - 1] ;
+    // E enfim inserimos:
+    _interface_queue[_number_of_loops][middle] = inter;
+}
+@
+
+Remover o conteúdo da lista funciona de forma análoga, usando uma
+busca binária para achar o elemento buscado e, se for encontrado,
+deslocamos todas as próximas interfaces para tomar o seu lugar:
+
+@<Interface: Declarações@>+=
+void _remove_interface_queue(struct interface *inter);
+@
+
+@<Interface: Definições@>+=
+void _remove_interface_queue(struct interface *inter){
+    int begin, end, middle, tmp;
+    int type = inter -> type;
+    begin = 0;
+    end = W_MAX_INTERFACES - 1;
+    middle = (begin + end) / 2;
+    while((_interface_queue[_number_of_loops][middle] == NULL ||
+           _interface_queue[_number_of_loops][middle] -> type != type)
+          && begin != end){
+        if(_interface_queue[_number_of_loops][middle] == NULL ||
+           _interface_queue[_number_of_loops][middle] -> type < type){
+            tmp = (middle + end) / 2;
+            if(tmp == end) end --;
+            else end = tmp;
+            middle = (begin + end) / 2;
+        }
+        else{
+            tmp = (middle + begin) / 2;
+            if(tmp == begin) begin ++;
+            else begin = tmp;
+            middle = (begin + end) / 2;
+        }
+    }
+    // Vamos ao primeiro elemento do tipo de interface na qual terminamos
+    while(middle > 0 && _interface_queue[_number_of_loops][middle] != NULL &&
+          _interface_queue[_number_of_loops][middle] -> type ==
+          _interface_queue[_number_of_loops][middle - 1] -> type)
+        middle --;
+    if(_interface_queue[_number_of_loops][middle] -> type != type){
+#if W_DEBUG_LEVEL >= 1
+        fprintf(stderr,
+                "WARNING (1): Tried to erase a non-existent interface.\n");
+#endif
+        return;
+    }
+    // Agora tentando achar o ponteiro exato, já que achamos o começo
+    // de seu tipo:
+    while(_interface_queue[_number_of_loops][middle] != NULL &&
+          _interface_queue[_number_of_loops][middle] -> type == type &&
+          _interface_queue[_number_of_loops][middle] != inter)
+        middle ++;
+    // Se achamos, apagamos o elemento movendo os próximos da fila
+    // para a sua posição:
+    if(_interface_queue[_number_of_loops][middle] == inter){
+        while(_interface_queue[_number_of_loops][middle] != NULL &&
+              middle != W_MAX_INTERFACES - 1){
+            _interface_queue[_number_of_loops][middle] =
+                _interface_queue[_number_of_loops][middle + 1];
+            middle ++;
+        }
+        _interface_queue[_number_of_loops][W_MAX_INTERFACES - 1] = NULL;
+    }
+    else{ // Se não achamos, avisamos com mensagem de erro:
+#if W_DEBUG_LEVEL >= 1
+        fprintf(stderr,
+                "WARNING (1): Tried to erase a non-existent interface.\n");
+#endif
+        return;
+    }
+}
+@
+
+E por fim o código para remover todas as interfaces do loop atual:
+
+<Interface: Declarações@>+=
+void _clean_interface_queue(void);
+@
+
+@<Interface: Definições@>+=
+void _clean_interface_queue(void){
+    int i;
+    for(i = 0; i < W_MAX_INTERFACES; i ++)
+        _interface_queue[_number_of_loops][i] = NULL;
+}
+@
