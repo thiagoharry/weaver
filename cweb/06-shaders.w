@@ -1541,3 +1541,22 @@ void _clean_interface_queue(void){
         _interface_queue[_number_of_loops][i] = NULL;
 }
 @
+
+Devemos sempre limpar a fila de renderização de interfaces
+imediatamente antes de entrar em um loop (mas não subloop) e quando
+saímos de um subloop:
+
+@<Código antes de Loop, mas não de Subloop@>+=
+  _clean_interface_queue();
+@
+
+E também precisamos fazer a mesma limpeza no caso de estarmos saindo
+de um subloop:
+
+@<Código após sairmos de Subloop@>+=
+  _clean_interface_queue();
+@
+
+
+Devemos inserir uma nova interface na lista de renderização toda vez
+que uma nova interface for criada:
