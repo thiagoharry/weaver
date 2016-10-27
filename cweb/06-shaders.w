@@ -295,6 +295,7 @@ struct interface *_new_interface(int type, int x, int y,
     default:
         _interfaces[_number_of_loops][i].type = type;
     }
+    @<Código logo após criar nova interface@>
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_interface_mutex);
 #endif
@@ -1560,3 +1561,8 @@ de um subloop:
 
 Devemos inserir uma nova interface na lista de renderização toda vez
 que uma nova interface for criada:
+
+@<Código logo após criar nova interface@>=
+  // O 'i' é a posição em que está a nova interface criada:
+  _insert_interface_queue(&(_interfaces[_number_of_loops][i]));
+@
