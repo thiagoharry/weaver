@@ -340,6 +340,7 @@ bool _destroy_interface(struct interface *inter){
     default: // Nos casos mais simples é só remover o tipo
         _interfaces[_number_of_loops][i].type = W_NONE;
     }
+    @<Código ao Remover Interface@>
 #ifdef W_MULTITHREAD
     if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex),
                           NULL) != 0){
@@ -1558,11 +1559,18 @@ de um subloop:
   _clean_interface_queue();
 @
 
-
 Devemos inserir uma nova interface na lista de renderização toda vez
 que uma nova interface for criada:
 
 @<Código logo após criar nova interface@>=
   // O 'i' é a posição em que está a nova interface criada:
   _insert_interface_queue(&(_interfaces[_number_of_loops][i]));
+@
+
+E finalmente, quando removemos uma interface, nós também a removemos
+da fila de renderização:
+
+@<Código ao Remover Interface@>=
+  // aqui 'i' também é o número da interface a ser removida
+  _remove_interface_queue(&(_interfaces[_number_of_loops][i]));
 @
