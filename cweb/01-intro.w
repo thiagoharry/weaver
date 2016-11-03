@@ -77,12 +77,12 @@ A tradução não-oficial da licença é:
 \alinhaverbatim
 Copyright (c) Thiago Leucz Astrizi 2015
 
-Este programa é um software livre; você pode redistribuí-lo e/ou 
-modificá-lo dentro dos termos da Licença Pública Geral GNU como 
-publicada pela Fundação do Software Livre (FSF); na versão 3 da 
+Este programa é um software livre; você pode redistribuí-lo e/ou
+modificá-lo dentro dos termos da Licença Pública Geral GNU como
+publicada pela Fundação do Software Livre (FSF); na versão 3 da
 Licença, ou (na sua opinião) qualquer versão.
 
-Este programa é distribuído na esperança de que possa ser útil, 
+Este programa é distribuído na esperança de que possa ser útil,
 mas SEM NENHUMA GARANTIA; sem uma garantia implícita de ADEQUAÇÃO
 a qualquer MERCADO ou APLICAÇÃO EM PARTICULAR. Veja a
 Licença Pública Geral GNU para maiores detalhes.
@@ -511,7 +511,7 @@ terceira macro que definimos.
 @<Cabeçalhos Incluídos no Programa Weaver@>=
 #include <sys/types.h> // stat, getuid, getpwuid, mkdir
 #include <sys/stat.h> // stat, mkdir
-#include <stdbool.h> // bool, true, false 
+#include <stdbool.h> // bool, true, false
 #include <unistd.h> // get_current_dir_name, getcwd, stat, chdir, getuid
 #include <string.h> // strcmp, strcat, strcpy, strncmp
 #include <stdlib.h> // free, exit, getenv
@@ -565,7 +565,7 @@ características:
 
 \negrito{Finalização}: Interrompemos a execução do loop se uma das
   duas condições ocorrerem:
-  
+
 a) |complete_path == "/.weaver"|: Neste caso não podemos subir mais na
 árvore de diretórios, pois estamos na raiz do sistema de arquivos. Não
 encontramos um diretório \monoespaco{.weaver}. Isso significa que não
@@ -637,7 +637,7 @@ char *concatenate(char *string, ...){
   char *new_string, *current_string = string;
   size_t current_size = strlen(string) + 1;
   char *realloc_return;
-  va_start(arguments, string); 
+  va_start(arguments, string);
   new_string = (char *) malloc(current_size);
   if(new_string == NULL) return NULL;
   strcpy(new_string, string); // Copia primeira string
@@ -876,7 +876,7 @@ if(have_arg && inside_weaver_directory){
   for(i = 0; i < size; i ++){
     if(!isalnum(argument[i])){
       goto NOT_VALID_MODULE;
-    }    
+    }
   }
   // Checando por conflito de nomes:
   buffer = concatenate(project_path, "src/", argument, ".c", "");
@@ -1244,7 +1244,7 @@ int copy_files(char *orig, char *dst){
             free(file);
             closedir(d);
             return 0;
-          }          
+          }
         }
       free(file);
     } // Fim do loop para ler cada arquivo
@@ -1267,7 +1267,7 @@ if(arg_is_path){
      (weaver_version_major == project_version_major &&
       weaver_version_minor > project_version_minor)){
     char *buffer, *buffer2;
-    // |buffer| passa a valer  SHARED_DIR/project/src/weaver 
+    // |buffer| passa a valer  SHARED_DIR/project/src/weaver
     buffer = concatenate(shared_dir, "project/src/weaver/", "");
     if(buffer == NULL) ERROR();
     // |buffer2| passa a valer PROJECT_DIR/src/weaver/
@@ -1550,14 +1550,14 @@ foi detectado, um arquivo de textura não foi encontrado, etc.
 
 \macronome|W_SOURCE|: Indica a linguagem que usaremos em nosso projeto. As
 opções são:
-  
+
 \macrovalor|W_C|) Nosso projeto é um programa em C.
 
 \macrovalor|W_CPP|) Nosso projeto é um programa em C++.
 
 \macronome|W_TARGET|: Indica que tipo de formato deve ter o jogo de saída. As
 opções são:
-  
+
 \macrovalor|W_ELF|) O jogo deverá rodar nativamente em Linux. Após a
 compilação, deverá ser criado um arquivo executável que poderá ser
 instalado com \monoespaco{make install}.
@@ -1568,7 +1568,7 @@ chamado \monoespaco{web} que conterá o jogo na forma de uma página
 HTML com Javascript. Não faz sentido instalar um jogo assim. Ele
 deverá ser copiado para algum servidor Web para que possa ser jogado
 na Internet. Isso é feito usando Emscripten.
-  
+
 Opcionalmente as seguintes macros podem ser definidas também (dentre
 outras):
 
@@ -1639,7 +1639,7 @@ automaticamente todos os cabeçalhos Weaver necessários:
 #endif
 @
 
-Neste cabeçalho, iremos também declarar quatro funções. 
+Neste cabeçalho, iremos também declarar quatro funções.
 
 A primeira função servirá para inicializar a API Weaver. Seus
 parâmetros devem ser o nome do arquivo em que ela é invocada e o
@@ -1693,7 +1693,10 @@ void _update(void){
 }
 
 void _render(void){
+  // Limpando todos os buffers.
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  // TODO: Renderizar os objetos que fazem parte do jogo
+  @<Renderizar Interface@>
 #if W_TARGET == W_ELF
   glXSwapBuffers(_dpy, _window);
 #else
@@ -1844,7 +1847,7 @@ necessário para inicializá-lo e defini-lo.
 
 \macrovalor|W|: Uma estrutura que irá armazenar todas as variáveis
 globais da API Weaver, bem como as suas funções globais. Exceto as
-três outras funções definidas neste capítulo. 
+três outras funções definidas neste capítulo.
 
 \macrovalor|W.@/t|: O tempo em microsegundos que se passou
 desde que o programa se inicializou. Valor somente para leitura.
@@ -1860,4 +1863,3 @@ API Weaver.
 
 \macrovalor|void Wexit(void)|: Finaliza a API Weaver. Deve ser chamada
 antes de encerrar o programa.
-

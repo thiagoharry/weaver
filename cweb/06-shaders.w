@@ -813,7 +813,7 @@ Um exemplo simples de shader de vértice:
 @<Shader: Uniformes@>
 void main(){
     // Apenas passamos adiante a posição que recebemos
-    gl_Position = vec4(position, 1.0);
+    gl_Position = vec4(vertex_position + object_position, 1.0);
 }
 @
 
@@ -834,7 +834,7 @@ Dois atributos que eles terão (potencialmente únicos em cada execução
 do shader) são:
 
 @<Shader: Atributos@>=
-attribute vec3 position;
+attribute vec3 vertex_position;
 @
 
 Já um uniforme que eles tem (potencialmente único para cada objeto a
@@ -842,6 +842,7 @@ ser renderizado) são:
 
 @<Shader: Uniformes@>=
 uniform vec4 object_color; // A cor do objeto
+uniform vec3 object_position; // A posição do objeto
 @
 
 Estes dois códigos fontes serão processados pelo Makefile de cada
@@ -853,7 +854,7 @@ inserir tal código estaticamente em tempo de compilação com:
 @<Shaders: Declarações@>=
 extern char _vertex_interface[];
 extern char _fragment_interface[];
-GLuint _default_interface_shader;
+struct _shader _default_interface_shader;
 @
 @<Shaders: Definições@>=
 char _vertex_interface[] = {
@@ -961,14 +962,21 @@ shaders padrão para interfaces, vamos usá-las para compilá-los:
     GLuint vertex, fragment;
     vertex = _compile_vertex_shader(_vertex_interface);
     fragment = _compile_fragment_shader(_fragment_interface);
-    _default_interface_shader = _link_and_clean_shaders(vertex, fragment);
+    _default_interface_shader.program_shader =
+        _link_and_clean_shaders(vertex, fragment);
+    _default_interface_shader._uniform_object_color =
+        glGetUniformLocation(_default_interface_shader.program_shader,
+                             "object_color");
+    _default_interface_shader._uniform_object_position =
+        glGetUniformLocation(_default_interface_shader.program_shader,
+                             "object_position");
 }
 @
 
 E na finalização do programa precisamos desalocar o shader compilado:
 
 @<API Weaver: Finalização@>+=
-glDeleteProgram(_default_interface_shader);
+glDeleteProgram(_default_interface_shader.program_shader);
 @
 
 @*2 Shaders personalizados.
@@ -1017,6 +1025,8 @@ struct _shader{
     // Os inodes dos arquivos nos dizem se o código-fonte foi
     // modificado desde a última vez que o compilamos:
     ino_t vertex_inode, fragment_inode;
+    // Os uniformes do shader:
+    GLint _uniform_object_color, _uniform_object_position;
 #endif
 } *_shader_list;
 @
@@ -1374,6 +1384,13 @@ void _compile_and_insert_new_shader(char *dir, int position){
         fragment = _compile_fragment_shader(_fragment_interface);
     _shader_list[position].program_shader = _link_and_clean_shaders(vertex,
                                                                     fragment);
+    // Inicializando os uniformes:
+    _shader_list[position]._uniform_object_color =
+        glGetUniformLocation(_shader_list[position].program_shader,
+                             "object_color");
+    _shader_list[position]._uniform_object_position =
+        glGetUniformLocation(_shader_list[position].program_shader,
+                             "object_position");
     // Desalocando se ainda não foram desalocados:
     if(fragment_source != NULL) Wfree(fragment_source);
     if(vertex_source != NULL) Wfree(vertex_source);
@@ -1532,7 +1549,7 @@ void _remove_interface_queue(struct interface *inter){
 
 E por fim o código para remover todas as interfaces do loop atual:
 
-<Interface: Declarações@>+=
+@<Interface: Declarações@>+=
 void _clean_interface_queue(void);
 @
 
@@ -1573,4 +1590,71 @@ da fila de renderização:
 @<Código ao Remover Interface@>=
   // aqui 'i' também é o número da interface a ser removida
   _remove_interface_queue(&(_interfaces[_number_of_loops][i]));
+@
+
+Agora que mantemos a fila de renderização coerente com a nossa lista
+de interfaces, podemos então escrever o código para efetivamente
+renderizarmos as interfaces. Isso deve ser feito todo loop, na etapa
+de renderização, separada da engine de física e controle do jogo.
+
+A primeira coisa que precisamos, antes de renderizar é um buffer
+dentro da GPU para armazenar listas de vértices. Geramos o buffer com:
+
+@<Shaders: Declarações@>+=
+GLuint _vertex_buffer;
+@
+@<API Weaver: Inicialização@>+=
+glGenBuffers(1, &_vertex_buffer);
+glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+@
+
+Existindo tal buffer, podemos então usá-lo para passar os vértices a
+serem renderizados:
+
+@<Renderizar Interface@>=
+{
+    int last_type;
+    int i, j;
+    bool first_element = true;
+    struct _shader *current_shader;
+    // Primeiro limpamos o buffer de profundidade para que a interface
+    // sempre apareça
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    // Agora iteramos sobre as interfaes renderizando-as. Como elas
+    // estão ordenadas de acordo com seu programa de shader, trocamos
+    // de programa o mínimo possível.
+    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+        for(j = 0; j < W_MAX_INTERFACES; j ++){
+            if(first_element ||
+               _interface_queue[i][j] -> type != last_type){
+                last_type = _interface_queue[i][j] -> type;
+                if(_interface_queue[i][j] -> type >= 0)
+                    current_shader = &(_shader_list[_interface_queue[i][j] ->
+                                                    type]);
+                else
+                    current_shader = &_default_interface_shader;
+                glUseProgram(current_shader -> program_shader);
+                first_element = false;
+            }
+            // Agora temos que passar os atributos relevantes da
+            // interface para o shader:
+            glUniform3f(current_shader -> _uniform_object_position,
+                        _interface_queue[i][j] -> _offset_x,
+                        _interface_queue[i][j] -> _offset_y, 0.0);
+            glUniform4f(current_shader -> _uniform_object_color,
+                        _interface_queue[i][j] -> r,
+                        _interface_queue[i][j] -> g,
+                        _interface_queue[i][j] -> b,
+                        _interface_queue[i][j] -> a);
+            // Aqui enfim renderizamos já tendo um programa de shader ativado:
+            glBufferData(GL_ARRAY_BUFFER,
+                         sizeof(_interface_queue[i][j] -> _vertices),
+                         _interface_queue[i][j] -> _vertices, GL_STATIC_DRAW);
+            glEnableVertexAttribArray(0);
+            glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+            glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+            glDrawArrays(GL_TRIANGLES, 0, 4);
+            glDisableVertexAttribArray(0);
+        }
+}
 @
