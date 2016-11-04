@@ -1613,8 +1613,10 @@ serem renderizados:
 
 @<Renderizar Interface@>=
 {
+    // Lembrando que '_number_of_loops' contém em qual subloop nós
+    // estamos no momento.
     int last_type;
-    int i, j;
+    int i;
     bool first_element = true;
     struct _shader *current_shader;
     // Primeiro limpamos o buffer de profundidade para que a interface
@@ -1623,38 +1625,41 @@ serem renderizados:
     // Agora iteramos sobre as interfaes renderizando-as. Como elas
     // estão ordenadas de acordo com seu programa de shader, trocamos
     // de programa o mínimo possível.
-    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
-        for(j = 0; j < W_MAX_INTERFACES; j ++){
-            if(first_element ||
-               _interface_queue[i][j] -> type != last_type){
-                last_type = _interface_queue[i][j] -> type;
-                if(_interface_queue[i][j] -> type >= 0)
-                    current_shader = &(_shader_list[_interface_queue[i][j] ->
-                                                    type]);
-                else
-                    current_shader = &_default_interface_shader;
-                glUseProgram(current_shader -> program_shader);
-                first_element = false;
-            }
-            // Agora temos que passar os atributos relevantes da
-            // interface para o shader:
-            glUniform3f(current_shader -> _uniform_object_position,
-                        _interface_queue[i][j] -> _offset_x,
-                        _interface_queue[i][j] -> _offset_y, 0.0);
-            glUniform4f(current_shader -> _uniform_object_color,
-                        _interface_queue[i][j] -> r,
-                        _interface_queue[i][j] -> g,
-                        _interface_queue[i][j] -> b,
-                        _interface_queue[i][j] -> a);
-            // Aqui enfim renderizamos já tendo um programa de shader ativado:
-            glBufferData(GL_ARRAY_BUFFER,
-                         sizeof(_interface_queue[i][j] -> _vertices),
-                         _interface_queue[i][j] -> _vertices, GL_STATIC_DRAW);
-            glEnableVertexAttribArray(0);
-            glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
-            glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
-            glDrawArrays(GL_TRIANGLES, 0, 4);
-            glDisableVertexAttribArray(0);
+    for(i = 0; i < W_MAX_INTERFACES; i ++){
+        // Se chegamos ao im da fila, podemos sair:
+        if(_interface_queue[_number_of_loops][i] == NULL) break;
+        if(first_element ||
+           _interface_queue[_number_of_loops][i] -> type != last_type){
+            last_type = _interface_queue[_number_of_loops][i] -> type;
+            if(_interface_queue[_number_of_loops][i] -> type >= 0)
+                current_shader =
+                    &(_shader_list[_interface_queue[_number_of_loops][i] ->
+                                   type]);
+            else
+                current_shader = &_default_interface_shader;
+            glUseProgram(current_shader -> program_shader);
+            first_element = false;
         }
+        // Agora temos que passar os atributos relevantes da
+        // interface para o shader:
+        glUniform3f(current_shader -> _uniform_object_position,
+                    _interface_queue[_number_of_loops][i] -> _offset_x,
+                    _interface_queue[_number_of_loops][i] -> _offset_y, 0.0);
+        glUniform4f(current_shader -> _uniform_object_color,
+                    _interface_queue[_number_of_loops][i] -> r,
+                    _interface_queue[_number_of_loops][i] -> g,
+                    _interface_queue[_number_of_loops][i] -> b,
+                    _interface_queue[_number_of_loops][i] -> a);
+        // Aqui enfim renderizamos já tendo um programa de shader ativado:
+        glBufferData(GL_ARRAY_BUFFER,
+                     sizeof(_interface_queue[_number_of_loops][i] -> _vertices),
+                     _interface_queue[_number_of_loops][i] -> _vertices,
+                     GL_STATIC_DRAW);
+        glEnableVertexAttribArray(0);
+        glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glDrawArrays(GL_TRIANGLES, 0, 4);
+        glDisableVertexAttribArray(0);
+    }
 }
 @
