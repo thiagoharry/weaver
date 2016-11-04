@@ -67,7 +67,6 @@ struct interface {
     int height, width; // Tamanho
     void *_data; // Se é uma imagem, ela estará aqui
     /* Variáveis necessárias para o OpenGL: */
-    GLuint _vao;
     GLfloat _vertices[12];
     float _offset_x, _offset_y;
     /* Funções a serem executadas em eventos: */
@@ -266,7 +265,6 @@ struct interface *_new_interface(int type, int x, int y,
             _interfaces[_number_of_loops][i]._vertices[j] = gl_height;
         else _interfaces[_number_of_loops][i]._vertices[j] = 0.0;
     }
-    glGenVertexArrays(1, &_interfaces[_number_of_loops][i]._vao);
     // Ações:
     _interfaces[_number_of_loops][i].onmouseover = NULL;
     _interfaces[_number_of_loops][i].onmouseout = NULL;
@@ -1598,12 +1596,16 @@ renderizarmos as interfaces. Isso deve ser feito todo loop, na etapa
 de renderização, separada da engine de física e controle do jogo.
 
 A primeira coisa que precisamos, antes de renderizar é um buffer
-dentro da GPU para armazenar listas de vértices. Geramos o buffer com:
+dentro da GPU para armazenar listas de vértices, bem como um objeto de
+vetor de vértices (VAO) OpenGl. riamos isso com:
 
 @<Shaders: Declarações@>+=
-GLuint _vertex_buffer;
+GLuint _vao, _vertex_buffer;
 @
 @<API Weaver: Inicialização@>+=
+// Um VAO armazena configurações de como os vértices são representados:
+glGenVertexArrays(1, &_vao);
+glBindVertexArray(_vao);
 glGenBuffers(1, &_vertex_buffer);
 glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
 @
