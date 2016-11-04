@@ -832,7 +832,7 @@ Dois atributos que eles terão (potencialmente únicos em cada execução
 do shader) são:
 
 @<Shader: Atributos@>=
-attribute vec3 vertex_position;
+  attribute vec3 vertex_position;
 @
 
 Já um uniforme que eles tem (potencialmente único para cada objeto a
@@ -1025,6 +1025,8 @@ struct _shader{
     ino_t vertex_inode, fragment_inode;
     // Os uniformes do shader:
     GLint _uniform_object_color, _uniform_object_position;
+    // Os atributos do shader:
+    GLint _attribute_vertex_position;
 #endif
 } *_shader_list;
 @
@@ -1389,6 +1391,10 @@ void _compile_and_insert_new_shader(char *dir, int position){
     _shader_list[position]._uniform_object_position =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "object_position");
+    // Inicializando os atributos:
+    _shader_list[position]._attribute_vertex_position =
+        glGetAttribLocation(_shader_list[position].program_shader,
+                            "vertex_position");
     // Desalocando se ainda não foram desalocados:
     if(fragment_source != NULL) Wfree(fragment_source);
     if(vertex_source != NULL) Wfree(vertex_source);
@@ -1606,6 +1612,7 @@ GLuint _vao, _vertex_buffer;
 // Um VAO armazena configurações de como os vértices são representados:
 glGenVertexArrays(1, &_vao);
 glBindVertexArray(_vao);
+// E isso cria o buffer para passar os vértices:
 glGenBuffers(1, &_vertex_buffer);
 glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
 @
@@ -1642,7 +1649,7 @@ serem renderizados:
             glUseProgram(current_shader -> program_shader);
             first_element = false;
         }
-        // Agora temos que passar os atributos relevantes da
+        // Agora temos que passar os uniformes relevantes da
         // interface para o shader:
         glUniform3f(current_shader -> _uniform_object_position,
                     _interface_queue[_number_of_loops][i] -> _offset_x,
@@ -1659,7 +1666,8 @@ serem renderizados:
                      GL_STATIC_DRAW);
         glEnableVertexAttribArray(0);
         glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
-        glVertexAttribPointer(0, 4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+        glVertexAttribPointer(current_shader -> _attribute_vertex_position,
+                              4, GL_FLOAT, GL_FALSE, 0, (void*)0);
         glDrawArrays(GL_TRIANGLES, 0, 4);
         glDisableVertexAttribArray(0);
     }
