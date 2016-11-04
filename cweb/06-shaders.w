@@ -960,6 +960,8 @@ shaders padrão para interfaces, vamos usá-las para compilá-los:
     GLuint vertex, fragment;
     vertex = _compile_vertex_shader(_vertex_interface);
     fragment = _compile_fragment_shader(_fragment_interface);
+    // Além de compilar, para deixar o shader padrão ompleto, nós
+    // preenchemos seus uniformes e atributos abaixo:
     _default_interface_shader.program_shader =
         _link_and_clean_shaders(vertex, fragment);
     _default_interface_shader._uniform_object_color =
@@ -968,6 +970,9 @@ shaders padrão para interfaces, vamos usá-las para compilá-los:
     _default_interface_shader._uniform_object_position =
         glGetUniformLocation(_default_interface_shader.program_shader,
                              "object_position");
+    _default_interface_shader._attribute_vertex_position =
+        glGetAttribLocation(_default_interface_shader.program_shader,
+                            "vertex_position");
 }
 @
 
