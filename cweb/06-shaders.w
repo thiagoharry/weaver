@@ -67,7 +67,6 @@ struct interface {
     int height, width; // Tamanho
     void *_data; // Se é uma imagem, ela estará aqui
     /* Variáveis necessárias para o OpenGL: */
-    GLfloat _vertices[12];
     float _offset_x, _offset_y;
     /* Funções a serem executadas em eventos: */
     void (*onmouseover)(struct interface *);
@@ -78,13 +77,12 @@ struct interface {
     void (*outrightclick)(struct interface *, int, int);
     /*
       Valores que dependem de alguns eventos:
-
-       Quantos microssegundos o mouse está sobre a interface? Ou está
-       durando o clique? O número 1 significa que o clique ocorreu
-       neste frame. O número negativo indica que o botão acabou de ser
-       solto ou o mouse acabou de sair de cima da interface e o
-       inverso do valor contém por quantos microssegundos o mouse
-       ficou sobre a interface ou o botão ficou pressionado:
+      Quantos microssegundos o mouse está sobre a interface? Ou está
+      durando o clique? O número 1 significa que o clique ocorreu
+      neste frame. O número negativo indica que o botão acabou de ser
+      solto ou o mouse acabou de sair de cima da interface e o
+      inverso do valor contém por quantos microssegundos o mouse
+      ficou sobre a interface ou o botão ficou pressionado:
      */
     long mouseover, leftclick, rightclick;
     /* Mutex: */
@@ -191,6 +189,78 @@ _flush_interfaces();
 Desta forma garantimos que ao iniciar um novo loop principal, a lista
 de interfaces que temos estará vazia.
 
+Agora vamos nos preocupar com os vértices das interfaces. Mas para
+podermos gerá-los e passá-los para a placa de vídeo, vamos executar o
+seguinte código para ativar todas as funções do OpenGL:
+
+@<API Weaver: Inicialização@>+=
+{
+    GLenum dummy;
+    glewExperimental = GL_TRUE;
+    GLenum err = glewInit();
+    if (err != GLEW_OK){
+        fprintf(stderr, "ERROR: GLW not supported.\n");
+        exit(1);
+    }
+    /*
+      Dependendo da versão, glewInit gera um erro completamente inócuo
+      acusando valor inválido passado para alguma função. A linha
+      seguinte serve apenas para ignorarmos o erro, impedindo-o de se
+      propagar.
+    */
+    dummy = glGetError();
+    glewExperimental += dummy;
+    glewExperimental -= dummy;
+}
+@
+
+No caso de interfaces, como todas elas serão retangulares, todas elas
+podem ser representadas pelos mesmos 4 vértices abaixo, que serão
+modificados para ficar do tamanho e jeito certo pelos valores passados
+futuramente para o shader:
+
+@<Interface: Declarações@>=
+  GLfloat _interface_vertices[12];
+  // Um VBO vai armazenar os vértices na placa de vídeo:
+  GLuint _interface_VBO;
+  // Um VAO armazena configurações de como interpretar os vértices de um VBO:
+  GLuint _interface_VAO;
+@
+@<API Weaver: Inicialização@>+=
+{
+    _interface_vertices[0] = -0.5;
+    _interface_vertices[1] = -0.5;
+    _interface_vertices[2] = 0.0;
+    _interface_vertices[3] = 0.5;
+    _interface_vertices[4] = -0.5;
+    _interface_vertices[5] = 0.0;
+    _interface_vertices[6] = -0.5;
+    _interface_vertices[7] = 0.5;
+    _interface_vertices[8] = 0.0;
+    _interface_vertices[9] = 0.5;
+    _interface_vertices[10] = 0.5;
+    _interface_vertices[11] = 0.0;
+    // Criando o VBO:
+    glGenBuffers(1, &_interface_VBO);
+    // Criando o VAO:
+    glGenVertexArrays(1, &_interface_VAO);
+    // Ativando o VAO:
+    glBindVertexArray(_interface_VAO);
+    // Ativando o VBO:
+    glBindBuffer(GL_ARRAY_BUFFER, _interface_VBO);
+    // Enviando os vértices para o VBO:
+    glBufferData(GL_ARRAY_BUFFER, sizeof(_interface_vertices),
+                 _interface_vertices, GL_STATIC_DRAW);
+    // Definindo uma forma padrão de tratar os atributos:
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat),
+                          (GLvoid*)0);
+    // Ativando o primeiro atributo:
+    glEnableVertexAttribArray(0);
+    // Pronto. Desativamos o VAO:
+    glBindVertexArray(0);
+}
+@
+
 @*2 Criação e Destruição de Interfaces.
 
 Criar uma interface é só um processo mais complicado porque podem
@@ -214,8 +284,7 @@ struct interface *_new_interface(int type, int x, int y, int width,
 @<Interface: Definições@>=
 struct interface *_new_interface(int type, int x, int y,
                                  int width, int height, ...){
-    int i, j;
-    float gl_width, gl_height;
+    int i;
     va_list valist;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(&_interface_mutex);
@@ -249,22 +318,6 @@ struct interface *_new_interface(int type, int x, int y,
     // Tamanho:
     _interfaces[_number_of_loops][i].width = width;
     _interfaces[_number_of_loops][i].height = height;
-    // Vértices OpenGL:
-    gl_width = ((2.0 * width) / (float) W.width);
-    gl_height = ((2.0 * height) / (float) W.height);
-    for(j = 0; j < 12; j ++){
-        /* inicializando:
-           {0.0, 0.0, 0.0,
-           gl_width, 0.0, 0.0,
-           0.0, gl_height, 0.0,
-           gl_width, gl_height, 0.0}
-        */
-        if(j == 3 || j == 9)
-            _interfaces[_number_of_loops][i]._vertices[j] = gl_width;
-        else if(j == 7 || j == 10)
-            _interfaces[_number_of_loops][i]._vertices[j] = gl_height;
-        else _interfaces[_number_of_loops][i]._vertices[j] = 0.0;
-    }
     // Ações:
     _interfaces[_number_of_loops][i].onmouseover = NULL;
     _interfaces[_number_of_loops][i].onmouseout = NULL;
@@ -769,30 +822,6 @@ código para lidar com shaders todo na mesma unidade de compilação:
 #include "shaders.h"
 @
 
-Agora além disso, para usarmos Shaders, precisamos inicializar antes a
-biblioeca GLEW que gerará um conexo de renderização para nós:
-
-@<API Weaver: Inicialização@>+=
-{
-  GLenum dummy;
-  glewExperimental = GL_TRUE;
-  GLenum err = glewInit();
-  if (err != GLEW_OK){
-    fprintf(stderr, "ERROR: GLW not supported.\n");
-    exit(1);
-  }
-  /*
-    Dependendo da versão, glewInit gera um erro completamente inócuo
-    acusando valor inválido passado para alguma função. A linha
-    seguinte serve apenas para ignorarmos o erro, impedindo-o de se
-    propagar.
-   */
-  dummy = glGetError();
-  glewExperimental += dummy;
-  glewExperimental -= dummy;
-}
-@
-
 @*2 Shaders de interface padronizados.
 
 Vamos começar definindo shaders de vértice e fragmento extremamente
@@ -824,7 +853,7 @@ E de shader de fragmento:
 // do struct que representam o objeto)
 @<Shader: Uniformes@>
 void main(){
-        gl_FragColor = object_color;
+      gl_FragColor = object_color;
 } // Fim do main
 @
 
@@ -960,7 +989,7 @@ shaders padrão para interfaces, vamos usá-las para compilá-los:
     GLuint vertex, fragment;
     vertex = _compile_vertex_shader(_vertex_interface);
     fragment = _compile_fragment_shader(_fragment_interface);
-    // Além de compilar, para deixar o shader padrão ompleto, nós
+    // Além de compilar, para deixar o shader padrão completo, nós
     // preenchemos seus uniformes e atributos abaixo:
     _default_interface_shader.program_shader =
         _link_and_clean_shaders(vertex, fragment);
@@ -1606,25 +1635,6 @@ de interfaces, podemos então escrever o código para efetivamente
 renderizarmos as interfaces. Isso deve ser feito todo loop, na etapa
 de renderização, separada da engine de física e controle do jogo.
 
-A primeira coisa que precisamos, antes de renderizar é um buffer
-dentro da GPU para armazenar listas de vértices, bem como um objeto de
-vetor de vértices (VAO) OpenGl. riamos isso com:
-
-@<Shaders: Declarações@>+=
-GLuint _vao, _vertex_buffer;
-@
-@<API Weaver: Inicialização@>+=
-// Um VAO armazena configurações de como os vértices são representados:
-glGenVertexArrays(1, &_vao);
-glBindVertexArray(_vao);
-// E isso cria o buffer para passar os vértices:
-glGenBuffers(1, &_vertex_buffer);
-glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
-@
-
-Existindo tal buffer, podemos então usá-lo para passar os vértices a
-serem renderizados:
-
 @<Renderizar Interface@>=
 {
     // Lembrando que '_number_of_loops' contém em qual subloop nós
@@ -1635,7 +1645,9 @@ serem renderizados:
     struct _shader *current_shader;
     // Primeiro limpamos o buffer de profundidade para que a interface
     // sempre apareça
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+    glClear(GL_DEPTH_BUFFER_BIT);
+    // Ativamos os vértices das interfaces:
+    glBindVertexArray(_interface_VAO);
     // Agora iteramos sobre as interfaes renderizando-as. Como elas
     // estão ordenadas de acordo com seu programa de shader, trocamos
     // de programa o mínimo possível.
@@ -1664,17 +1676,16 @@ serem renderizados:
                     _interface_queue[_number_of_loops][i] -> g,
                     _interface_queue[_number_of_loops][i] -> b,
                     _interface_queue[_number_of_loops][i] -> a);
-        // Aqui enfim renderizamos já tendo um programa de shader ativado:
-        glBufferData(GL_ARRAY_BUFFER,
-                     sizeof(_interface_queue[_number_of_loops][i] -> _vertices),
-                     _interface_queue[_number_of_loops][i] -> _vertices,
-                     GL_STATIC_DRAW);
-        glEnableVertexAttribArray(0);
-        glBindBuffer(GL_ARRAY_BUFFER, _vertex_buffer);
+        // Ajustando as configurações de como os vértices são armazenados:
+        glEnableVertexAttribArray(current_shader -> _attribute_vertex_position);
         glVertexAttribPointer(current_shader -> _attribute_vertex_position,
-                              4, GL_FLOAT, GL_FALSE, 0, (void*)0);
+                              3, GL_FLOAT, GL_FALSE, 0, (void*)0);
         glDrawArrays(GL_TRIANGLES, 0, 4);
-        glDisableVertexAttribArray(0);
+        glDisableVertexAttribArray(current_shader ->
+                                   _attribute_vertex_position);
     }
+    // Parando de usar o VAO com as configurações de renderização de
+    // interface:
+    glBindVertexArray(0);
 }
 @
