@@ -252,8 +252,7 @@ futuramente para o shader:
     glBufferData(GL_ARRAY_BUFFER, sizeof(_interface_vertices),
                  _interface_vertices, GL_STATIC_DRAW);
     // Definindo uma forma padrão de tratar os atributos:
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(GLfloat),
-                          (GLvoid*)0);
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
     // Ativando o primeiro atributo:
     glEnableVertexAttribArray(0);
     // Pronto. Desativamos o VAO:
@@ -840,7 +839,8 @@ Um exemplo simples de shader de vértice:
 @<Shader: Uniformes@>
 void main(){
     // Apenas passamos adiante a posição que recebemos
-    gl_Position = vec4(vertex_position + object_position, 1.0);
+      // TODO: Levar em conta object_position e mais informações
+    gl_Position = vec4(vertex_position, 1.0);
 }
 @
 
@@ -1680,7 +1680,7 @@ de renderização, separada da engine de física e controle do jogo.
         glEnableVertexAttribArray(current_shader -> _attribute_vertex_position);
         glVertexAttribPointer(current_shader -> _attribute_vertex_position,
                               3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glDrawArrays(GL_TRIANGLES, 0, 4);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
         glDisableVertexAttribArray(current_shader ->
                                    _attribute_vertex_position);
     }
