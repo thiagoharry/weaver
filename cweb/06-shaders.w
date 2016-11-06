@@ -66,8 +66,11 @@ struct interface {
     float r, g, b, a; // Cor
     int height, width; // Tamanho
     void *_data; // Se é uma imagem, ela estará aqui
-    /* Variáveis necessárias para o OpenGL: */
-    float _offset_x, _offset_y;
+    // Matriz de transformação OpenGL:
+    GLfloat _translation_matrix[16];
+    GLfloat _scale_matrix[16];
+    GLfloat _rotation_matrix[16];
+    GLfloat _final_matrix[16];
     /* Funções a serem executadas em eventos: */
     void (*onmouseover)(struct interface *);
     void (*onmouseout)(struct interface *);
@@ -309,11 +312,6 @@ struct interface *_new_interface(int type, int x, int y,
     _interfaces[_number_of_loops][i].mouseover = 0;
     _interfaces[_number_of_loops][i].leftclick = 0;
     _interfaces[_number_of_loops][i].rightclick = 0;
-    // Posição OpenGL:
-    _interfaces[_number_of_loops][i]._offset_x = ((float) (2 * x) /
-                                                  (float) W.width) - 1.0;
-    _interfaces[_number_of_loops][i]._offset_y = ((float) (2 * y) /
-                                                  (float) W.height) - 1.0;
     // Tamanho:
     _interfaces[_number_of_loops][i].width = width;
     _interfaces[_number_of_loops][i].height = height;
@@ -349,6 +347,7 @@ struct interface *_new_interface(int type, int x, int y,
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_interface_mutex);
 #endif
+    @<Ajustes finais após criar interface@>
     return &(_interfaces[_number_of_loops][i]);
 }
 @
@@ -425,25 +424,88 @@ podermos movê-las.
 Para mudar a posição de uma interface usaremos a função:
 
 @<Interface: Declarações@>+=
-void _move_interface(struct interface *, int x, int y, float rotation);
+void _move_interface(struct interface *, int x, int y);
 @
 
-Esta mesma função permite que movamos o canto superior esquerdo da
-interface para a posição passada como argumento e em seguida
-rotacionemos a interface em relação à um eixo perpendicular à tela que
-passa pelo seu centro. A rotação é dada em radianos e assumimos que o
-sentido anti-horário é o seu sentido positivo.
+A questão de mover a interface é que precisamos passar para a placa de
+vídeo uma matriz que representa todas as transformações de posição,
+zoom e rotação que fizermos na nossa interface. Os shaders da placa de
+vídeo tratarão toda coordenada de vértice de uma interface como um
+vetor na forma $(x, y, 0, 1)$, pois para coisas bidimensionais o valor
+de $z$ é nulo e todo vértice terá um valor de 1 na ``quarta
+dimensão'', somente para que ele possa ser multiplicado por matrizes
+quadradas $4 \times 4$, que são necessárias em algumas transformações.
+
+Mover uma interface na posição $(x_0, y_0)$ para a posição $(x_1,
+y_1)$ é o mesmo que multiplicar a sua posição, na forma do vetor $(x,
+y, 0, 1)$ pela matriz:
+
+$$
+\left[
+  \matrix{
+    1&0&0&x_1\cr
+    0&1&0&y_1\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right]
+$$
+
+Afinal:
+
+$$
+\left[
+  \matrix{
+    1&0&0&x_1\cr
+    0&1&0&y_1\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right] \times
+\left[
+  \matrix{
+    x_0\cr
+    y_0\cr
+    0\cr
+    1\cr
+  }
+\right] =
+\left[
+  \matrix{
+    x_0+x_1\cr
+    y_0+y_1\cr
+    0\cr
+    1\cr
+  }
+\right]
+$$
+
+Mas no caso, a posição inicial $(x_0, y_0)$ para toda interface é
+sempre a mesma $(-0,5, -0,5)$, pois toda interface tem a mesma lista
+de vértice que não muda. Então, em cada interface temos que manter uma
+matriz de translação que ao ser multiplicada por esta posição, fique
+com o valor adequado que corresponda à posição da interface na tela
+dada em pixels.
 
 @<Interface: Definições@>=
-void _move_interface(struct interface *inter, int x, int y, float rotation){
+void _move_interface(struct interface *inter, int x, int y){
+    float gl_x, gl_y;
+    int i;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(inter -> _mutex);
 #endif
     inter -> x = x;
     inter -> y = y;
-    inter -> _offset_x = ((float) (2 * x) / (float) W.width) - 1.0;
-    inter -> _offset_y = ((float) (2 * y) / (float) W.height) - 1.0;
-    inter -> rotation = rotation;
+    gl_x = 2.0 * (x / W.width);
+    gl_y = 2.0 * (y / W.height);
+    // Preenchendo a matriz
+    for(i = 0; i < 16; i ++){
+        if(i % 5 == 0)
+            inter -> _translation_matrix[0] = 1.0;
+        else inter -> _translation_matrix[0] = 0.0;
+    }
+    inter -> _translation_matrix[3] = gl_x;
+    inter -> _translation_matrix[7] = gl_y;
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(inter -> _mutex);
 #endif
@@ -453,11 +515,20 @@ void _move_interface(struct interface *inter, int x, int y, float rotation){
 E adicionamos isso à estrutura |W|:
 
 @<Funções Weaver@>+=
-void (*move_interface)(struct interface *, int, int, float);
+void (*move_interface)(struct interface *, int, int);
 @
 
 @<API Weaver: Inicialização@>+=
 W.move_interface = &_move_interface;
+@
+
+E inclusive fazemos uso desta função logo após criar uma interface só
+para preenchermos corretamente a sua matriz:
+
+@<Ajustes finais após criar interface@>=
+  W.move_interface(&(_interfaces[_number_of_loops][i]),
+                   _interfaces[_number_of_loops][i].x,
+                   _interfaces[_number_of_loops][i].y);
 @
 
 Outra transformação importante é o ``zoom'' que podemos dar em uma
@@ -1668,9 +1739,6 @@ de renderização, separada da engine de física e controle do jogo.
         }
         // Agora temos que passar os uniformes relevantes da
         // interface para o shader:
-        glUniform3f(current_shader -> _uniform_object_position,
-                    _interface_queue[_number_of_loops][i] -> _offset_x,
-                    _interface_queue[_number_of_loops][i] -> _offset_y, 0.0);
         glUniform4f(current_shader -> _uniform_object_color,
                     _interface_queue[_number_of_loops][i] -> r,
                     _interface_queue[_number_of_loops][i] -> g,
