@@ -496,13 +496,13 @@ void _move_interface(struct interface *inter, int x, int y){
 #endif
     inter -> x = x;
     inter -> y = y;
-    gl_x = 2.0 * (x / W.width);
-    gl_y = 2.0 * (y / W.height);
+    gl_x = 2.0 * ((float) x / (float) W.width);
+    gl_y = 2.0 * ((float) y / (float) W.height);
     // Preenchendo a matriz
     for(i = 0; i < 16; i ++){
         if(i % 5 == 0)
-            inter -> _translation_matrix[0] = 1.0;
-        else inter -> _translation_matrix[0] = 0.0;
+            inter -> _translation_matrix[i] = 1.0;
+        else inter -> _translation_matrix[i] = 0.0;
     }
     inter -> _translation_matrix[3] = gl_x;
     inter -> _translation_matrix[7] = gl_y;
@@ -531,42 +531,80 @@ para preenchermos corretamente a sua matriz:
                    _interfaces[_number_of_loops][i].y);
 @
 
-Outra transformação importante é o ``zoom'' que podemos dar em uma
-interface. Basta definirmos um valor e o tamanho original da interface
-é multiplicado por ele. se usarmos o valor 0, a função não tem efeito.
+Outra transformação importante é a mudança de tamanho que podemos
+fazer em uma interface. Isso muda a altura e a largura de uma
+interface.
 
 @<Interface: Declarações@>+=
-void _zoom_interface(struct interface *inter, float zoom);
+void _resize_interface(struct interface *inter, int size_x, int size_y);
 @
 
+Como os vértices de uma interface fazem com que todas elas sempre
+estejam centralizadas na origem $(0, 0, 0)$ e o tamanho inicial de uma
+interface é sempre 1, então para tornarmos a largura igual a $n_x$ e a
+altura igual a $n_y$ devemos multiplicar cada vértice pela matriz:
+
+$$
+\left[
+  \matrix{
+    n_x&0&0&0\cr
+    0&n_y&0&0\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right]
+$$
+
+Afinal:
+
+$$
+\left[
+  \matrix{
+    n_x&0&0&0\cr
+    0&n_y&0&0\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right] \times
+\left[
+  \matrix{
+    x_0\cr
+    y_0\cr
+    0\cr
+    1\cr
+  }
+\right] =
+\left[
+  \matrix{
+    x_0n_x\cr
+    y_0n_y\cr
+    0\cr
+    1\cr
+  }
+\right]
+$$
+
+A definição da função que uda o tamanho das interfaces é então:
+
 @<Interface: Definições@>=
-void _zoom_interface(struct interface *inter, float zoom){
+void _resize_interface(struct interface *inter, int size_x, int size_y){
+    float gl_width, gl_height;
+    int i;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(inter -> _mutex);
 #endif
-    if(zoom != 0.0){ // Ignoramos zoom de 0x.
-        // A interface pode já ter sofrido um zoom antes. Então temos que
-        // obter seus valores iniciais de (x, y) altura e largura.
-        float width = ((float) inter -> width) / inter -> zoom;
-        float height = ((float) inter -> height) / inter -> zoom;
-        float x = ((float) inter -> x) -
-            (((float) inter -> width) - width) / 2;
-        float y = ((float) inter -> y) -
-            (((float) inter -> height) - width) / 2;
-        // Para dar o zoom, nós ampliamos a altura e a largura
-        // multiplicando-as pelo valor. Além disso a posição (x, y) também
-        // precisa ser multiplicada.
-        x -= (width * zoom - width) / 2;
-        y -= (height * zoom - height) / 2;
-        width *= zoom;
-        height *= zoom;
-        inter -> x = (int) x;
-        inter -> y = (int) y;
-        inter -> width = (int) width;
-        inter -> height = (int) height;
-        inter -> zoom = zoom;
-        @<Interface: Inicialização@>
+    inter -> height = size_y;
+    inter -> width = size_x;
+    gl_width = 2.0 * ((float) size_x / (float) W.width);
+    gl_height = 2.0 * ((float) size_y / (float) W.height);
+    // Preenchendo matriz:
+    for(i = 0; i < 16; i ++){
+        if(i % 5 == 0)
+            inter -> _scale_matrix[i] = 1.0;
+        else inter -> _scale_matrix[i] = 0.0;
     }
+    inter -> _scale_matrix[0] = gl_width;
+    inter -> _scale_matrix[5] = gl_height;
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(inter -> _mutex);
 #endif
@@ -576,11 +614,20 @@ void _zoom_interface(struct interface *inter, float zoom){
 E por fim, adicionamos tudo isso à estrutura |W|:
 
 @<Funções Weaver@>+=
-void (*zoom_interface)(struct interface *, float);
+  void (*resize_interface)(struct interface *, int, int);
 @
 
 @<API Weaver: Inicialização@>+=
-W.zoom_interface = &_zoom_interface;
+W.resize_interface = &_resize_interface;
+@
+
+E usamos esta função após criarmos uma interface, só para preenchermos
+corretamente sua matriz:
+
+@<Ajustes finais após criar interface@>=
+  W.resize_interface(&(_interfaces[_number_of_loops][i]),
+                   _interfaces[_number_of_loops][i].width,
+                   _interfaces[_number_of_loops][i].height);
 @
 
 @*2 Funções de Interação entre Mouse e Interfaces.
