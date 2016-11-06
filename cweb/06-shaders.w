@@ -62,7 +62,7 @@ Assim, nossa lista de interfaces é declarada da seguinte forma:
 struct interface {
     int type; // Como renderizar
     int x, y; // Posição
-    float rotation, zoom;
+    float rotation; // Rotação
     float r, g, b, a; // Cor
     int height, width; // Tamanho
     void *_data; // Se é uma imagem, ela estará aqui
@@ -286,7 +286,7 @@ struct interface *_new_interface(int type, int x, int y, int width,
 @<Interface: Definições@>=
 struct interface *_new_interface(int type, int x, int y,
                                  int width, int height, ...){
-    int i;
+    int i, j;
     va_list valist;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(&_interface_mutex);
@@ -308,7 +308,22 @@ struct interface *_new_interface(int type, int x, int y,
     _interfaces[_number_of_loops][i].x = x;
     _interfaces[_number_of_loops][i].y = y;
     _interfaces[_number_of_loops][i].rotation = 0.0;
-    _interfaces[_number_of_loops][i].zoom = 1.0;
+    // Matrizes:
+    for(j = 0; j < 16; j ++){
+        if(j % 5 == 0){ // Inicializando todas como sendo identidade por hora:
+            _interfaces[_number_of_loops][i]._translation_matrix[j] = 1.0;
+            _interfaces[_number_of_loops][i]._scale_matrix[j] = 1.0;
+            _interfaces[_number_of_loops][i]._rotation_matrix[j] = 1.0;
+            _interfaces[_number_of_loops][i]._final_matrix[j] = 1.0;
+        }
+        else{
+            _interfaces[_number_of_loops][i]._translation_matrix[j] = 0.0;
+            _interfaces[_number_of_loops][i]._scale_matrix[j] = 0.0;
+            _interfaces[_number_of_loops][i]._rotation_matrix[j] = 0.0;
+            _interfaces[_number_of_loops][i]._final_matrix[j] = 0.0;
+        }
+    }
+
     _interfaces[_number_of_loops][i].mouseover = 0;
     _interfaces[_number_of_loops][i].leftclick = 0;
     _interfaces[_number_of_loops][i].rightclick = 0;
@@ -410,7 +425,7 @@ E adicionamos à estrutura |W|:
   W.destroy_interface = &_destroy_interface;
 @
 
-@*2 Movendo e usando Zoom em Interfaces.
+@*2 Movendo, Redimencionando e Rotacionando Interfaces.
 
 Para mudarmos a cor de uma interface, nós podemos sempre mudar
 manualmente seus valores dentro da estrutura. Para mudar seu
@@ -629,6 +644,100 @@ corretamente sua matriz:
                    _interfaces[_number_of_loops][i].width,
                    _interfaces[_number_of_loops][i].height);
 @
+
+Por fim, precisamos também rotacionar uma interface. Para isso,
+mudamos o seu atributo interno de rotação, mas também modificamos a
+sua matriz de rotação. A função que fará isso será:
+
+@<Interface: Declarações@>+=
+void _rotate_interface(struct interface *inter, float rotation);
+@
+
+Interfaces só podem ser rotacionadas em relação ao eixo $z$. E medimos
+a sua rotação em radianos, com o sentido positivo da rotação sendo o
+sentido anti-horário. Para obtermos a matriz de rotação, basta lembar
+que para rotacionar $\theta$ radianos uma interface centralizada na
+origem $(0,0)$ basta multiplicar sua origem por:
+
+$$
+\left[
+  \matrix{
+    \cos\theta&-\sin\theta&0&0\cr
+    \sin\theta&\cos\theta&0&0\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right]
+$$
+
+Afinal:
+
+$$
+\left[
+  \matrix{
+    \cos\theta&-\sin\theta&0&0\cr
+    \sin\theta&\cos\theta&0&0\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right] \times
+\left[
+  \matrix{
+    x_0\cr
+    y_0\cr
+    0\cr
+    1\cr
+  }
+\right] =
+\left[
+  \matrix{
+    x_0\cos\theta-y_0\sin\theta\cr
+    x_0\sin\theta+y_0\cos\theta\cr
+    0\cr
+    1\cr
+  }
+\right]
+$$
+
+E isso corresponde precisamente à rotação no eixo $z$ como
+descrevemos. A definição da função de rotação é dada então por:
+
+@<Interface: Definições@>+=
+void _rotate_interface(struct interface *inter, float rotation){
+    int i;
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(inter -> _mutex);
+#endif
+    inter -> rotation = rotation;
+    // Preenchendo a matriz
+    for(i = 0; i < 16; i ++){
+        if(i % 5 == 0)
+            inter -> _rotation_matrix[i] = 1.0;
+        else inter -> _rotation_matrix[i] = 0.0;
+    }
+    inter -> _rotation_matrix[0] = cosf(rotation);
+    inter -> _rotation_matrix[1] = -sinf(rotation);
+    inter -> _rotation_matrix[4] = -inter -> _rotation_matrix[1];
+    inter -> _rotation_matrix[5] = inter -> _rotation_matrix[0];
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(inter -> _mutex);
+#endif
+}
+@
+
+E adicionamos a função à estrutura |W|:
+
+@<Funções Weaver@>+=
+  void (*rotate_interface)(struct interface *, float);
+@
+
+@<API Weaver: Inicialização@>+=
+W.rotate_interface = &_rotate_interface;
+@
+
+Não precisamos realizar a rotação após criarmos uma interface, pois
+todas elas já estão no ângulo zero, sem rotação e por isso as suas
+matrizes já estão corretas.
 
 @*2 Funções de Interação entre Mouse e Interfaces.
 
