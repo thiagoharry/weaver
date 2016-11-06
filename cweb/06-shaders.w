@@ -67,10 +67,7 @@ struct interface {
     int height, width; // Tamanho
     void *_data; // Se é uma imagem, ela estará aqui
     // Matriz de transformação OpenGL:
-    GLfloat _translation_matrix[16];
-    GLfloat _scale_matrix[16];
-    GLfloat _rotation_matrix[16];
-    GLfloat _final_matrix[16];
+    GLfloat _transform_matrix[16];
     /* Funções a serem executadas em eventos: */
     void (*onmouseover)(struct interface *);
     void (*onmouseout)(struct interface *);
@@ -286,7 +283,7 @@ struct interface *_new_interface(int type, int x, int y, int width,
 @<Interface: Definições@>=
 struct interface *_new_interface(int type, int x, int y,
                                  int width, int height, ...){
-    int i, j;
+    int i;
     va_list valist;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(&_interface_mutex);
@@ -308,21 +305,6 @@ struct interface *_new_interface(int type, int x, int y,
     _interfaces[_number_of_loops][i].x = x;
     _interfaces[_number_of_loops][i].y = y;
     _interfaces[_number_of_loops][i].rotation = 0.0;
-    // Matrizes:
-    for(j = 0; j < 16; j ++){
-        if(j % 5 == 0){ // Inicializando todas como sendo identidade por hora:
-            _interfaces[_number_of_loops][i]._translation_matrix[j] = 1.0;
-            _interfaces[_number_of_loops][i]._scale_matrix[j] = 1.0;
-            _interfaces[_number_of_loops][i]._rotation_matrix[j] = 1.0;
-            _interfaces[_number_of_loops][i]._final_matrix[j] = 1.0;
-        }
-        else{
-            _interfaces[_number_of_loops][i]._translation_matrix[j] = 0.0;
-            _interfaces[_number_of_loops][i]._scale_matrix[j] = 0.0;
-            _interfaces[_number_of_loops][i]._rotation_matrix[j] = 0.0;
-            _interfaces[_number_of_loops][i]._final_matrix[j] = 0.0;
-        }
-    }
 
     _interfaces[_number_of_loops][i].mouseover = 0;
     _interfaces[_number_of_loops][i].leftclick = 0;
@@ -337,6 +319,7 @@ struct interface *_new_interface(int type, int x, int y,
     _interfaces[_number_of_loops][i].onrightclick = NULL;
     _interfaces[_number_of_loops][i].outleftclick = NULL;
     _interfaces[_number_of_loops][i].outrightclick = NULL;
+    @<Preenche Matriz de Transformação de Interface na Inicialização@>
 #ifdef W_MULTITHREAD
     if(pthread_mutex_init(&(_interfaces[_number_of_loops][i]._mutex),
                           NULL) != 0){
@@ -362,7 +345,6 @@ struct interface *_new_interface(int type, int x, int y,
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_interface_mutex);
 #endif
-    @<Ajustes finais após criar interface@>
     return &(_interfaces[_number_of_loops][i]);
 }
 @
@@ -504,23 +486,12 @@ dada em pixels.
 
 @<Interface: Definições@>=
 void _move_interface(struct interface *inter, int x, int y){
-    float gl_x, gl_y;
-    int i;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(inter -> _mutex);
 #endif
     inter -> x = x;
     inter -> y = y;
-    gl_x = 2.0 * ((float) x / (float) W.width);
-    gl_y = 2.0 * ((float) y / (float) W.height);
-    // Preenchendo a matriz
-    for(i = 0; i < 16; i ++){
-        if(i % 5 == 0)
-            inter -> _translation_matrix[i] = 1.0;
-        else inter -> _translation_matrix[i] = 0.0;
-    }
-    inter -> _translation_matrix[3] = gl_x;
-    inter -> _translation_matrix[7] = gl_y;
+    @<Ajusta Matriz de Interface após Mover@>
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(inter -> _mutex);
 #endif
@@ -535,15 +506,6 @@ void (*move_interface)(struct interface *, int, int);
 
 @<API Weaver: Inicialização@>+=
 W.move_interface = &_move_interface;
-@
-
-E inclusive fazemos uso desta função logo após criar uma interface só
-para preenchermos corretamente a sua matriz:
-
-@<Ajustes finais após criar interface@>=
-  W.move_interface(&(_interfaces[_number_of_loops][i]),
-                   _interfaces[_number_of_loops][i].x,
-                   _interfaces[_number_of_loops][i].y);
 @
 
 Outra transformação importante é a mudança de tamanho que podemos
@@ -603,23 +565,12 @@ A definição da função que uda o tamanho das interfaces é então:
 
 @<Interface: Definições@>=
 void _resize_interface(struct interface *inter, int size_x, int size_y){
-    float gl_width, gl_height;
-    int i;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(inter -> _mutex);
 #endif
     inter -> height = size_y;
     inter -> width = size_x;
-    gl_width = 2.0 * ((float) size_x / (float) W.width);
-    gl_height = 2.0 * ((float) size_y / (float) W.height);
-    // Preenchendo matriz:
-    for(i = 0; i < 16; i ++){
-        if(i % 5 == 0)
-            inter -> _scale_matrix[i] = 1.0;
-        else inter -> _scale_matrix[i] = 0.0;
-    }
-    inter -> _scale_matrix[0] = gl_width;
-    inter -> _scale_matrix[5] = gl_height;
+    @<Ajusta Matriz de Interface após Redimensionar ou Rotacionar@>
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(inter -> _mutex);
 #endif
@@ -634,15 +585,6 @@ E por fim, adicionamos tudo isso à estrutura |W|:
 
 @<API Weaver: Inicialização@>+=
 W.resize_interface = &_resize_interface;
-@
-
-E usamos esta função após criarmos uma interface, só para preenchermos
-corretamente sua matriz:
-
-@<Ajustes finais após criar interface@>=
-  W.resize_interface(&(_interfaces[_number_of_loops][i]),
-                   _interfaces[_number_of_loops][i].width,
-                   _interfaces[_number_of_loops][i].height);
 @
 
 Por fim, precisamos também rotacionar uma interface. Para isso,
@@ -704,21 +646,11 @@ descrevemos. A definição da função de rotação é dada então por:
 
 @<Interface: Definições@>+=
 void _rotate_interface(struct interface *inter, float rotation){
-    int i;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(inter -> _mutex);
 #endif
     inter -> rotation = rotation;
-    // Preenchendo a matriz
-    for(i = 0; i < 16; i ++){
-        if(i % 5 == 0)
-            inter -> _rotation_matrix[i] = 1.0;
-        else inter -> _rotation_matrix[i] = 0.0;
-    }
-    inter -> _rotation_matrix[0] = cosf(rotation);
-    inter -> _rotation_matrix[1] = -sinf(rotation);
-    inter -> _rotation_matrix[4] = -inter -> _rotation_matrix[1];
-    inter -> _rotation_matrix[5] = inter -> _rotation_matrix[0];
+    @<Ajusta Matriz de Interface após Redimensionar ou Rotacionar@>
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(inter -> _mutex);
 #endif
@@ -735,9 +667,146 @@ E adicionamos a função à estrutura |W|:
 W.rotate_interface = &_rotate_interface;
 @
 
-Não precisamos realizar a rotação após criarmos uma interface, pois
-todas elas já estão no ângulo zero, sem rotação e por isso as suas
-matrizes já estão corretas.
+
+Podemos representar todas estas transformações juntas multiplicando as
+matrizes e depois multiplicando o resultado pela coordenada do
+vetor. É importante notar que a ordem na qual multiplicamos é
+importante, pois tanto a rotação como a mudança de tamanho assumem que
+a interface está centralizada na origem. Então, a translação deve ser
+a operação mais distante da coordenada na multiplicação:
+
+$$
+\left[
+  \matrix{
+    1&0&0&x_1\cr
+    0&1&0&y_1\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right] \times
+\left[
+  \matrix{
+    \cos\theta&-\sin\theta&0&0\cr
+    \sin\theta&\cos\theta&0&0\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right] \times
+\left[
+  \matrix{
+    n_x&0&0&0\cr
+    0&n_y&0&0\cr
+    0&0&1&0\cr
+    0&0&0&1\cr
+  }
+\right] \times
+\left[
+  \matrix{
+    x_0\cr
+    y_0\cr
+    0\cr
+    1\cr
+  }
+\right] =
+$$
+
+$$
+\left[
+\matrix{
+n_x\cos\theta&-n_y\sin\theta&0&x_1\cr
+n_x\sin\theta&n_y\cos\theta&0&y_1\cr
+0&0&1&0\cr
+0&0&0&1\cr
+}
+\right]\times
+\left[
+  \matrix{
+    x_0\cr
+    y_0\cr
+    0\cr
+    1\cr
+  }
+\right]=
+\left[
+  \matrix{
+    n_xx_0\cos\theta-n_yy_0\sin\theta+x_1\cr
+    n_xx_0\sin\theta+n_yy_0\cos\theta+y_1\cr
+    0\cr
+    1\cr
+  }
+\right]
+$$
+
+Isso significa que nós não precisamos manter matrizes intermediárias
+de rotação, de translação ou redimensionamento. Agora que sabemos qual
+o formato da matriz $4\times 4$ final, obtida por meio da
+multiplicação de todas as outras transformações, podemos apenas manter
+a matriz final e editarmos as posições nela conforme for necessário.
+
+Assim, na inicialização de uma nova interface, a matriz é preenchida:
+
+@<Preenche Matriz de Transformação de Interface na Inicialização@>=
+{
+    float nx, ny, cosine, sine, x1, y1;
+    nx = 2.0 *((float) _interfaces[_number_of_loops][i].width /
+               (float) W.width);
+    ny = 2.0 *((float) _interfaces[_number_of_loops][i].height /
+               (float) W.height);
+    cosine = cosf(_interfaces[_number_of_loops][i].rotation);
+    sine = sinf(_interfaces[_number_of_loops][i].rotation);
+    x1 = 2.0 *((float) _interfaces[_number_of_loops][i].x /
+               (float) W.width) - 0.5;
+    y1 = 2.0 *((float) _interfaces[_number_of_loops][i].y /
+               (float) W.height) - 0.5;
+    _interfaces[_number_of_loops][i]._transform_matrix[0] = nx * cosine;
+    _interfaces[_number_of_loops][i]._transform_matrix[1] = -(ny * sine);
+    _interfaces[_number_of_loops][i]._transform_matrix[2] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[3] = x1;
+    _interfaces[_number_of_loops][i]._transform_matrix[4] = nx * sine;
+    _interfaces[_number_of_loops][i]._transform_matrix[5] = nx * cosine;
+    _interfaces[_number_of_loops][i]._transform_matrix[6] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[7] = y1;
+    _interfaces[_number_of_loops][i]._transform_matrix[8] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[9] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[10] = 1.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[11] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[12] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[13] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[14] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[15] = 1.0;
+}
+@
+
+Já após movermos uma interface para uma nova posição $(x1, y1)$ só
+temos que mudar duas posições da matriz na última coluna:
+
+@<Ajusta Matriz de Interface após Mover@>=
+{
+    float x1, y1;
+    x1 = 2.0 *((float) inter -> x / (float) W.width) - 0.5;
+    y1 = 2.0 *((float) inter -> y / (float) W.height) - 0.5;
+    inter -> _transform_matrix[3] = x1;
+    inter -> _transform_matrix[7] = y1;
+}
+@
+
+Já após redimensionarmos ou rotacionarmos interface, aí teremos 4
+posições da matriz para mudarmos:
+
+@<Ajusta Matriz de Interface após Redimensionar ou Rotacionar@>=
+{
+    float nx, ny, cosine, sine;
+    nx = 2.0 *((float) inter -> width / (float) W.width);
+    ny = 2.0 *((float) inter -> height / (float) W.height);
+    cosine = cosf(inter -> rotation);
+    sine = sinf(inter -> rotation);
+    inter -> _transform_matrix[0] = nx * cosine;
+    inter -> _transform_matrix[1] = -(ny * sine);
+    inter -> _transform_matrix[4] = nx * sine;
+    inter -> _transform_matrix[5] = ny * cosine;
+}
+@
+
 
 @*2 Funções de Interação entre Mouse e Interfaces.
 
