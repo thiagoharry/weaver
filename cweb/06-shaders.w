@@ -1136,7 +1136,7 @@ Um exemplo simples de shader de vértice:
 void main(){
     // Apenas passamos adiante a posição que recebemos
       // TODO: Levar em conta object_position e mais informações
-    gl_Position = vec4(vertex_position, 1.0);
+    gl_Position = vec4(vertex_position, 1.0) * model_view_matrix;
 }
 @
 
@@ -1165,7 +1165,7 @@ ser renderizado) são:
 
 @<Shader: Uniformes@>=
 uniform vec4 object_color; // A cor do objeto
-uniform vec3 object_position; // A posição do objeto
+uniform mat4 model_view_matrix; // Transformações de posição do objeto
 @
 
 Estes dois códigos fontes serão processados pelo Makefile de cada
@@ -1292,9 +1292,9 @@ shaders padrão para interfaces, vamos usá-las para compilá-los:
     _default_interface_shader._uniform_object_color =
         glGetUniformLocation(_default_interface_shader.program_shader,
                              "object_color");
-    _default_interface_shader._uniform_object_position =
+    _default_interface_shader._uniform_model_view =
         glGetUniformLocation(_default_interface_shader.program_shader,
-                             "object_position");
+                             "model_view_matrix");
     _default_interface_shader._attribute_vertex_position =
         glGetAttribLocation(_default_interface_shader.program_shader,
                             "vertex_position");
@@ -1348,15 +1348,15 @@ struct _shader{
     bool initialized;
     GLuint program_shader; // Referência ao programa compilado em si
     char name[128];        // Nome do shader
+    // Os uniformes do shader:
+    GLint _uniform_object_color, _uniform_model_view;
+    // Os atributos do shader:
+    GLint _attribute_vertex_position;
 #if W_TARGET == W_ELF
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
     // Os inodes dos arquivos nos dizem se o código-fonte foi
     // modificado desde a última vez que o compilamos:
     ino_t vertex_inode, fragment_inode;
-    // Os uniformes do shader:
-    GLint _uniform_object_color, _uniform_object_position;
-    // Os atributos do shader:
-    GLint _attribute_vertex_position;
 #endif
 } *_shader_list;
 @
@@ -1718,9 +1718,9 @@ void _compile_and_insert_new_shader(char *dir, int position){
     _shader_list[position]._uniform_object_color =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "object_color");
-    _shader_list[position]._uniform_object_position =
+    _shader_list[position]._uniform_model_view =
         glGetUniformLocation(_shader_list[position].program_shader,
-                             "object_position");
+                             "model_view_matrix");
     // Inicializando os atributos:
     _shader_list[position]._attribute_vertex_position =
         glGetAttribLocation(_shader_list[position].program_shader,
@@ -1969,6 +1969,9 @@ de renderização, separada da engine de física e controle do jogo.
                     _interface_queue[_number_of_loops][i] -> g,
                     _interface_queue[_number_of_loops][i] -> b,
                     _interface_queue[_number_of_loops][i] -> a);
+        glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, false,
+                           _interface_queue[_number_of_loops][i] ->
+                           _transform_matrix);
         // Ajustando as configurações de como os vértices são armazenados:
         glEnableVertexAttribArray(current_shader -> _attribute_vertex_position);
         glVertexAttribPointer(current_shader -> _attribute_vertex_position,
