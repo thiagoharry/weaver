@@ -754,10 +754,10 @@ Assim, na inicialização de uma nova interface, a matriz é preenchida:
                (float) W.height);
     cosine = cosf(_interfaces[_number_of_loops][i].rotation);
     sine = sinf(_interfaces[_number_of_loops][i].rotation);
-    x1 = 2.0 *((float) _interfaces[_number_of_loops][i].x /
-               (float) W.width) - 0.5;
-    y1 = 2.0 *((float) _interfaces[_number_of_loops][i].y /
-               (float) W.height) - 0.5;
+    x1 = (2.0 *((float) _interfaces[_number_of_loops][i].x /
+                (float) W.width)) - 1.0;
+    y1 = -((2.0 *((float) _interfaces[_number_of_loops][i].y /
+                  (float) W.height)) + 1.0);
     _interfaces[_number_of_loops][i]._transform_matrix[0] = nx * cosine;
     _interfaces[_number_of_loops][i]._transform_matrix[1] = -(ny * sine);
     _interfaces[_number_of_loops][i]._transform_matrix[2] = 0.0;
@@ -783,8 +783,8 @@ temos que mudar duas posições da matriz na última coluna:
 @<Ajusta Matriz de Interface após Mover@>=
 {
     float x1, y1;
-    x1 = 2.0 *((float) inter -> x / (float) W.width) - 0.5;
-    y1 = 2.0 *((float) inter -> y / (float) W.height) - 0.5;
+    x1 = (2.0 *((float) inter -> x / (float) W.width)) - 1.0;
+    y1 = -((2.0 *((float) inter -> y / (float) W.height)) - 1.0);
     inter -> _transform_matrix[3] = x1;
     inter -> _transform_matrix[7] = y1;
 }
@@ -1136,7 +1136,7 @@ Um exemplo simples de shader de vértice:
 void main(){
     // Apenas passamos adiante a posição que recebemos
       // TODO: Levar em conta object_position e mais informações
-    gl_Position = vec4(vertex_position, 1.0) * model_view_matrix;
+    gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
 }
 @
 
@@ -1969,7 +1969,7 @@ de renderização, separada da engine de física e controle do jogo.
                     _interface_queue[_number_of_loops][i] -> g,
                     _interface_queue[_number_of_loops][i] -> b,
                     _interface_queue[_number_of_loops][i] -> a);
-        glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, false,
+        glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, true,
                            _interface_queue[_number_of_loops][i] ->
                            _transform_matrix);
         // Ajustando as configurações de como os vértices são armazenados:
