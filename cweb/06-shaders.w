@@ -68,6 +68,8 @@ struct interface {
     void *_data; // Se é uma imagem, ela estará aqui
     // Matriz de transformação OpenGL:
     GLfloat _transform_matrix[16];
+    // O modo com o qual a interface é desenhada ao invocar glDrawArrays:
+    GLenum _mode;
     /* Funções a serem executadas em eventos: */
     void (*onmouseover)(struct interface *);
     void (*onmouseout)(struct interface *);
@@ -234,10 +236,10 @@ futuramente para o shader:
     _interface_vertices[3] = 0.5;
     _interface_vertices[4] = -0.5;
     _interface_vertices[5] = 0.0;
-    _interface_vertices[6] = -0.5;
+    _interface_vertices[6] = 0.5;
     _interface_vertices[7] = 0.5;
     _interface_vertices[8] = 0.0;
-    _interface_vertices[9] = 0.5;
+    _interface_vertices[9] = -0.5;
     _interface_vertices[10] = 0.5;
     _interface_vertices[11] = 0.0;
     // Criando o VBO:
@@ -319,6 +321,8 @@ struct interface *_new_interface(int type, int x, int y,
     _interfaces[_number_of_loops][i].onrightclick = NULL;
     _interfaces[_number_of_loops][i].outleftclick = NULL;
     _interfaces[_number_of_loops][i].outrightclick = NULL;
+    // Modo padrão de desenho de interface:
+    _interfaces[_number_of_loops][i]._mode = GL_TRIANGLE_FAN;
     @<Preenche Matriz de Transformação de Interface na Inicialização@>
 #ifdef W_MULTITHREAD
     if(pthread_mutex_init(&(_interfaces[_number_of_loops][i]._mutex),
@@ -328,8 +332,10 @@ struct interface *_new_interface(int type, int x, int y,
     }
 #endif
     switch(type){
-    case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor:
     case W_INTERFACE_PERIMETER:
+        _interfaces[_number_of_loops][i]._mode = GL_LINE_LOOP;
+        // Realmente não precisa de um 'break' aqui.
+    case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor
         va_start(valist, height);
         _interfaces[_number_of_loops][i].r = va_arg(valist, double);
         _interfaces[_number_of_loops][i].g = va_arg(valist, double);
@@ -1976,7 +1982,7 @@ de renderização, separada da engine de física e controle do jogo.
         glEnableVertexAttribArray(current_shader -> _attribute_vertex_position);
         glVertexAttribPointer(current_shader -> _attribute_vertex_position,
                               3, GL_FLOAT, GL_FALSE, 0, (void*)0);
-        glDrawArrays(GL_TRIANGLE_STRIP, 0, 4);
+        glDrawArrays(_interface_queue[_number_of_loops][i] -> _mode, 0, 4);
         glDisableVertexAttribArray(current_shader ->
                                    _attribute_vertex_position);
     }
