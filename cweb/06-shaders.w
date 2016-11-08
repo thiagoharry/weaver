@@ -763,7 +763,7 @@ Assim, na inicialização de uma nova interface, a matriz é preenchida:
     _interfaces[_number_of_loops][i]._transform_matrix[2] = 0.0;
     _interfaces[_number_of_loops][i]._transform_matrix[3] = x1;
     _interfaces[_number_of_loops][i]._transform_matrix[4] = nx * sine;
-    _interfaces[_number_of_loops][i]._transform_matrix[5] = nx * cosine;
+    _interfaces[_number_of_loops][i]._transform_matrix[5] = ny * cosine;
     _interfaces[_number_of_loops][i]._transform_matrix[6] = 0.0;
     _interfaces[_number_of_loops][i]._transform_matrix[7] = y1;
     _interfaces[_number_of_loops][i]._transform_matrix[8] = 0.0;
