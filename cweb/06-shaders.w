@@ -686,16 +686,16 @@ $$
 \right] \times
 \left[
   \matrix{
-    \cos\theta&-\sin\theta&0&0\cr
-    \sin\theta&\cos\theta&0&0\cr
+    n_x&0&0&0\cr
+    0&n_y&0&0\cr
     0&0&1&0\cr
     0&0&0&1\cr
   }
 \right] \times
 \left[
   \matrix{
-    n_x&0&0&0\cr
-    0&n_y&0&0\cr
+    \cos\theta&-\sin\theta&0&0\cr
+    \sin\theta&\cos\theta&0&0\cr
     0&0&1&0\cr
     0&0&0&1\cr
   }
@@ -713,8 +713,8 @@ $$
 $$
 \left[
 \matrix{
-n_x\cos\theta&-n_y\sin\theta&0&x_1\cr
-n_x\sin\theta&n_y\cos\theta&0&y_1\cr
+n_x\cos\theta&-n_x\sin\theta&0&x_1\cr
+n_y\sin\theta&n_y\cos\theta&0&y_1\cr
 0&0&1&0\cr
 0&0&0&1\cr
 }
@@ -729,8 +729,8 @@ n_x\sin\theta&n_y\cos\theta&0&y_1\cr
 \right]=
 \left[
   \matrix{
-    n_xx_0\cos\theta-n_yy_0\sin\theta+x_1\cr
-    n_xx_0\sin\theta+n_yy_0\cos\theta+y_1\cr
+    n_xx_0\cos\theta-n_xy_0\sin\theta+x_1\cr
+    n_yx_0\sin\theta+n_yy_0\cos\theta+y_1\cr
     0\cr
     1\cr
   }
@@ -801,8 +801,8 @@ posições da matriz para mudarmos:
     cosine = cosf(inter -> rotation);
     sine = sinf(inter -> rotation);
     inter -> _transform_matrix[0] = nx * cosine;
-    inter -> _transform_matrix[1] = -(ny * sine);
-    inter -> _transform_matrix[4] = nx * sine;
+    inter -> _transform_matrix[1] = -(nx * sine);
+    inter -> _transform_matrix[4] = ny * sine;
     inter -> _transform_matrix[5] = ny * cosine;
 }
 @
