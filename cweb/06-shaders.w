@@ -1132,8 +1132,18 @@ todas são retângulos cheios ou são perímetros de retângulos.
 Um exemplo simples de shader de vértice:
 
 @(project/src/weaver/vertex_interface.glsl@>=
-// Usamos GLSLES 1.3 que é suportado por Emscripten
-#version 130
+// Usamos GLSLES 1.0 que é suportado por Emscripten
+#version 100
+// Declarando a precisão para ser compatível com GLSL 2.0 se possível
+#if GL_FRAGMENT_PRECISION_HIGH == 1
+precision highp float;
+precision highp int;
+#else
+precision mediump float;
+precision mediump int;
+#endif
+precision lowp sampler2D;
+precision lowp samplerCube;
 // Todos os atributos individuais de cada vértice
 @<Shader: Atributos@>
 // Atributos do objeto a ser renderizado (basicamente as coisas dentro
@@ -1150,7 +1160,17 @@ E de shader de fragmento:
 
 @(project/src/weaver/fragment_interface.glsl@>=
 // Usamos GLSLES 1.0 que é suportado por Emscripten
-#version 130
+#version 100
+// Declarando a precisão para ser compatível com GLSL 2.0 se possível
+#if GL_FRAGMENT_PRECISION_HIGH == 1
+  precision highp float;
+  precision highp int;
+#else
+  precision mediump float;
+  precision mediump int;
+#endif
+  precision lowp sampler2D;
+  precision lowp samplerCube;
 // Atributos do objeto a ser renderizado (basicamente as coisas dentro
 // do struct que representam o objeto)
 @<Shader: Uniformes@>
@@ -1163,7 +1183,7 @@ Dois atributos que eles terão (potencialmente únicos em cada execução
 do shader) são:
 
 @<Shader: Atributos@>=
-  attribute vec3 vertex_position;
+attribute vec3 vertex_position;
 @
 
 Já um uniforme que eles tem (potencialmente único para cada objeto a
@@ -1358,8 +1378,8 @@ struct _shader{
     GLint _uniform_object_color, _uniform_model_view;
     // Os atributos do shader:
     GLint _attribute_vertex_position;
-#if W_TARGET == W_ELF
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
+#if W_TARGET == W_ELF
     // Os inodes dos arquivos nos dizem se o código-fonte foi
     // modificado desde a última vez que o compilamos:
     ino_t vertex_inode, fragment_inode;
@@ -1595,7 +1615,7 @@ void _compile_and_insert_new_shader(char *dir, int position){
         fragment_file = NULL;
     }
     // Se o arquivo com código do shader de vértice existe, obter o
-    // seu inode (para sabermos se ele vai ser modificado ou não):
+    // seu inode e tamanho. O inode é ignorado no Emscripten
     if(_shader_list[position].vertex_source != NULL){
         int fd;
         fd = open(_shader_list[position].vertex_source, O_RDONLY);
@@ -1622,7 +1642,9 @@ void _compile_and_insert_new_shader(char *dir, int position){
                 _shader_list[position].vertex_source = NULL;
             }
             else{
+#if W_TARGET == W_ELF
                 _shader_list[position].vertex_inode = attr.st_ino;
+#endif
                 vertex_size = attr.st_size;
             }
             close(fd);
@@ -1650,7 +1672,9 @@ void _compile_and_insert_new_shader(char *dir, int position){
                 _shader_list[position].fragment_source = NULL;
             }
             else{
+#if W_TARGET == W_ELF
                 _shader_list[position].fragment_inode = attr.st_ino;
+#endif
                 fragment_size = attr.st_size;
             }
             close(fd);
