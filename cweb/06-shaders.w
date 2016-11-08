@@ -765,20 +765,20 @@ Assim, na inicialização de uma nova interface, a matriz é preenchida:
     y1 = -((2.0 *((float) _interfaces[_number_of_loops][i].y /
                   (float) W.height)) - 1.0);
     _interfaces[_number_of_loops][i]._transform_matrix[0] = nx * cosine;
-    _interfaces[_number_of_loops][i]._transform_matrix[1] = -(ny * sine);
-    _interfaces[_number_of_loops][i]._transform_matrix[2] = 0.0;
-    _interfaces[_number_of_loops][i]._transform_matrix[3] = x1;
-    _interfaces[_number_of_loops][i]._transform_matrix[4] = nx * sine;
-    _interfaces[_number_of_loops][i]._transform_matrix[5] = ny * cosine;
-    _interfaces[_number_of_loops][i]._transform_matrix[6] = 0.0;
-    _interfaces[_number_of_loops][i]._transform_matrix[7] = y1;
+    _interfaces[_number_of_loops][i]._transform_matrix[4] = -(ny * sine);
     _interfaces[_number_of_loops][i]._transform_matrix[8] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[12] = x1;
+    _interfaces[_number_of_loops][i]._transform_matrix[1] = nx * sine;
+    _interfaces[_number_of_loops][i]._transform_matrix[5] = ny * cosine;
     _interfaces[_number_of_loops][i]._transform_matrix[9] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[13] = y1;
+    _interfaces[_number_of_loops][i]._transform_matrix[2] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[3] = 0.0;
     _interfaces[_number_of_loops][i]._transform_matrix[10] = 1.0;
-    _interfaces[_number_of_loops][i]._transform_matrix[11] = 0.0;
-    _interfaces[_number_of_loops][i]._transform_matrix[12] = 0.0;
-    _interfaces[_number_of_loops][i]._transform_matrix[13] = 0.0;
     _interfaces[_number_of_loops][i]._transform_matrix[14] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[3] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[7] = 0.0;
+    _interfaces[_number_of_loops][i]._transform_matrix[11] = 0.0;
     _interfaces[_number_of_loops][i]._transform_matrix[15] = 1.0;
 }
 @
@@ -791,8 +791,8 @@ temos que mudar duas posições da matriz na última coluna:
     float x1, y1;
     x1 = (2.0 *((float) inter -> x / (float) W.width)) - 1.0;
     y1 = -((2.0 *((float) inter -> y / (float) W.height)) - 1.0);
-    inter -> _transform_matrix[3] = x1;
-    inter -> _transform_matrix[7] = y1;
+    inter -> _transform_matrix[12] = x1;
+    inter -> _transform_matrix[13] = y1;
 }
 @
 
@@ -807,8 +807,8 @@ posições da matriz para mudarmos:
     cosine = cosf(inter -> rotation);
     sine = sinf(inter -> rotation);
     inter -> _transform_matrix[0] = nx * cosine;
-    inter -> _transform_matrix[1] = -(nx * sine);
-    inter -> _transform_matrix[4] = ny * sine;
+    inter -> _transform_matrix[4] = -(nx * sine);
+    inter -> _transform_matrix[1] = ny * sine;
     inter -> _transform_matrix[5] = ny * cosine;
 }
 @
@@ -1999,7 +1999,7 @@ de renderização, separada da engine de física e controle do jogo.
                     _interface_queue[_number_of_loops][i] -> g,
                     _interface_queue[_number_of_loops][i] -> b,
                     _interface_queue[_number_of_loops][i] -> a);
-        glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, true,
+        glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, false,
                            _interface_queue[_number_of_loops][i] ->
                            _transform_matrix);
         // Ajustando as configurações de como os vértices são armazenados:
