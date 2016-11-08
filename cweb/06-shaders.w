@@ -1521,7 +1521,7 @@ o Shader.
             // contar os shaders, vamos percorrê-los e compilá-los.
             {
                 int shader_number = atoi(dir -> d_name);
-                if(shader_number >= number_of_shaders){
+                if(shader_number > number_of_shaders){
 #if W_DEBUG_LEVEL >= 1
                     fprintf(stderr, "WARNING (1): Non-sequential shader "
                             "enumeration at %s.\n", shader_directory);
@@ -1580,10 +1580,10 @@ void _compile_and_insert_new_shader(char *dir, int position){
         _shader_list[position].name[i] = p[i]; // Copiando
     _shader_list[position].name[i] = '\0'; // Encerrando
     // Checando existência do código-fonte de shader de vértice:
-    vertex_file = (char *) _iWalloc(strlen(dir) + strlen("vertex.glsl" + 1));
+    vertex_file = (char *) _iWalloc(strlen(dir) + strlen("/vertex.glsl") + 1);
     vertex_file[0] = '\0';
     strcat(vertex_file, dir);
-    strcat(vertex_file, "vertex.glsl");
+    strcat(vertex_file, "/vertex.glsl");
     if(access(vertex_file, F_OK))
         _shader_list[position].vertex_source = vertex_file;
     else{
@@ -1597,11 +1597,11 @@ void _compile_and_insert_new_shader(char *dir, int position){
         vertex_file = NULL;
     }
     // Checando existência do código-fonte de shader de fragmento:
-    fragment_file = (char *) _iWalloc(strlen(dir) + strlen("fragment.glsl" +
+    fragment_file = (char *) _iWalloc(strlen(dir) + strlen("/fragment.glsl" +
                                                            1));
     fragment_file[0] = '\0';
     strcat(fragment_file, dir);
-    strcat(fragment_file, "vertex.glsl");
+    strcat(fragment_file, "/fragment.glsl");
     if(access(fragment_file, F_OK))
         _shader_list[position].fragment_source = fragment_file;
     else{
@@ -1620,7 +1620,7 @@ void _compile_and_insert_new_shader(char *dir, int position){
         int fd;
         fd = open(_shader_list[position].vertex_source, O_RDONLY);
         if (fd < 0) {
-            fprintf(stderr, "WARNING (0): Can't read fragment shader source"
+            fprintf(stderr, "WARNING (0): Can't read vertex shader source"
                     " code at %s. Using a default shader instead.\n",
                     _shader_list[position].vertex_source);
             // Not freeing _shader_list[position].vertex_source. This
