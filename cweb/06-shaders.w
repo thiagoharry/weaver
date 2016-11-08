@@ -757,7 +757,7 @@ Assim, na inicialização de uma nova interface, a matriz é preenchida:
     x1 = (2.0 *((float) _interfaces[_number_of_loops][i].x /
                 (float) W.width)) - 1.0;
     y1 = -((2.0 *((float) _interfaces[_number_of_loops][i].y /
-                  (float) W.height)) + 1.0);
+                  (float) W.height)) - 1.0);
     _interfaces[_number_of_loops][i]._transform_matrix[0] = nx * cosine;
     _interfaces[_number_of_loops][i]._transform_matrix[1] = -(ny * sine);
     _interfaces[_number_of_loops][i]._transform_matrix[2] = 0.0;
