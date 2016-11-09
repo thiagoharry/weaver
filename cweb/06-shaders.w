@@ -1545,7 +1545,6 @@ o Shader.
                     strcat(path, dir -> d_name);
                     path[255] = '\0';
                     _compile_and_insert_new_shader(path, shader_number - 1);
-
                 }
             }
         }
@@ -1992,7 +1991,7 @@ de renderização, separada da engine de física e controle do jogo.
             if(_interface_queue[_number_of_loops][i] -> type >= 0)
                 current_shader =
                     &(_shader_list[_interface_queue[_number_of_loops][i] ->
-                                   type]);
+                                   type - 1]);
             else
                 current_shader = &_default_interface_shader;
             glUseProgram(current_shader -> program_shader);
