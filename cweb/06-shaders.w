@@ -1243,7 +1243,7 @@ GLuint _compile_shader(char *source, bool vertex){
         glGetShaderiv(shader, GL_INFO_LOG_LENGTH, &logSize);
         buffer = (char *) _iWalloc(logSize);
         if(buffer == NULL){
-            fprintf(stderr, "ERROR (0): Vertex Shader failed to compile. "
+            fprintf(stderr, "ERROR (0): Shader failed to compile. "
                     "It wasn't possible to discover why because there's no "
                     "enough internal memory. Please, increase "
                     "the value of W_INTERNAL_MEMORY at conf/conf.h and try "
@@ -1251,7 +1251,7 @@ GLuint _compile_shader(char *source, bool vertex){
             exit(1);
         }
         glGetShaderInfoLog(shader, logSize, NULL, buffer);
-        fprintf(stderr, "ERROR (0): Failed to compile vertex shader: %s\n",
+        fprintf(stderr, "ERROR (0): Failed to compile shader: %s\n",
                 buffer);
         Wfree(buffer);
         exit(1);
@@ -1539,8 +1539,14 @@ o Shader.
                 // Usando função auxiliar para o trabalho de compilar
                 // e inicializar cada programa de shader. Ela ainda
                 // precisa ser declarada e definida:
-                _compile_and_insert_new_shader(dir -> d_name,
-                                               shader_number - 1);
+                {
+                    char path[256];
+                    strcpy(path, shader_directory);
+                    strcat(path, dir -> d_name);
+                    path[255] = '\0';
+                    _compile_and_insert_new_shader(path, shader_number - 1);
+
+                }
             }
         }
     }
@@ -1584,7 +1590,7 @@ void _compile_and_insert_new_shader(char *dir, int position){
     vertex_file[0] = '\0';
     strcat(vertex_file, dir);
     strcat(vertex_file, "/vertex.glsl");
-    if(access(vertex_file, F_OK))
+    if(access(vertex_file, F_OK) == 0)
         _shader_list[position].vertex_source = vertex_file;
     else{
 #if W_DEBUG_LEVEL >= 1
@@ -1602,12 +1608,12 @@ void _compile_and_insert_new_shader(char *dir, int position){
     fragment_file[0] = '\0';
     strcat(fragment_file, dir);
     strcat(fragment_file, "/fragment.glsl");
-    if(access(fragment_file, F_OK))
+    if(access(fragment_file, F_OK) == 0)
         _shader_list[position].fragment_source = fragment_file;
     else{
 #if W_DEBUG_LEVEL >= 1
         fprintf(stderr, "WARNING (1): Fragment shader source code not found. "
-                "File %s was expected. Using a default shader instead.\n",
+                "File '%s' was expected. Using a default shader instead.\n",
                 fragment_file);
 #endif
         _shader_list[position].fragment_source = NULL;
