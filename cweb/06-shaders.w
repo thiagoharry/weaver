@@ -287,7 +287,6 @@ struct interface *_new_interface(int type, int x, int y,
                                  int width, int height, ...){
     int i;
     va_list valist;
-    printf("A usar tipo: %d\n", type);
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(&_interface_mutex);
 #endif
@@ -352,7 +351,6 @@ struct interface *_new_interface(int type, int x, int y,
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_interface_mutex);
 #endif
-    printf("Novo tipo: %d\n", type);
     return &(_interfaces[_number_of_loops][i]);
 }
 @
@@ -1997,10 +1995,7 @@ de renderização, separada da engine de física e controle do jogo.
             }
             else{
                 current_shader = &_default_interface_shader;
-                //printf("Programa padrão\n");
             }
-            printf("Custom shader type: %d\n",
-                   _interface_queue[_number_of_loops][i] -> type);
             glUseProgram(current_shader -> program_shader);
             first_element = false;
         }
