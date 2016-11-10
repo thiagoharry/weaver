@@ -4,6 +4,7 @@ PROG=$(shell cat .weaver/name)
 BC=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).bc; done)
 W_BC=$(shell for i in src/weaver/*.c; do echo .weaver/$$(basename $${i%%.c}).bc; done)
 PLUGIN_BC=$(shell if [ "$(ls -A plugins/)" ]; then for i in plugins/*.c; do echo .plugin/$$(basename $${i%%.c}).bc; done; fi)
+SHADER_PRELOAD=$(shell if [ -z "$(ls  shaders/)" ]; then for i in shaders/*/*.glsl; do echo "--preload-file $${i}"; done; fi)
 HEADERS=$(shell echo src/*.h)
 PLUGINS=$(shell [ "$(ls -A plugins/)" ] && echo plugins/*.c)
 LIB= -lm -pthread
@@ -34,7 +35,7 @@ endif
 
 make-web: create_plugin_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
 	mkdir -p web
-	${FINAL_CC} ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} -o web/${PROG}.html ${LIB}
+	${FINAL_CC} ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o web/${PROG}.html ${LIB}
 create_plugin_code:
 	mkdir -p .hidden_code .plugin
 	echo "" > .hidden_code/initialize_plugin.c
