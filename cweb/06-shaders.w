@@ -1383,7 +1383,17 @@ struct _shader{
     // modificado desde a última vez que o compilamos:
     ino_t vertex_inode, fragment_inode;
 #endif
-} *_shader_list;
+};
+
+#if W_TARGET == W_ELF
+  // Se estamos compilando nativamente para Linux, iremos allocar
+  // dinamicamente a nossa lista de shaders
+  struct _shader *_shader_list;
+#else
+  // Se não, usaremos uma lista estaticamente declarada gerada pelo
+  // Makefile
+#include "../../.hidden_code/shader.h"
+#endif
 @
 
 Comparados aos plugins, uma grande vantagem que temos é que ao

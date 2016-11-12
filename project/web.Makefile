@@ -11,7 +11,7 @@ LIB= -lm -pthread
 DEFINES=-DW_PROG=\"${PROG}\"
 PLUGINS_NUM=$(shell ls -1 plugins | wc -l)
 FLAGS=-Wall -O2 -D_W_NUMBER_OF_PLUGINS=${PLUGINS_NUM}
-
+NUMBER_OF_SHADERS=$(shell ls -1 shaders/ | wc -l)
 MAX_MEMORY=$(shell grep "^\#define[ \t]\+W_MAX_MEMORY[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
 WEB_MEMORY=$(shell grep "^\#define[ \t]\+W_WEB_MEMORY[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
 THREADED=$(shell grep "^\#define[ \t]\+W_MULTITHREAD" conf/conf.h)
@@ -33,9 +33,19 @@ err:
 endif
 
 
-make-web: create_plugin_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
+make-web: create_plugin_code create_shader_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
 	mkdir -p web
 	${FINAL_CC} ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o web/${PROG}.html ${LIB}
+create_shader_code:
+	mkdir -p .hidden_code .plugin
+	echo "struct _shader _shader_list[${NUMBER_OF_SHADERS}];" > .hidden_code/shader.h
+	if [ "$$(ls -A shaders/)" ]; then \
+	  for i in shaders/*; do \
+	  shader_name=$$(basename $${i}); \
+	  echo $${shader_name}; \
+	  done; \
+	fi; \
+	echo "}" >> .hidden_code/initialize_shader.c
 create_plugin_code:
 	mkdir -p .hidden_code .plugin
 	echo "" > .hidden_code/initialize_plugin.c
