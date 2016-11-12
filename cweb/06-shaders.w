@@ -1598,6 +1598,7 @@ void _compile_and_insert_new_shader(char *dir, int position){
     _shader_list[position].initialized = true;
     // Começamos obtendo o nome do shader, que é o nome do diretório
     // passado (mas sem o seu caminho completo)
+    printf("Going to compile and link shaders: %s %d\n", dir, position);
     for(p = dir; *p != '\0'; p ++); // Vamos ao fim da string
     while(*(p - 1) == '/') p --; // Voltamos se ela termina em '/'
     while(*(p - 1) != '/' && p - 1 != dir) p --; // Vamos ao começo do nome

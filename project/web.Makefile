@@ -45,7 +45,7 @@ create_shader_code:
 	    shader_name=$$(basename $${i}); \
 	    echo "number = atoi(\"$${shader_name}\");" >> .hidden_code/initialize_shader.c; \
 	    echo "if(number <= ${NUMBER_OF_SHADERS}){" >> .hidden_code/initialize_shader.c; \
-	    echo "_compile_and_insert_new_shader($${i}, number - 1);" ; \
+	    echo "_compile_and_insert_new_shader($${i}, number - 1);" >> .hidden_code/initialize_shader.c; \
 	    echo "}" >> .hidden_code/initialize_shader.c; \
 	  done; \
 	fi; \
