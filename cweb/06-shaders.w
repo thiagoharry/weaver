@@ -1562,6 +1562,17 @@ o Shader.
 #endif
 @
 
+Só precisamos lidar com isso quando compilamos o programa para Linux,,
+caso em que a lista de shaders é preenchida dinamicamente de maneira
+mais elegante. Mas no caso de um programa Emscripten, apenas inserimos
+código gerado pelo Makefile:
+
+@<API Weaver: Inicialização@>+=
+#if W_TARGET == W_WEB
+#include "../../.hidden_code/initialize_shader.c"
+#endif
+@
+
 A função |_compile_and_insert_new_shader(nome, posicao)| usada
 acima ainda não foi definida. A função dela será abrir o diretório
 cujo nome é passado como primeiro argumento e preencher em
