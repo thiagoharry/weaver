@@ -131,7 +131,7 @@ void _finalize_window(void);
   }
 #endif
 #endif
-@ 
+@
 
 Enquanto o próprio arquivo de definição de funções as definirá apenas
 condicionalmente:
@@ -169,7 +169,7 @@ da API:
   if(pthread_mutex_init(&_window_mutex, NULL) != 0){ // Inicializa mutex
     perror(NULL);
     exit(1);
-} 
+}
 #endif
 #if W_TARGET == W_ELF
 _initialize_window();
@@ -180,7 +180,7 @@ _initialize_window();
   if(pthread_mutex_destroy(&_window_mutex) != 0){ // Finaliza mutex
     perror(NULL);
     exit(1);
-} 
+}
 #endif
 #if W_TARGET == W_ELF
 _finalize_window();
@@ -334,14 +334,14 @@ E por fim, mudamos tais atributos na janela e fazemos o pedido para
 começarmos a ser notificados de quando houverem eventos de entrada:
 
 @<Variáveis de Janela@>+=
-static XSetWindowAttributes at; 
+static XSetWindowAttributes at;
 @
 
 @<Janela: Inicialização@>+=
-  {    
+  {
     at.override_redirect = True;
     // Eventos que nos interessam: pressionar e soltar botão do
-    // teclado, pressionar e soltar botão do mouse, movimento do mouse, 
+    // teclado, pressionar e soltar botão do mouse, movimento do mouse,
     // quando a janela é exposta e quando ela muda de tamanho.
     at.event_mask = ButtonPressMask | ButtonReleaseMask | KeyPressMask |
       KeyReleaseMask | PointerMotionMask | ExposureMask | StructureNotifyMask |
@@ -395,7 +395,7 @@ versão compatível:
   ret = glXQueryVersion(_dpy, &glx_major, &glx_minor);
   if(!ret || (( glx_major == 1 ) && ( glx_minor < 3 )) || glx_major < 1){
     fprintf(stderr,
-            "ERROR: GLX is version %d.%d, but should be at least 1.3.\n", 
+            "ERROR: GLX is version %d.%d, but should be at least 1.3.\n",
             glx_major, glx_minor);
     exit(1);
   }
@@ -582,7 +582,7 @@ void _initialize_canvas(void){
   if (window == NULL) {
     fprintf(stderr, "ERROR: Could not create window: %s\n", SDL_GetError());
     exit(1);
-  }  
+  }
 }
 void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
   SDL_FreeSurface(window);
@@ -622,7 +622,7 @@ eventos no loop principal:
 @<API Weaver: Imediatamente antes de tratar eventos@>
 #if W_TARGET == W_ELF
   {
-    XEvent event;   
+    XEvent event;
     while(XPending(_dpy)){
       XNextEvent(_dpy, &event);
       // A variável 'event' terá todas as informações do evento
@@ -829,13 +829,20 @@ tratarmos os eventos de entrada, tais como cliques de \italico{mouse}.
 
 A única configuração que temos no momento é a cor de fundo de nossa
 janela, a qual será exibida na ausência de qualquer coisa a ser
-mostrada:
+mostrada. Também ativamos o buffer de profundidade para que OpenGL
+leve em conta a distância de cada pixel de um polígono para saber se
+ele deve ser desenhado ou não (não deve ser desenhado se tiver algo na
+sua frente). E por fim, também impedimos que as faces internas de um
+polígono precisem ser desenhadas. É uma otimização extremamente
+necessária para garantirmos um bom desempenho:
 
 @<API Weaver: Inicialização@>+=
 // Com que cor limpamos a tela:
 glClearColor(W_DEFAULT_COLOR, 1.0f);
 // Ativamos o buffer de profundidade:
 glEnable(GL_DEPTH_TEST);
+// Descartamos a face interna de qualquer triângulo (otimização necessária)
+glEnable(GL_CULL_FACE);
 @
 
 @<Código a executar todo loop@>+=
