@@ -1594,11 +1594,11 @@ void _compile_and_insert_new_shader(char *dir, int position){
     GLuint vertex, fragment;
     char *p;
     int i;
+    FILE *fp;
     // Marcamos o shader como inicializado:
     _shader_list[position].initialized = true;
     // Começamos obtendo o nome do shader, que é o nome do diretório
     // passado (mas sem o seu caminho completo)
-    printf("Going to compile and link shaders: %s %d\n", dir, position);
     for(p = dir; *p != '\0'; p ++); // Vamos ao fim da string
     while(*(p - 1) == '/') p --; // Voltamos se ela termina em '/'
     while(*(p - 1) != '/' && p - 1 != dir) p --; // Vamos ao começo do nome
@@ -1610,8 +1610,11 @@ void _compile_and_insert_new_shader(char *dir, int position){
     vertex_file[0] = '\0';
     strcat(vertex_file, dir);
     strcat(vertex_file, "/vertex.glsl");
-    if(access(vertex_file, F_OK) == 0)
+    // Vendo se arquivo existe e pode ser lido:
+    if((fp = fopen(vertex_file, "r"))){
         _shader_list[position].vertex_source = vertex_file;
+        fclose(fp);
+    }
     else{
 #if W_DEBUG_LEVEL >= 1
         fprintf(stderr, "WARNING (1): Vertex shader source code not found. "
@@ -1628,8 +1631,10 @@ void _compile_and_insert_new_shader(char *dir, int position){
     fragment_file[0] = '\0';
     strcat(fragment_file, dir);
     strcat(fragment_file, "/fragment.glsl");
-    if(access(fragment_file, F_OK) == 0)
+    if((fp = fopen(fragment_file, "r"))){
         _shader_list[position].fragment_source = fragment_file;
+        fclose(fp);
+    }
     else{
 #if W_DEBUG_LEVEL >= 1
         fprintf(stderr, "WARNING (1): Fragment shader source code not found. "
@@ -1742,6 +1747,7 @@ void _compile_and_insert_new_shader(char *dir, int position){
         }
         else{
             fread(vertex_source, sizeof(char), vertex_size, fd);
+            vertex_source[vertex_size - 1] = '\0';
             fclose(fd);
         }
     }
@@ -1755,6 +1761,7 @@ void _compile_and_insert_new_shader(char *dir, int position){
         }
         else{
             fread(fragment_source, sizeof(char), fragment_size, fd);
+            fragment_source[fragment_size - 1] = '\0';
             fclose(fd);
         }
     }
