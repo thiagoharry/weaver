@@ -84,8 +84,8 @@ install: uninstall
 	install -d ${PROJECT_SHARE}/conf
 	install -d ${PROJECT_SHARE}/src/weaver
 	install -c project/Makefile ${PROJECT_SHARE}
-	install -c project/Makefile.prog ${PROJECT_SHARE}
-	install -c project/Makefile.web ${PROJECT_SHARE}
+	install -c project/prog.Makefile ${PROJECT_SHARE}
+	install -c project/web.Makefile ${PROJECT_SHARE}
 	install -c project/basefile.c ${INSTALL_SHARE_DIR}
 	install -c project/basefile.h ${INSTALL_SHARE_DIR}
 	install -c project/COPYING ${PROJECT_SHARE}

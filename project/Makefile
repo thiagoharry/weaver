@@ -14,10 +14,10 @@ err:
 endif
 make-prog:
 	@if [ -e .error ]; then	rm .error; \
-	else make --no-print-directory -j ${CORES} -f Makefile.prog; fi
+	else make --no-print-directory -j ${CORES} -f prog.Makefile; fi
 make-web:
 	@if [ -e .error ]; then	rm .error; \
-	else make --no-print-directory -j ${CORES} -f Makefile.web; fi
+	else make --no-print-directory -j ${CORES} -f web.Makefile; fi
 shader_data: src/weaver/vertex_interface.data src/weaver/fragment_interface.data
 src/weaver/vertex_interface.data: src/weaver/vertex_interface.glsl
 	cat src/weaver/vertex_interface.glsl | sed 's/^#line.*//' | \

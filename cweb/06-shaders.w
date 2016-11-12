@@ -1151,7 +1151,6 @@ precision lowp samplerCube;
 @<Shader: Uniformes@>
 void main(){
     // Apenas passamos adiante a posição que recebemos
-      // TODO: Levar em conta object_position e mais informações
     gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
 }
 @
