@@ -779,7 +779,6 @@ struct _mouse{
      reservado para qualquer tecla.*/
   long buttons[7];
   int x, y, dx, dy, ddx, ddy;
-  @<Atributos Adicionais do Mouse@>
 };
 @
 

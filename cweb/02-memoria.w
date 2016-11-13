@@ -1939,7 +1939,6 @@ void Wloop(void (*f)(void)){
   _loop_begin = 1;
   @<Código Imediatamente antes de Loop Principal@>
   @<Código antes de Loop, mas não de Subloop@>
-  @<Código antes de um loop novo@> // Não quando retornamos de um subloop
   _loop_stack[_number_of_loops] = f;
   _running_loop = true;
   _update_time();
@@ -1978,7 +1977,6 @@ void _exit_loop(void){
   else{
     @<Código após sairmos de Subloop@>
     _number_of_loops --;
-    @<Código Logo Após voltar de Subloop@>
     @<Código Imediatamente antes de Loop Principal@>
     _running_loop = true;
     _update_time();
@@ -2024,7 +2022,6 @@ void Wsubloop(void (*f)(void)){
   _loop_begin = 1;
   _number_of_loops ++;
   @<Código Imediatamente antes de Loop Principal@>
-  @<Código antes de um loop novo@> // Não quando retornamos de um subloop
 #if W_DEBUG_LEVEL >= 1
   if(_number_of_loops >= W_LIMIT_SUBLOOP){
     fprintf(stderr, "Error (1): Max number of subloops achieved.\n");

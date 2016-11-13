@@ -65,28 +65,10 @@ struct interface {
     float rotation; // Rotação
     float r, g, b, a; // Cor
     int height, width; // Tamanho
-    void *_data; // Se é uma imagem, ela estará aqui
     // Matriz de transformação OpenGL:
     GLfloat _transform_matrix[16];
     // O modo com o qual a interface é desenhada ao invocar glDrawArrays:
     GLenum _mode;
-    /* Funções a serem executadas em eventos: */
-    void (*onmouseover)(struct interface *);
-    void (*onmouseout)(struct interface *);
-    void (*onleftclick)(struct interface *, int, int);
-    void (*onrightclick)(struct interface *, int, int);
-    void (*outleftclick)(struct interface *, int, int);
-    void (*outrightclick)(struct interface *, int, int);
-    /*
-      Valores que dependem de alguns eventos:
-      Quantos microssegundos o mouse está sobre a interface? Ou está
-      durando o clique? O número 1 significa que o clique ocorreu
-      neste frame. O número negativo indica que o botão acabou de ser
-      solto ou o mouse acabou de sair de cima da interface e o
-      inverso do valor contém por quantos microssegundos o mouse
-      ficou sobre a interface ou o botão ficou pressionado:
-     */
-    long mouseover, leftclick, rightclick;
     /* Mutex: */
 #ifdef W_MULTITHREAD
     pthread_mutex_t _mutex;
@@ -302,25 +284,14 @@ struct interface *_new_interface(int type, int x, int y,
 #endif
         Wexit();
     }
-    _interfaces[_number_of_loops][i]._data = NULL;
     // Posição:
     _interfaces[_number_of_loops][i].x = x;
     _interfaces[_number_of_loops][i].y = y;
     _interfaces[_number_of_loops][i].rotation = 0.0;
 
-    _interfaces[_number_of_loops][i].mouseover = 0;
-    _interfaces[_number_of_loops][i].leftclick = 0;
-    _interfaces[_number_of_loops][i].rightclick = 0;
     // Tamanho:
     _interfaces[_number_of_loops][i].width = width;
     _interfaces[_number_of_loops][i].height = height;
-    // Ações:
-    _interfaces[_number_of_loops][i].onmouseover = NULL;
-    _interfaces[_number_of_loops][i].onmouseout = NULL;
-    _interfaces[_number_of_loops][i].onleftclick = NULL;
-    _interfaces[_number_of_loops][i].onrightclick = NULL;
-    _interfaces[_number_of_loops][i].outleftclick = NULL;
-    _interfaces[_number_of_loops][i].outrightclick = NULL;
     // Modo padrão de desenho de interface:
     _interfaces[_number_of_loops][i]._mode = GL_TRIANGLE_FAN;
     @<Preenche Matriz de Transformação de Interface na Inicialização@>
@@ -810,243 +781,6 @@ posições da matriz para mudarmos:
     inter -> _transform_matrix[4] = -(nx * sine);
     inter -> _transform_matrix[1] = ny * sine;
     inter -> _transform_matrix[5] = ny * cosine;
-}
-@
-
-
-@*2 Funções de Interação entre Mouse e Interfaces.
-
-Podemos atribuir às interfaces algumas funções especiais. Elas serão
-invocadas quando o mouse passar por cima delas, quando sair de cima
-delas e quando elas forem clicadas com o botão esquerdo ou
-direito. Além disso, assim como fazemos com o mouse e teclas do
-teclado, queremos manter armazenado algumas informações maiores sobre
-tais eventos. Se um mouse está sobre uma interface, a quanto tempo ele
-está lá? Se estamos clicando nela, por quanto tempo estamos fazendo
-isso?
-
-Mas para isso precisamos inserir algumas modificações no nosso código
-do controle do \italico{mouse}, pois para fazer isso de forma mais
-eficiente é importante que o próprio \italico{mouse} memorize se o
-cursor está ou não sobre um elemento de interface e verifique se
-durante o movimento ele ainda está ou não sobre tal elemento:
-
-@<Atributos Adicionais do Mouse@>=
-struct interface *_interface_under_mouse;
-struct interface *_previous_interface_under_mouse;
-@
-
-Durante a inicialização e antes de entrar em qualquer loop
-ou subloop, precisamos deixar o valor nulo:
-
-@<API Weaver: Inicialização@>+=
-  W.mouse._interface_under_mouse = NULL;
-  W.mouse._previous_interface_under_mouse = NULL;
-@
-
-@<Código antes de um loop novo@>=
-// Este código executa antes de um loop e subloop interiramente
-// novos. Mas não quando saímos de um subloop para retornar em um loop
-// em que já estávamos:
-W.mouse._interface_under_mouse = NULL;
-W.mouse._previous_interface_under_mouse = NULL;
-@
-
-As coisas são um pouco diferentes quando saímos de um subloop e
-voltamos para um loop em que já estávamos antes. Potencialmente podem
-haver interfaces já existentes ali. Não chegamos em um local
-vazio. Sendo assim, cabe ao \italico{mouse} verificar se ele está no
-presente momento em cima de uma interface ou não. Isso será
-representado pela função:
-
-@<Interface: Declarações@>+=
-void _mouse_seek_interface(void);
-@
-@<Interface: Definições@>=
-void _mouse_seek_interface(void){
-    int i;
-    W.mouse._interface_under_mouse = NULL;
-    for(i = 0; i < W_MAX_INTERFACES; i ++){
-        if(W.mouse.x >= _interfaces[_number_of_loops][i].x &&
-           W.mouse.y >= _interfaces[_number_of_loops][i].y &&
-           W.mouse.x - _interfaces[_number_of_loops][i].x <=
-           _interfaces[_number_of_loops][i].width &&
-           W.mouse.y - _interfaces[_number_of_loops][i].y <=
-           _interfaces[_number_of_loops][i].height){
-            W.mouse._interface_under_mouse = &_interfaces[_number_of_loops][i];
-            break;
-        }
-    }
-    if(W.mouse._interface_under_mouse != NULL &&
-       W.mouse._interface_under_mouse -> onmouseover != NULL){
-        W.mouse._interface_under_mouse -> mouseover = 1;
-        W.mouse._interface_under_mouse ->
-            onmouseover(W.mouse._interface_under_mouse);
-    }
-}
-@
-
-Após voltarmos de um subloop precisamos então executar esta função:
-
-@<Código Logo Após voltar de Subloop@>=
-_mouse_seek_interface();
-@
-
-Nos demais casos, nós estaremos em um loop, mas não haverão
-interfaces. Elas ainda estarão para ser inicializadas. Nestes casos,
-são as próprias interfaces que verificarão se estão ou não sob o
-cursor do mouse:
-
-@<Interface: Inicialização@>=
-// Aqui a nova interface que foi gerada é apontada pelo ponteiro 'inter':
-{
-    if(W.mouse.x >= inter -> x &&
-       W.mouse.y >= inter -> y &&
-       W.mouse.x - inter -> x <= inter -> width &&
-       W.mouse.y - inter -> y <= inter -> height){
-        // Testa se a nova interface surgiu sob o mouse e sobre outra
-        // interface:
-        if(W.mouse._interface_under_mouse != NULL){
-            W.mouse._interface_under_mouse -> mouseover *= -1;
-            if(W.mouse._interface_under_mouse -> onmouseover != NULL)
-                W.mouse._interface_under_mouse ->
-                    onmouseover(W.mouse._interface_under_mouse);
-            W.mouse._previous_interface_under_mouse =
-                W.mouse._interface_under_mouse;
-        }
-        W.mouse._interface_under_mouse = inter;
-        inter -> mouseover = 1;
-        if(inter -> onmouseover != NULL)
-            inter -> onmouseover (inter);
-    }
-}
-@
-
-Mas o mouse irá se mover. E a cada movimento, se estamos sobre uma
-interface, precisamos verificar se não saímos dela. E se não estamos,
-temos que verificar se não entramos. Além disso, no caso em que
-saímos, podemos sair de cima de uma para ir pra cima de outra:
-
-@<API Weaver: Imediatamente após tratar eventos@>+=
-{
-    if(W.mouse.dx != 0 || W.mouse.dy != 0){
-        struct interface *inter = W.mouse._interface_under_mouse;
-        if(inter != NULL){
-            if(W.mouse.x < inter -> x ||
-               W.mouse.y < inter -> y ||
-               W.mouse.x - inter -> x > inter -> width ||
-               W.mouse.y - inter -> y > inter -> height){
-                W.mouse._interface_under_mouse -> mouseover *= -1;
-                if(inter -> onmouseout != NULL)
-                    inter -> onmouseout(inter);
-                W.mouse._previous_interface_under_mouse =
-                    W.mouse._interface_under_mouse;
-                _mouse_seek_interface();
-            }
-            else{
-                _mouse_seek_interface();
-            }
-        }
-    }
-}
-@
-
-Toda vez que uma interface deixa de estar sob o mouse, naquele frame
-ela terá o seu valor de |mouseover| negativo. Então no começo do
-próximo este valor precisa ser zerado. Assim como a interface que
-possuir valor positivo precisa ter o valor incrementado. Por causa
-disso, antes de tratarmos os eventos, temos que fazer tais
-modificações:
-
-@<API Weaver: Imediatamente antes de tratar eventos@>+=
-{
-    if(W.mouse._previous_interface_under_mouse != NULL) {
-        W.mouse._previous_interface_under_mouse -> mouseover = 0;
-        W.mouse._previous_interface_under_mouse = NULL;
-    }
-    if(W.mouse._interface_under_mouse != NULL) {
-        W.mouse._interface_under_mouse -> mouseover += W.dt;
-    }
-}
-@
-
-A próxima coisa é começarmos a verificar quando clicamos com os botões
-esquerdo e direito sobre uma interface. E quando deixamos de clicar
-sobre uma interface.
-
-Para checar se neste frame estamos clicando, masta checarmos os
-valores dos botões do mouse junto com a informação que diz se o mouse
-está sobre uma interface ou não:
-
-@<API Weaver: Imediatamente após tratar eventos@>+=
-{
-    struct interface *inter = W.mouse._interface_under_mouse;
-    if(inter != NULL){
-        if(W.mouse.buttons[W_MOUSE_LEFT] == 1){
-            inter -> leftclick = 1;
-            if(inter -> onleftclick != NULL)
-                inter -> onleftclick(inter, W.mouse.x - inter -> x,
-                                     W.mouse.y - inter -> y);
-        }
-        else if(W.mouse.buttons[W_MOUSE_LEFT] > 1 &&
-                inter -> leftclick > 0)
-            inter -> leftclick += W.t;
-        else if(W.mouse.buttons[W_MOUSE_LEFT] < 0){
-            inter -> leftclick *= -1;
-            if(inter -> outleftclick != NULL)
-                inter -> outleftclick(inter, W.mouse.x - inter -> x,
-                                      W.mouse.y - inter -> y);
-        }
-        if(W.mouse.buttons[W_MOUSE_RIGHT] == 1){
-            inter -> rightclick = 1;
-            if(inter -> onrightclick != NULL)
-                inter -> onrightclick(inter, W.mouse.x - inter -> x,
-                                      W.mouse.y - inter -> y);
-        }
-        else if(W.mouse.buttons[W_MOUSE_RIGHT] > 1 &&
-                inter -> rightclick > 0)
-            inter -> rightclick += W.t;
-        else if(W.mouse.buttons[W_MOUSE_RIGHT] < 0){
-            inter -> rightclick *= -1;
-            if(inter -> outrightclick != NULL)
-                inter -> outrightclick(inter, W.mouse.x - inter -> x,
-                                      W.mouse.y - inter -> y);
-        }
-    }
-}
-@
-
-Notar que tomamos nota da quantidade de tempo na qual o mouse é
-pressionado sobre uma interface. Mas existem alguns detalhes. Só
-levamos em conta o tempo no qual o cursor do mouse realmente está
-sobre a interface. E o mouse pode clicar sobre uma interface, sair de
-cima dela e então soltar o clique. Neste caso, a interface irá ser
-considerada como clicada mesmo que o mouse não esteja mais tendo o seu
-botão pressionado. O modo corretos de tratar tais casos irá variar de
-acordo com o jogo (e talvez tais casos nem sejam relevantes). Por ausa
-disso é responsabilidade do programador ficar com este modelo de
-funcionamento e ajustá-lo por meio das funções |onrightclick|,
-|onleftclick|, |onmousein|, |onmouseout|, |outrightclick| e
-|outleftclick|.
-
-De qualquer forma, precisamos também colocar o seguinte código para
-que a nossa contagem de tempo do quanto está durando um clique volte à
-zero no frame seguinte:
-
-@<API Weaver: Imediatamente antes de tratar eventos@>+=
-{
-    if(W.mouse._previous_interface_under_mouse != NULL){
-        if(W.mouse._previous_interface_under_mouse -> leftclick < 0)
-            W.mouse._previous_interface_under_mouse -> leftclick = 0;
-        if(W.mouse._previous_interface_under_mouse -> rightclick < 0)
-            W.mouse._previous_interface_under_mouse -> rightclick = 0;
-    }
-    if(W.mouse._interface_under_mouse != NULL){
-        if(W.mouse._interface_under_mouse -> leftclick < 0)
-            W.mouse._interface_under_mouse -> leftclick = 0;
-        if(W.mouse._interface_under_mouse -> rightclick < 0)
-            W.mouse._interface_under_mouse -> rightclick = 0;
-    }
 }
 @
 
