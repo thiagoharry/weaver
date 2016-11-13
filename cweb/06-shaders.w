@@ -261,12 +261,10 @@ vazio é então procurado na nossa matriz de interfaces e o processo
 particular de criação dela dependendo de seu tipo tem início:
 
 @<Interface: Declarações@>+=
-struct interface *_new_interface(int type, int x, int y, int width,
-                                 int height, ...);
+struct interface *_new_interface(int type, int x, int y, ...);
 @
 @<Interface: Definições@>=
-struct interface *_new_interface(int type, int x, int y,
-                                 int width, int height, ...){
+struct interface *_new_interface(int type, int x, int y, ...){
     int i;
     va_list valist;
 #ifdef W_MULTITHREAD
@@ -284,17 +282,14 @@ struct interface *_new_interface(int type, int x, int y,
 #endif
         Wexit();
     }
+    _interfaces[_number_of_loops][i].type = type;
     // Posição:
     _interfaces[_number_of_loops][i].x = x;
     _interfaces[_number_of_loops][i].y = y;
     _interfaces[_number_of_loops][i].rotation = 0.0;
 
-    // Tamanho:
-    _interfaces[_number_of_loops][i].width = width;
-    _interfaces[_number_of_loops][i].height = height;
     // Modo padrão de desenho de interface:
     _interfaces[_number_of_loops][i]._mode = GL_TRIANGLE_FAN;
-    @<Preenche Matriz de Transformação de Interface na Inicialização@>
 #ifdef W_MULTITHREAD
     if(pthread_mutex_init(&(_interfaces[_number_of_loops][i]._mutex),
                           NULL) != 0){
@@ -307,17 +302,23 @@ struct interface *_new_interface(int type, int x, int y,
         _interfaces[_number_of_loops][i]._mode = GL_LINE_LOOP;
         // Realmente não precisa de um 'break' aqui.
     case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor
-        va_start(valist, height);
+        va_start(valist, y);
+        _interfaces[_number_of_loops][i].width = va_arg(valist, int);
+        _interfaces[_number_of_loops][i].height = va_arg(valist, int);
         _interfaces[_number_of_loops][i].r = va_arg(valist, double);
         _interfaces[_number_of_loops][i].g = va_arg(valist, double);
         _interfaces[_number_of_loops][i].b = va_arg(valist, double);
         _interfaces[_number_of_loops][i].a = va_arg(valist, double);
         va_end(valist);
-        _interfaces[_number_of_loops][i].type = type;
         //@<Interface: Leitura de Argumentos e Inicialização@>
+        break;
     default:
-        _interfaces[_number_of_loops][i].type = type;
+        va_start(valist, y);
+        _interfaces[_number_of_loops][i].width = va_arg(valist, int);
+        _interfaces[_number_of_loops][i].height = va_arg(valist, int);
+        va_end(valist);
     }
+    @<Preenche Matriz de Transformação de Interface na Inicialização@>
     @<Código logo após criar nova interface@>
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_interface_mutex);
@@ -329,7 +330,7 @@ struct interface *_new_interface(int type, int x, int y,
 Após a definirmos, atribuiremos esta função à estrutura |W|:
 
 @<Funções Weaver@>+=
-struct interface *(*new_interface)(int, int, int, int, int, ...);
+struct interface *(*new_interface)(int, int, int, ...);
 @
 
 @<API Weaver: Inicialização@>+=
@@ -1784,3 +1785,56 @@ de renderização, separada da engine de física e controle do jogo.
     glBindVertexArray(0);
 }
 @
+
+@*1 Sumário das Variáveis e Funções de Shaders e Interfaces.
+
+\macronome A seguinte nova estrutura foi definida:
+
+\noindent|struct interface {
+    int type, x, y, height, width;
+    float rotation, r, g, b, a; // Cor
+}|
+
+\macrovalor|type|: representa o seu tipo, que pode ser
+\monoespaco{W\-\_\-INTERFACE\-\_\-SQUARE},
+|W_INTERFACE_PERIMETER| ou algum valor inteiro positivo que representa
+ um shader personalizado definido pelo usuário. Outros tipos ainda
+ serão definidos nos próximos capítulos. Valor para somnte leitura,
+ não o modifique.
+
+\macrovalor|x, y|: representa a coordenada em que está a interface. Ela é
+definida pela posição do seu centro dada em pixels. Valor para somente
+leitura, não o modifique.
+
+\macrovalor|height, width|: representa a altura e largura da interface, em
+pixels. Valor para somente leitura, não o modifique.
+
+\macrovalor|rotation|: representa a rotação da interface medida em radianos, com
+a rotação no sentido anti-horário sendo considerada positiva. Valor
+para somente leitura, não o modifique.
+
+\macrovalor\monoespaco{r, g, b, a}: A cor representada pelos canais vermelho,
+verde, azul e o canal alfa para medir a transparência. Pode ser
+modificado.
+
+\macronome As seguintes 5 novas funções foram definidas:
+
+\macrovalor|struct interface *W.new_interface(int type, int x, int y, ...)|:
+Cria uma nova interface. O número e detalhes dos argumentos depende do
+tipo. Para todos os tipos vistos neste capítulo e para tipos de
+shaders sob medida, após as coordenadas $x, y$ da interface vem a sua
+largura e altura. No caso de interfaces que são meros quadrados ou
+perímetros, os próximos 4 argumentos são a cor. A nova interface
+gerada é retornada.
+
+\macrovalor|void W.destroy_interface(struct interface *i)|: Destrói uma
+interface, liberando seu espaço para ser usada por outra.
+
+\macrovalor|void W.move_interface(struct interface *i, int x, int y)|:
+Move uma interface para uma nova posição $(x, y)$
+
+\macrovalor|void W.resize_interface(struct interface *i, int width, int height)|
+: Muda a largura e altura de uma interface.
+
+\macrovalor|void W.rotate_interface(struct interface *i, float rotation)|:
+Muda a rotação de uma interface.
