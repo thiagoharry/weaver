@@ -65,6 +65,7 @@ struct interface {
     float rotation; // Rotação
     float r, g, b, a; // Cor
     int height, width; // Tamanho
+    bool visible; // A interface é visível?
     // Matriz de transformação OpenGL:
     GLfloat _transform_matrix[16];
     // O modo com o qual a interface é desenhada ao invocar glDrawArrays:
@@ -283,6 +284,7 @@ struct interface *_new_interface(int type, int x, int y, ...){
         Wexit();
     }
     _interfaces[_number_of_loops][i].type = type;
+    _interfaces[_number_of_loops][i].visible = true;
     // Posição:
     _interfaces[_number_of_loops][i].x = x;
     _interfaces[_number_of_loops][i].y = y;
@@ -1748,6 +1750,7 @@ de renderização, separada da engine de física e controle do jogo.
     for(i = 0; i < W_MAX_INTERFACES; i ++){
         // Se chegamos ao im da fila, podemos sair:
         if(_interface_queue[_number_of_loops][i] == NULL) break;
+        if(!(_interface_queue[_number_of_loops][i] -> visible)) continue;
         if(first_element ||
            _interface_queue[_number_of_loops][i] -> type != last_type){
             last_type = _interface_queue[_number_of_loops][i] -> type;
@@ -1792,7 +1795,8 @@ de renderização, separada da engine de física e controle do jogo.
 
 \noindent|struct interface {
     int type, x, y, height, width;
-    float rotation, r, g, b, a; // Cor
+    float rotation, r, g, b, a;
+    bool visible;
 }|
 
 \macrovalor|type|: representa o seu tipo, que pode ser
@@ -1816,6 +1820,8 @@ para somente leitura, não o modifique.
 \macrovalor\monoespaco{r, g, b, a}: A cor representada pelos canais vermelho,
 verde, azul e o canal alfa para medir a transparência. Pode ser
 modificado.
+
+\macrovalor|bool visible|: Se a interface deve ser renderizada na tela ou não.
 
 \macronome As seguintes 5 novas funções foram definidas:
 
