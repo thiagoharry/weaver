@@ -66,6 +66,8 @@ struct interface {
     float r, g, b, a; // Cor
     int height, width; // Tamanho
     bool visible; // A interface é visível?
+    bool stretch_x, stretch_y; // A interface muda a largura e altura
+                               // com a janela?
     // Matriz de transformação OpenGL:
     GLfloat _transform_matrix[16];
     // O modo com o qual a interface é desenhada ao invocar glDrawArrays:
@@ -285,6 +287,8 @@ struct interface *_new_interface(int type, int x, int y, ...){
     }
     _interfaces[_number_of_loops][i].type = type;
     _interfaces[_number_of_loops][i].visible = true;
+    _interfaces[_number_of_loops][i].stretch_x = false;
+    _interfaces[_number_of_loops][i].stretch_y = false;
     // Posição:
     _interfaces[_number_of_loops][i].x = x;
     _interfaces[_number_of_loops][i].y = y;
@@ -1789,6 +1793,45 @@ de renderização, separada da engine de física e controle do jogo.
 }
 @
 
+@*1 Lidando com Redimensionamento da Janela.
+
+Toda vez que uma janela tem o seu tamanho modificado, precisamos mover
+todas as interfaces para atualizar a sua posição e assim manter a
+proporção da tela que fica acima, abaixo e em cada uma de suas
+laterais. Assim, se uma janela ocupa a metade de cima da tela e existe
+uma interface cuja posição é a parte de baixo da tela, após mudarmos
+para tela-cheia, a interface deve permanecer na parte de baixo da
+tela, e não no centro.
+
+Além disso, uma interface pode ou não esticar ou encolher de acordo
+com a mudança de tamanho da janela. Para isso, são os seus atributos
+|stretch_X| e |stretch_y| que definem isso.
+
+@<Ações após Redimencionar Janela@>=
+{
+    // old_width, old_height: Tamanho antigo
+    // width, height: Tamanho atual
+    int i, j;
+    int change_x = width - old_width;
+    int change_y = height - old_height;
+    int new_width, new_height;
+    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+        for(j = 0; j < W_MAX_INTERFACES; j ++){
+            if(_interfaces[i][j].type == W_NONE) continue;
+            W.move_interface(&_interfaces[i][j],
+                             _interfaces[i][j].x + change_x / 2,
+                             _interfaces[i][j].y + change_y / 2);
+            if(_interfaces[i][j].stretch_x)
+                new_width = _interfaces[i][j].width * width/old_width;
+            else new_width = _interfaces[i][j].width;
+            if(_interfaces[i][j].stretch_y)
+                new_height = _interfaces[i][j].height * height/old_height;
+            else new_height = _interfaces[i][j].height;
+            W.resize_interface(&_interfaces[i][j], new_width, new_height);
+        }
+}
+@
+
 @*1 Sumário das Variáveis e Funções de Shaders e Interfaces.
 
 \macronome A seguinte nova estrutura foi definida:
@@ -1797,6 +1840,7 @@ de renderização, separada da engine de física e controle do jogo.
     int type, x, y, height, width;
     float rotation, r, g, b, a;
     bool visible;
+    bool stretch_x, stretch_y;
 }|
 
 \macrovalor|type|: representa o seu tipo, que pode ser
@@ -1822,6 +1866,9 @@ verde, azul e o canal alfa para medir a transparência. Pode ser
 modificado.
 
 \macrovalor|bool visible|: Se a interface deve ser renderizada na tela ou não.
+
+\macrovalor|bool stretch_x, stretch_y|: Se a interface deve ser esticada ou
+encolhida quando a janela em que está muda de tamanho.
 
 \macronome As seguintes 5 novas funções foram definidas:
 
