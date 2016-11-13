@@ -290,9 +290,9 @@ E é inicializada com os seguintes dados:
   W.width = W.resolution_x;
 #endif
 #if W_HEIGHT > 0 // Obtendo altura da janela
-  W.height = W.resolution_y;
+  W.height = W_HEIGHT;
 #else
-  W.height = DisplayHeight(_dpy, screen);
+  W.height = W.resolution_y;
 #endif
   { /* Obtendo a taxa de atualização da tela: */
     XRRScreenConfiguration *conf = XRRGetScreenInfo(_dpy, RootWindow(_dpy, 0));

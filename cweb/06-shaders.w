@@ -932,6 +932,8 @@ ser renderizado) são:
 @<Shader: Uniformes@>=
 uniform vec4 object_color; // A cor do objeto
 uniform mat4 model_view_matrix; // Transformações de posição do objeto
+uniform vec2 object_size; // Largura e altura do objeto
+uniform float time; // Tempo de jogo em segundos
 @
 
 Estes dois códigos fontes serão processados pelo Makefile de cada
@@ -1061,6 +1063,12 @@ shaders padrão para interfaces, vamos usá-las para compilá-los:
     _default_interface_shader._uniform_model_view =
         glGetUniformLocation(_default_interface_shader.program_shader,
                              "model_view_matrix");
+    _default_interface_shader._uniform_object_size =
+        glGetUniformLocation(_default_interface_shader.program_shader,
+                             "object_size");
+    _default_interface_shader._uniform_time =
+        glGetUniformLocation(_default_interface_shader.program_shader,
+                             "time");
     _default_interface_shader._attribute_vertex_position =
         glGetAttribLocation(_default_interface_shader.program_shader,
                             "vertex_position");
@@ -1115,7 +1123,8 @@ struct _shader{
     GLuint program_shader; // Referência ao programa compilado em si
     char name[128];        // Nome do shader
     // Os uniformes do shader:
-    GLint _uniform_object_color, _uniform_model_view;
+    GLint _uniform_object_color, _uniform_model_view, _uniform_object_size;
+    GLint _uniform_time;
     // Os atributos do shader:
     GLint _attribute_vertex_position;
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
@@ -1522,6 +1531,12 @@ void _compile_and_insert_new_shader(char *dir, int position){
     _shader_list[position]._uniform_object_color =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "object_color");
+    _shader_list[position]._uniform_object_size =
+        glGetUniformLocation(_shader_list[position].program_shader,
+                             "object_size");
+    _shader_list[position]._uniform_time =
+        glGetUniformLocation(_shader_list[position].program_shader,
+                             "time");
     _shader_list[position]._uniform_model_view =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "model_view_matrix");
@@ -1776,6 +1791,11 @@ de renderização, separada da engine de física e controle do jogo.
                     _interface_queue[_number_of_loops][i] -> g,
                     _interface_queue[_number_of_loops][i] -> b,
                     _interface_queue[_number_of_loops][i] -> a);
+        glUniform2f(current_shader -> _uniform_object_size,
+                    _interface_queue[_number_of_loops][i] -> width,
+                    _interface_queue[_number_of_loops][i] -> height);
+        glUniform1f(current_shader -> _uniform_time,
+                    (float) W.t / (float) 1000000);
         glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, false,
                            _interface_queue[_number_of_loops][i] ->
                            _transform_matrix);
