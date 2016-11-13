@@ -151,7 +151,7 @@ como valor:
   if(pthread_mutex_init(&_input_mutex, NULL) != 0){ // Inicializa mutex
     perror(NULL);
     exit(1);
-  } 
+  }
 #endif
 }
 @
@@ -164,7 +164,7 @@ precisar finalizá-los:
   if(pthread_mutex_destroy(&_input_mutex) != 0){ // Finaliza mutex
     perror(NULL);
     exit(1);
-} 
+}
 #endif
 @
 
@@ -336,7 +336,7 @@ soltas:
 @<API Weaver: Trata Evento Xlib@>=
 if(event.type == KeyRelease){
   unsigned int code =  _translate_key(XkbKeycodeToKeysym(_dpy,
-                                                         event.xkey.keycode, 
+                                                         event.xkey.keycode,
                                                          0, 0));
   int i;
   // Remove da lista de teclas pressionadas
@@ -417,7 +417,7 @@ de ser pressionada neste \italico{frame}.
     key = _pressed_keys[i];
     if(key == 0) break; // Fim da lista, encerrar
     // Casos especiais:
-    if(key == W_LEFT_CTRL || key == W_RIGHT_CTRL) 
+    if(key == W_LEFT_CTRL || key == W_RIGHT_CTRL)
       W.keyboard[W_CTRL] += W.dt;
     else if(key == W_LEFT_SHIFT || key == W_RIGHT_SHIFT)
       W.keyboard[W_SHIFT] += W.dt;
@@ -841,7 +841,7 @@ trabalho que fazemos com o teclado.
       }
       _released_buttons[4] = 0;
       button = _released_buttons[i];
-    }    
+    }
     if(button == 0) break;
 #if W_TARGET == W_ELF
     // Se recebemos um clique com o botão esquerdo, devemos garantir que
@@ -1113,7 +1113,12 @@ qualquer um destes casos, começaremos ocultando o cursor. Em Xlib isso
 pode ser feito com o seguinte código:
 
 @<Cabeçalhos Weaver@>=
+bool _using_original_cursor;
 void _Whide_cursor(void);
+@
+
+@<API Weaver: Inicialização@>+=
+_using_original_cursor = true;
 @
 
 @<API Weaver: Definições@>=
@@ -1133,6 +1138,7 @@ void _Whide_cursor(void){
   if (bm_no != None)
     XFreePixmap(_dpy, bm_no);
   XFreeColors(_dpy, cmap, &black.pixel, 1, 0);
+  _using_original_cursor = false;
 }
 #endif
 @
@@ -1166,6 +1172,7 @@ isso do SDL para Emscripten:
 void _Whide_cursor(void){
   SDL_ShowCursor(0);
   emscripten_hide_mouse();
+  _using_original_cursor = false;
 }
 #endif
 @
@@ -1222,4 +1229,3 @@ na janela.
 \macrovalor|void W.flush_input(void)|: Limpa todos os dados de
 |W.keyboard| e |W.mouse|, incluindo quais teclas estão sendo
  pressionadas.
-
