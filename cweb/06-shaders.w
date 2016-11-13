@@ -61,10 +61,10 @@ Assim, nossa lista de interfaces é declarada da seguinte forma:
 @<Interface: Declarações@>=
 struct interface {
     int type; // Como renderizar
-    int x, y; // Posição
+    float x, y; // Posição em pixels
     float rotation; // Rotação
     float r, g, b, a; // Cor
-    int height, width; // Tamanho
+    float height, width; // Tamanho em pixels
     bool visible; // A interface é visível?
     bool stretch_x, stretch_y; // A interface muda a largura e altura
                                // com a janela?
@@ -264,10 +264,10 @@ vazio é então procurado na nossa matriz de interfaces e o processo
 particular de criação dela dependendo de seu tipo tem início:
 
 @<Interface: Declarações@>+=
-struct interface *_new_interface(int type, int x, int y, ...);
+struct interface *_new_interface(int type, float x, float y, ...);
 @
 @<Interface: Definições@>=
-struct interface *_new_interface(int type, int x, int y, ...){
+struct interface *_new_interface(int type, float x, float y, ...){
     int i;
     va_list valist;
 #ifdef W_MULTITHREAD
@@ -309,8 +309,8 @@ struct interface *_new_interface(int type, int x, int y, ...){
         // Realmente não precisa de um 'break' aqui.
     case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor
         va_start(valist, y);
-        _interfaces[_number_of_loops][i].width = va_arg(valist, int);
-        _interfaces[_number_of_loops][i].height = va_arg(valist, int);
+        _interfaces[_number_of_loops][i].width = va_arg(valist, double);
+        _interfaces[_number_of_loops][i].height = va_arg(valist, double);
         _interfaces[_number_of_loops][i].r = va_arg(valist, double);
         _interfaces[_number_of_loops][i].g = va_arg(valist, double);
         _interfaces[_number_of_loops][i].b = va_arg(valist, double);
@@ -320,8 +320,8 @@ struct interface *_new_interface(int type, int x, int y, ...){
         break;
     default:
         va_start(valist, y);
-        _interfaces[_number_of_loops][i].width = va_arg(valist, int);
-        _interfaces[_number_of_loops][i].height = va_arg(valist, int);
+        _interfaces[_number_of_loops][i].width = va_arg(valist, double);
+        _interfaces[_number_of_loops][i].height = va_arg(valist, double);
         va_end(valist);
     }
     @<Preenche Matriz de Transformação de Interface na Inicialização@>
@@ -336,7 +336,7 @@ struct interface *_new_interface(int type, int x, int y, ...){
 Após a definirmos, atribuiremos esta função à estrutura |W|:
 
 @<Funções Weaver@>+=
-struct interface *(*new_interface)(int, int, int, ...);
+struct interface *(*new_interface)(int, float, float, ...);
 @
 
 @<API Weaver: Inicialização@>+=
@@ -405,7 +405,7 @@ podermos movê-las.
 Para mudar a posição de uma interface usaremos a função:
 
 @<Interface: Declarações@>+=
-void _move_interface(struct interface *, int x, int y);
+void _move_interface(struct interface *, float x, float y);
 @
 
 A questão de mover a interface é que precisamos passar para a placa de
@@ -469,7 +469,7 @@ com o valor adequado que corresponda à posição da interface na tela
 dada em pixels.
 
 @<Interface: Definições@>=
-void _move_interface(struct interface *inter, int x, int y){
+void _move_interface(struct interface *inter, float x, float y){
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(inter -> _mutex);
 #endif
@@ -485,7 +485,7 @@ void _move_interface(struct interface *inter, int x, int y){
 E adicionamos isso à estrutura |W|:
 
 @<Funções Weaver@>+=
-void (*move_interface)(struct interface *, int, int);
+void (*move_interface)(struct interface *, float, float);
 @
 
 @<API Weaver: Inicialização@>+=
@@ -497,7 +497,7 @@ fazer em uma interface. Isso muda a altura e a largura de uma
 interface.
 
 @<Interface: Declarações@>+=
-void _resize_interface(struct interface *inter, int size_x, int size_y);
+void _resize_interface(struct interface *inter, float size_x, float size_y);
 @
 
 Como os vértices de uma interface fazem com que todas elas sempre
@@ -548,7 +548,7 @@ $$
 A definição da função que uda o tamanho das interfaces é então:
 
 @<Interface: Definições@>=
-void _resize_interface(struct interface *inter, int size_x, int size_y){
+void _resize_interface(struct interface *inter, float size_x, float size_y){
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(inter -> _mutex);
 #endif
@@ -564,7 +564,7 @@ void _resize_interface(struct interface *inter, int size_x, int size_y){
 E por fim, adicionamos tudo isso à estrutura |W|:
 
 @<Funções Weaver@>+=
-  void (*resize_interface)(struct interface *, int, int);
+  void (*resize_interface)(struct interface *, float, float);
 @
 
 @<API Weaver: Inicialização@>+=
@@ -1814,18 +1814,20 @@ com a mudança de tamanho da janela. Para isso, são os seus atributos
     int i, j;
     int change_x = width - old_width;
     int change_y = height - old_height;
-    int new_width, new_height;
+    float new_width, new_height;
     for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
         for(j = 0; j < W_MAX_INTERFACES; j ++){
             if(_interfaces[i][j].type == W_NONE) continue;
             W.move_interface(&_interfaces[i][j],
-                             _interfaces[i][j].x + change_x / 2,
-                             _interfaces[i][j].y + change_y / 2);
+                             _interfaces[i][j].x + ((float) change_x) / 2,
+                             _interfaces[i][j].y + ((float) change_y) / 2);
             if(_interfaces[i][j].stretch_x)
-                new_width = _interfaces[i][j].width * width/old_width;
+                new_width = _interfaces[i][j].width *
+                    ((float) width  / (float) old_width);
             else new_width = _interfaces[i][j].width;
             if(_interfaces[i][j].stretch_y)
-                new_height = _interfaces[i][j].height * height/old_height;
+                new_height = _interfaces[i][j].height *
+                    ((float) height  / (float) old_height);
             else new_height = _interfaces[i][j].height;
             W.resize_interface(&_interfaces[i][j], new_width, new_height);
         }
@@ -1837,8 +1839,8 @@ com a mudança de tamanho da janela. Para isso, são os seus atributos
 \macronome A seguinte nova estrutura foi definida:
 
 \noindent|struct interface {
-    int type, x, y, height, width;
-    float rotation, r, g, b, a;
+    int type;
+    flaot x, y, height, width, rotation, r, g, b, a;
     bool visible;
     bool stretch_x, stretch_y;
 }|
@@ -1850,20 +1852,20 @@ com a mudança de tamanho da janela. Para isso, são os seus atributos
  serão definidos nos próximos capítulos. Valor para somnte leitura,
  não o modifique.
 
-\macrovalor|x, y|: representa a coordenada em que está a interface. Ela é
+\macrovalor|float x, y|: representa a coordenada em que está a interface. Ela é
 definida pela posição do seu centro dada em pixels. Valor para somente
 leitura, não o modifique.
 
-\macrovalor|height, width|: representa a altura e largura da interface, em
+\macrovalor|float height, width|: representa a altura e largura da interface, em
 pixels. Valor para somente leitura, não o modifique.
 
-\macrovalor|rotation|: representa a rotação da interface medida em radianos, com
-a rotação no sentido anti-horário sendo considerada positiva. Valor
-para somente leitura, não o modifique.
+\macrovalor|float rotation|: representa a rotação da interface medida em
+radianos, com a rotação no sentido anti-horário sendo considerada
+positiva. Valor para somente leitura, não o modifique.
 
-\macrovalor\monoespaco{r, g, b, a}: A cor representada pelos canais vermelho,
-verde, azul e o canal alfa para medir a transparência. Pode ser
-modificado.
+\macrovalor\monoespaco|float r, g, b, a|: A cor representada pelos canais
+vermelho, verde, azul e o canal alfa para medir a transparência. Pode
+ser modificado.
 
 \macrovalor|bool visible|: Se a interface deve ser renderizada na tela ou não.
 
@@ -1872,7 +1874,7 @@ encolhida quando a janela em que está muda de tamanho.
 
 \macronome As seguintes 5 novas funções foram definidas:
 
-\macrovalor|struct interface *W.new_interface(int type, int x, int y, ...)|:
+\macrovalor|struct interface *W.new_interface(int type, float x, float y, ...)|:
 Cria uma nova interface. O número e detalhes dos argumentos depende do
 tipo. Para todos os tipos vistos neste capítulo e para tipos de
 shaders sob medida, após as coordenadas $x, y$ da interface vem a sua
@@ -1883,11 +1885,11 @@ gerada é retornada.
 \macrovalor|void W.destroy_interface(struct interface *i)|: Destrói uma
 interface, liberando seu espaço para ser usada por outra.
 
-\macrovalor|void W.move_interface(struct interface *i, int x, int y)|:
+\macrovalor|void W.move_interface(struct interface *i, float x, float y)|:
 Move uma interface para uma nova posição $(x, y)$
 
-\macrovalor|void W.resize_interface(struct interface *i, int width, int height)|
-: Muda a largura e altura de uma interface.
+\macrovalor|void W.resize_interface(struct interface *i, float width, float height)|:
+Muda a largura e altura de uma interface.
 
 \macrovalor|void W.rotate_interface(struct interface *i, float rotation)|:
 Muda a rotação de uma interface.
