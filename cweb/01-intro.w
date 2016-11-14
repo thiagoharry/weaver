@@ -479,7 +479,7 @@ int main(int argc, char **argv){@/
   @<Caso de uso 5: Criar novo módulo@>
   @<Caso de uso 6: Criar novo projeto@>
   @<Caso de uso 7: Criar novo plugin@>
-  //@<Caso de uso 8: Criar novo shader@>
+  @<Caso de uso 8: Criar novo shader@>
 END_OF_PROGRAM:
   @<Finalização@>
   return return_value;
@@ -1344,7 +1344,7 @@ Já o código de criação de novo módulo passa a ser:
 
 @<Caso de uso 5: Criar novo módulo@>=
 if(inside_weaver_directory && have_arg &&
-   strcmp(argument, "--plugin")){
+   strcmp(argument, "--plugin") && strcmp(argument, "--shader")){
   if(arg_is_valid_module){
     char *filename;
     FILE *fp;
@@ -1548,13 +1548,14 @@ shaders, pois sua convenção numérica garante que cada um terá um nome
 
 O código deste caso de uso é então:"
 
-@<Caso de uso 7: Criar novo shader@>=
+@<Caso de uso 8: Criar novo shader@>=
 if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
    argument2 != NULL){
+    FILE *fp;
     DIR *shader_dir;
     struct dirent *dp;
-    int i, number, number_of_files = 0;
-    char *buffer;
+    int i, number, number_of_files = 0, err;
+    char *buffer, *buffer2;
     bool *exists;
     // Primeiro vamos iterar dentro do diretório de shaders apenas
     // para contar o número de diretórios:
@@ -1617,7 +1618,50 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     err = mkdir(buffer, S_IRWXU | S_IRWXG | S_IROTH);
     if(err == -1) ERROR();
     // Escrevendo o shader de vértice:
-
+    buffer2 = concatenate(buffer, "/vertex.glsl", "");
+    if(buffer2 == NULL) ERROR();
+    fp = fopen(buffer2, "w");
+    if(fp == NULL){
+        free(buffer);
+        free(buffer2);
+        ERROR();
+    }
+    fprintf(fp, "#version 100\n\n");
+    fprintf(fp, "#if GL_FRAGMENT_PRECISION_HIGHT == 1\n");
+    fprintf(fp, "  precision highp float;\n  precision highp int;\n");
+    fprintf(fp, "#else\n");
+    fprintf(fp, "  precision mediump float;\n  precision mediump int;\n");
+    fprintf(fp, "#endif\n");
+    fprintf(fp, "  precision lowp sampler2D;\n  precision lowp samplerCube;\n");
+    fprintf(fp, "\n\nattribute vec3 vertex_position;\n\n");
+    fprintf(fp, "uniform vec4 object_color;\nuniform mat4 model_view_matrix;");
+    fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n\n");
+    fprintf(fp, "void main(){\n  gl_Position = model_view_matrix * ");
+    fprintf(fp, "vec4(vertex_position, 1.0);\n}\n");
+    free(buffer2);
+    fclose(fp);
+    // Escrevendo o shader de fragmento:
+    buffer2 = concatenate(buffer, "/fragment.glsl", "");
+    if(buffer2 == NULL) ERROR();
+    fp = fopen(buffer2, "w");
+    if(fp == NULL){
+        free(buffer);
+        free(buffer2);
+        ERROR();
+    }
+    fprintf(fp, "#version 100\n\n");
+    fprintf(fp, "#if GL_FRAGMENT_PRECISION_HIGHT == 1\n");
+    fprintf(fp, "  precision highp float;\n  precision highp int;\n");
+    fprintf(fp, "#else\n");
+    fprintf(fp, "  precision mediump float;\n  precision mediump int;\n");
+    fprintf(fp, "#endif\n");
+    fprintf(fp, "  precision lowp sampler2D;\n  precision lowp samplerCube;\n");
+    fprintf(fp, "\nuniform vec4 object_color;\n");
+    fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n\n");
+    fprintf(fp, "void main(){\n  gl_FragColor = object_color;\n}\n ");
+    // Finalizando
+    free(buffer);
+    free(buffer2);
     END();
 }
 @
