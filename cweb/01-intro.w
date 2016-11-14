@@ -385,10 +385,15 @@ no diretório Weaver e devemos receber dois argumentos. O primeiro deve
 ser \monoespaco{--plugin} e o segundo deve ser o nome do plugin, o
 qual deve ser um nome válido seguindo as mesmas regras dos módulos.
 
+\negrito{Caso de Uso 8: Criar um novo Shader:} Para isso devemos estar
+no diretório Weaver e devemos receber dois argumentos. O primeiro deve
+ser \monoespaco{--shader} e o segundo deve ser o nome do shader, o
+qual deve ser um nome válido seguindo as mesmas regras dos módulos.
+
+
 @*2 Variáveis do Programa Weaver.
 
 O comportamento de Weaver deve depender das seguintes variáveis:
-
 
 |inside_weaver_directory|: Indicará se o programa está sendo
   invocado de dentro de um projeto Weaver.
@@ -474,6 +479,7 @@ int main(int argc, char **argv){@/
   @<Caso de uso 5: Criar novo módulo@>
   @<Caso de uso 6: Criar novo projeto@>
   @<Caso de uso 7: Criar novo plugin@>
+  //@<Caso de uso 8: Criar novo shader@>
 END_OF_PROGRAM:
   @<Finalização@>
   return return_value;
@@ -1074,6 +1080,9 @@ que imprimiremos é semelhante à esta:
        /
                           weaver --plugin NAME
                            Creates new plugin in plugin/NAME.c
+
+                          weaver --shader NAME
+                           Creates a new shader directory in shaders/
 \alinhanormal
 
 O que é obtido com o código:
@@ -1513,6 +1522,103 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--plugin") &&
   fclose(fp);
   free(buffer);
   END();
+}
+@
+
+@*2 Caso de uso 8: Criar novo shader.
+
+Este caso de uso é similar ao anterior, mas possui algumas
+diferenças. Todo shader que criamos na verdade é um diretório com dois
+shaders: o de vértice e o de fragmento. O diretório precisa sempre ter
+um nome no estilo \monoespaco{DD-XXXXXXX} onde \monoespaco{DD} é um
+número de um ou mais dígitos que ao ser interpretado por um |atoi|
+deve resultar em um número único, não usado pelos outros shaders
+diferente de zero e de modo que todos os shaders possuam números
+sequenciais: \monoespaco{1-primeiro\_shader}, \monoespaco{2-segundo\_shader},
+$\ldots$
+
+Depois do número do shader virá um traço e depois virá o seu nome para
+ser facilmente identificado por humanos.
+
+Então neste caso de uso, que será invocado somente quando o nosso
+primeiro argumento for |"--shader"| e o segundo for um nome
+qualquer. Não precisamos realmente forçar uma restrição nos nomes dos
+shaders, pois sua convenção numérica garante que cada um terá um nome
+único e não-conflitante.
+
+O código deste caso de uso é então:"
+
+@<Caso de uso 7: Criar novo shader@>=
+if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
+   argument2 != NULL){
+    DIR *shader_dir;
+    struct dirent *dp;
+    int i, number, number_of_files = 0;
+    char *buffer;
+    bool *exists;
+    // Primeiro vamos iterar dentro do diretório de shaders apenas
+    // para contar o número de diretórios:
+    shader_dir =opendir("shaders/");
+    if(shader_dir == NULL)
+        ERROR();
+    while((dp = readdir(shader_dir)) != NULL){
+        if(dp -> d_name[0] != '.') continue;
+        buffer = concatenate("shaders/", dp -> d_name[0], "");
+        if(buffer == NULL) ERROR();
+        if(directory_exist(buffer) != 1){
+            free(buffer);
+            continue;
+        }
+        free(buffer);
+        number_of_files ++;
+    }
+    closedir(shader_dir);
+    // Agora que sabemos o número de arquivos existentes, precisamos
+    // de um número 1 unidade maior para conter todos os arquivos mais
+    // o próximo. Alocamos um vetor booleano para indicar se o shader
+    // cujo número corresponde à tal posição existe ou não.
+    exists = (bool *) malloc(sizeof(bool) * number_of_files + 1);
+    if(exists == NULL) ERROR();
+    for(i = 0; i < number_of_files + 1; i ++)
+        exists[i] = false;
+    // Iteramos novamente sobre os arquivos para saber quais números
+    // já estão preenchidos e assim saber qual deve ser o número do
+    // próximo shader. Provavelmente será o último. Mas vamos
+    // considerar a possibilidade de haver um shader 1, um shader 3 e
+    // não existir um 2, por exemplo. Neste caso, buscaremos tapar os
+    // buracos.
+    shader_dir = opendir("shaders/");
+    if(shader_dir == NULL)
+        ERROR();
+    while((dp = readdir(shader_dir)) != NULL){
+        if(dp -> d_name[0] != '.') continue;
+        buffer = concatenate("shaders/", dp -> d_name[0], "");
+        if(buffer == NULL) ERROR();
+        if(directory_exist(buffer) != 1){
+            free(buffer);
+            continue;
+        }
+        free(buffer);
+        number = atoi(dp -> d_name);
+        exists[number - 1] = true;
+    }
+    closedir(shader_dir);
+    for(i = 0; exists[i] && i < number_of_files + 1; i ++);
+    if(i == number_of_files + 1){
+        fprintf(stderr, "ERROR: Shader directory changed during execution.\n");
+        ERROR();
+    }
+    number = i + 1; // Este é o número do novo shader
+    // Criando diretório do shader:
+    buffer = (char *) malloc(number / 10 + 2 + strlen(argument2));
+    if(buffer == NULL) ERROR();
+    buffer[0] = '\0';
+    sprintf(buffer, "%d-%s", number, argument2);
+    err = mkdir(buffer, S_IRWXU | S_IRWXG | S_IROTH);
+    if(err == -1) ERROR();
+    // Escrevendo o shader de vértice:
+
+    END();
 }
 @
 
