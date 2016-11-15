@@ -647,7 +647,7 @@ char *concatenate(char *string, ...){
   new_string = (char *) malloc(current_size);
   if(new_string == NULL) return NULL;
   strcpy(new_string, string); // Copia primeira string
-  while(current_string[0] != '\0'){ // Pára quando copiamos o "".
+  while(current_string[0] != '\0'){ // Pára quando copiamos o ""
     current_string = va_arg(arguments, char *);
     current_size += strlen(current_string);
     realloc_return = (char *) realloc(new_string, current_size);
@@ -1559,11 +1559,13 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     bool *exists;
     // Primeiro vamos iterar dentro do diretório de shaders apenas
     // para contar o número de diretórios:
-    shader_dir =opendir("shaders/");
+    shader_dir = opendir("shaders/");
     if(shader_dir == NULL)
         ERROR();
     while((dp = readdir(shader_dir)) != NULL){
-        if(dp -> d_name[0] != '.') continue;
+        if(dp -> d_name == NULL) continue;
+        if(dp -> d_name[0] == '.') continue;
+        if(dp -> d_name[0] == '\0') continue;
         buffer = concatenate("shaders/", dp -> d_name[0], "");
         if(buffer == NULL) ERROR();
         if(directory_exist(buffer) != 1){
@@ -1592,7 +1594,9 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     if(shader_dir == NULL)
         ERROR();
     while((dp = readdir(shader_dir)) != NULL){
-        if(dp -> d_name[0] != '.') continue;
+        if(dp -> d_name == NULL) continue;
+        if(dp -> d_name[0] == '.') continue;
+        if(dp -> d_name[0] == '\0') continue;
         buffer = concatenate("shaders/", dp -> d_name[0], "");
         if(buffer == NULL) ERROR();
         if(directory_exist(buffer) != 1){
@@ -1611,10 +1615,11 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     }
     number = i + 1; // Este é o número do novo shader
     // Criando diretório do shader:
-    buffer = (char *) malloc(number / 10 + 2 + strlen(argument2));
+    buffer = (char *) malloc(strlen("shaders/") +
+                             number / 10 + 2 + strlen(argument2));
     if(buffer == NULL) ERROR();
     buffer[0] = '\0';
-    sprintf(buffer, "%d-%s", number, argument2);
+    sprintf(buffer, "shaders/%d-%s", number, argument2);
     err = mkdir(buffer, S_IRWXU | S_IRWXG | S_IROTH);
     if(err == -1) ERROR();
     // Escrevendo o shader de vértice:
