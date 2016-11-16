@@ -725,7 +725,8 @@ void _Wresize_window(int width, int height){
                             );
   W.width = width;
   W.height = height;
-  //@<Ações após Redimencionar Janela@>
+  glViewport(0, 0, W.width, W.height);
+  @<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
 #endif

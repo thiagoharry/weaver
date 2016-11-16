@@ -1854,6 +1854,129 @@ com a mudança de tamanho da janela. Para isso, são os seus atributos
 }
 @
 
+@*1 A Resolução da Tela.
+
+Agora que estamos suportando shaders, é o momento no qual podemos
+enfim suportar diferentes tiopos de resolução. A melhor forma de fazer
+isso é checando se estamos renderizando na resolução nativa de noss
+monitor e sistema ou não. Se estivermos, devemos renderizar todas as
+imagens para uma texura cujo tamanho é a resolução que desejamos. Em
+seguida, renderizamos tal textura para que ocupe a tela toda.
+
+Esta não é a uúnica forma de mudar a resolução. Existem outras formas
+mais invasivas que envolvem mudar nas configuraões do próprio X no
+Linux. Mas é uma péssima ideia fazer isso da maneira mais invasiva
+como faziam jogos mais antigos. Se o nosso programa encerrar de
+maneira anormal, como uma falha de segmentação, é bastante complicado
+escrever código robusto para que ele consiga restaurar com segurança a
+nossa resolução e encerrar de maneira elegante. E se o nosso programa
+for encerrado à força pelo próprio Sistema Operacional
+(\monoespaco{kill -9}), então não há nada que possamos fazer e a
+resolução não voltará ao valor padrão ao encerrar o programa.
+
+Atualmente as GPUs e computadores estão rápidos o bastante para que
+possamos usar o método menos invasivo sem tanta penalidade de
+performance. E a ideia de diminuir a resolução é justamente obter o
+ganho de desempenho para que hajam menos pixels individuais a serem
+processados pelo nosso shader de fragmento.
+
+A resolução nativa da tela é armazenada nas variáveis |W.resolution_x|
+e |W.resolution_y|. O tamanho da tela é armazenado em |W.width| e
+|W.height|. Iremos agora apresentar as variáveis que irão conter a
+resolução do jogo:
+
+@<Variáveis Weaver@>+=
+/* Isso fica dentro da estrutura W: */
+int game_resolution_x, game_resolution_y;
+@
+@<Cabeçalhos Weaver@>+=
+bool _changed_resolution;
+// Usaremos os elementos abaixos para renderizar a tela se não
+// estivermos na resolução nativa:
+GLuint _framebuffer, _texture_screen;
+@
+
+Tipicamente tais valores são inicializados como sendo iguais ao
+|W.width| e |W.height|:
+
+@<API Weaver: Inicialização@>+=
+{
+    W.game_resolution_x = W.width;
+    W.game_resolution_y = W.height;
+    _changed_resolution = false;
+}
+@
+
+E caso estes valores não sejam modificados e sejam iguais à largura e
+altura da janela, eles sempre irão se manter iguais. Caso a janela
+seja redimencionada, a resolução do jogo também será:
+
+@<Ações após Redimencionar Janela@>+=
+{
+    if(!_changed_resolution){
+        W.game_resolution_x = W.width;
+        W.game_resolution_y = W.height;
+    }
+}
+@
+
+Mas o interessante é quando mudamos tais valores e assim fazemos com
+que eles sejam desvinculados da resolução nativa. Isso será feito por
+meio da função:
+
+@<Cabeçalhos Weaver@>=
+bool _set_resolution(int width, int height);
+@
+
+@<API Weaver: Definições@>+=
+bool _set_resolution(int width, int height){
+    GLenum DrawBuffers[1] = {GL_COLOR_ATTACHMENT0};
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&_window_mutex);
+#endif
+// Se estávamos na resolução nativa, temos que criar o novo
+// framebuffer e textura:
+    if(!_changed_resolution){
+        // Criando um novo framebuffer
+        glGenFramebuffers(1, &_framebuffer);
+        glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+        // Criando a textura:
+        glGenTextures(1, &_texture_screen);
+        glBindTexture(GL_TEXTURE_2D, _texture_screen);
+        // Começamos passando uma imagem vazia para ela:
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
+                     GL_UNSIGNED_BYTE, 0);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        // Ligamos a textura ao framebuffer
+        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                             _texture_screen, 0);
+        glDrawBuffers(1, DrawBuffers);
+        // Checagem de erros:
+        if(glCheckFramebufferStatus(GL_FRAMEBUFFER) != GL_FRAMEBUFFER_COMPLETE){
+#ifdef W_MULTITHREAD
+            pthread_mutex_unlock(&_window_mutex);
+#endif
+            return false;
+        }
+        _changed_resolution = true;
+    }
+    else{
+        glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+        glBindTexture(GL_TEXTURE_2D, _texture_screen);
+        // Começamos passando uma imagem vazia para ela:
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
+                     GL_UNSIGNED_BYTE, 0);
+    }
+    W.game_resolution.x = width;
+    W.game_resolution_y = height;
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&_window_mutex);
+#endif
+}
+@
+
+
 @*1 Sumário das Variáveis e Funções de Shaders e Interfaces.
 
 \macronome A seguinte nova estrutura foi definida:
