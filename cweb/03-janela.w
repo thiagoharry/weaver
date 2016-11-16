@@ -19,6 +19,7 @@ e taxa de atualização:
 @<Variáveis Weaver@>+=
 /* Isso fica dentro da estrutura W: */
 int resolution_x, resolution_y, framerate;
+int window_resolution_x, window_resolution_y;
 @
 
 Para criar uma janela, usaremos o Xlib ao invés de bibliotecas de mais
@@ -306,6 +307,8 @@ E é inicializada com os seguintes dados:
                                W.height, // Altura da janela
                                0, 0, // Borda (espessura e cor)
                                0); // Cor padrão
+  W.window_resolution_x = W.width;
+  W.window_resolution_y = W.height;
 @
 
 Isso cria a janela. Mas isso não quer dizer que a janela será
@@ -583,6 +586,8 @@ void _initialize_canvas(void){
     fprintf(stderr, "ERROR: Could not create window: %s\n", SDL_GetError());
     exit(1);
   }
+  W.window_resolution_x = W.width;
+  W.window_resolution_y = W.height;
 }
 void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
   SDL_FreeSurface(window);
@@ -698,6 +703,8 @@ void _Wresize_window(int width, int height){
   old_height = W.height;
   W.width = width;
   W.height = height;
+  W.window_resolution_x = W.width;
+  W.window_resolution_y = W.height;
   glViewport(0, 0, W.width, W.height);
   @<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
@@ -716,6 +723,7 @@ funciona como se mudássemos o tamanho da anterior:
 
 @<Canvas: Definição@>=
 void _Wresize_window(int width, int height){
+  int old_width, old_height;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_window_mutex);
 #endif
@@ -723,8 +731,12 @@ void _Wresize_window(int width, int height){
                             0, // Bits por pixel, usar o padrão
                             SDL_OPENGL // Inicializar o contexto OpenGL
                             );
+  old_width = W.width;
+  old_height = W.height;
   W.width = width;
   W.height = height;
+  W.window_resolution_x = W.width;
+  W.window_resolution_y = W.height;
   glViewport(0, 0, W.width, W.height);
   @<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
@@ -864,15 +876,19 @@ leitura, não mude o valor.
 \macrovalor|int W.y|: Armazena a posição $y$ da janela. Somente para a
 leitura, não mude o valor.
 
-\macrovalor|int W.width|: Armazena a largura da janela em
-pixels. Somente para leitura, não mude o valor.
+\macrovalor|int W.width|: Armazena a nossa resolução vertical.
+Somente para leitura, não mude o valor.
 
-\macrovalor|int W.height|: Armazena a altura da janela em
+\macrovalor|int W.height|: Armazena a resolução horizontal em
 pixels. Somente para leitura, não mude o valor.
 
 \macrovalor|int W.resolution_x|: A resolução horizontal da tela.
 
 \macrovalor|int W.resolution_y|: A resolução vertical da tela.
+
+\macrovalor|int W.resolution_x|: A resolução horizontal da janela em que estamos.
+
+\macrovalor|int W.resolution_y|: A resolução vertical da janela em que estamos.
 
 \macrovalor|int W.framerate|: A taxa de atualização do monitor.
 
