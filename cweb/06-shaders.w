@@ -1880,15 +1880,13 @@ performance. E a ideia de diminuir a resolução é justamente obter o
 ganho de desempenho para que hajam menos pixels individuais a serem
 processados pelo nosso shader de fragmento.
 
-A resolução nativa da tela é armazenada nas variáveis |W.resolution_x|
-e |W.resolution_y|. O tamanho da tela é armazenado em |W.width| e
-|W.height|. Iremos agora apresentar as variáveis que irão conter a
-resolução do jogo:
+A resolução da tela é armazenada em |W.resolution_x| e
+|W.resolution_y|.  A resolução nativa da janela é armazenada nas
+variáveis |W.window_resolution_x| e |W.window_resolution_y|. A
+resolução do jogo em si até agora era sempre igual à resolução da
+janela e era armazenada em |W.width| e |W.height|. Mas agora isso vai
+mudar e esta resolução pode ser diferente da janela:
 
-@<Variáveis Weaver@>+=
-/* Isso fica dentro da estrutura W: */
-int game_resolution_x, game_resolution_y;
-@
 @<Cabeçalhos Weaver@>+=
 bool _changed_resolution;
 // Usaremos os elementos abaixos para renderizar a tela se não
@@ -1901,28 +1899,28 @@ Tipicamente tais valores são inicializados como sendo iguais ao
 
 @<API Weaver: Inicialização@>+=
 {
-    W.game_resolution_x = W.width;
-    W.game_resolution_y = W.height;
     _changed_resolution = false;
 }
 @
 
-E caso estes valores não sejam modificados e sejam iguais à largura e
-altura da janela, eles sempre irão se manter iguais. Caso a janela
-seja redimencionada, a resolução do jogo também será:
+Se a resolução foi modificada, não mantemos mais a igualdade entre a
+resolução da janela e do jogo. Mas se ela não foi modificada, então a
+resolução do jogo deve ser mantida consistente caso a janela seja
+redimencionada:
 
 @<Ações após Redimencionar Janela@>+=
 {
+    // width e height são o novo tamanho após a janela ser
+    // redimencionada:
     if(!_changed_resolution){
-        W.game_resolution_x = W.width;
-        W.game_resolution_y = W.height;
+        W.width = width;
+        W.height = height;
     }
 }
 @
 
-Mas o interessante é quando mudamos tais valores e assim fazemos com
-que eles sejam desvinculados da resolução nativa. Isso será feito por
-meio da função:
+Vamos agora mudar a resolução do jogo (mas não da tela ou da
+janela). Definiremos uma função para isso:
 
 @<Cabeçalhos Weaver@>=
 bool _set_resolution(int width, int height);
@@ -1968,8 +1966,8 @@ bool _set_resolution(int width, int height){
         glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, width, height, 0, GL_RGB,
                      GL_UNSIGNED_BYTE, 0);
     }
-    W.game_resolution.x = width;
-    W.game_resolution_y = height;
+    W.width = width;
+    W.height = height;
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_window_mutex);
 #endif

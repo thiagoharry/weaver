@@ -699,13 +699,11 @@ void _Wresize_window(int width, int height){
   pthread_mutex_lock(&_window_mutex);
 #endif
   XResizeWindow(_dpy, _window, width, height);
-  old_width = W.width;
-  old_height = W.height;
-  W.width = width;
-  W.height = height;
-  W.window_resolution_x = W.width;
-  W.window_resolution_y = W.height;
-  glViewport(0, 0, W.width, W.height);
+  old_width = W.window_resolution_x;
+  old_height = W.window_resolution_y;
+  W.window_resolution_x = width;
+  W.window_resolution_y = height;
+  glViewport(0, 0, W.window_resolution_x, W.window_resolution_y);
   @<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
