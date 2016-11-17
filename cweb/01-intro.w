@@ -1850,6 +1850,7 @@ void _update(void){
 void _render(void){
   // Limpando todos os buffers.
   glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
+  @<Antes da Renderização@>
   // TODO: Renderizar os objetos que fazem parte do jogo
   @<Renderizar Interface@>
 #if W_TARGET == W_ELF

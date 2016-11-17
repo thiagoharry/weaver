@@ -934,6 +934,7 @@ uniform vec4 object_color; // A cor do objeto
 uniform mat4 model_view_matrix; // Transformações de posição do objeto
 uniform vec2 object_size; // Largura e altura do objeto
 uniform float time; // Tempo de jogo em segundos
+uniform sampler2D texture1; // Textura
 @
 
 Estes dois códigos fontes serão processados pelo Makefile de cada
@@ -1971,6 +1972,62 @@ bool _set_resolution(int width, int height){
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_window_mutex);
 #endif
+}
+@
+
+Então, se modificamos a resolução precisamos avisar que toda a
+renderização que faremos será primeiro em uma textura com a resolução
+correta---o nosso framebuffer:
+
+@<Antes da Renderização@>=
+if(_changed_resolution){
+    glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+    glViewport(0, 0, W.width, W.height);
+}
+@
+
+Mas uma vez que tudo seja renderizado no framebuffer, nós precisamos
+então ter um quadrado para o renderizarmos na tela usando o nosso
+framebuffer como textura. E vamos precisar também de um shader. Para
+isso, podemos usar as mesmas coordenadas de vértice das interfaces.
+
+Mas vamos precisar de nosso próprio shader para lidar com isso. Pois o
+shader padrão para interfaces não lida com texturas.
+
+@<Shaders: Definições@>=
+char _vertex_interface[] = {
+#include "vertex_interface_texture.data"
+        , 0x00};
+char _fragment_interface[] = {
+#include "fragment_interface_texure.data"
+    , 0x00};
+@
+
+Nosso novo shader de vértice:
+
+@(project/src/weaver/vertex_interface_texture.glsl@>=
+#version 100
+
+attribute vec3 vertex_position;
+
+void main(){
+    // Apenas esticamos o quadrado com este vetor para ampliar seu
+    // tamanho e ele cobrir toda a tela:
+     highp mat4 m = mat4(vec4(2, 0, 0, 0), vec4(0, 2, 0, 0),
+                        vec4(0, 0, 2, 0), vec4(0, 0, 0, 1));
+     gl_Position = m * vec4(vertex_position, 1.0);
+}
+@
+
+E nosso shader de fragmento, que efetivamente usa a textura:
+
+@(project/src/weaver/vertex_interface_texture.glsl@>=
+#version 100
+
+uniform sampler2D texture1;
+
+void main(){
+    gl_FragColor = texture(texture1, );
 }
 @
 
