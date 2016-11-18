@@ -1854,6 +1854,7 @@ void _render(void){
   @<Antes da Renderização@>
   // TODO: Renderizar os objetos que fazem parte do jogo
   @<Renderizar Interface@>
+  @<Depois da Renderização@>
 #if W_TARGET == W_ELF
   glXSwapBuffers(_dpy, _window);
 #else

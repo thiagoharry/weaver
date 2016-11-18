@@ -21,7 +21,7 @@ make-web:
 shader_data: src/weaver/vertex_interface.data\
 		src/weaver/fragment_interface.data\
 		src/weaver/fragment_interface_texture.data\
-		src/weaver/vertex_interface_texture.data\
+		src/weaver/vertex_interface_texture.data
 src/weaver/vertex_interface.data: src/weaver/vertex_interface.glsl
 	cat src/weaver/vertex_interface.glsl | sed 's/^#line.*//' | \
 	xxd -i > src/weaver/vertex_interface.data

@@ -1975,6 +1975,7 @@ bool _set_resolution(int width, int height){
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_window_mutex);
 #endif
+    return true;
 }
 @
 
@@ -2008,7 +2009,7 @@ char _vertex_interface_texture[] = {
 #include "vertex_interface_texture.data"
         , 0x00};
 char _fragment_interface_texture[] = {
-#include "fragment_interface_texure.data"
+#include "fragment_interface_texture.data"
     , 0x00};
 @
 
@@ -2028,14 +2029,14 @@ void main(){
                         vec4(0, 0, 2, 0), vec4(0, 0, 0, 1));
      gl_Position = m * vec4(vertex_position, 1.0);
      // Coordenada da textura:
-     coordinate = vec2((vertex_position.x + 1.0) / 2,
-                       (vertex_position.y + 1.0) / 2);
+     coordinate = vec2((vertex_position[0] + 1.0) / 2,
+                       (vertex_position[1] + 1.0) / 2);
 }
 @
 
 E nosso shader de fragmento, que efetivamente usa a textura:
 
-@(project/src/weaver/vertex_interface_texture.glsl@>=
+@(project/src/weaver/fragment_interface_texture.glsl@>=
 #version 100
 
 uniform sampler2D texture1;
@@ -2067,6 +2068,23 @@ resolução de sua tela:
     _framebuffer_shader._attribute_vertex_position =
         glGetAttribLocation(_framebuffer_shader.program_shader,
                             "vertex_position");
+}
+@
+
+Tendo todos os shaders prontos, podemos então usá-lo para renderizar o
+nosso framebuffer depois que acabamos de renderizar tudo nele:
+
+@<Depois da Renderização@>=
+if(_changed_resolution){
+    // Deixamos de usar o framebuffer para renderização:
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    glViewport(0, 0, W.window_resolution_x, W.window_resolution_y);
+    // E renderizamos o framebuffer na tela:
+    glUseProgram(_framebuffer_shader.program_shader);
+    glEnableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
+    glUniform1i(_framebuffer_shader._uniform_texture1, _texture_screen);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glDisableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
 }
 @
 

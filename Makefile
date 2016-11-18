@@ -99,16 +99,14 @@ install: uninstall
 	install -c project/src/weaver/window.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/canvas.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/canvas.c ${PROJECT_SHARE}/src/weaver
-#	install -c project/src/weaver/wobject.h ${PROJECT_SHARE}/src/weaver
-#	install -c project/src/weaver/wobject.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/vertex_interface.glsl \
 						${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/fragment_interface.glsl \
 	                                        ${PROJECT_SHARE}/src/weaver
-#	install -c project/src/weaver/aux.h ${PROJECT_SHARE}/src/weaver
-#	install -c project/src/weaver/aux.c ${PROJECT_SHARE}/src/weaver
-#	install -c project/src/weaver/camera.h ${PROJECT_SHARE}/src/weaver
-#	install -c project/src/weaver/camera.c ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/vertex_interface_texture.glsl \
+		${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/fragment_interface_texture.glsl \
+		${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/plugins.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/plugins.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/interface.h ${PROJECT_SHARE}/src/weaver
