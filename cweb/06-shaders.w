@@ -2018,9 +2018,9 @@ Nosso novo shader de vértice:
 @(project/src/weaver/vertex_interface_texture.glsl@>=
 #version 100
 
-attribute vec3 vertex_position;
+attribute mediump vec3 vertex_position;
 
-varying vec2 coordinate;
+varying mediump vec2 coordinate;
 
 void main(){
     // Apenas esticamos o quadrado com este vetor para ampliar seu
@@ -2029,8 +2029,8 @@ void main(){
                         vec4(0, 0, 2, 0), vec4(0, 0, 0, 1));
      gl_Position = m * vec4(vertex_position, 1.0);
      // Coordenada da textura:
-     coordinate = vec2((vertex_position[0] + 1.0) / 2,
-                       (vertex_position[1] + 1.0) / 2);
+     coordinate = vec2(vertex_position[0],
+                       vertex_position[1]);
 }
 @
 
@@ -2041,10 +2041,10 @@ E nosso shader de fragmento, que efetivamente usa a textura:
 
 uniform sampler2D texture1;
 
-varying vec2 coordinate;
+varying mediump vec2 coordinate;
 
 void main(){
-    gl_FragColor = texture(texture1, coordinate);
+    gl_FragColor = texture2D(texture1, coordinate);
 }
 @
 
