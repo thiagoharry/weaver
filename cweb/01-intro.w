@@ -1662,7 +1662,8 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     fprintf(fp, "#endif\n");
     fprintf(fp, "  precision lowp sampler2D;\n  precision lowp samplerCube;\n");
     fprintf(fp, "\nuniform vec4 object_color;\n");
-    fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n\n");
+    fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n");
+    fprintf(fp, "\nuniform sampler2D texture1;\n\n");
     fprintf(fp, "void main(){\n  gl_FragColor = object_color;\n}\n ");
     // Finalizando
     free(buffer);

@@ -1125,7 +1125,7 @@ struct _shader{
     char name[128];        // Nome do shader
     // Os uniformes do shader:
     GLint _uniform_object_color, _uniform_model_view, _uniform_object_size;
-    GLint _uniform_time;
+    GLint _uniform_time, _uniform_texture1;
     // Os atributos do shader:
     GLint _attribute_vertex_position;
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
@@ -1538,6 +1538,9 @@ void _compile_and_insert_new_shader(char *dir, int position){
     _shader_list[position]._uniform_time =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "time");
+    _shader_list[position]._uniform_texture1 =
+        glGetUniformLocation(_shader_list[position].program_shader,
+                             "texture1");
     _shader_list[position]._uniform_model_view =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "model_view_matrix");
@@ -1994,11 +1997,17 @@ isso, podemos usar as mesmas coordenadas de vértice das interfaces.
 Mas vamos precisar de nosso próprio shader para lidar com isso. Pois o
 shader padrão para interfaces não lida com texturas.
 
+@<Shaders: Declarações@>=
+extern char _vertex_interface_texture[];
+extern char _fragment_interface_texture[];
+struct _shader _framebuffer_shader;
+@
+
 @<Shaders: Definições@>=
-char _vertex_interface[] = {
+char _vertex_interface_texture[] = {
 #include "vertex_interface_texture.data"
         , 0x00};
-char _fragment_interface[] = {
+char _fragment_interface_texture[] = {
 #include "fragment_interface_texure.data"
     , 0x00};
 @
@@ -2010,12 +2019,17 @@ Nosso novo shader de vértice:
 
 attribute vec3 vertex_position;
 
+varying vec2 coordinate;
+
 void main(){
     // Apenas esticamos o quadrado com este vetor para ampliar seu
     // tamanho e ele cobrir toda a tela:
      highp mat4 m = mat4(vec4(2, 0, 0, 0), vec4(0, 2, 0, 0),
                         vec4(0, 0, 2, 0), vec4(0, 0, 0, 1));
      gl_Position = m * vec4(vertex_position, 1.0);
+     // Coordenada da textura:
+     coordinate = vec2((vertex_position.x + 1.0) / 2,
+                       (vertex_position.y + 1.0) / 2);
 }
 @
 
@@ -2026,11 +2040,35 @@ E nosso shader de fragmento, que efetivamente usa a textura:
 
 uniform sampler2D texture1;
 
+varying vec2 coordinate;
+
 void main(){
-    gl_FragColor = texture(texture1, );
+    gl_FragColor = texture(texture1, coordinate);
 }
 @
 
+Pra começar então, vamos precisar compilar este programa GLSL e vamos
+ter que armazenar a posição de seu atributo de coordenada e de seu
+valor uniforme de textura. Faremos isso durante o começo do programa,
+para estarmos prontos mesmo que o usuário opte por não mudar a
+resolução de sua tela:
+
+@<API Weaver: Inicialização@>+=
+{
+    GLuint vertex, fragment;
+    vertex = _compile_vertex_shader(_vertex_interface_texture);
+    fragment = _compile_fragment_shader(_fragment_interface_texture);
+    // Preenchendo variáeis uniformes e atributos:
+    _framebuffer_shader.program_shader =
+        _link_and_clean_shaders(vertex, fragment);
+    _framebuffer_shader._uniform_texture1 =
+        glGetUniformLocation(_framebuffer_shader.program_shader,
+                             "texture1");
+    _framebuffer_shader._attribute_vertex_position =
+        glGetAttribLocation(_framebuffer_shader.program_shader,
+                            "vertex_position");
+}
+@
 
 @*1 Sumário das Variáveis e Funções de Shaders e Interfaces.
 
