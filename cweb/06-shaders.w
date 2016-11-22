@@ -1895,7 +1895,7 @@ mudar e esta resolução pode ser diferente da janela:
 bool _changed_resolution;
 // Usaremos os elementos abaixos para renderizar a tela se não
 // estivermos na resolução nativa:
-GLuint _framebuffer, _texture_screen;
+  GLuint _framebuffer, _texture_screen, _depth_texture;
 @
 
 Tipicamente tais valores são inicializados como sendo iguais ao
@@ -1942,6 +1942,9 @@ bool _set_resolution(int width, int height){
         // Criando um novo framebuffer
         glGenFramebuffers(1, &_framebuffer);
         glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+        // Criando o buffer de profundidade:
+        glGenRenderbuffers(1, &_depth_texture);
+        glBindRenderbuffer(GL_RENDERBUFFER, _depth_texture);
         // Criando a textura:
         glGenTextures(1, &_texture_screen);
         glBindTexture(GL_TEXTURE_2D, _texture_screen);
@@ -1950,6 +1953,12 @@ bool _set_resolution(int width, int height){
                      GL_UNSIGNED_BYTE, 0);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        // Criando o buffer de profundidade:
+        glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT,
+                              width, height);
+        glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                                  GL_RENDERBUFFER, _texture_screen);
+
         // Ligamos a textura ao framebuffer
         glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
                              _texture_screen, 0);
