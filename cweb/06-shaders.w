@@ -264,10 +264,10 @@ vazio é então procurado na nossa matriz de interfaces e o processo
 particular de criação dela dependendo de seu tipo tem início:
 
 @<Interface: Declarações@>+=
-struct interface *_new_interface(int type, float x, float y, ...);
+struct interface *_new_interface(int type, int x, int y, ...);
 @
 @<Interface: Definições@>=
-struct interface *_new_interface(int type, float x, float y, ...){
+struct interface *_new_interface(int type, int x, int y, ...){
     int i;
     va_list valist;
 #ifdef W_MULTITHREAD
@@ -290,8 +290,8 @@ struct interface *_new_interface(int type, float x, float y, ...){
     _interfaces[_number_of_loops][i].stretch_x = false;
     _interfaces[_number_of_loops][i].stretch_y = false;
     // Posição:
-    _interfaces[_number_of_loops][i].x = x;
-    _interfaces[_number_of_loops][i].y = y;
+    _interfaces[_number_of_loops][i].x = (float) x;
+    _interfaces[_number_of_loops][i].y = (float) y;
     _interfaces[_number_of_loops][i].rotation = 0.0;
 
     // Modo padrão de desenho de interface:
@@ -309,8 +309,8 @@ struct interface *_new_interface(int type, float x, float y, ...){
         // Realmente não precisa de um 'break' aqui.
     case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor
         va_start(valist, y);
-        _interfaces[_number_of_loops][i].width = va_arg(valist, double);
-        _interfaces[_number_of_loops][i].height = va_arg(valist, double);
+        _interfaces[_number_of_loops][i].width = (float) va_arg(valist, int);
+        _interfaces[_number_of_loops][i].height = (float) va_arg(valist, int);
         _interfaces[_number_of_loops][i].r = va_arg(valist, double);
         _interfaces[_number_of_loops][i].g = va_arg(valist, double);
         _interfaces[_number_of_loops][i].b = va_arg(valist, double);
@@ -320,8 +320,8 @@ struct interface *_new_interface(int type, float x, float y, ...){
         break;
     default:
         va_start(valist, y);
-        _interfaces[_number_of_loops][i].width = va_arg(valist, double);
-        _interfaces[_number_of_loops][i].height = va_arg(valist, double);
+        _interfaces[_number_of_loops][i].width = (float) va_arg(valist, int);
+        _interfaces[_number_of_loops][i].height = (float) va_arg(valist, int);
         va_end(valist);
     }
     @<Preenche Matriz de Transformação de Interface na Inicialização@>
@@ -336,7 +336,7 @@ struct interface *_new_interface(int type, float x, float y, ...){
 Após a definirmos, atribuiremos esta função à estrutura |W|:
 
 @<Funções Weaver@>+=
-struct interface *(*new_interface)(int, float, float, ...);
+struct interface *(*new_interface)(int, int, int, ...);
 @
 
 @<API Weaver: Inicialização@>+=
@@ -1979,6 +1979,17 @@ bool _set_resolution(int width, int height){
 }
 @
 
+Instalando a nova função na estrutura |W|:
+
+@<Funções Weaver@>+=
+bool (*set_resolution)(int, int);
+@
+
+
+@<API Weaver: Inicialização@>+=
+W.set_resolution = &_set_resolution;
+@
+
 Então, se modificamos a resolução precisamos avisar que toda a
 renderização que faremos será primeiro em uma textura com a resolução
 correta---o nosso framebuffer:
@@ -2082,9 +2093,11 @@ if(_changed_resolution){
     // E renderizamos o framebuffer na tela:
     glUseProgram(_framebuffer_shader.program_shader);
     glEnableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
+    glBindVertexArray(_interface_VAO);
     glUniform1i(_framebuffer_shader._uniform_texture1, _texture_screen);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glDisableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
+    glBindVertexArray(0);
 }
 @
 
@@ -2128,13 +2141,14 @@ encolhida quando a janela em que está muda de tamanho.
 
 \macronome As seguintes 5 novas funções foram definidas:
 
-\macrovalor|struct interface *W.new_interface(int type, float x, float y, ...)|:
+\macrovalor|struct interface *W.new_interface(int type, int x, int y, ...)|:
 Cria uma nova interface. O número e detalhes dos argumentos depende do
 tipo. Para todos os tipos vistos neste capítulo e para tipos de
 shaders sob medida, após as coordenadas $x, y$ da interface vem a sua
-largura e altura. No caso de interfaces que são meros quadrados ou
-perímetros, os próximos 4 argumentos são a cor. A nova interface
-gerada é retornada.
+largura e altura. Embora sejam passados como inteiros, tanto a posição
+como a altura e largura são depois convertidos para |float|. No caso
+de interfaces que são meros quadrados ou perímetros, os próximos 4
+argumentos são a cor. A nova interface gerada é retornada.
 
 \macrovalor|void W.destroy_interface(struct interface *i)|: Destrói uma
 interface, liberando seu espaço para ser usada por outra.
