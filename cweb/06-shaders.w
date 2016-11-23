@@ -915,7 +915,7 @@ E de shader de fragmento:
 // do struct que representam o objeto)
 @<Shader: Uniformes@>
 void main(){
-      gl_FragColor = object_color;
+      gl_FragData[0] = object_color;
 } // Fim do main
 @
 
@@ -2064,7 +2064,7 @@ uniform sampler2D texture1;
 varying mediump vec2 coordinate;
 
 void main(){
-    gl_FragColor = texture2D(texture1, coordinate);
+    gl_FragData[0] = texture2D(texture1, coordinate);
 }
 @
 
