@@ -670,16 +670,16 @@ $$
 \right] \times
 \left[
   \matrix{
-    n_x&0&0&0\cr
-    0&n_y&0&0\cr
+    \cos\theta&-\sin\theta&0&0\cr
+    \sin\theta&\cos\theta&0&0\cr
     0&0&1&0\cr
     0&0&0&1\cr
   }
 \right] \times
 \left[
-  \matrix{
-    \cos\theta&-\sin\theta&0&0\cr
-    \sin\theta&\cos\theta&0&0\cr
+\matrix{
+    n_x&0&0&0\cr
+    0&n_y&0&0\cr
     0&0&1&0\cr
     0&0&0&1\cr
   }
@@ -697,8 +697,8 @@ $$
 $$
 \left[
 \matrix{
-n_x\cos\theta&-n_x\sin\theta&0&x_1\cr
-n_y\sin\theta&n_y\cos\theta&0&y_1\cr
+n_x\cos\theta&-n_y\sin\theta&0&x_1\cr
+n_x\sin\theta&n_y\cos\theta&0&y_1\cr
 0&0&1&0\cr
 0&0&0&1\cr
 }
@@ -785,8 +785,8 @@ posições da matriz para mudarmos:
     cosine = cosf(inter -> rotation);
     sine = sinf(inter -> rotation);
     inter -> _transform_matrix[0] = nx * cosine;
-    inter -> _transform_matrix[4] = -(nx * sine);
-    inter -> _transform_matrix[1] = ny * sine;
+    inter -> _transform_matrix[4] = -(ny * sine);
+    inter -> _transform_matrix[1] = nx * sine;
     inter -> _transform_matrix[5] = ny * cosine;
 }
 @
@@ -2049,8 +2049,8 @@ void main(){
      gl_Position = m * vec4(vertex_position, 1.0);
      // Coordenada da textura:
      // XXX: É assim que se obtém a coordenada?
-     coordinate = vec2(vertex_position[0],
-                       vertex_position[1]);
+     coordinate = vec2(-(vertex_position[0] - 1.0) / 2.0,
+                       -(vertex_position[1] - 1.0) / 2.0);
 }
 @
 
@@ -2064,6 +2064,7 @@ uniform sampler2D texture1;
 varying mediump vec2 coordinate;
 
 void main(){
+    //gl_FragData[0] = vec4(1,, 0, 1);
     //gl_FragData[0] = vec4(coordinate.x, coordinate.y, 0, 1);
     gl_FragData[0] = texture2D(texture1, coordinate);
 }
