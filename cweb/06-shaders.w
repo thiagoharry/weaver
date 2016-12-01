@@ -545,7 +545,7 @@ $$
 \right]
 $$
 
-A definição da função que uda o tamanho das interfaces é então:
+A definição da função que muda o tamanho das interfaces é então:
 
 @<Interface: Definições@>=
 void _resize_interface(struct interface *inter, float size_x, float size_y){
@@ -713,8 +713,8 @@ n_x\sin\theta&n_y\cos\theta&0&y_1\cr
 \right]=
 \left[
   \matrix{
-    n_xx_0\cos\theta-n_xy_0\sin\theta+x_1\cr
-    n_yx_0\sin\theta+n_yy_0\cos\theta+y_1\cr
+    n_xx_0\cos\theta-n_yy_0\sin\theta+x_1\cr
+    n_xx_0\sin\theta+n_yy_0\cos\theta+y_1\cr
     0\cr
     1\cr
   }
@@ -732,22 +732,24 @@ Assim, na inicialização de uma nova interface, a matriz é preenchida:
 @<Preenche Matriz de Transformação de Interface na Inicialização@>=
 {
     float nx, ny, cosine, sine, x1, y1;
-    nx = 2.0 *((float) _interfaces[_number_of_loops][i].width /
-               (float) W.width);
-    ny = 2.0 *((float) _interfaces[_number_of_loops][i].height /
-               (float) W.height);
+    nx = 2.0 * ((float) _interfaces[_number_of_loops][i].width);
+    ny = 2.0 *((float) _interfaces[_number_of_loops][i].height);
     cosine = cosf(_interfaces[_number_of_loops][i].rotation);
     sine = sinf(_interfaces[_number_of_loops][i].rotation);
     x1 = (2.0 *((float) _interfaces[_number_of_loops][i].x /
                 (float) W.width)) - 1.0;
     y1 = -((2.0 *((float) _interfaces[_number_of_loops][i].y /
                   (float) W.height)) - 1.0);
-    _interfaces[_number_of_loops][i]._transform_matrix[0] = nx * cosine;
-    _interfaces[_number_of_loops][i]._transform_matrix[4] = -(ny * sine);
+    _interfaces[_number_of_loops][i]._transform_matrix[0] = nx * cosine /
+               (float) W.width;
+    _interfaces[_number_of_loops][i]._transform_matrix[4] = -(ny * sine) /
+               (float) W.width;
     _interfaces[_number_of_loops][i]._transform_matrix[8] = 0.0;
     _interfaces[_number_of_loops][i]._transform_matrix[12] = x1;
-    _interfaces[_number_of_loops][i]._transform_matrix[1] = nx * sine;
-    _interfaces[_number_of_loops][i]._transform_matrix[5] = ny * cosine;
+    _interfaces[_number_of_loops][i]._transform_matrix[1] = nx * sine /
+               (float) W.height;
+    _interfaces[_number_of_loops][i]._transform_matrix[5] = ny * cosine /
+               (float) W.height;
     _interfaces[_number_of_loops][i]._transform_matrix[9] = 0.0;
     _interfaces[_number_of_loops][i]._transform_matrix[13] = y1;
     _interfaces[_number_of_loops][i]._transform_matrix[2] = 0.0;
@@ -780,14 +782,14 @@ posições da matriz para mudarmos:
 @<Ajusta Matriz de Interface após Redimensionar ou Rotacionar@>=
 {
     float nx, ny, cosine, sine;
-    nx = 2.0 *((float) inter -> width / (float) W.width);
-    ny = 2.0 *((float) inter -> height / (float) W.height);
+    nx = 2.0 *((float) inter -> width);
+    ny = 2.0 *((float) inter -> height);
     cosine = cosf(inter -> rotation);
     sine = sinf(inter -> rotation);
-    inter -> _transform_matrix[0] = nx * cosine;
-    inter -> _transform_matrix[4] = -(ny * sine);
-    inter -> _transform_matrix[1] = nx * sine;
-    inter -> _transform_matrix[5] = ny * cosine;
+    inter -> _transform_matrix[0] = (nx * cosine) / (float) W.width;
+    inter -> _transform_matrix[4] = -(ny * sine) / (float) W.width;
+    inter -> _transform_matrix[1] = (nx * sine) / (float) W.height;
+    inter -> _transform_matrix[5] = (ny * cosine) / (float) W.height;
 }
 @
 
