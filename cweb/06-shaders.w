@@ -793,6 +793,45 @@ posições da matriz para mudarmos:
 }
 @
 
+E um último caso em que precisamos realizar atualização da matriz para
+todas as interfaces: caso a janela seja redimencionada. Para tais
+casos, iremos usar a seguinte função:
+
+@<Interface: Declarações@>+=
+void _update_interface_screen_size(void);
+@
+
+@<Interface: Definições@>+=
+void _update_interface_screen_size(void){
+    int i, j;
+    float nx, ny, cosine, sine;
+    for(i = 0; i < _number_of_loops; i ++)
+        for(j = 0; j < W_MAX_INTERFACES; j ++){
+            if(_interfaces[i][j].type == W_NONE) continue;
+#ifdef W_MULTITHREAD
+            pthread_mutex_lock(_interfaces[i][j]._mutex);
+#endif
+            nx = 2.0 * _interfaces[i][j].width;
+            ny = 2.0 *  _interfaces[i][j].height;
+            cosine = cosf(_interfaces[i][j].rotation);
+            sine = sinf(_interfaces[i][j].rotation);
+            _interfaces[i][j]._transform_matrix[0] = (nx * cosine) / W.width;
+            _interfaces[i][j]._transform_matrix[4] = -(ny * sine) / W.width;
+            _interfaces[i][j]._transform_matrix[1] = (nx * sine) / W.height;
+            _interfaces[i][j]._transform_matrix[5] = (ny * cosine) / W.height;
+#ifdef W_MULTITHREAD
+            pthread_mutex_unlock(_interfaces[i][j]._mutex);
+#endif
+        }
+}
+@
+
+O primeiro local em que precisaremos da função é após redimencionarmos a janela:
+
+@<Ações após Redimencionar Janela@>+=
+_update_interface_screen_size();
+@
+
 @*1 Shaders.
 
 @*2 introdução.
@@ -1982,6 +2021,9 @@ bool _set_resolution(int width, int height){
     }
     W.width = width;
     W.height = height;
+    // Atualiza a matriz da interfaces em relação à mudança de
+    // resolução da janela:
+    _update_interface_screen_size();
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_window_mutex);
 #endif
