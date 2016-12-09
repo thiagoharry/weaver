@@ -2049,6 +2049,7 @@ correta---o nosso framebuffer:
 @<Antes da Renderização@>=
 if(_changed_resolution){
     glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+    glBindTexture(GL_TEXTURE_2D, _texture_screen);
     glViewport(0, 0, W.width, W.height);
 }
 @
@@ -2093,8 +2094,8 @@ void main(){
      gl_Position = m * vec4(vertex_position, 1.0);
      // Coordenada da textura:
      // XXX: É assim que se obtém a coordenada?
-     coordinate = vec2(-(vertex_position[0] - 1.0) / 2.0,
-                       -(vertex_position[1] - 1.0) / 2.0);
+     coordinate = vec2(((vertex_position[0] + 1.0) / 2.0),
+                       1.0-((vertex_position[1] + 1.0) / 2.0));
 }
 @
 
@@ -2108,7 +2109,7 @@ uniform sampler2D texture1;
 varying mediump vec2 coordinate;
 
 void main(){
-    //gl_FragData[0] = vec4(1,, 0, 1);
+    //gl_FragData[0] = vec4(1, 0, 0, 1);
     //gl_FragData[0] = vec4(coordinate.x, coordinate.y, 0, 1);
     gl_FragData[0] = texture2D(texture1, coordinate);
 }
@@ -2142,11 +2143,13 @@ nosso framebuffer depois que acabamos de renderizar tudo nele:
 
 @<Depois da Renderização@>=
 if(_changed_resolution){
+    GLfloat cl[]={1.0, 0.0, 0.0, 1.0};
+    glClearBufferfv(GL_FRAMEBUFFER, 0, cl);
     // Deixamos de usar o framebuffer para renderização:
-    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     glViewport(0, 0, W.window_resolution_x, W.window_resolution_y);
     // E renderizamos o framebuffer na tela:
+    //glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
     glUseProgram(_framebuffer_shader.program_shader);
     glBindVertexArray(_interface_VAO);
     glEnableVertexAttribArray(0);
@@ -2163,7 +2166,7 @@ if(_changed_resolution){
 
 \noindent|struct interface {
     int type;
-    flaot x, y, height, width, rotation, r, g, b, a;
+    float x, y, height, width, rotation, r, g, b, a;
     bool visible;
     bool stretch_x, stretch_y;
 }|

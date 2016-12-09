@@ -1,0 +1,2 @@
+@* Mudança de Resolução.
+
