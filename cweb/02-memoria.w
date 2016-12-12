@@ -2050,8 +2050,7 @@ iteração da engine de física deve ocorrer em intervalos fixos de
 tempo, para que assim o jogo torne-se determinístico e não acumule
 mais erros em máquinas rápidas que rodariam um loop mais rápido. Do
 ponto de vista da renderização, queremos realizá-la o mais rápido
-possível. Provavelmente podemos obter a taxa de atualização de nosso
-monitor e queremos tentar atualizar sempre que podemos.
+possível.
 
 Para isso precisamos manter separadas a física e a renderização. A
 física e a lógica do jogo devem rodar em intervalos fixos e
@@ -2061,7 +2060,7 @@ obter a entrada de usuário e rodar simulação física, isso é o
 bastante. Já a renderização pode acontecer o mais rápido que podemos
 para que a imagem rode com atualização maior.
 
-Para isso cada loop principalna verdade tem 2 loops. Um mais interno
+Para isso cada loop principal na verdade tem 2 loops. Um mais interno
 que atualiza a física e outro que renderiza. Nem sempre iremos entrar
 no mais interno. Mas devemos sempre ter em mente que como a física se
 atualiza em unidades de tempo discretas, o tempo real em que estamos é

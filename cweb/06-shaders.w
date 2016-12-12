@@ -1933,10 +1933,9 @@ janela e era armazenada em |W.width| e |W.height|. Mas agora isso vai
 mudar e esta resolução pode ser diferente da janela:
 
 @<Cabeçalhos Weaver@>+=
-bool _changed_resolution;
 // Usaremos os elementos abaixos para renderizar a tela se não
 // estivermos na resolução nativa:
-  GLuint _framebuffer, _texture_screen, _depth_texture;
+  GLuint _texture_screen, _depth_texture;
 @
 
 Tipicamente tais valores são inicializados como sendo iguais ao
