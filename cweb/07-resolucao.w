@@ -66,7 +66,7 @@ GLuint _texture;
 @<API Weaver: Inicialização@>+=
 {
     // Gerando a textura:
-    glGenTextures(1, &_texure);
+    glGenTextures(1, &_texture);
     glBindTexture(GL_TEXTURE_2D, _texture);
     glTexImage2D(
         GL_TEXTURE_2D, // É uma imagem em 2D
@@ -109,5 +109,123 @@ GLuint _depth_stencil;
     // Ligando o buffer de renderização ao framebuffer não-padrão:
     glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
                               GL_RENDERBUFFER, _depth_stencil);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+}
+@
+
+Naturalmente, na finalização vamos querer limpar tudo o que fizemos:
+
+@<API Weaver: Finalização@>+=
+glDeleteTextures(1, &_texture);
+glDeleteRenderbuffers(1, &_depth_stencil);
+@
+
+Feito isso, nosso framebuffer está pronto para ser usado em
+renderização. Então, antes de começarmos a renderizar qualquer coisa,
+podemos checar se devemos renderizar na tela ou na nossa textura
+especial:
+
+@<Antes da Renderização@>=
+if(_use_non_default_render){
+    glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+    glViewport(0, 0, W.width, W.height);
+    glEnable(GL_DEPTH_TEST); // Avaliar se é necessário
+}
+@
+
+Mas se aconteceu de renderizarmos tudo para a nossa textura ao invés
+de renderizarmos para a tela, vamos ter que, depois de toda
+renderização, passarmos a textura para a tela. E este também é o
+momento no qual temos que ver se não devemos aplicar algum efeito
+especial na imagem por meio de algum shader personalizado.
+
+Primeiro vamos definir qual é o shader padrão que usaremos caso nenhum
+shader personalizado seja selecionado para renderizar nossa textura:
+
+@<Shaders: Declarações@>=
+extern char _vertex_interface_texture[];
+extern char _fragment_interface_texture[];
+struct _shader _framebuffer_shader;
+@
+
+@<Shaders: Definições@>=
+char _vertex_interface_texture[] = {
+#include "vertex_interface_texture.data"
+        , 0x00};
+char _fragment_interface_texture[] = {
+#include "fragment_interface_texture.data"
+    , 0x00};
+@
+
+O código do shader de vértice é então:
+
+@(project/src/weaver/vertex_interface_texture.glsl@>=
+#version 100
+
+attribute mediump vec3 vertex_position;
+
+varying mediump vec2 coordinate;
+
+void main(){
+    // Apenas esticamos o quadrado com este vetor para ampliar seu
+    // tamanho e ele cobrir toda a tela:
+    /*highp mat4 m = mat4(vec4(2, 0, 0, 0), vec4(0, 2, 0, 0),
+      vec4(0, 0, 2, 0), vec4(0, 0, 0, 1));*/
+     gl_Position = vec4(vertex_position, 1.0);
+     // Coordenada da textura:
+     // XXX: É assim que se obtém a coordenada?
+     coordinate = vec2(((vertex_position[0] + 1.0) / 2.0),
+                       1.0-((vertex_position[1] + 1.0) / 2.0));
+}
+@
+
+E o shader de fragmento:
+
+@(project/src/weaver/fragment_interface_texture.glsl@>=
+#version 100
+
+uniform sampler2D texture1;
+
+varying mediump vec2 coordinate;
+
+void main(){
+    gl_FragData[0] = vec4(1, 0, 0, 1);
+    //gl_FragData[0] = vec4(coordinate.x, coordinate.y, 0, 1);
+    //gl_FragData[0] = texture2D(texture1, coordinate);
+}
+@
+
+Tal novo shader precisa ser compilado na inicialização:
+
+@<API Weaver: Inicialização@>+=
+{
+    GLuint vertex, fragment;
+    vertex = _compile_vertex_shader(_vertex_interface_texture);
+    fragment = _compile_fragment_shader(_fragment_interface_texture);
+    // Preenchendo variáeis uniformes e atributos:
+    _framebuffer_shader.program_shader =
+        _link_and_clean_shaders(vertex, fragment);
+    _framebuffer_shader._uniform_texture1 =
+        glGetUniformLocation(_framebuffer_shader.program_shader,
+                             "texture1");
+    _framebuffer_shader._attribute_vertex_position =
+        glGetAttribLocation(_framebuffer_shader.program_shader,
+                            "vertex_position");
+}
+@
+
+Para que então possa ser usado depois que renderizamos tudo para
+desenhar nossa textura na tela:
+
+@<Depois da Renderização@>=
+if(_use_non_default_render){
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // Usar ramebuffer padrão
+    glViewport(0, 0, W.resolution_x, W.resolution_y);
+    glBindVertexArray(_interface_VAO);
+    glDisable(GL_DEPTH_TEST); // Avaliar se é necessário
+    glUseProgram(_framebuffer_shader.program_shader);
+    glActiveTexture(GL_TEXTURE0);
+    glBindTexture(GL_TEXTURE_2D, _texture);
+    glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
 }
 @
