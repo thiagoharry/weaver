@@ -227,5 +227,5 @@ if(_use_non_default_render){
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-}
+ }
 @
