@@ -169,9 +169,9 @@ varying mediump vec2 coordinate;
 void main(){
     // Apenas esticamos o quadrado com este vetor para ampliar seu
     // tamanho e ele cobrir toda a tela:
-    /*highp mat4 m = mat4(vec4(2, 0, 0, 0), vec4(0, 2, 0, 0),
-      vec4(0, 0, 2, 0), vec4(0, 0, 0, 1));*/
-     gl_Position = vec4(vertex_position, 1.0);
+    highp mat4 m = mat4(vec4(2, 0, 0, 0), vec4(0, 2, 0, 0),
+      vec4(0, 0, 2, 0), vec4(0, 0, 0, 1));
+     gl_Position = m * vec4(vertex_position, 1.0);
      // Coordenada da textura:
      // XXX: É assim que se obtém a coordenada?
      coordinate = vec2(((vertex_position[0] + 1.0) / 2.0),
@@ -226,6 +226,11 @@ if(_use_non_default_render){
     glUseProgram(_framebuffer_shader.program_shader);
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture);
+    glEnableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
+    glVertexAttribPointer(_framebuffer_shader._attribute_vertex_position,
+                          3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
+    glDisableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
+
  }
 @
