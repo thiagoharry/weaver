@@ -130,6 +130,7 @@ if(_use_non_default_render){
     glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
     glViewport(0, 0, W.width, W.height);
     glEnable(GL_DEPTH_TEST); // Avaliar se é necessário
+    glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 }
 @
 
@@ -175,7 +176,7 @@ void main(){
      // Coordenada da textura:
      // XXX: É assim que se obtém a coordenada?
      coordinate = vec2(((vertex_position[0] + 1.0) / 2.0),
-                       1.0-((vertex_position[1] + 1.0) / 2.0));
+                       ((vertex_position[1] + 1.0) / 2.0));
 }
 @
 
@@ -189,9 +190,7 @@ uniform sampler2D texture1;
 varying mediump vec2 coordinate;
 
 void main(){
-    gl_FragData[0] = vec4(1, 0, 0, 1);
-    //gl_FragData[0] = vec4(coordinate.x, coordinate.y, 0, 1);
-    //gl_FragData[0] = texture2D(texture1, coordinate);
+    gl_FragData[0] = texture2D(texture1, coordinate);
 }
 @
 
@@ -219,7 +218,7 @@ desenhar nossa textura na tela:
 
 @<Depois da Renderização@>=
 if(_use_non_default_render){
-    glBindFramebuffer(GL_FRAMEBUFFER, 0); // Usar ramebuffer padrão
+    glBindFramebuffer(GL_FRAMEBUFFER, 0); // Usar framebuffer padrão
     glViewport(0, 0, W.resolution_x, W.resolution_y);
     glBindVertexArray(_interface_VAO);
     glDisable(GL_DEPTH_TEST); // Avaliar se é necessário
@@ -231,6 +230,5 @@ if(_use_non_default_render){
                           3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glDisableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
-
  }
 @
