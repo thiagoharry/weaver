@@ -141,12 +141,15 @@ momento no qual temos que ver se não devemos aplicar algum efeito
 especial na imagem por meio de algum shader personalizado.
 
 Primeiro vamos definir qual é o shader padrão que usaremos caso nenhum
-shader personalizado seja selecionado para renderizar nossa textura:
+shader personalizado seja selecionado para renderizar nossa textura. E
+como iremos renderizar usando shaders, vamos precisar de uma matriz
+que representará o tamanho da nossa imagem na tela.
 
 @<Shaders: Declarações@>=
 extern char _vertex_interface_texture[];
 extern char _fragment_interface_texture[];
 struct _shader _framebuffer_shader;
+GLfloat _framebuffer_matrix[16];
 @
 
 @<Shaders: Definições@>=
@@ -165,14 +168,14 @@ O código do shader de vértice é então:
 
 attribute mediump vec3 vertex_position;
 
+uniform mat4 model_view_matrix;
+
 varying mediump vec2 coordinate;
 
 void main(){
     // Apenas esticamos o quadrado com este vetor para ampliar seu
     // tamanho e ele cobrir toda a tela:
-    highp mat4 m = mat4(vec4(2, 0, 0, 0), vec4(0, 2, 0, 0),
-      vec4(0, 0, 2, 0), vec4(0, 0, 0, 1));
-     gl_Position = m * vec4(vertex_position, 1.0);
+    gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
      // Coordenada da textura:
      // XXX: É assim que se obtém a coordenada?
      coordinate = vec2(((vertex_position[0] + 1.0) / 2.0),
@@ -194,7 +197,8 @@ void main(){
 }
 @
 
-Tal novo shader precisa ser compilado na inicialização:
+Tal novo shader precisa ser compilado na inicialização, assim como a
+matriz do tamanho do framebuffer precisa ser inicializada.
 
 @<API Weaver: Inicialização@>+=
 {
@@ -210,6 +214,15 @@ Tal novo shader precisa ser compilado na inicialização:
     _framebuffer_shader._attribute_vertex_position =
         glGetAttribLocation(_framebuffer_shader.program_shader,
                             "vertex_position");
+    // Inicializando matriz:
+    _framebuffer_matrix[0] = _framebuffer_matrix[5] =
+        _framebuffer_matrix[10] = _framebuffer_matrix[15] = 2.0;
+    _framebuffer_matrix[1] = _framebuffer_matrix[2] =
+        _framebuffer_matrix[3] = _framebuffer_matrix[4] =
+        _framebuffer_matrix[6] = _framebuffer_matrix[7] =
+        _framebuffer_matrix[8] = _framebuffer_matrix[9] =
+        _framebuffer_matrix[11] = _framebuffer_matrix[12] =
+        _framebuffer_matrix[13] = _framebuffer_matrix[14] = 0.0;
 }
 @
 
@@ -228,6 +241,14 @@ if(_use_non_default_render){
     glEnableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
     glVertexAttribPointer(_framebuffer_shader._attribute_vertex_position,
                           3, GL_FLOAT, GL_FALSE, 0, (void*)0);
+    // Passando os uniformes
+    glUniform2f(_framebuffer_shader._uniform_object_size, W.width, W.height);
+    glUniform4f(_framebuffer_shader._uniform_object_color, W_DEFAULT_COLOR,
+                1.0);
+    glUniform1f(_framebuffer_shader._uniform_time,
+                (float) W.t / (float) 1000000);
+    glUniformMatrix4fv(_framebuffer_shader._uniform_model_view, 1, false,
+                       _framebuffer_matrix);
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glDisableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
  }
