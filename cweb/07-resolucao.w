@@ -169,6 +169,10 @@ O código do shader de vértice é então:
 attribute mediump vec3 vertex_position;
 
 uniform mat4 model_view_matrix;
+uniform vec4 object_color; // A cor do objeto
+uniform vec2 object_size; // Largura e altura do objeto
+uniform float time; // Tempo de jogo em segundos
+uniform sampler2D texture1; // Textura
 
 varying mediump vec2 coordinate;
 
@@ -211,6 +215,23 @@ matriz do tamanho do framebuffer precisa ser inicializada.
     _framebuffer_shader._uniform_texture1 =
         glGetUniformLocation(_framebuffer_shader.program_shader,
                              "texture1");
+    printf("Got texture: %d\n", _framebuffer_shader._uniform_texture1);
+    _framebuffer_shader._uniform_object_color =
+        glGetUniformLocation(_framebuffer_shader.program_shader,
+                             "object_color");
+    printf("Got color: %d\n", _framebuffer_shader._uniform_object_color);
+    _framebuffer_shader._uniform_model_view =
+        glGetUniformLocation(_framebuffer_shader.program_shader,
+                             "model_view_matrix");
+    printf("Got matrix: %d\n", _framebuffer_shader._uniform_model_view);
+    _framebuffer_shader._uniform_object_size =
+        glGetUniformLocation(_framebuffer_shader.program_shader,
+                             "object_size");
+    printf("Got size: %d\n", _framebuffer_shader._uniform_object_size);
+    _framebuffer_shader._uniform_time =
+        glGetUniformLocation(_framebuffer_shader.program_shader,
+                             "time");
+    printf("Got time: %d\n", _framebuffer_shader._uniform_time);
     _framebuffer_shader._attribute_vertex_position =
         glGetAttribLocation(_framebuffer_shader.program_shader,
                             "vertex_position");
