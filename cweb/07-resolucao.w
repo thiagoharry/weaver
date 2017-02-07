@@ -1,8 +1,6 @@
 @* Mudança de Resolução.
 
-Toda vez que renderizamos algo, renderizamos para um framebuffer. Até
-agora estiemos renderizando no framebuffer padrão, que corresponde ao
-quê vemos na tela.
+Toda vez que renderizamos algo, renderizamos para um framebuffer.
 
 Todo framebuffer é composto por um ou mais buffer. Pode haver um para
 representar a cor de cada pixel (buffer de cor), outro para armazenar
@@ -74,7 +72,7 @@ GLuint _texture;
         GL_RGB, // Formato interno do pixel
         W.width, // Largura
         W.height, // Altura
-        0, // A especifiação pede que aqui sempre seja 0
+        0, // Borda: a especifiação pede que aqui sempre seja 0
         GL_RGB, GL_UNSIGNED_BYTE, // Formato dos pixels como serão passados
         NULL); // NULL, pois os pixels serão criados dinamicamente
     // Ativa antialiasing para melhorar aparência de jogo em resolução
@@ -136,7 +134,7 @@ if(_use_non_default_render){
 
 Mas se aconteceu de renderizarmos tudo para a nossa textura ao invés
 de renderizarmos para a tela, vamos ter que, depois de toda
-renderização, passarmos a textura para a tela. E este também é o
+renderização, passar a textura para a tela. E este também é o
 momento no qual temos que ver se não devemos aplicar algum efeito
 especial na imagem por meio de algum shader personalizado.
 
@@ -215,29 +213,25 @@ matriz do tamanho do framebuffer precisa ser inicializada.
     _framebuffer_shader._uniform_texture1 =
         glGetUniformLocation(_framebuffer_shader.program_shader,
                              "texture1");
-    printf("Got texture: %d\n", _framebuffer_shader._uniform_texture1);
     _framebuffer_shader._uniform_object_color =
         glGetUniformLocation(_framebuffer_shader.program_shader,
                              "object_color");
-    printf("Got color: %d\n", _framebuffer_shader._uniform_object_color);
     _framebuffer_shader._uniform_model_view =
         glGetUniformLocation(_framebuffer_shader.program_shader,
                              "model_view_matrix");
-    printf("Got matrix: %d\n", _framebuffer_shader._uniform_model_view);
     _framebuffer_shader._uniform_object_size =
         glGetUniformLocation(_framebuffer_shader.program_shader,
                              "object_size");
-    printf("Got size: %d\n", _framebuffer_shader._uniform_object_size);
     _framebuffer_shader._uniform_time =
         glGetUniformLocation(_framebuffer_shader.program_shader,
                              "time");
-    printf("Got time: %d\n", _framebuffer_shader._uniform_time);
     _framebuffer_shader._attribute_vertex_position =
         glGetAttribLocation(_framebuffer_shader.program_shader,
                             "vertex_position");
     // Inicializando matriz:
     _framebuffer_matrix[0] = _framebuffer_matrix[5] =
-        _framebuffer_matrix[10] = _framebuffer_matrix[15] = 2.0;
+        _framebuffer_matrix[10] = 2.0;
+    _framebuffer_matrix[15] = 1.0;
     _framebuffer_matrix[1] = _framebuffer_matrix[2] =
         _framebuffer_matrix[3] = _framebuffer_matrix[4] =
         _framebuffer_matrix[6] = _framebuffer_matrix[7] =
