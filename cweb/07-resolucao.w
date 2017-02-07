@@ -179,9 +179,8 @@ void main(){
     // tamanho e ele cobrir toda a tela:
     gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
      // Coordenada da textura:
-     // XXX: É assim que se obtém a coordenada?
-     coordinate = vec2(((vertex_position[0] + 1.0) / 2.0),
-                       ((vertex_position[1] + 1.0) / 2.0));
+     coordinate = vec2(((vertex_position[0] + 0.5)),
+                       ((vertex_position[1] + 0.5)));
 }
 @
 
@@ -228,7 +227,11 @@ matriz do tamanho do framebuffer precisa ser inicializada.
     _framebuffer_shader._attribute_vertex_position =
         glGetAttribLocation(_framebuffer_shader.program_shader,
                             "vertex_position");
-    // Inicializando matriz:
+    // Inicializando matriz de transformação para:
+    // 2 0 0 0
+    // 0 2 0 0 <- Isso dobra o tamanho do polígono recebido
+    // 0 0 2 0
+    // 0 0 0 1
     _framebuffer_matrix[0] = _framebuffer_matrix[5] =
         _framebuffer_matrix[10] = 2.0;
     _framebuffer_matrix[15] = 1.0;
@@ -241,8 +244,15 @@ matriz do tamanho do framebuffer precisa ser inicializada.
 }
 @
 
-Para que então possa ser usado depois que renderizamos tudo para
-desenhar nossa textura na tela:
+No código acima, dobramos o tamanho do polígono recebido com tal
+matriz de transformação. O motivo é o fato de toda interface ser
+gerada usando o mesmo quadrado de lado 1,0. É o shader quem estica e
+encolhe tal quadrado para que ele fique do tamanho certo. Aqui, nós
+usamos o mesmo quadrado de antes para renderizar o nosso
+framebuffer. E queremos que ele ocupe a tela inteira.
+
+Uma vez que inicializamos os detalhes do shader, podemos usá-lo para
+enfim renderizar tudo:
 
 @<Depois da Renderização@>=
 if(_use_non_default_render){
