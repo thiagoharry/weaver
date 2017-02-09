@@ -126,6 +126,7 @@ especial:
 @<Antes da Renderização@>=
 if(_use_non_default_render){
     glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+    // Qual o viewport?
     glViewport(0, 0, W.width, W.height);
     glEnable(GL_DEPTH_TEST); // Avaliar se é necessário
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -277,4 +278,82 @@ if(_use_non_default_render){
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
     glDisableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
  }
+@
+
+Mas nós ainda não mudamos a resolução com nada disso. Nós apenas
+expliamos como fazer a renderização caso a resolução seja
+mudada. Precisamos de uma função que mude a resolução. E isso implica
+fazer as seguintes coisas:
+
+1) Ajustar a flag |_use_non_default_render| para verdadeiro. Apenas
+fazer isso já é o suficiente para que as cenas do jogo sejam
+renderizadas em duas etapas. Isso é preciso para mudar a resolução,
+mas ainda não mude a resolução em si.
+
+
+2) Na primeira etapa da renderização, consultamos as variáveis
+|W.width| e |W.height| para saber a altura e largura da janela em
+pixels. São estes os valores que precisam ser mudados para que a
+resolução enfim seja mudada.
+
+3) Gerar novamente a textura usada para armazenar a imagem da tela na
+resolução certa.
+
+4) As interfaces dentro do programa conhecem a sua posição, mas elas
+medem isso em pixels. Com a mudança de resolução, a posição delas não
+é mais a mesma. Nesta parte realizamos as mesmas transformações de
+antes para garantir a correção na posição das interfaces. E para isso
+preisamos declarar e preencher corretamente na função os valores
+antigos e novos da resolução por meio de |width|, |height|,
+|old_width| e |old_heigh|.
+
+@<Shaders: Declarações@>+=
+void _change_resolution(int resolution_x, int resolution_y);
+@
+
+@<Shaders: Definições@>+=
+void _change_resolution(int resolution_x, int resolution_y){
+    int width, height, old_width = W.width, old_height = W.height;
+    _use_non_default_render = true;
+    width = W.width = ((resolution_x > 0)?(resolution_x):(W.resolution_x));
+    height = W.height = ((resolution_y > 0)?(resolution_y):(W.resolution_y));
+    // Aqui começamos a gerar novamente os buffers do framebuffer que
+    // usaremos na renderização. Ele deve ter a nova
+    // resolução. Começamos gerando novamente o buffer de cor:
+    glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+    glDeleteTextures(1, &_texture);
+    glGenTextures(1, &_texture);
+    glBindTexture(GL_TEXTURE_2D, _texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, W.width, W.height, 0, GL_RGB,
+                 GL_UNSIGNED_BYTE, NULL); // Mesmos parâmetros de antes
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    // Ligamos a nossa textura ao buffer de cor do framebuffer
+    // não-padrão:
+    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                           GL_TEXTURE_2D, _texture, 0);
+    // Agora geraremos novamente os buffers de profundidade e stêncil:
+    glDeleteRenderbuffers(1, &_depth_stencil);
+    glGenRenderbuffers(1, &_depth_stencil);
+    glBindRenderbuffer(GL_RENDERBUFFER, _depth_stencil);
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8,
+                          W.width, W.height);
+    // Ligando o buffer de renderização ao framebuffer não-padrão:
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+                              GL_RENDERBUFFER, _depth_stencil);
+    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+    // Feito. Agora temos apenas que atualizar a posição das
+    // interfaces:
+    @<Ações após Redimencionar Janela@>
+}
+@
+
+E como todas as funções da nossa API, vamos colocá-la dentro da
+estrutura W:
+
+@<Funções Weaver@>+=
+  void (*change_resolution)(int, int);
+@
+@<API Weaver: Inicialização@>+=
+  W.change_resolution = &_change_resolution;
 @
