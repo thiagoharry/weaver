@@ -315,8 +315,8 @@ void _change_resolution(int resolution_x, int resolution_y);
 void _change_resolution(int resolution_x, int resolution_y){
     int width, height, old_width = W.width, old_height = W.height;
     _use_non_default_render = true;
-    width = W.width = ((resolution_x > 0)?(resolution_x):(W.resolution_x));
-    height = W.height = ((resolution_y > 0)?(resolution_y):(W.resolution_y));
+    width = W.width = ((resolution_x > 0)?(resolution_x):(W.width));
+    height = W.height = ((resolution_y > 0)?(resolution_y):(W.height));
     // Aqui começamos a gerar novamente os buffers do framebuffer que
     // usaremos na renderização. Ele deve ter a nova
     // resolução. Começamos gerando novamente o buffer de cor:

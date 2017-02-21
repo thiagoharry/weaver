@@ -1877,15 +1877,17 @@ com a mudança de tamanho da janela. Para isso, são os seus atributos
     // old_width, old_height: Tamanho antigo
     // width, height: Tamanho atual
     int i, j;
-    int change_x = width - old_width;
-    int change_y = height - old_height;
+    //int change_x = width - old_width;
+    //int change_y = height - old_height;
     float new_width, new_height;
     for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
         for(j = 0; j < W_MAX_INTERFACES; j ++){
             if(_interfaces[i][j].type == W_NONE) continue;
             W.move_interface(&_interfaces[i][j],
-                             _interfaces[i][j].x + ((float) change_x) / 2,
-                             _interfaces[i][j].y + ((float) change_y) / 2);
+                             _interfaces[i][j].x *
+                             ((float) width) / ((float) old_width),
+                             _interfaces[i][j].y *
+                             ((float) height) / ((float) old_height));
             if(_interfaces[i][j].stretch_x)
                 new_width = _interfaces[i][j].width *
                     ((float) width  / (float) old_width);
