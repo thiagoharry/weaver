@@ -61,6 +61,8 @@ Assim, nossa lista de interfaces é declarada da seguinte forma:
 @<Interface: Declarações@>=
 struct interface {
     int type; // Como renderizar
+    int integer; // Um inteiro que pode ser definido pelo usuário e é
+                 // passado pro shader
     float x, y; // Posição em pixels
     float rotation; // Rotação
     float r, g, b, a; // Cor
@@ -287,6 +289,7 @@ struct interface *_new_interface(int type, int x, int y, ...){
     }
     _interfaces[_number_of_loops][i].type = type;
     _interfaces[_number_of_loops][i].visible = true;
+    _interfaces[_number_of_loops][i].integer = 0;
     _interfaces[_number_of_loops][i].stretch_x = false;
     _interfaces[_number_of_loops][i].stretch_y = false;
     // Posição:
@@ -976,6 +979,7 @@ uniform mat4 model_view_matrix; // Transformações de posição do objeto
 uniform vec2 object_size; // Largura e altura do objeto
 uniform float time; // Tempo de jogo em segundos
 uniform sampler2D texture1; // Textura
+uniform int integer; // Um inteiro para passar informações
 @
 
 Estes dois códigos fontes serão processados pelo Makefile de cada
@@ -1108,6 +1112,9 @@ shaders padrão para interfaces, vamos usá-las para compilá-los:
     _default_interface_shader._uniform_object_size =
         glGetUniformLocation(_default_interface_shader.program_shader,
                              "object_size");
+    _default_interface_shader._uniform_integer =
+        glGetUniformLocation(_default_interface_shader.program_shader,
+                             "integer");
     _default_interface_shader._uniform_time =
         glGetUniformLocation(_default_interface_shader.program_shader,
                              "time");
@@ -1166,7 +1173,7 @@ struct _shader{
     char name[128];        // Nome do shader
     // Os uniformes do shader:
     GLint _uniform_object_color, _uniform_model_view, _uniform_object_size;
-    GLint _uniform_time, _uniform_texture1;
+    GLint _uniform_time, _uniform_texture1, _uniform_integer;
     // Os atributos do shader:
     GLint _attribute_vertex_position;
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
@@ -1579,6 +1586,9 @@ void _compile_and_insert_new_shader(char *dir, int position){
     _shader_list[position]._uniform_time =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "time");
+    _shader_list[position]._uniform_integer =
+        glGetUniformLocation(_shader_list[position].program_shader,
+                             "integer");
     _shader_list[position]._uniform_texture1 =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "texture1");
@@ -1639,9 +1649,9 @@ void _insert_interface_queue(struct interface *inter){
     int begin, end, middle, tmp;
     int type = inter -> type;
     if(_interface_queue[_number_of_loops][W_MAX_INTERFACES - 1] != NULL){
-        fprintf(stderr, "WARNING (0): Couldn't create new interface. You should "
-                "increase the value of W_MAX_INTERFACES at cont/conf.h or "
-                "decrease the number of inerfaces created.\n");
+        fprintf(stderr, "WARNING (0): Couldn't create new interface. You "
+                "should increase the value of W_MAX_INTERFACES at cont/conf.h "
+                "or decrease the number of inerfaces created.\n");
         return;
     }
     begin = 0;
@@ -1841,6 +1851,8 @@ de renderização, separada da engine de física e controle do jogo.
                     _interface_queue[_number_of_loops][i] -> height);
         glUniform1f(current_shader -> _uniform_time,
                     (float) W.t / (float) 1000000);
+        glUniform1i(current_shader -> _uniform_integer,
+                    _interface_queue[_number_of_loops][i] -> integer);
         glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, false,
                            _interface_queue[_number_of_loops][i] ->
                            _transform_matrix);
