@@ -126,7 +126,6 @@ especial:
 @<Antes da Renderização@>=
 if(_use_non_default_render){
     glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
-    // Qual o viewport?
     glViewport(0, 0, W.width, W.height);
     glEnable(GL_DEPTH_TEST); // Avaliar se é necessário
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
@@ -149,6 +148,9 @@ extern char _vertex_interface_texture[];
 extern char _fragment_interface_texture[];
 struct _shader _framebuffer_shader;
 GLfloat _framebuffer_matrix[16];
+// Usamos um shader personalizado para a renderização final?
+// Se sim, a variável abaixo tem o seu ID. Se não, seu valor é 0.
+int _custom_final_shader;
 @
 
 @<Shaders: Definições@>=
@@ -172,6 +174,7 @@ uniform vec4 object_color; // A cor do objeto
 uniform vec2 object_size; // Largura e altura do objeto
 uniform float time; // Tempo de jogo em segundos
 uniform sampler2D texture1; // Textura
+uniform int integer;
 
 varying mediump vec2 coordinate;
 
@@ -205,6 +208,9 @@ matriz do tamanho do framebuffer precisa ser inicializada.
 @<API Weaver: Inicialização@>+=
 {
     GLuint vertex, fragment;
+    // Começamos assumindo que vamos usar o shader padrão que
+    // definimos para a renderização final:
+    _custom_final_shader = 0;
     vertex = _compile_vertex_shader(_vertex_interface_texture);
     fragment = _compile_fragment_shader(_fragment_interface_texture);
     // Preenchendo variáeis uniformes e atributos:
@@ -225,6 +231,9 @@ matriz do tamanho do framebuffer precisa ser inicializada.
     _framebuffer_shader._uniform_time =
         glGetUniformLocation(_framebuffer_shader.program_shader,
                              "time");
+    _framebuffer_shader._uniform_integer =
+        glGetUniformLocation(_framebuffer_shader.program_shader,
+                             "integer");
     _framebuffer_shader._attribute_vertex_position =
         glGetAttribLocation(_framebuffer_shader.program_shader,
                             "vertex_position");
@@ -257,26 +266,35 @@ enfim renderizar tudo:
 
 @<Depois da Renderização@>=
 if(_use_non_default_render){
+    struct _shader *current_shader;
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Usar framebuffer padrão
     glViewport(0, 0, W.resolution_x, W.resolution_y);
     glBindVertexArray(_interface_VAO);
     glDisable(GL_DEPTH_TEST); // Avaliar se é necessário
-    glUseProgram(_framebuffer_shader.program_shader);
+    if(_custom_final_shader){
+        glUseProgram(_shader_list[_custom_final_shader - 1].program_shader);
+        current_shader = &(_shader_list[_custom_final_shader - 1]);
+    }
+    else{
+        glUseProgram(_framebuffer_shader.program_shader);
+        current_shader = &(_framebuffer_shader);
+    }
     glActiveTexture(GL_TEXTURE0);
     glBindTexture(GL_TEXTURE_2D, _texture);
-    glEnableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
-    glVertexAttribPointer(_framebuffer_shader._attribute_vertex_position,
+    glEnableVertexAttribArray(current_shader -> _attribute_vertex_position);
+    glVertexAttribPointer(current_shader -> _attribute_vertex_position,
                           3, GL_FLOAT, GL_FALSE, 0, (void*)0);
     // Passando os uniformes
-    glUniform2f(_framebuffer_shader._uniform_object_size, W.width, W.height);
-    glUniform4f(_framebuffer_shader._uniform_object_color, W_DEFAULT_COLOR,
+    glUniform2f(current_shader -> _uniform_object_size, W.width, W.height);
+    glUniform4f(current_shader -> _uniform_object_color, W_DEFAULT_COLOR,
                 1.0);
-    glUniform1f(_framebuffer_shader._uniform_time,
+    glUniform1f(current_shader -> _uniform_time,
                 (float) W.t / (float) 1000000);
-    glUniformMatrix4fv(_framebuffer_shader._uniform_model_view, 1, false,
-                       _framebuffer_matrix);
+    glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, false,
+    _framebuffer_matrix);
+    @<Imediatamente antes da Renderização Final de Tela@>
     glDrawArrays(GL_TRIANGLE_FAN, 0, 4);
-    glDisableVertexAttribArray(_framebuffer_shader._attribute_vertex_position);
+    glDisableVertexAttribArray(current_shader -> _attribute_vertex_position);
  }
 @
 
@@ -314,6 +332,7 @@ void _change_resolution(int resolution_x, int resolution_y);
 @<Shaders: Definições@>+=
 void _change_resolution(int resolution_x, int resolution_y){
     int width, height, old_width = W.width, old_height = W.height;
+    int i, j;
     _use_non_default_render = true;
     width = W.width = ((resolution_x > 0)?(resolution_x):(W.width));
     height = W.height = ((resolution_y > 0)?(resolution_y):(W.height));
@@ -344,7 +363,17 @@ void _change_resolution(int resolution_x, int resolution_y){
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     // Feito. Agora temos apenas que atualizar a posição das
     // interfaces:
-    @<Ações após Redimencionar Janela@>
+    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+        for(j = 0; j < W_MAX_INTERFACES; j ++){
+            if(_interfaces[i][j].type == W_NONE) continue;
+            W.move_interface(&_interfaces[i][j],
+                             _interfaces[i][j].x *
+                             ((float) width) / ((float) old_width),
+                             _interfaces[i][j].y *
+                             ((float) height) / ((float) old_height));
+        }
+    // Atualizando as matrizes das interfaces:
+    _update_interface_screen_size();
 }
 @
 
@@ -357,3 +386,62 @@ estrutura W:
 @<API Weaver: Inicialização@>+=
   W.change_resolution = &_change_resolution;
 @
+
+@*1 Shaders personalizados.
+
+Uma das vantagens de fazer a renderização na tela em dois passos é que
+podemos obter um estado intermediário da tela, aplicar algum shader
+nele e só então renderizar a imagem final. Dependendo do shader
+podemos querer também passar algum valor numérico específico para
+ele. Para isso vamos precisar de algumas funções adicionais.
+
+As funções e procedimentos que obtém os shaders já foram
+definidos. Cada shader já possui um número específico e está
+armazenado em um vetor chamado |_shader_list|. Tudo o que precisamos
+fazer é associar a última etapa de renderização com um dos shaders
+personalizados:
+
+@<Shaders: Declarações@>+=
+void _change_shader(int type);
+@
+
+@<Shaders: Definições@>+=
+void _change_shader(int type){
+    _use_non_default_render = true;
+    _custom_final_shader = type;
+}
+@
+
+E adicionando à estrutura |W|:
+
+@<Funções Weaver@>+=
+void (*change_shader)(int);
+@
+@<API Weaver: Inicialização@>+=
+  W.change_shader = &_change_shader;
+@
+
+
+E para passar um inteiro personalizado para o shader de renderização
+final, vamos definir a seguinte variável global:
+
+@<Variáveis Weaver@>+=
+// Isso fica dentro da estrutura W:
+int final_shader_integer;
+@
+
+Que caso não seja mudado será tratado como zero:
+
+@<API Weaver: Inicialização@>+=
+W.final_shader_integer = 0;
+@
+
+E que será passado para o shader toda vez que formos fazer a
+renderização final de toda a tela:
+
+@<Imediatamente antes da Renderização Final de Tela@>=
+glUniform1i(current_shader -> _uniform_integer,
+            W.final_shader_integer);
+@
+
+E está feito!
