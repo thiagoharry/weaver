@@ -818,10 +818,14 @@ void _update_interface_screen_size(void){
             ny = 2.0 *  _interfaces[i][j].height;
             cosine = cosf(_interfaces[i][j].rotation);
             sine = sinf(_interfaces[i][j].rotation);
-            _interfaces[i][j]._transform_matrix[0] = (nx * cosine) / W.width;
-            _interfaces[i][j]._transform_matrix[4] = -(ny * sine) / W.width;
-            _interfaces[i][j]._transform_matrix[1] = (nx * sine) / W.height;
-            _interfaces[i][j]._transform_matrix[5] = (ny * cosine) / W.height;
+            _interfaces[i][j]._transform_matrix[0] = (nx * cosine) /
+                (float) W.width;
+            _interfaces[i][j]._transform_matrix[4] = -(ny * sine) /
+                (float) W.width;
+            _interfaces[i][j]._transform_matrix[1] = (nx * sine) /
+                (float) W.height;
+            _interfaces[i][j]._transform_matrix[5] = (ny * cosine) /
+                (float) W.height;
 #ifdef W_MULTITHREAD
             pthread_mutex_unlock(_interfaces[i][j]._mutex);
 #endif

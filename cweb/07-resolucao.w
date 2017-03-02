@@ -371,9 +371,11 @@ void _change_resolution(int resolution_x, int resolution_y){
                              ((float) width) / ((float) old_width),
                              _interfaces[i][j].y *
                              ((float) height) / ((float) old_height));
+            W.rotate_interface(&_interfaces[i][j],
+                               _interfaces[i][j].rotation);
         }
     // Atualizando as matrizes das interfaces:
-    _update_interface_screen_size();
+    //_update_interface_screen_size();
 }
 @
 
