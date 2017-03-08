@@ -472,4 +472,6 @@ intermediário representado pelo valor indicado.
 
 \macronome A seguinte nova variável foi definida:
 
-\macro
+\macro|int W.final_shader_integer|: É o inteiro que é passado para o
+shader de renderização final para que ele o use como quiser ou o
+ignore.
