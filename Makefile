@@ -113,7 +113,8 @@ install: uninstall
 	install -c project/src/weaver/interface.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/shaders.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/shaders.c ${PROJECT_SHARE}/src/weaver
-
+	install -c project/src/weaver/sound.h ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/sound.c ${PROJECT_SHARE}/src/weaver
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
