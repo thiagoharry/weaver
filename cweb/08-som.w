@@ -73,6 +73,7 @@ void _initialize_sound(void){
         fprintf(stderr, "WARNING (0): No sound device detected.\n");
         return;
     }
+    @<Som: Inicialização@>
 }
 @
 
@@ -104,5 +105,47 @@ finalização da API Weaver:
 @<API Weaver: Finalização@>+=
 {
     _finalize_sound();
+}
+@
+
+@*1 Escolhendo Dispositivos de Áudio.
+
+O próximo passo é fornecer uma forma do programador escolher qual
+dispositivo de áudio ele gostaria de usar. Para isso primeiro nós
+precisamos de uma lista de dispositivos suportados.
+
+Isso é suportado por meio de uma extensão do OpenAL que pode ou não
+pode estar presente. Primeiro devemos checar se esta extensão está
+presente:
+
+@<Som: Inicialização@>=
+  if(alcIsExtensionPresent(NULL, "ALC_ENUMERATION_EXT") == ALC_FALSE)
+      goto AFTER_ENUMERATION;
+@
+
+Uma vez que tenhamos a extensão de enumeração, podemos então usar ela
+para obter strings com informações sobre nosso sistema. Aqui obtemos
+uma string com uma lista de todos os dispositivos presentes:
+
+@<Som: Inicialização@>=
+{
+    char *devices, *c;
+    int end = 0;
+    c = devices = (char *) alcGetString(NULL, ALC_DEFAULT_DEVICE_SPECIFIER);
+    // Bizarramente, a string que obtemos é finalizada por "\0\0" e
+    // usa "\0" como separador de dispositivos:
+    while(end != 2){
+        if(*c == '\0'){
+            end ++;
+            putchar('\n');
+        }
+        else{
+            end = 0;
+            putchar(*c);
+        }
+        c++;
+    }
+AFTER_ENUMERATION:
+  return;
 }
 @
