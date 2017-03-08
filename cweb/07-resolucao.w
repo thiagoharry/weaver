@@ -320,10 +320,10 @@ resolução certa.
 4) As interfaces dentro do programa conhecem a sua posição, mas elas
 medem isso em pixels. Com a mudança de resolução, a posição delas não
 é mais a mesma. Nesta parte realizamos as mesmas transformações de
-antes para garantir a correção na posição das interfaces. E para isso
-preisamos declarar e preencher corretamente na função os valores
-antigos e novos da resolução por meio de |width|, |height|,
-|old_width| e |old_heigh|.
+antes para garantir a correção na posição das interfaces.
+
+5) Podemos preisar mudar o tamanho de cada interface se elas foram
+configuradas para serem esticáveis.
 
 @<Shaders: Declarações@>+=
 void _change_resolution(int resolution_x, int resolution_y);
@@ -457,3 +457,19 @@ glUniform1i(current_shader -> _uniform_integer,
 @
 
 E está feito!
+
+@*1 Sumário das variáveis e Funções de Resolução.
+
+\macronome As seguintes 2 novas funções foram definidas:
+
+\macrovalor|void W.change_resolution(int x, int y)|: Muda a resolução
+do jogo para os valores passados como argumento, que correspondem
+respectivamente à resolução horizontal e vertical.
+
+\macrovalor|void W.change_shader(int shader)|: Faz com que a imagem
+final, antes de ser passada para a tela passe por um shader
+intermediário representado pelo valor indicado.
+
+\macronome A seguinte nova variável foi definida:
+
+\macro
