@@ -176,7 +176,7 @@ da API:
 _initialize_window();
 #endif
 @
-@<API Weaver: Finalização@>+=
+@<API Weaver: Encerramento@>+=
 #ifdef W_MULTITHREAD
   if(pthread_mutex_destroy(&_window_mutex) != 0){ // Finaliza mutex
     perror(NULL);
@@ -609,7 +609,7 @@ _initialize_canvas();
 #endif
 @
 
-@<API Weaver: Finalização@>+=
+@<API Weaver: Encerramento@>+=
 #if W_TARGET == W_WEB
   _finalize_canvas();
 #endif
