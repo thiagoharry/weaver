@@ -72,6 +72,7 @@ void _initialize_sound(void){
     if(default_device == NULL)
         fprintf(stderr, "WARNING (0): No sound device detected.\n");
     @<Som: Inicialização@>
+AFTER_SOUND_INITIALIZATION:
     return;
 }
 @
@@ -195,8 +196,6 @@ nomes novamente apenas para pegar o endereço do começo de cada nome:
         }
     }
 }
-AFTER_SOUND_INITIALIZATION:
-  return;
 @
 
 Como aabamos alocando um vetor para comportar os nomes de dispositivos
@@ -210,5 +209,33 @@ sua memória alocada:
 }
 
 @
+
+Agora temos que fornecer uma forma de mudar qual o nosso dispositivo
+de som padrão. O modo de fazer isso para nós será passar um número que
+corresponde à sua posição no vetor de nomes de dispositivos:
+
+@<Som: Declarações@>=
+void _select_sound_device(int position);
+@
+
+@<Som: Definições@>=
+void _select_sound_device(int position){
+    // Antes de fechar dispositivo de áudio haverão outras
+    // finalizações a fazer.
+    alcCloseDevice(default_device);
+    default_device = alcOpenDevice(W.sound_device_name[position]);
+}
+@
+
+Agora é só colocar esta função na estrutura |W|:
+
+@<Funções Weaver@>+=
+  void (*select_sound_device)(int);
+@
+@<API Weaver: Inicialização@>+=
+  W.select_sound_device = &_select_sound_device;
+@
+
+
 % int W.number_of_sound_devices
 % char *W.sound_device_name[W.number_of_sound_devices];
