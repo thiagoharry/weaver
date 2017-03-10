@@ -215,27 +215,65 @@ de som padrão. O modo de fazer isso para nós será passar um número que
 corresponde à sua posição no vetor de nomes de dispositivos:
 
 @<Som: Declarações@>=
-void _select_sound_device(int position);
+bool _select_sound_device(int position);
 @
 
 @<Som: Definições@>=
-void _select_sound_device(int position){
+bool _select_sound_device(int position){
+    if(position < 0 || position >= W.number_of_sound_devices)
+        return false;
     // Antes de fechar dispositivo de áudio haverão outras
     // finalizações a fazer.
     alcCloseDevice(default_device);
     default_device = alcOpenDevice(W.sound_device_name[position]);
+    return true;
 }
 @
 
 Agora é só colocar esta função na estrutura |W|:
 
 @<Funções Weaver@>+=
-  void (*select_sound_device)(int);
+  bool (*select_sound_device)(int);
 @
 @<API Weaver: Inicialização@>+=
   W.select_sound_device = &_select_sound_device;
 @
 
+E por fim, pode haver a necessidade de saber qual dos dispositivos da
+lista está marcado como o atual. Para isso, usamos a função abaixo que
+retorna o número de identificação (posição no vetor) do dispositivo
+atual ou que retorna o valor de -1 que representa ``desconhecido ou
+inexistente'':
+
+@<Som: Declarações@>=
+int _current_sound_device(void);
+@
+
+@<Som: Definições@>=
+int _current_sound_device(void){
+    int i;
+    char *query;
+    if(W.sound_device_name == NULL)
+        return -1;
+    query = (char *) alcGetString(NULL, ALC_DEFAULT_DEVICE_SPECIFIER);
+    for(i = 0; i < W.number_of_sound_devices; i ++)
+        if(!strcmp(query, W.sound_device_name[i]))
+            return i;
+    return -1;
+}
+@
+
+E por fim adicionamos isso à estrutura |W|:
+
+@<Funções Weaver@>+=
+  int (*current_sound_device)(void);
+@
+@<API Weaver: Inicialização@>+=
+  W.current_sound_device = &_current_sound_device;
+@
+
 
 % int W.number_of_sound_devices
 % char *W.sound_device_name[W.number_of_sound_devices];
+% bool W.select_sound_device(int);
+% int W.current_sound_device(void);
