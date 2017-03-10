@@ -272,6 +272,33 @@ E por fim adicionamos isso à estrutura |W|:
   W.current_sound_device = &_current_sound_device;
 @
 
+Após termos escolhido o nosso dispositivo, o próximo passo é criarmos
+um contexto. Um conexto nada mais é do que um conjunto de
+configurações que serão válidas para todos os sons que forem tocados
+dentro dele. Algumas das confgurações que teoricamente podem ser
+mudadas são a frequência de amostragem de sinal do áudio (tipicamente
+é 44,100 Hz), o número de caixas de som para áutio monoaural, para
+áudio estéreo e algumas outras. Mas na prática de acordo com as
+implementações atual do OpenAL, nem todas as mudanças são suportadas e
+o melhor é ficar com as configuraçõles padrão.
+
+Criar um conexto é o que iremos fazer na inicialização por meio da
+função |alcCreateContext|:
+
+@<Som: Variáveis Estáticas@>=
+  static ALCcontext *default_context;
+@
+
+
+@<Som: Inicialização@>=
+{
+    if(default_device){
+        // O segundo argumento NULL escolhe configurações padrão:
+        default_context =alcCreateContext(default_device, NULL);
+        alcMakeContextCurrent(default_context);
+    }
+}
+@
 
 % int W.number_of_sound_devices
 % char *W.sound_device_name[W.number_of_sound_devices];
