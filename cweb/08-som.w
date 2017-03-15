@@ -198,7 +198,7 @@ nomes novamente apenas para pegar o endereço do começo de cada nome:
 }
 @
 
-Como aabamos alocando um vetor para comportar os nomes de dispositivos
+Como acabamos alocando um vetor para comportar os nomes de dispositivos
 em |W.sound_device_name|, teremos então que no encerramento desalocar a
 sua memória alocada:
 
@@ -224,6 +224,7 @@ bool _select_sound_device(int position){
         return false;
     // Antes de fechar dispositivo de áudio haverão outras
     // finalizações a fazer.
+    @<Som: Antes de Trocar de Dispositivo@>
     alcCloseDevice(default_device);
     default_device = alcOpenDevice(W.sound_device_name[position]);
     return true;
@@ -282,13 +283,12 @@ mudadas são a frequência de amostragem de sinal do áudio (tipicamente
 implementações atual do OpenAL, nem todas as mudanças são suportadas e
 o melhor é ficar com as configuraçõles padrão.
 
-Criar um conexto é o que iremos fazer na inicialização por meio da
+Criar um contexto é o que iremos fazer na inicialização por meio da
 função |alcCreateContext|:
 
 @<Som: Variáveis Estáticas@>=
   static ALCcontext *default_context;
 @
-
 
 @<Som: Inicialização@>=
 {
@@ -297,6 +297,57 @@ função |alcCreateContext|:
         default_context =alcCreateContext(default_device, NULL);
         alcMakeContextCurrent(default_context);
     }
+    alGetError(); // Limpa o registro de erros
+}
+@
+
+Uma vez que um contexto foi criado, precisamos criar uma fone de
+som. Iremos considerá-la a nossa fonte padrão que deve ser tratada
+como se sempre estivesse posicionada diante de nós. Então ela não irá
+se mover, sofrer atenuação ou efeito Doppler.
+
+A nossa fonte padrão será armazenada nesta variável que é basicamente
+um inteiro:
+
+@<Som: Variáveis Estáticas@>=
+  static ALuint default_source;
+@
+
+E durante a inicialização nós iremos criá-la e inicializá-la:
+
+@<Som: Inicialização@>=
+{
+    ALenum error;
+    if(default_device != NULL){
+        alGenSources(1, &default_source);
+        error = alGetError();
+        if(error != AL_NO_ERROR){
+            fprintf(stderr, "WARNING(0)): No sound source could be created. "
+                    "alGenSources failed. Sound probably won't work.\n");
+        }
+    }
+}
+@
+
+Na finalização iremos remover a fonte de som padrão:
+
+@<Som: Finalização@>+=
+{
+    alDeleteSources(1, &default_source);
+    if(default_context != NULL)
+        alcDestroyContext(default_context);
+}
+@
+
+E não apenas isso precisa ser feito. Quando trocamos de dispositivo de
+áudio, precisamos também finalizar o contexto atual e todas as fontes
+atuais e gerá-las novamente. Por isso fazemos:
+
+@<Som: Antes de Trocar de Dispositivo@>=
+{
+    alDeleteSources(1, &default_source);
+    if(default_context != NULL)
+        alcDestroyContext(default_context);
 }
 @
 
