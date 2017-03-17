@@ -351,6 +351,13 @@ atuais e gerá-las novamente. Por isso fazemos:
 }
 @
 
+Uma vez que temos uma fonte padrão para a emissão de sons, podemos
+usá-la para produzir qualquer som que quisermos que tenham relação com
+a interface ou com sons genéricos sem relação com algum objeto
+existente no jogo.
+
+
+
 % int W.number_of_sound_devices
 % char *W.sound_device_name[W.number_of_sound_devices];
 % bool W.select_sound_device(int);
