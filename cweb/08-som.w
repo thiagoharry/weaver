@@ -44,6 +44,8 @@ iremos inserir também o cabeçalho OpenAL.
 #include "sound.h"
 @
 
+@*1 O Básico de OpenAL
+
 A primeira coisa que precisamos é inicializar um dispositivo no OpenAL
 para poder tocar o nosso som. Pode haver mais de um dispositivo, pois
 o computador pode ter mais de uma placa de som ou mais de uma opção de
@@ -355,6 +357,112 @@ Uma vez que temos uma fonte padrão para a emissão de sons, podemos
 usá-la para produzir qualquer som que quisermos que tenham relação com
 a interface ou com sons genéricos sem relação com algum objeto
 existente no jogo.
+
+@*1 Interpretando Arquivos .WAV
+
+O Formato de Arquivo de Áudio Waveform foi criado pela Microsoft e IBM
+para armazenar áudio em computadores. Ele é um caso particular de um
+outro formato de arquivos chamado RIFF (Resource Interchange File
+Format), o qual pode ser usado para armazenar dados arbitrários, não
+apenas áudio. Este será o formato de áudio inicialmente suportado por
+ser o mais simples de todos. Futuramente outros capítulos poderão
+lidar com formatos de áudio mais sofisticados e que gastam menos
+recurso na memória.
+
+O RIFF foi criado em 1991, sendo baseado em outro formato de container
+anterior criados por outra empresa e que se chamava IFF.
+
+Um arquivo RIFF sempre é formado por uma lista de ``pedaços''. Cada
+pedaço é sempre formado por uma sequência de quatro caracteres (no
+nosso caso, a string ``RIFF''), por um número de 32 bits representando
+o tamanho do dado que este pedaço carrega e uma sequência de bytes com
+o dado carregado pelo pedaço. Após os dados, podem haver bytes de
+preenchimento que não foram contados na especificação de tamanho.
+
+Para nós que estamos interessados apenas em arquivos de áudio muito
+pequenos que ficarão carregados na memória para tocar efeitos sonoros
+simples (e não em tocar música ou sons sofisticados por enquanto),
+estaremos lidando somente com arquivos compostos por um único
+pedaço. Quaisquer pedaços adicionais serão ignorados.
+
+Criaremos então a seguinte função que abre um arquivo WAV e retorna os
+seus dados sonoros do primeiro pedaço, bem como o seu tamanho e
+frequência, informações necessárias para depois tocá-lo usando
+OpenAL. A função deve retornar os dados extraídos e armazenar os seus
+valores de tamanho e frequência nos ponteiros passados como
+argumento. Em caso de erro, apenas retornamos NULL e valores inválidos
+de tamanho e frequência podem ou não ser escritos.
+
+@<Som: Variáveis Estáticas@>+=
+  static void *extract_sound(char *filename, unsigned *size, int *freq);
+@
+
+Começamos com a nossa função de extrair arquivos WAV simplesmente
+abrindo o arquivo que recebemos, e checando se podemos lê-lo antes de
+efetivamente interpretá-lo:
+
+@<Som: Definições@>+=
+static void *extract_sound(char *filename, unsigned long *size, int *freq){
+    void *returned_data;
+    FILE *fp = fopen(filename, "r");
+    if(fp == NULL) return NULL;
+    @<Interpretando Arquivo WAV@>
+    return returned_data;
+}
+@
+
+Em seguida, checamos se estamos diante de um arquivo RIFF. Para isso,
+basta checar se os primeiros 4 bytes do arquivo formam a string
+``RIFF'':
+
+@<Interpretando Arquivo WAV@>=
+{
+    char data[5];
+    data[0] = '\0';
+    fread(data, 4, 1, fp);
+    data[4] = '\0';
+    if(!strcmp(data, "RIFF")){
+        fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
+                filename);
+        return NULL;
+    }
+}
+@
+
+Em seguida, lemos o tamanho do primeiro pedaço do arquivo, que será o
+único lido.
+
+@<Interpretando Arquivo WAV@>+=
+{
+    if(fread(size, 4, 1, fp) != 1){
+        fprintf(stderr, "WARNING: Damaged file: %s\n",
+                filename);
+        return NULL;
+    }
+}
+@
+
+Até então o que fizemos foi interpretar dados presentes em qualquer
+arquivo RIFF. Agora iremos observar se o arquivo que temos realmente é
+um arquivo WAV. Nos dados armazenados em nosso pedaço, se isso é
+verdade, os primeiros 4 bytes formam a string ``WAVE'' e em seguida,
+aparece a string ``fmt '' antes da definição do formato utilizado para
+armazenar o áudio:
+
+@<Interpretando Arquivo WAV@>+=
+{
+    char data[9];
+    data[0] = '\0';
+    fread(data, 8, 1, fp);
+    data[8] = '\0';
+    if(!strcmp(data, "WAVEfmt ")){
+        fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
+                filename);
+        return NULL;
+    }
+}
+@
+
 
 
 
