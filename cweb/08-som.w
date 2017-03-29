@@ -393,16 +393,14 @@ valores de tamanho e frequência nos ponteiros passados como
 argumento. Em caso de erro, apenas retornamos NULL e valores inválidos
 de tamanho e frequência podem ou não ser escritos.
 
-@<Som: Variáveis Estáticas@>+=
-  static void *extract_sound(char *filename, unsigned *size, int *freq);
-@
-
 Começamos com a nossa função de extrair arquivos WAV simplesmente
 abrindo o arquivo que recebemos, e checando se podemos lê-lo antes de
 efetivamente interpretá-lo:
 
-@<Som: Definições@>+=
-static void *extract_sound(char *filename, unsigned long *size, int *freq){
+
+@<Som: Variáveis Estáticas@>+=
+  static void *extract_sound(char *filename, unsigned long *size, int *freq,
+                             int *channels, int *bitrate){
     void *returned_data;
     FILE *fp = fopen(filename, "r");
     if(fp == NULL) return NULL;
@@ -419,7 +417,7 @@ basta checar se os primeiros 4 bytes do arquivo formam a string
 {
     char data[5];
     data[0] = '\0';
-    fread(data, 4, 1, fp);
+    fread(data, 1, 4, fp);
     data[4] = '\0';
     if(!strcmp(data, "RIFF")){
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
@@ -430,14 +428,26 @@ basta checar se os primeiros 4 bytes do arquivo formam a string
 @
 
 Em seguida, lemos o tamanho do primeiro pedaço do arquivo, que será o
-único lido.
+único lido. Tal tamanho é armazenado sempre em 4 bytes. E um arquivo
+em formato WAVE sempre armazena os números no formato ``little
+endian''. Então para garantir que o código funcione em qualquer tipo
+de processador, tratamos manualmente a ordem dos bytes por meio de um
+loop.
 
 @<Interpretando Arquivo WAV@>+=
 {
-    if(fread(size, 4, 1, fp) != 1){
-        fprintf(stderr, "WARNING: Damaged file: %s\n",
-                filename);
-        return NULL;
+    int i;
+    unsigned long multiplier = 1;
+    *size = 0;
+    for(i = 0; i < 4; i ++){
+        unsigned long size_tmp = 0;
+        if(fread(&size_tmp, 1, 1, fp) != 1){
+            fprintf(stderr, "WARNING: Damaged file: %s\n",
+                    filename);
+            return NULL;
+        }
+        *size += size_tmp * multiplier;
+        multiplier *= 256;
     }
 }
 @
@@ -460,11 +470,113 @@ armazenar o áudio:
                 filename);
         return NULL;
     }
+    // Devemos também reduzir os bytes lidos do tamanho do arquivo
+    // para no fim ficarmos com o tamanho exato do áudio:
+    size -= 8;
 }
 @
 
+A próxima coisa que deve estar presente no arquivo WAV é um número de
+16 bits que representa o formato de áudio que está armazenado no
+arquivo. Existem vários orta5os diferentes e cada um possui o seu
+próprio número. Mas nós iremos suportar somente um: o formato PCM da
+Microsoft. Este é o formato mais usado para representar áudio sem
+qualquer tipo de compressão dentro de um arquivo WAVE. O formato é
+representado pelo número 1 e, portanto, se tivermos um número
+diferente de 1 não conseguiremos interpretar o áudio.
 
+@<Interpretando Arquivo WAV@>+=
+{
+    int format = 0;
+    unsigned long multiplier = 1;
+    for(i = 0; i < 2; i ++){
+        unsigned long format_tmp = 0;
+        if(fread(&format_tmp, 1, 1, fp) != 1){
+            fprintf(stderr, "WARNING: Damaged file: %s\n",
+                    filename);
+            return NULL;
+        }
+        format += format_tmp * multiplier;
+        multiplier *= 256;
+    }
+    if(format != 1){
+        fprintf(sdtderr, "WARNING: Not compatible WAVE file format: %s.\n",
+                filename);
+        return NULL;
+    }
+    // Devemos também reduzir os bytes lidos do tamanho do arquivo
+    // para no fim ficarmos com o tamanho exato do áudio:
+    *size -= 2;
+}
+@
 
+O próximo valor a ser lido é o número de canais de áudio. Eles estão
+em um número de 16 bits:
+
+@<Interpretando Arquivo WAV@>+=
+{
+    *channels = 0;
+    unsigned long multiplier = 1;
+    for(i = 0; i < 2; i ++){
+        unsigned long channel_tmp = 0;
+        if(fread(&channel_tmp, 1, 1, fp) != 1){
+            fprintf(stderr, "WARNING: Damaged file: %s\n",
+                    filename);
+            return NULL;
+        }
+        *channels += channel_tmp * multiplier;
+        multiplier *= 256;
+    }
+    // Devemos também reduzir os bytes lidos do tamanho do arquivo
+    // para no fim ficarmos com o tamanho exato do áudio:
+    *size -= 2;
+}
+@
+
+O próximo é a frequência, mas desta vez teremos um número de 4 bytes:
+
+@<Interpretando Arquivo WAV@>+=
+{
+    *freq = 0;
+    unsigned long multiplier = 1;
+    for(i = 0; i < 4; i ++){
+        unsigned long freq_tmp = 0;
+        if(fread(&freq_tmp, 1, 1, fp) != 1){
+            fprintf(stderr, "WARNING: Damaged file: %s\n",
+                    filename);
+            return NULL;
+        }
+        *freq += freq_tmp * multiplier;
+        multiplier *= 256;
+    }
+    // Devemos também reduzir os bytes lidos do tamanho do arquivo
+    // para no fim ficarmos com o tamanho exato do áudio:
+    *size -= 4;
+}
+@
+
+Em seguida, vem mais 2 bytes que representam quantos bits são usados
+em cada amostragem de áudio.
+
+@<Interpretando Arquivo WAV@>+=
+{
+    *bitrate = 0;
+    unsigned long multiplier = 1;
+    for(i = 0; i < 2; i ++){
+        unsigned long bitrate_tmp = 0;
+        if(fread(&bitrate_tmp, 1, 1, fp) != 1){
+            fprintf(stderr, "WARNING: Damaged file: %s\n",
+                    filename);
+            return NULL;
+        }
+        *bitrate += bitrate_tmp * multiplier;
+        multiplier *= 256;
+    }
+    // Devemos também reduzir os bytes lidos do tamanho do arquivo
+    // para no fim ficarmos com o tamanho exato do áudio:
+    *size -= 2;
+}
+@
 
 % int W.number_of_sound_devices
 % char *W.sound_device_name[W.number_of_sound_devices];
