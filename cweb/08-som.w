@@ -36,6 +36,7 @@ iremos inserir também o cabeçalho OpenAL.
 #endif
 @
 @(project/src/weaver/sound.c@>=
+#include <string.h> // strrchr
 #include "sound.h"
 @<Som: Variáveis Estáticas@>
 @<Som: Definições@>
@@ -379,17 +380,37 @@ o tamanho do dado que este pedaço carrega e uma sequência de bytes com
 o dado carregado pelo pedaço. Após os dados, podem haver bytes de
 preenchimento que não foram contados na especificação de tamanho.
 
-Para nós que estamos interessados apenas em arquivos de áudio muito
+Pedaços podem ter também subpedaços. No caso do formato WAVE, os
+arquivos sempre tem um único pedaço. Mas dentro dele há dois
+subpedaços: um para armazenas dados sobre o áudio e outro para
+armazenar os ddos em si. Também podem haver subpedaços adicionais,
+como um subpedaço para armazenar informações de copyright. O problema
+é que o formato WAVE pode ser um tanto complexo, suportando diferentes
+tipos de subpedaços e muitas diferentes formas de se armazenar o som
+internamente. Além disso, existem versões mais antigas e pouco
+precisas que descrevem o formato que foram usadas para fazer softwares
+mais antigos e menos robustos que serão capazes apenas de tocar um
+subconjunto do formato WAVE.
+
+Mesmo levando em conta apenas tal subconjunto, não é incomum encontrar
+amostras de áudio WAVE com alguns dados internos incorretos. Por causa
+de todos estes fatores, não vale à pena se ater à todos os detalhes da
+especificação WAVE. Campos que podem ser facilmente deduzidos devem
+ser deduzidos, e não confiar nos valores internos presentes no
+arquivo. Campos não-essenciais podem ser ignorados. E além disos,
+iremos suportar apenas uma forma canônica do formato WAVE, que na
+prática é a mais difundida por poder ser tocada por todos os
+softwares.
+
+Inicialmente estamos interessados apenas em arquivos de áudio muito
 pequenos que ficarão carregados na memória para tocar efeitos sonoros
-simples (e não em tocar música ou sons sofisticados por enquanto),
-estaremos lidando somente com arquivos compostos por um único
-pedaço. Quaisquer pedaços adicionais serão ignorados.
+simples (e não em tocar música ou sons sofisticados por enquanto).
 
 Criaremos então a seguinte função que abre um arquivo WAV e retorna os
-seus dados sonoros do primeiro pedaço, bem como o seu tamanho e
-frequência, informações necessárias para depois tocá-lo usando
-OpenAL. A função deve retornar os dados extraídos e armazenar os seus
-valores de tamanho e frequência nos ponteiros passados como
+seus dados sonoros, bem como o seu tamanho e frequência, número de
+canais e número de bits por maostragem, informações necessárias para
+depois tocá-lo usando OpenAL. A função deve retornar os dados
+extraídos e armazenar os seus valores nos ponteiros passados como
 argumento. Em caso de erro, apenas retornamos NULL e valores inválidos
 de tamanho e frequência podem ou não ser escritos.
 
@@ -399,8 +420,8 @@ efetivamente interpretá-lo:
 
 
 @<Som: Variáveis Estáticas@>+=
-  static void *extract_sound(char *filename, unsigned long *size, int *freq,
-                             int *channels, int *bitrate){
+static void *extract_wave(char *filename, unsigned long *size, int *freq,
+                           int *channels, int *bitrate){
     void *returned_data;
     FILE *fp = fopen(filename, "r");
     if(fp == NULL) return NULL;
@@ -411,7 +432,7 @@ efetivamente interpretá-lo:
 
 Em seguida, checamos se estamos diante de um arquivo RIFF. Para isso,
 basta checar se os primeiros 4 bytes do arquivo formam a string
-``RIFF'':
+``RIFF''. Se não for, realmente não estamos lidando com um WAVE.
 
 @<Interpretando Arquivo WAV@>=
 {
@@ -422,6 +443,7 @@ basta checar se os primeiros 4 bytes do arquivo formam a string
     if(!strcmp(data, "RIFF")){
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
                 filename);
+        fclose(fp);
         return NULL;
     }
 }
@@ -444,6 +466,7 @@ loop.
         if(fread(&size_tmp, 1, 1, fp) != 1){
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
+            fclose(fp);
             return NULL;
         }
         *size += size_tmp * multiplier;
@@ -455,30 +478,51 @@ loop.
 Até então o que fizemos foi interpretar dados presentes em qualquer
 arquivo RIFF. Agora iremos observar se o arquivo que temos realmente é
 um arquivo WAV. Nos dados armazenados em nosso pedaço, se isso é
-verdade, os primeiros 4 bytes formam a string ``WAVE'' e em seguida,
-aparece a string ``fmt '' antes da definição do formato utilizado para
-armazenar o áudio:
+verdade, os primeiros 4 bytes formam a string ``WAVE'':
 
 @<Interpretando Arquivo WAV@>+=
 {
-    char data[9];
+    char data[5];
     data[0] = '\0';
-    fread(data, 8, 1, fp);
-    data[8] = '\0';
-    if(!strcmp(data, "WAVEfmt ")){
+    fread(data, 1, 4, fp);
+    data[4] = '\0';
+    if(!strcmp(data, "WAVE")){
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
                 filename);
+        fclose(fp);
         return NULL;
     }
     // Devemos também reduzir os bytes lidos do tamanho do arquivo
     // para no fim ficarmos com o tamanho exato do áudio:
-    size -= 8;
+    *size -= 4;
+}
+@
+
+Em seguida, vamos ignorar os próximos 8 bytes do arquivo. Eles devem
+possuir apenas uma marcação de que estamos no subpedaço que vai
+descrever o formato do áudio e possui um número que representa o
+tamanho deste subpedaço. Em amostras adquiridas na Internet, o valor
+de tamanho de subpedaço continha valores errôneos em alguns casos.
+
+@<Interpretando Arquivo WAV@>+=
+{
+    int c, i;
+    for(i = 0; i < 8; i ++){
+        c = getc(p);
+        if(c == EOF){
+            fprintf(stderr, "WARNING: Damaged audio file: %s\n",
+                    filename);
+            fclose(fp);
+            return NULL;
+        }
+    }
+    *size -= 8;
 }
 @
 
 A próxima coisa que deve estar presente no arquivo WAV é um número de
 16 bits que representa o formato de áudio que está armazenado no
-arquivo. Existem vários orta5os diferentes e cada um possui o seu
+arquivo. Existem vários  diferentes e cada um possui o seu
 próprio número. Mas nós iremos suportar somente um: o formato PCM da
 Microsoft. Este é o formato mais usado para representar áudio sem
 qualquer tipo de compressão dentro de um arquivo WAVE. O formato é
@@ -494,6 +538,7 @@ diferente de 1 não conseguiremos interpretar o áudio.
         if(fread(&format_tmp, 1, 1, fp) != 1){
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
+            fclose(fp);
             return NULL;
         }
         format += format_tmp * multiplier;
@@ -502,6 +547,7 @@ diferente de 1 não conseguiremos interpretar o áudio.
     if(format != 1){
         fprintf(sdtderr, "WARNING: Not compatible WAVE file format: %s.\n",
                 filename);
+        fclose(fp);
         return NULL;
     }
     // Devemos também reduzir os bytes lidos do tamanho do arquivo
@@ -522,6 +568,7 @@ em um número de 16 bits:
         if(fread(&channel_tmp, 1, 1, fp) != 1){
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
+            fclose(fp);
             return NULL;
         }
         *channels += channel_tmp * multiplier;
@@ -544,6 +591,7 @@ O próximo é a frequência, mas desta vez teremos um número de 4 bytes:
         if(fread(&freq_tmp, 1, 1, fp) != 1){
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
+            fclose(fp);
             return NULL;
         }
         *freq += freq_tmp * multiplier;
@@ -552,6 +600,26 @@ O próximo é a frequência, mas desta vez teremos um número de 4 bytes:
     // Devemos também reduzir os bytes lidos do tamanho do arquivo
     // para no fim ficarmos com o tamanho exato do áudio:
     *size -= 4;
+}
+@
+
+Depois disso vem mais 6 bytes que podem ser ignorados. Eles possuem
+informações sobre o alinhamento de blocos e uma estimativa de quantos
+bytes serão tocados por segundo:
+
+@<Interpretando Arquivo WAV@>+=
+{
+    int c, i;
+    for(i = 0; i < 6; i ++){
+        c = getc(p);
+        if(c == EOF){
+            fprintf(stderr, "WARNING: Damaged audio file: %s\n",
+                    filename);
+            fclose(fp);
+            return NULL;
+        }
+    }
+    *size -= 6;
 }
 @
 
@@ -567,6 +635,7 @@ em cada amostragem de áudio.
         if(fread(&bitrate_tmp, 1, 1, fp) != 1){
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
+            fclose(fp);
             return NULL;
         }
         *bitrate += bitrate_tmp * multiplier;
@@ -575,6 +644,134 @@ em cada amostragem de áudio.
     // Devemos também reduzir os bytes lidos do tamanho do arquivo
     // para no fim ficarmos com o tamanho exato do áudio:
     *size -= 2;
+}
+@
+
+O que vem depois são mais 8 bytes sinalizando que estamos entrando no
+subpedaço com os dados do áudio em si e indicando redundantemente qual
+o pedaço deste subpedaço. Podemos ignorar estas informações:
+
+@<Interpretando Arquivo WAV@>+=
+{
+    int c, i;
+    for(i = 0; i < 8; i ++){
+        c = getc(p);
+        if(c == EOF){
+            fprintf(stderr, "WARNING: Damaged audio file: %s\n",
+                    filename);
+            fclose(fp);
+            return NULL;
+        }
+    }
+    *size -= 8;
+}
+@
+
+O que restou depois disso é o próprio áudio em si. Podemos enfim
+alocar o buffer que armazenará ele, copiar os dados e depois disso
+nossa função irá retornar este buffer:
+
+@<Interpretando Arquivo WAV@>+=
+{
+    returned_data = Walloc((size_t) *size);
+    if(returned_data == NULL){
+        printf("WARNING(0): Not enough memory to read file: %s.\n",
+               filename);
+#if W_DEBUG_LEVEL >= 1
+        fprintf(stderr, "WARNING (1): You should increase the value of "
+                "W_INTERNAL_MEMORY at conf/conf.h.\n");
+#endif
+        fclose(fp);
+        return NULL;
+    }
+    fread(returned_data, *size, 1, fp);
+    fclose(fp);
+}
+@
+
+E assim enfim terminamos nossa função auxiliar que lê arquios
+WAVE. Mas esta é apenas uma função auxiliar que iremos chamar caso
+tentemos ler um arquivo com a extensão ``.wav''. Vamos precisar também
+fazer com que cada som extraído acabe indo parar em uma struct que
+tenha todos os dados necessários para tocá-lo. A struct em si é esta:
+
+@<Som: Declarações@>+=
+struct sound{
+    unsigned long size;
+    int channels, freq, bitrate;
+    void *data;
+};
+@
+
+É importante notar que este tipo de estrutura irá armazenar na memória
+todo o som para poder ser tocado rapidamente. Ela não deverá ser usada
+para armazenar coisas longas como música, ou isso irá exaurir a
+memória disponível.
+
+Podemos então definir a função que realmente será exportada e usada
+pelos usuários:
+
+@<Som: Declarações@>+=
+struct sound *_new_sound(char *filename);
+@
+
+A função tenta interprear o arquivo de áudio observando sua
+extensão. Ela também assume que o arquivo de áudioestá no diretório
+``sound/'' adequado para que não seja necessário digitar o caminho
+completo. Por enquanto somente a extensão ``.wav'' é suportada. Mas nos
+capítulos futuros podemos obter suporte de mais extensões:
+
+@<Som: Declarações@>+=
+struct sound *_new_sound(char *filename){
+    char *ext, *complete_path;
+    struct sound *snd;
+#if W_DEBUG_LEVEL >= 1
+    char dir[] = "./sound/";
+#else
+    char dir[] = "/usr/share/games/"W_PROG"/sound/"
+#endif
+    // Obtendo a extensão:
+    ext = strrchr(filename, '.');
+    if(! ext){
+        fprintf(stderr, "WARNING (0): No file extension in %s.\n",
+                filename);
+        return NULL;
+    }
+    snd = (struct sound *) Walloc(sizeof(struct sound));
+    if(snd == NULL){
+        printf("WARNING(0): Not enough memory to read file: %s.\n",
+               filename);
+#if W_DEBUG_LEVEL >= 1
+        fprintf(stderr, "WARNING (1): You should increase the value of "
+                "W_INTERNAL_MEMORY at conf/conf.h.\n");
+#endif
+        return NULL;
+    }
+    complete_path = (char *) Walloc(strlen(filename) + strlen(dir) + 1);
+    if(complete_path == NULL){
+        Wfree(snd);
+        printf("WARNING(0): Not enough memory to read file: %s.\n",
+               filename);
+#if W_DEBUG_LEVEL >= 1
+        fprintf(stderr, "WARNING (1): You should increase the value of "
+                "W_INTERNAL_MEMORY at conf/conf.h.\n");
+#endif
+        return NULL;
+    }
+    strcpy(complete_path, dir);
+    strcat(complete_path, filename);
+    if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){
+        snd -> data = extract_wave(complete_path, &(snd -> size),
+                                   &(snd -> freq), &(snd -> channels),
+                                   &(snd -> bitrate));
+    }
+    else{
+        Wfree(complete_path);
+        Wfree(snd);
+        return NULL;
+    }
+    Wfree(complete_path);
+    return snd;
 }
 @
 
