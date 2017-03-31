@@ -38,6 +38,7 @@ iremos inserir também o cabeçalho OpenAL.
 @(project/src/weaver/sound.c@>=
 #include <string.h> // strrchr
 #include "sound.h"
+#include "weaver.h"
 @<Som: Variáveis Estáticas@>
 @<Som: Definições@>
 @
@@ -509,7 +510,7 @@ de tamanho de subpedaço continha valores errôneos em alguns casos.
 {
     int c, i;
     for(i = 0; i < 8; i ++){
-        c = getc(p);
+        c = getc(fp);
         if(c == EOF){
             fprintf(stderr, "WARNING: Damaged audio file: %s\n",
                     filename);
@@ -532,7 +533,7 @@ diferente de 1 não conseguiremos interpretar o áudio.
 
 @<Interpretando Arquivo WAV@>+=
 {
-    int format = 0;
+    int i, format = 0;
     unsigned long multiplier = 1;
     for(i = 0; i < 2; i ++){
         unsigned long format_tmp = 0;
@@ -546,7 +547,7 @@ diferente de 1 não conseguiremos interpretar o áudio.
         multiplier *= 256;
     }
     if(format != 1){
-        fprintf(sdtderr, "WARNING: Not compatible WAVE file format: %s.\n",
+        fprintf(stderr, "WARNING: Not compatible WAVE file format: %s.\n",
                 filename);
         fclose(fp);
         return NULL;
@@ -562,6 +563,7 @@ em um número de 16 bits:
 
 @<Interpretando Arquivo WAV@>+=
 {
+    int i;
     *channels = 0;
     unsigned long multiplier = 1;
     for(i = 0; i < 2; i ++){
@@ -585,6 +587,7 @@ O próximo é a frequência, mas desta vez teremos um número de 4 bytes:
 
 @<Interpretando Arquivo WAV@>+=
 {
+    int i;
     *freq = 0;
     unsigned long multiplier = 1;
     for(i = 0; i < 4; i ++){
@@ -612,7 +615,7 @@ bytes serão tocados por segundo:
 {
     int c, i;
     for(i = 0; i < 6; i ++){
-        c = getc(p);
+        c = getc(fp);
         if(c == EOF){
             fprintf(stderr, "WARNING: Damaged audio file: %s\n",
                     filename);
@@ -629,6 +632,7 @@ em cada amostragem de áudio.
 
 @<Interpretando Arquivo WAV@>+=
 {
+    int i;
     *bitrate = 0;
     unsigned long multiplier = 1;
     for(i = 0; i < 2; i ++){
@@ -656,7 +660,7 @@ o pedaço deste subpedaço. Podemos ignorar estas informações:
 {
     int c, i;
     for(i = 0; i < 8; i ++){
-        c = getc(p);
+        c = getc(fp);
         if(c == EOF){
             fprintf(stderr, "WARNING: Damaged audio file: %s\n",
                     filename);
@@ -722,7 +726,7 @@ extensão. Ela também assume que o arquivo de áudioestá no diretório
 completo. Por enquanto somente a extensão ``.wav'' é suportada. Mas nos
 capítulos futuros podemos obter suporte de mais extensões:
 
-@<Som: Declarações@>+=
+@<Som: Definições@>+=
 struct sound *_new_sound(char *filename){
     char *ext, *complete_path;
     struct sound *snd;
@@ -761,7 +765,7 @@ struct sound *_new_sound(char *filename){
     }
     strcpy(complete_path, dir);
     strcat(complete_path, filename);
-    if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){
+    if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
         snd -> data = extract_wave(complete_path, &(snd -> size),
                                    &(snd -> freq), &(snd -> channels),
                                    &(snd -> bitrate));
@@ -774,6 +778,16 @@ struct sound *_new_sound(char *filename){
     Wfree(complete_path);
     return snd;
 }
+@
+
+E uma vez que tal função tenha sido definida, nós a colocamos dentro
+da estrutura W:
+
+@<Funções Weaver@>+=
+  struct sound *(*new_sound)(char *);
+@
+@<API Weaver: Inicialização@>+=
+  W.new_sound = &_new_sound;
 @
 
 % int W.number_of_sound_devices
