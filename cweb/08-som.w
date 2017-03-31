@@ -45,7 +45,7 @@ iremos inserir também o cabeçalho OpenAL.
 #include "sound.h"
 @
 
-@*1 O Básico de OpenAL
+@*1 O Básico de OpenAL.
 
 A primeira coisa que precisamos é inicializar um dispositivo no OpenAL
 para poder tocar o nosso som. Pode haver mais de um dispositivo, pois
@@ -147,9 +147,10 @@ Uma vez que tenhamos a extensão de enumeração, podemos então usar ela
 para obter strings com informações sobre nosso sistema. Se a extensão
 está presente, uma chamada para a função |alcGetString| com os
 parâmetros certos nos retorna uma string com o nome de todos os
-dispositivos existentes. Cada dispositivo é separado por um ``\0'' e a
-presença de um ``\0\0'' encerra a string. Inicialmente apenas
-percorremos a string para sabermos quantos dispositivos existem:
+dispositivos existentes. Cada dispositivo é separado por um
+``$\backslash$0'' e a presença de um ``$\backslash$0$\backslash$0''
+encerra a string. Inicialmente apenas percorremos a string para
+sabermos quantos dispositivos existem:
 
 @<Som: Inicialização@>=
 {
@@ -359,7 +360,7 @@ usá-la para produzir qualquer som que quisermos que tenham relação com
 a interface ou com sons genéricos sem relação com algum objeto
 existente no jogo.
 
-@*1 Interpretando Arquivos .WAV
+@*1 Interpretando Arquivos \.WAV.
 
 O Formato de Arquivo de Áudio Waveform foi criado pela Microsoft e IBM
 para armazenar áudio em computadores. Ele é um caso particular de um
