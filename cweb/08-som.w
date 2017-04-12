@@ -203,7 +203,7 @@ nomes novamente apenas para pegar o endereço do começo de cada nome:
 }
 @
 
-Como acabamos alocando um vetor para comportar os nomes de dispositivos
+Como alocamos um vetor para comportar os nomes de dispositivos
 em |W.sound_device_name|, teremos então que no encerramento desalocar a
 sua memória alocada:
 
@@ -411,24 +411,28 @@ simples (e não em tocar música ou sons sofisticados por enquanto).
 Criaremos então a seguinte função que abre um arquivo WAV e retorna os
 seus dados sonoros, bem como o seu tamanho e frequência, número de
 canais e número de bits por maostragem, informações necessárias para
-depois tocá-lo usando OpenAL. A função deve retornar os dados
-extraídos e armazenar os seus valores nos ponteiros passados como
-argumento. Em caso de erro, apenas retornamos NULL e valores inválidos
-de tamanho e frequência podem ou não ser escritos.
+depois tocá-lo usando OpenAL. A função deve retornar um buffer para o
+dados extraídos e armazenar os seus valores nos ponteiros passados
+como argumento. Em caso de erro, marcamos também como falsa uma
+ariável booleana cujo ponteiro recebemos.
 
 Começamos com a nossa função de extrair arquivos WAV simplesmente
 abrindo o arquivo que recebemos, e checando se podemos lê-lo antes de
 efetivamente interpretá-lo:
 
-
 @<Som: Variáveis Estáticas@>+=
-static void *extract_wave(char *filename, unsigned long *size, int *freq,
-                           int *channels, int *bitrate){
-    void *returned_data;
+static ALuint extract_wave(char *filename, unsigned long *size, int *freq,
+                           int *channels, int *bitrate, bool *error){
+    void *returned_data  = NULL;
+    ALuint returned_buffer = 0;
     FILE *fp = fopen(filename, "r");
-    if(fp == NULL) return NULL;
+    *error = false;
+    if(fp == NULL){
+        *error = false;
+        return 0;
+    }
     @<Interpretando Arquivo WAV@>
-    return returned_data;
+    return returned_buffer;
 }
 @
 
@@ -446,7 +450,8 @@ basta checar se os primeiros 4 bytes do arquivo formam a string
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
                 filename);
         fclose(fp);
-        return NULL;
+        *error = true;
+        return 0;
     }
 }
 @
@@ -469,7 +474,8 @@ loop.
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
             fclose(fp);
-            return NULL;
+            *error = true;
+            return 0;
         }
         *size += size_tmp * multiplier;
         multiplier *= 256;
@@ -492,7 +498,8 @@ verdade, os primeiros 4 bytes formam a string ``WAVE'':
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
                 filename);
         fclose(fp);
-        return NULL;
+        *error = true;
+        return 0;
     }
     // Devemos também reduzir os bytes lidos do tamanho do arquivo
     // para no fim ficarmos com o tamanho exato do áudio:
@@ -515,7 +522,8 @@ de tamanho de subpedaço continha valores errôneos em alguns casos.
             fprintf(stderr, "WARNING: Damaged audio file: %s\n",
                     filename);
             fclose(fp);
-            return NULL;
+            *error = true;
+            return 0;
         }
     }
     *size -= 8;
@@ -541,7 +549,8 @@ diferente de 1 não conseguiremos interpretar o áudio.
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
             fclose(fp);
-            return NULL;
+            *error = true;
+            return 0;
         }
         format += format_tmp * multiplier;
         multiplier *= 256;
@@ -550,7 +559,8 @@ diferente de 1 não conseguiremos interpretar o áudio.
         fprintf(stderr, "WARNING: Not compatible WAVE file format: %s.\n",
                 filename);
         fclose(fp);
-        return NULL;
+        *error = true;
+        return 0;
     }
     // Devemos também reduzir os bytes lidos do tamanho do arquivo
     // para no fim ficarmos com o tamanho exato do áudio:
@@ -572,7 +582,8 @@ em um número de 16 bits:
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
             fclose(fp);
-            return NULL;
+            *error = true;
+            return 0;
         }
         *channels += channel_tmp * multiplier;
         multiplier *= 256;
@@ -596,7 +607,8 @@ O próximo é a frequência, mas desta vez teremos um número de 4 bytes:
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
             fclose(fp);
-            return NULL;
+            *error = true;
+            return 0;
         }
         *freq += freq_tmp * multiplier;
         multiplier *= 256;
@@ -620,7 +632,8 @@ bytes serão tocados por segundo:
             fprintf(stderr, "WARNING: Damaged audio file: %s\n",
                     filename);
             fclose(fp);
-            return NULL;
+            *error = true;
+            return 0;
         }
     }
     *size -= 6;
@@ -641,7 +654,8 @@ em cada amostragem de áudio.
             fprintf(stderr, "WARNING: Damaged file: %s\n",
                     filename);
             fclose(fp);
-            return NULL;
+            *error = true;
+            return 0;
         }
         *bitrate += bitrate_tmp * multiplier;
         multiplier *= 256;
@@ -665,7 +679,8 @@ o pedaço deste subpedaço. Podemos ignorar estas informações:
             fprintf(stderr, "WARNING: Damaged audio file: %s\n",
                     filename);
             fclose(fp);
-            return NULL;
+            *error = true;
+            return 0;
         }
     }
     *size -= 8;
@@ -673,8 +688,7 @@ o pedaço deste subpedaço. Podemos ignorar estas informações:
 @
 
 O que restou depois disso é o próprio áudio em si. Podemos enfim
-alocar o buffer que armazenará ele, copiar os dados e depois disso
-nossa função irá retornar este buffer:
+alocar o buffer que armazenará ele, e copiá-lo para ele.
 
 @<Interpretando Arquivo WAV@>+=
 {
@@ -687,9 +701,55 @@ nossa função irá retornar este buffer:
                 "W_INTERNAL_MEMORY at conf/conf.h.\n");
 #endif
         fclose(fp);
-        return NULL;
+        *error = true;
+        return 0;
     }
     fread(returned_data, *size, 1, fp);
+}
+@
+
+Agora é hora de criarmos o buffer OpenAL. E enviarmos os dados sonoros
+extraídos para ele. Depois de fazer isso, podemos desalocar o nosso
+buffer com o som:
+
+@<Interpretando Arquivo WAV@>+=
+{
+    ALenum status;
+    ALuint format;
+    // Gerando buffer OpenAL
+    alGenBuffers(1, &returned_buffer);
+    status = alGetError();
+    if(status != AL_NO_ERROR){
+        fprintf(stderr, "WARNING(0)): No sound buffer could be created. "
+                "alGenBuffers failed. Sound may not work.\n");
+        Wfree(returned_data);
+        *error = true;
+        fclose(fp);
+        return 0;
+    }
+    // Determinando informações sobre o áudio antes de enviá-lo
+    if(*bitrate == 8){
+        if(*channels == 1)      format = AL_FORMAT_MONO8;
+        else if(*channels == 2) format = AL_FORMAT_STEREO8;
+    } else if(*bitrate == 16){
+        if(*channels == 1)      format = AL_FORMAT_MONO16;
+        else if(*channels == 2) format = AL_FORMAT_STEREO16;
+    }
+    // Enviando o buffer de dados para o OpenAL:
+    alBufferData(returned_buffer, format, returned_data, (ALsizei) *size,
+                 *freq);
+    status = alGetError();
+    if(status != AL_NO_ERROR){
+        fprintf(stderr, "WARNING(0)): Can't pass audio to OpenAL. "
+                "alBufferData failed. Sound may not work.\n");
+        Wfree(returned_data);
+        alDeleteBuffers(1, &returned_buffer);
+        *error = true;
+        fclose(fp);
+        return 0;
+    }
+    // Não precisamos agora manter o buffer conosco. Podemos desalocá-lo:
+    Wfree(returned_data);
     fclose(fp);
 }
 @
@@ -704,7 +764,7 @@ tenha todos os dados necessários para tocá-lo. A struct em si é esta:
 struct sound{
     unsigned long size;
     int channels, freq, bitrate;
-    void *data;
+    ALuint data;
 };
 @
 
@@ -730,6 +790,7 @@ capítulos futuros podemos obter suporte de mais extensões:
 struct sound *_new_sound(char *filename){
     char *ext, *complete_path;
     struct sound *snd;
+    bool ret = false;
 #if W_DEBUG_LEVEL >= 1
     char dir[] = "./sound/";
 #else
@@ -768,9 +829,9 @@ struct sound *_new_sound(char *filename){
     if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
         snd -> data = extract_wave(complete_path, &(snd -> size),
                                    &(snd -> freq), &(snd -> channels),
-                                   &(snd -> bitrate));
+                                   &(snd -> bitrate), &ret);
     }
-    else{
+    if(!ret){ // ret só é verdadeiro se tudo deu certo
         Wfree(complete_path);
         Wfree(snd);
         return NULL;
@@ -790,7 +851,21 @@ da estrutura W:
   W.new_sound = &_new_sound;
 @
 
+E uma vez que obtemos um arquivo de áudio, caso desejemos tocar, basta
+invocar a função abaixo:
+
+@<Som: Declarações@>+=
+void _play_sound(struct sound *snd);
+@
+
+@<Som: Definições@>+=
+void _play_sound(struct sound *snd){
+
+}
+@
+
 % int W.number_of_sound_devices
 % char *W.sound_device_name[W.number_of_sound_devices];
 % bool W.select_sound_device(int);
 % int W.current_sound_device(void);
+% struct sound *W.new_sound(char *filename);
