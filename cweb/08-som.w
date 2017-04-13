@@ -306,16 +306,18 @@ função |alcCreateContext|:
 }
 @
 
-Uma vez que um contexto foi criado, precisamos criar uma fone de
+Uma vez que um contexto foi criado, precisamos criar uma fonte de
 som. Iremos considerá-la a nossa fonte padrão que deve ser tratada
 como se sempre estivesse posicionada diante de nós. Então ela não irá
-se mover, sofrer atenuação ou efeito Doppler.
+se mover, sofrer atenuação ou efeito Doppler. Na verdade não criaremos
+somente uma, mas cinco delas para que assim possamos tocar mais de um
+efeito sonoro simultâneo.
 
 A nossa fonte padrão será armazenada nesta variável que é basicamente
 um inteiro:
 
 @<Som: Variáveis Estáticas@>=
-  static ALuint default_source;
+  static ALuint default_source[5];
 @
 
 E durante a inicialização nós iremos criá-la e inicializá-la:
@@ -324,7 +326,7 @@ E durante a inicialização nós iremos criá-la e inicializá-la:
 {
     ALenum error;
     if(default_device != NULL){
-        alGenSources(1, &default_source);
+        alGenSources(5, default_source);
         error = alGetError();
         if(error != AL_NO_ERROR){
             fprintf(stderr, "WARNING(0)): No sound source could be created. "
@@ -338,7 +340,7 @@ Na finalização iremos remover a fonte de som padrão:
 
 @<Som: Finalização@>+=
 {
-    alDeleteSources(1, &default_source);
+    alDeleteSources(5, default_source);
     if(default_context != NULL)
         alcDestroyContext(default_context);
 }
@@ -350,7 +352,7 @@ atuais e gerá-las novamente. Por isso fazemos:
 
 @<Som: Antes de Trocar de Dispositivo@>=
 {
-    alDeleteSources(1, &default_source);
+    alDeleteSources(5, default_source);
     if(default_context != NULL)
         alcDestroyContext(default_context);
 }
@@ -860,16 +862,16 @@ void _play_sound(struct sound *snd);
 
 @<Som: Definições@>+=
 void _play_sound(struct sound *snd){
-    ALenum status;
+    int i = -1;
+    ALenum status = AL_NO_ERROR;
     // Primeiro associamos o nosso buffer à uma fonte de som:
-    alSourcei(default_source, AL_BUFFER, snd -> _data);
-    status = alGetError();
-    if(status != AL_NO_ERROR){
-        fprintf(stderr, "WARNING: Can't play sound.");
-    }
-    else{
-        alSourcePlay(default_source);
-    }
+    do{
+        i ++;
+        if(i > 4) break;
+        alSourcei(default_source[i], AL_BUFFER, snd -> _data);
+        status = alGetError();
+    } while(status != AL_NO_ERROR);
+    alSourcePlay(default_source[i]);
 }
 @
 
@@ -888,3 +890,4 @@ void (*play_sound)(struct sound *);
 % bool W.select_sound_device(int);
 % int W.current_sound_device(void);
 % struct sound *W.new_sound(char *filename);
+% void W.play_sound(struct sound *);
