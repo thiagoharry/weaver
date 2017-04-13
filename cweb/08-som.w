@@ -764,7 +764,7 @@ tenha todos os dados necessários para tocá-lo. A struct em si é esta:
 struct sound{
     unsigned long size;
     int channels, freq, bitrate;
-    ALuint data;
+    ALuint _data;
 };
 @
 
@@ -827,7 +827,7 @@ struct sound *_new_sound(char *filename){
     strcpy(complete_path, dir);
     strcat(complete_path, filename);
     if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
-        snd -> data = extract_wave(complete_path, &(snd -> size),
+        snd -> _data = extract_wave(complete_path, &(snd -> size),
                                    &(snd -> freq), &(snd -> channels),
                                    &(snd -> bitrate), &ret);
     }
@@ -860,9 +860,28 @@ void _play_sound(struct sound *snd);
 
 @<Som: Definições@>+=
 void _play_sound(struct sound *snd){
-
+    ALenum status;
+    // Primeiro associamos o nosso buffer à uma fonte de som:
+    alSourcei(default_source, AL_BUFFER, snd -> _data);
+    status = alGetError();
+    if(status != AL_NO_ERROR){
+        fprintf(stderr, "WARNING: Can't play sound.");
+    }
+    else{
+        alSourcePlay(default_source);
+    }
 }
 @
+
+E colocamos a função na estrutura |W|:
+
+@<Funções Weaver@>+=
+void (*play_sound)(struct sound *);
+@
+@<API Weaver: Inicialização@>+=
+  W.play_sound = &_play_sound;
+@
+
 
 % int W.number_of_sound_devices
 % char *W.sound_device_name[W.number_of_sound_devices];
