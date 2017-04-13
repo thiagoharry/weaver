@@ -446,7 +446,7 @@ basta checar se os primeiros 4 bytes do arquivo formam a string
     data[0] = '\0';
     fread(data, 1, 4, fp);
     data[4] = '\0';
-    if(!strcmp(data, "RIFF")){
+    if(strcmp(data, "RIFF")){
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
                 filename);
         fclose(fp);
@@ -494,7 +494,7 @@ verdade, os primeiros 4 bytes formam a string ``WAVE'':
     data[0] = '\0';
     fread(data, 1, 4, fp);
     data[4] = '\0';
-    if(!strcmp(data, "WAVE")){
+    if(strcmp(data, "WAVE")){
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
                 filename);
         fclose(fp);
@@ -715,7 +715,7 @@ buffer com o som:
 @<Interpretando Arquivo WAV@>+=
 {
     ALenum status;
-    ALuint format;
+    ALuint format = 0;
     // Gerando buffer OpenAL
     alGenBuffers(1, &returned_buffer);
     status = alGetError();
@@ -790,7 +790,7 @@ capítulos futuros podemos obter suporte de mais extensões:
 struct sound *_new_sound(char *filename){
     char *ext, *complete_path;
     struct sound *snd;
-    bool ret = false;
+    bool ret = true;
 #if W_DEBUG_LEVEL >= 1
     char dir[] = "./sound/";
 #else
@@ -831,7 +831,7 @@ struct sound *_new_sound(char *filename){
                                    &(snd -> freq), &(snd -> channels),
                                    &(snd -> bitrate), &ret);
     }
-    if(!ret){ // ret só é verdadeiro se tudo deu certo
+    if(ret){ // ret é verdadeiro caso um erro tenha acontecido
         Wfree(complete_path);
         Wfree(snd);
         return NULL;
