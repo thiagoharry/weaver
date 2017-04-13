@@ -756,11 +756,13 @@ buffer com o som:
 }
 @
 
-E assim enfim terminamos nossa função auxiliar que lê arquios
-WAVE. Mas esta é apenas uma função auxiliar que iremos chamar caso
-tentemos ler um arquivo com a extensão ``.wav''. Vamos precisar também
-fazer com que cada som extraído acabe indo parar em uma struct que
-tenha todos os dados necessários para tocá-lo. A struct em si é esta:
+@*1 Criando novos sons e tocando.
+
+O que criamos até então é apenas uma função auxiliar que iremos chamar
+caso tentemos ler um arquivo com a extensão ``.wav''. Vamos precisar
+também fazer com que cada som extraído acabe indo parar em uma struct
+que tenha todos os dados necessários para tocá-lo. A struct em si é
+esta:
 
 @<Som: Declarações@>+=
 struct sound{
@@ -884,10 +886,51 @@ void (*play_sound)(struct sound *);
   W.play_sound = &_play_sound;
 @
 
+Remover o som criado pode ser deixado á cargo do nosso coletor de
+lixo, então nenhuma função de desalocação precisa ser criada.
 
-% int W.number_of_sound_devices
-% char *W.sound_device_name[W.number_of_sound_devices];
-% bool W.select_sound_device(int);
-% int W.current_sound_device(void);
-% struct sound *W.new_sound(char *filename);
-% void W.play_sound(struct sound *);
+@*1 Sumário das variáveis e Funções de Som.
+
+\macronome A seguinte nova estrutura foi definida:
+
+\noindent|struct sound {
+    unsigned long size;
+    int channels, freq, bitrate;
+}|
+
+\macrovalor|size|: Representa o tamanho do áudio em bytes.
+
+\macrovalor|channels|: Quantos canais de áudio existem neste som.
+
+\macrovalor|freq|: A frequência do áudio lido.
+
+\macrovalor|bitrate|: Quantos bits são usados para representar ele.
+
+\macronome As seguintes 2 novas variáveis foram definidas:
+
+\macrovalor|int W.number_of_sound_devices|: O número de dispositivos de som
+que temos à nossa disposição.
+
+\macrovalor|char *W.sound_device_name[W.number_of_sound_devices]|: O
+nome de cada um dos dispositivos de som que temos à nossa disposição.
+
+\macronome As seguintes 4 novas funções foram definidas:
+
+\macrovalor|bool W.select_sound_device(int sound_device)|:
+Escolhe um dos dispositivos de som disponíveis para usar. Para isso,
+passamos o índice de sua posição no veor visto acima
+|W.sound_device_name|. Em seguida, retornamos um valor booleano que
+diz se a mudança foi feita com sucesso.
+
+\macrovalor|int W.current_sound_device(void)|:
+Retorna o índice do dispositivo de som usado atualmente. Ou -1 se
+nenhum está sendo usado.
+
+\macrovalor|struct sound *W.new_sound(char *filename)|:
+Cria uma nova estrutura de som representando um efeito sonoro no
+diretório \monoespaco{sound/}. Ou |NULL| se não foi possível ler
+corretamente um áudio.
+
+\macrovalor|bool W.play_sound(struct sound *snd)|:
+Toca um som representado por uma estrutura de som. Em seguida retorna
+se foi possível tocar o som com sucesso.
