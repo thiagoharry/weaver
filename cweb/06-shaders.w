@@ -1238,7 +1238,7 @@ verificar o al diretório que armazena shaders:
     DIR *d;
     shader_directory[0] = '\0';
 #if W_DEBUG_LEVEL == 0
-    strcat(shader_directory, W_INSTALL_DIR);
+    strcat(shader_directory, W_INSTALL_DATA);
 #endif
     strcat(shader_directory, "shaders/");
     // Pra começar, abrimos o diretório e percorremos os arquivos para

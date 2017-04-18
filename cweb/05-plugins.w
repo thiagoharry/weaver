@@ -102,7 +102,11 @@ definir |W_PLUGIN_CODE| para os \italico{plugins}.
 Para saber onde encontrar os \italico{plugins} durante a execução,
 definimos em \monoespaco{conf/conf.h} as seguintes macros:
 
-\macronome|W_INSTALL_DIR|: O diretório em que o jogo será instalado.
+\macronome|W_INSTALL_DATA|: O diretório em que os dados do jogo
+(texturas, sons, shaders) será instalado.
+
+\macronome|W_INSTALL_PROG|: O diretório em que o arquivo executável do jogo será
+instalado.
 
 \macronome|W_PLUGIN_PATH|: Uma string com lista de diretórios
 separadas por dois pontos (``:''). Se for uma string vazia, isso
@@ -402,7 +406,7 @@ bool _reload_plugin(int plugin_id){
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&(data -> mutex));
 #endif
-    return false; // Não conseguimos ler informação sobre o arquivo do plugin. 
+    return false; // Não conseguimos ler informação sobre o arquivo do plugin.
   }               // Vamos apenas torcer para que tudo acabe bem.
   if(data -> id == attr.st_ino){
     // Plugin não-modificado. Ele já está certo!
@@ -1281,4 +1285,3 @@ de uma função periódica e NaN se a função não for periódica. Como a
 ocorrência de um NaN (Not a Number) pode ser testada com a função
 |isnan|, então esta é a forma recomendada de descobrir se uma dada
 função é periódica ou não.
-
