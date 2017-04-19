@@ -40,8 +40,9 @@ make-web: create_plugin_code create_shader_code ${BC} ${W_BC} ${HEADERS} ${PLUGI
 create_shader_code:
 	mkdir -p .hidden_code .plugin
 	echo "struct _shader _shader_list[${NUMBER_OF_SHADERS}];" > .hidden_code/shader.h
-	echo "{ int number;" > .hidden_code/initialize_shader.c
+	echo "{" > .hidden_code/initialize_shader.c
 	if [ "$$(ls -A shaders/)" ]; then \
+          echo "int number;" >> .hidden_code/initialize_shader.c; \
 	  for i in shaders/*; do \
 	    shader_name=$$(basename $${i}); \
 	    echo "number = atoi(\"$${shader_name}\");" >> .hidden_code/initialize_shader.c; \

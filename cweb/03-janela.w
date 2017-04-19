@@ -486,6 +486,15 @@ criar o contexto:.
     glXGetProcAddressARB( (const GLubyte *) "glXCreateContextAttribsARB" );
   context = glXCreateContextAttribsARB(_dpy, *fbConfigs, NULL, GL_TRUE,
                                        context_attribs);
+  if(context == NULL){
+    fprintf(stderr, "ERROR: Couldn't create an OpenGL 3.0 context.\n");
+    exit(1);
+  }
+  // Aqui pode ocorrer um erro aparentemente não-detectável, quando o
+  // kernel é recompilado e o driver não o reconhece mis como
+  // compatível. para mim ele imprime dentro desta função: "Gen6+
+  // requires Kernel 3.6 or later." e uma falha de segmentação ocorre
+  // aqui.
   glXMakeCurrent(_dpy, _window, context);
 }
 @
