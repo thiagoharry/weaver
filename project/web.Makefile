@@ -20,7 +20,7 @@ THREAD_FLAG=
 else
 THREAD_FLAG=-s USE_PTHREADS=2
 endif
-FINAL_FLAGS=-s TOTAL_MEMORY=$$((${MAX_MEMORY}+${WEB_MEMORY})) ${THREAD_FLAG}
+FINAL_FLAGS=-s ASYNCIFY=1 -s TOTAL_MEMORY=$$((${MAX_MEMORY}+${WEB_MEMORY})) ${THREAD_FLAG}
 
 SOURCE_TEST=$(shell grep "^\#define[ \t]\+W_SOURCE[ \t]\+W_" conf/conf.h | grep -o "\(W_C\|W_CPP\)")
 ifeq ($(strip $(SOURCE_TEST)),W_C)
@@ -35,6 +35,7 @@ endif
 
 make-web: create_plugin_code create_shader_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
 	mkdir -p web
+	cp -r sound/ web
 	${FINAL_CC} ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o web/${PROG}.html ${LIB}
 create_shader_code:
 	mkdir -p .hidden_code .plugin

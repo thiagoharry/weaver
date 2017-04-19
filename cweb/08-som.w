@@ -37,6 +37,8 @@ iremos inserir também o cabeçalho OpenAL.
 @
 @(project/src/weaver/sound.c@>=
 #include <string.h> // strrchr
+#include <sys/stat.h> //mkdir
+#include <sys/types.h> //mkdir
 #include "sound.h"
 #include "weaver.h"
 @<Som: Variáveis Estáticas@>
@@ -135,23 +137,15 @@ W.number_of_sound_devices = 0;
 W.sound_device_name = NULL;
 @
 
-O preenchimento de tais informações é suportado por meio de uma
-extensão do OpenAL que pode ou não pode estar presente. Primeiro
-devemos checar se esta extensão está presente.
-
-@<Som: Inicialização@>=
-  if(alcIsExtensionPresent(NULL, "ALC_ENUMERATION_EXT") == ALC_FALSE)
-      goto AFTER_SOUND_INITIALIZATION;
-@
-
-Uma vez que tenhamos a extensão de enumeração, podemos então usar ela
-para obter strings com informações sobre nosso sistema. Se a extensão
-está presente, uma chamada para a função |alcGetString| com os
-parâmetros certos nos retorna uma string com o nome de todos os
-dispositivos existentes. Cada dispositivo é separado por um
-``$\backslash$0'' e a presença de um ``$\backslash$0$\backslash$0''
-encerra a string. Inicialmente apenas percorremos a string para
-sabermos quantos dispositivos existem:
+Uma chamada para a função |alcGetString| com os parâmetros certos nos
+retorna uma string com o nome de todos os dispositivos existentes se
+tivermos a extensão do OpenAL que permite isso. Não testamos
+previamente se esta extensão existe ou não porque o resultado
+retornado não é confiável no Emscripten. Ao invés disso, apenas
+tentamos usar ela. Se ela existir, a função nos dá o nome de cada
+dispositivo separado por um ``$\backslash$0'' e a presença de um
+``$\backslash$0$\backslash$0'' encerra a string. Inicialmente apenas
+percorremos a string para sabermos quantos dispositivos existem:
 
 @<Som: Inicialização@>=
 {
@@ -795,10 +789,12 @@ struct sound *_new_sound(char *filename){
     char *ext, *complete_path;
     struct sound *snd;
     bool ret = true;
-#if W_DEBUG_LEVEL >= 1
+#if W_TARGET == W_WEB
+    char dir[] = "sound/";
+#elif W_DEBUG_LEVEL >= 1
     char dir[] = "./sound/";
-#else
-    char dir[] = "/usr/share/games/"W_PROG"/sound/"
+#elif W_TARGET == W_ELF
+    char dir[] = W_INSTALL_DATA"/sound/";
 #endif
     // Obtendo a extensão:
     ext = strrchr(filename, '.');
@@ -830,6 +826,12 @@ struct sound *_new_sound(char *filename){
     }
     strcpy(complete_path, dir);
     strcat(complete_path, filename);
+#if W_TARGET == W_WEB
+    mkdir("sound/", 0777);
+    printf("INICIO: (%s).\n", complete_path);
+    emscripten_wget(complete_path, complete_path);
+    printf("FIM\n");
+#endif
     if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
         snd -> _data = extract_wave(complete_path, &(snd -> size),
                                    &(snd -> freq), &(snd -> channels),
