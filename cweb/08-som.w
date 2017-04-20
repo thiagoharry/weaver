@@ -796,7 +796,7 @@ struct sound *_new_sound(char *filename){
     struct sound *snd;
     bool ret = true;
 #if W_TARGET == W_WEB
-    char dir[] = "sound/";
+    char dir[] = "/sound/";
 #elif W_DEBUG_LEVEL >= 1
     char dir[] = "./sound/";
 #elif W_TARGET == W_ELF
@@ -834,9 +834,10 @@ struct sound *_new_sound(char *filename){
     strcat(complete_path, filename);
 #if W_TARGET == W_WEB
     mkdir("sound/", 0777);
-    printf("INICIO: (%s).\n", complete_path);
+    //printf("INICIO: (%s).\n", complete_path);
+    //printf("%d\n", W_MAX_INTERFACES);
     emscripten_wget(complete_path, complete_path);
-    printf("FIM\n");
+    //printf("FIM\n");
 #endif
     if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
         snd -> _data = extract_wave(complete_path, &(snd -> size),
