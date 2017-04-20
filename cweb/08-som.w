@@ -25,9 +25,9 @@ iremos inserir também o cabeçalho OpenAL.
 #ifdef __cplusplus
   extern "C" {
 #endif
-#include "weaver.h"
 #include <AL/al.h>
 #include <AL/alc.h>
+#include "weaver.h"
 @<Inclui Cabeçalho de Configuração@>
 @<Som: Declarações@>
 #ifdef __cplusplus
@@ -41,6 +41,12 @@ iremos inserir também o cabeçalho OpenAL.
 #include <sys/types.h> //mkdir
 #include "sound.h"
 #include "weaver.h"
+
+// Previne warnings irritantes e desnecessários no Emscripten
+#if W_TARGET == W_WEB
+extern ALenum alGetError(void);
+#endif
+
 @<Som: Variáveis Estáticas@>
 @<Som: Definições@>
 @
