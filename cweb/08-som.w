@@ -796,7 +796,7 @@ struct sound *_new_sound(char *filename){
     struct sound *snd;
     bool ret = true;
 #if W_TARGET == W_WEB
-    char dir[] = "/sound/";
+    char dir[] = "sound/";
 #elif W_DEBUG_LEVEL >= 1
     char dir[] = "./sound/";
 #elif W_TARGET == W_ELF
