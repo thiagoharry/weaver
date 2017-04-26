@@ -2104,7 +2104,7 @@ seguintes definições de macro:
 #define LOOP_BODY _loop_begin = false; if(_loop_begin)\
    goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION:\
    _lag += _update_time(); while(_lag >= 40000){ _update(); _LABEL_0
-#define LOOP_END _lag -= 40000; W.t += 40000; }\
+#define LOOP_END _lag -= 40000; W.t += 40000; } \
    _render(); if(_running_loop) return; if(W.t == 0) goto _LABEL_0;\
    _LOOP_FINALIZATION
 @

@@ -766,9 +766,10 @@ esta:
 
 @<Som: Declarações@>+=
 struct sound{
-    unsigned long size;
-    int channels, freq, bitrate;
-    ALuint _data;
+  unsigned long size;
+  int channels, freq, bitrate;
+  ALuint _data;
+  bool _loaded; /* O som terminou de ser carregado? */
 };
 @
 
@@ -819,6 +820,7 @@ struct sound *_new_sound(char *filename){
 #endif
         return NULL;
     }
+    snd -> _loaded = false;
     complete_path = (char *) Walloc(strlen(filename) + strlen(dir) + 1);
     if(complete_path == NULL){
         Wfree(snd);
@@ -850,6 +852,9 @@ struct sound *_new_sound(char *filename){
         return NULL;
     }
     Wfree(complete_path);
+#if W_TARGET == W_ELF
+    snd -> _loaded = true;
+#endif
     return snd;
 }
 @
@@ -873,16 +878,17 @@ void _play_sound(struct sound *snd);
 
 @<Som: Definições@>+=
 void _play_sound(struct sound *snd){
-    int i = -1;
-    ALenum status = AL_NO_ERROR;
-    // Primeiro associamos o nosso buffer à uma fonte de som:
-    do{
-        i ++;
-        if(i > 4) break;
-        alSourcei(default_source[i], AL_BUFFER, snd -> _data);
-        status = alGetError();
-    } while(status != AL_NO_ERROR);
-    alSourcePlay(default_source[i]);
+  if(! snd -> _loaded) return; // Se o som ainda não carregou, deixa.
+  int i = -1;
+  ALenum status = AL_NO_ERROR;
+  // Primeiro associamos o nosso buffer à uma fonte de som:
+  do{
+    i ++;
+    if(i > 4) break;
+    alSourcei(default_source[i], AL_BUFFER, snd -> _data);
+    status = alGetError();
+  } while(status != AL_NO_ERROR);
+  alSourcePlay(default_source[i]);
 }
 @
 
