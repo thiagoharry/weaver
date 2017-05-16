@@ -16,7 +16,7 @@ ambiente virtual em 3D. Além de suportar a simulação de efeitos
 físicos como o efeito Doppler.
 
 A primeira coisa a fazer para usar a biblioteca é criar um cabeçalho e
-um arquio de código C com funções específicas de som. Nestes arquivos
+um arquivo de código C com funções específicas de som. Nestes arquivos
 iremos inserir também o cabeçalho OpenAL.
 
 @(project/src/weaver/sound.h@>=
@@ -400,11 +400,10 @@ Mesmo levando em conta apenas tal subconjunto, não é incomum encontrar
 amostras de áudio WAVE com alguns dados internos incorretos. Por causa
 de todos estes fatores, não vale à pena se ater à todos os detalhes da
 especificação WAVE. Campos que podem ser facilmente deduzidos devem
-ser deduzidos, e não confiar nos valores internos presentes no
-arquivo. Campos não-essenciais podem ser ignorados. E além disos,
-iremos suportar apenas uma forma canônica do formato WAVE, que na
-prática é a mais difundida por poder ser tocada por todos os
-softwares.
+ser deduzidos ao invés de confiar na especificação do arquivo. Campos
+não-essenciais podem ser ignorados. E além disso, iremos suportar
+apenas uma forma canônica do formato WAVE, que na prática é a mais
+difundida por poder ser tocada por todos os softwares.
 
 Inicialmente estamos interessados apenas em arquivos de áudio muito
 pequenos que ficarão carregados na memória para tocar efeitos sonoros
@@ -418,9 +417,42 @@ dados extraídos e armazenar os seus valores nos ponteiros passados
 como argumento. Em caso de erro, marcamos também como falsa uma
 ariável booleana cujo ponteiro recebemos.
 
-Começamos com a nossa função de extrair arquivos WAV simplesmente
-abrindo o arquivo que recebemos, e checando se podemos lê-lo antes de
-efetivamente interpretá-lo:
+outra coisa que não podemos esquecer é que se estivermos executando o
+código via Emscripten, ler um arquivo de áudio na Internet tem uma
+latência alta demais. Por causa disso, o melhor a fazer é lermos ele
+assincronamente, sem que tenhamos que terminar de carregá-lo quando a
+função de leitura retorna. A estrutura de áudio deve possuir uma
+variável booleana chamada |ready| que nos informa se o áudio já
+terminouy de ser carregado ou não. Enquanto ele ainda não terminar,
+podemos pedir para que o som seja tocado sem que som algum seja
+produzido. Isso poderá ocorrer em ambiente Emscripten e não é um
+bug. É a melhor forma de lidar com a latência de um ambiente de
+Internet.
+
+Entretanto, é importante que tenhamos terminado de carregar todos os
+arquivos da rede antes de sairmos do loop atual. Caso contrário,
+estaremos nos coloando à mercê de falhas de segmentação. Ao encerrar o
+loop atual, marcamos como disponíveis as regiões alocadas no loop. Mas
+se tem um código assíncrono preenchendo tais regiões, isso causará
+problemas. Por causa disso, teremos que manter uma contagem de
+qwuantos arquivos pendentes estamos carregando na rede:
+
+@<Variáveis Weaver@>+=
+unsigned pending_files;
+@
+@<API Weaver: Inicialização@>+=
+W.pending_files = 0;
+@
+
+Consultar esta variável |W.pending_files| pode ser usada por loops que
+funcionam como telas de carregamento, mas somente dentro de ambientes
+Emscripten. Para fazer uma tela de carregamento fora deste ambiente,
+técnicas diferentes devem ser usadas, pois dado um carregamento
+síncrono, o número de arquivos pendentes sempre será zero.
+
+Começamos agora com a nossa função de extrair arquivos WAV
+simplesmente abrindo o arquivo que recebemos, e checando se podemos
+lê-lo antes de efetivamente interpretá-lo:
 
 @<Som: Variáveis Estáticas@>+=
 static ALuint extract_wave(char *filename, unsigned long *size, int *freq,
