@@ -435,20 +435,32 @@ estaremos nos coloando à mercê de falhas de segmentação. Ao encerrar o
 loop atual, marcamos como disponíveis as regiões alocadas no loop. Mas
 se tem um código assíncrono preenchendo tais regiões, isso causará
 problemas. Por causa disso, teremos que manter uma contagem de
-qwuantos arquivos pendentes estamos carregando na rede:
+quantos arquivos pendentes estamos carregando.
 
 @<Variáveis Weaver@>+=
 unsigned pending_files;
+#ifdef W_MULTITHREAD
+pthread_mutex_t _load_file_mutex;
+#endif
 @
 @<API Weaver: Inicialização@>+=
 W.pending_files = 0;
+#ifdef W_MULTITHREAD
+if(pthread_mutex_init(&(W._load_file_mutex), NULL) != 0){
+  fprintf(stderr, "ERROR (0): Can't initialize mutex for file loading.\n");
+  exit(1);
+}
+#endif
 @
 
 Consultar esta variável |W.pending_files| pode ser usada por loops que
-funcionam como telas de carregamento, mas somente dentro de ambientes
-Emscripten. Para fazer uma tela de carregamento fora deste ambiente,
-técnicas diferentes devem ser usadas, pois dado um carregamento
-síncrono, o número de arquivos pendentes sempre será zero.
+funcionam como telas de carregamento. O valor será extremamente útil
+para saber quantos arquivos ainda precisam terminar de ser carregados
+tanto no ambiente Emscripten como caso um programa use threads para
+carregararquivos e assim tentar tornar o processo mais rápido. Isso
+significa que temos também que oferecer um mutex para esta variável se
+estivermos usando multithreading (mas não em ambiente Emscripten, o
+Javascript realmente trata como atômicas suas expressões).
 
 Começamos agora com a nossa função de extrair arquivos WAV
 simplesmente abrindo o arquivo que recebemos, e checando se podemos
@@ -801,7 +813,7 @@ struct sound{
   unsigned long size;
   int channels, freq, bitrate;
   ALuint _data;
-  bool _loaded; /* O som terminou de ser carregado? */
+  bool loaded; /* O som terminou de ser carregado? */
 };
 @
 
@@ -852,7 +864,7 @@ struct sound *_new_sound(char *filename){
 #endif
         return NULL;
     }
-    snd -> _loaded = false;
+    snd -> loaded = false;
     complete_path = (char *) Walloc(strlen(filename) + strlen(dir) + 1);
     if(complete_path == NULL){
         Wfree(snd);
@@ -885,7 +897,7 @@ struct sound *_new_sound(char *filename){
     }
     Wfree(complete_path);
 #if W_TARGET == W_ELF
-    snd -> _loaded = true;
+    snd -> loaded = true;
 #endif
     return snd;
 }
@@ -910,7 +922,7 @@ void _play_sound(struct sound *snd);
 
 @<Som: Definições@>+=
 void _play_sound(struct sound *snd){
-  if(! snd -> _loaded) return; // Se o som ainda não carregou, deixa.
+  if(! snd -> loaded) return; // Se o som ainda não carregou, deixa.
   int i = -1;
   ALenum status = AL_NO_ERROR;
   // Primeiro associamos o nosso buffer à uma fonte de som:
@@ -943,6 +955,7 @@ lixo, então nenhuma função de desalocação precisa ser criada.
 \noindent|struct sound {
     unsigned long size;
     int channels, freq, bitrate;
+    bool loaded;
 }|
 
 \macrovalor|size|: Representa o tamanho do áudio em bytes.
@@ -953,10 +966,18 @@ lixo, então nenhuma função de desalocação precisa ser criada.
 
 \macrovalor|bitrate|: Quantos bits são usados para representar ele.
 
+\macrovalor|loaded|: Esta estrutura já possui um áudio completamernte
+    carregado da memória?
+
 \macronome As seguintes 2 novas variáveis foram definidas:
 
 \macrovalor|int W.number_of_sound_devices|: O número de dispositivos de som
 que temos à nossa disposição.
+
+\macrovalor|unsigned int W.pending_files|: O número de arquivos que
+estão sendo lidos, mas ainda não terminaram de ser processados. O
+valor será diferente de zero em um ambiente no qual os arquivos são
+lidos assincronamente, como no Emscripten.
 
 \macrovalor|char *W.sound_device_name[W.number_of_sound_devices]|: O
 nome de cada um dos dispositivos de som que temos à nossa disposição.
