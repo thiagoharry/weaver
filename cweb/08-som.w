@@ -452,6 +452,9 @@ if(pthread_mutex_init(&(W._load_file_mutex), NULL) != 0){
 }
 #endif
 @
+@<API Weaver: Finalização@>+=
+pthread_mutex_destroy(&(W._load_file_mutex));
+@
 
 Consultar esta variável |W.pending_files| pode ser usada por loops que
 funcionam como telas de carregamento. O valor será extremamente útil
