@@ -417,13 +417,13 @@ dados extraídos e armazenar os seus valores nos ponteiros passados
 como argumento. Em caso de erro, marcamos também como falsa uma
 ariável booleana cujo ponteiro recebemos.
 
-outra coisa que não podemos esquecer é que se estivermos executando o
+Outra coisa que não podemos esquecer é que se estivermos executando o
 código via Emscripten, ler um arquivo de áudio na Internet tem uma
 latência alta demais. Por causa disso, o melhor a fazer é lermos ele
 assincronamente, sem que tenhamos que terminar de carregá-lo quando a
 função de leitura retorna. A estrutura de áudio deve possuir uma
 variável booleana chamada |ready| que nos informa se o áudio já
-terminouy de ser carregado ou não. Enquanto ele ainda não terminar,
+terminou de ser carregado ou não. Enquanto ele ainda não terminar,
 podemos pedir para que o som seja tocado sem que som algum seja
 produzido. Isso poderá ocorrer em ambiente Emscripten e não é um
 bug. É a melhor forma de lidar com a latência de um ambiente de
@@ -850,13 +850,6 @@ struct sound *_new_sound(char *filename){
 #elif W_TARGET == W_ELF
     char dir[] = W_INSTALL_DATA"/sound/";
 #endif
-    // Obtendo a extensão:
-    ext = strrchr(filename, '.');
-    if(! ext){
-        fprintf(stderr, "WARNING (0): No file extension in %s.\n",
-                filename);
-        return NULL;
-    }
     snd = (struct sound *) Walloc(sizeof(struct sound));
     if(snd == NULL){
         printf("WARNING(0): Not enough memory to read file: %s.\n",
@@ -883,11 +876,21 @@ struct sound *_new_sound(char *filename){
     strcat(complete_path, filename);
 #if W_TARGET == W_WEB
     mkdir("sound/", 0777);
-    //printf("INICIO: (%s).\n", complete_path);
-    //printf("%d\n", W_MAX_INTERFACES);
-    emscripten_wget(complete_path, complete_path);
-    //printf("FIM\n");
-#endif
+    W.pending_files ++;
+    emscripten_async_wget2(complete_path, complete_path,
+                           "GET", "", (void *) snd,
+                           onload_sound, onerror_sound,
+                           onprogress_sound);
+    Wfree(complete_path);
+    return snd;
+#else
+    // Obtendo a extensão:
+    ext = strrchr(filename, '.');
+    if(! ext){
+      fprintf(stderr, "WARNING (0): No file extension in %s.\n",
+              filename);
+      return NULL;
+    }
     if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
         snd -> _data = extract_wave(complete_path, &(snd -> size),
                                    &(snd -> freq), &(snd -> channels),
@@ -899,12 +902,55 @@ struct sound *_new_sound(char *filename){
         return NULL;
     }
     Wfree(complete_path);
-#if W_TARGET == W_ELF
     snd -> loaded = true;
-#endif
     return snd;
+#endif
 }
 @
+
+Se estamos xecutando o programa nativamente, após a função terminar, a
+estrutura de som já está pronta. Caso estejamos rodando no Emscripten,
+o trabalho é feito dentro das funções que passamos omo argumento para
+a função que carrega a imagem assincronamente. Definiremos as funções
+que serão usadas só neste caso. A função a ser executada depois de
+carregar assincronamente o arquivo faz praticamente a mesma coisa que
+a função que gera nova estrutura de som depois de abrir o arquivo
+quando trabalha de modo síncrono:
+
+@<Som: Declarações@>+=
+#if W_TARGET == W_WEB
+void onload_sound(void *snd, char *filename);
+#endif
+@
+
+@<Som: Definições@>+=
+#if W_TARGET == W_WEB
+void onload_sound(void *snd, char *filename){
+  char *ext;
+  bool ret = true;
+  struct sound *my_sound = (struct sound *) snd;
+  // Checando extensão
+  ext = strrchr(filename, '.');  
+  if(! ext){
+    onerror_sound(snd, filename);
+    return;
+  }
+  if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
+    my_sound -> _data = extract_wave(filename, &(my_sound -> size),
+                                     &(my_sound -> freq),
+                                     &(my_sound -> channels),
+                                     &(my_sound -> bitrate), &ret);
+  }
+  if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
+    onerror_sound(snd, filename);
+    return;
+  }
+  my_sound -> loaded = true;
+  W.pending_files --;
+}
+#endif
+@
+
 
 E uma vez que tal função tenha sido definida, nós a colocamos dentro
 da estrutura W:
