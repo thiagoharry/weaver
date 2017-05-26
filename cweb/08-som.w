@@ -473,7 +473,7 @@ simplesmente abrindo o arquivo que recebemos, e checando se podemos
 lê-lo antes de efetivamente interpretá-lo:
 
 @<Som: Variáveis Estáticas@>+=
-static ALuint extract_wave(char *filename, unsigned long *size, int *freq,
+static ALuint extract_wave(const char *filename, unsigned long *size, int *freq,
                            int *channels, int *bitrate, bool *error){
     void *returned_data  = NULL;
     ALuint returned_buffer = 0;
@@ -843,9 +843,12 @@ capítulos futuros podemos obter suporte de mais extensões:
 
 @<Som: Definições@>+=
 struct sound *_new_sound(char *filename){
-    char *ext, *complete_path;
+    char *complete_path;
     struct sound *snd;
+#if W_TARGET == W_ELF
     bool ret = true;
+    char *ext;
+#endif
 #if W_TARGET == W_WEB
     char dir[] = "sound/";
 #elif W_DEBUG_LEVEL >= 1
@@ -911,7 +914,7 @@ struct sound *_new_sound(char *filename){
 }
 @
 
-Se estamos xecutando o programa nativamente, após a função terminar, a
+Se estamos executando o programa nativamente, após a função terminar, a
 estrutura de som já está pronta. Caso estejamos rodando no Emscripten,
 o trabalho é feito dentro das funções que passamos omo argumento para
 a função que carrega a imagem assincronamente. Definiremos as funções
@@ -921,13 +924,16 @@ A primeira função que vamos definir é a que cuidará assincronamente
 dos erros. O que ela faz basicamente é imprimir um aviso e decrementar
 o número de arquivos pendentes que estão sendo carregados. Ela deve
 ser definida antes, pois podemos precisar invocar o erro dela dentro
-das outras funções assíncronas:
+das outras funções assíncronas. O código de erro tipicamente é o erro
+HTTP. Mas também retornaremos 0 se não for possível identificar o
+arquivo pela extensão e 1 caso o arquivo esteja corrompido.
 
 @<Som: Funções Estáticas@>+=
 #if W_TARGET == W_WEB
-  static void onerror_sound(void *snd, char *filename){
-  fprintf(stderr, "WARNING (0): Couldn't load file %s.\n",
-          filename);
+static void onerror_sound(unsigned undocumented, void *snd,
+                          int error_code){
+  fprintf(stderr, "WARNING (0): Couldn't load a sound file. Code %d.\n",
+          error_code);
   W.pending_files --;
 }
 #endif
@@ -940,14 +946,15 @@ som depois de abrir o arquivo quando trabalha de modo síncrono:
 
 @<Som: Funções Estáticas@>+=
 #if W_TARGET == W_WEB
-static void onload_sound(void *snd, char *filename){
+static void onload_sound(unsigned undocumented, void *snd,
+                         const char *filename){
   char *ext;
   bool ret = true;
   struct sound *my_sound = (struct sound *) snd;
   // Checando extensão
   ext = strrchr(filename, '.');  
   if(! ext){
-    onerror_sound(snd, filename);
+    onerror_sound(0, snd, 0);
     return;
   }
   if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
@@ -957,7 +964,7 @@ static void onload_sound(void *snd, char *filename){
                                      &(my_sound -> bitrate), &ret);
   }
   if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
-    onerror_sound(snd, filename);
+    onerror_sound(0, snd, 1);
     return;
   }
   my_sound -> loaded = true;
@@ -972,7 +979,8 @@ arquivo:
 
 @<Som: Funções Estáticas@>+=
 #if W_TARGET == W_WEB
-    static void onprogress_sound(unsigned int p, void *snd, char *filename){
+static void onprogress_sound(unsigned int undocumented, void *snd,
+                             int percent){
   return;
 }
 #endif
