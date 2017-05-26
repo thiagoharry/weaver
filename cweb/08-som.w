@@ -48,6 +48,7 @@ extern ALenum alGetError(void);
 #endif
 
 @<Som: Variáveis Estáticas@>
+@<Som: Funções Estáticas@>
 @<Som: Definições@>
 @
 @<Cabeçalhos Weaver@>+=
@@ -453,7 +454,9 @@ if(pthread_mutex_init(&(W._load_file_mutex), NULL) != 0){
 #endif
 @
 @<API Weaver: Finalização@>+=
+#ifdef W_MULTITHREAD
 pthread_mutex_destroy(&(W._load_file_mutex));
+#endif
 @
 
 Consultar esta variável |W.pending_files| pode ser usada por loops que
@@ -879,8 +882,8 @@ struct sound *_new_sound(char *filename){
     W.pending_files ++;
     emscripten_async_wget2(complete_path, complete_path,
                            "GET", "", (void *) snd,
-                           onload_sound, onerror_sound,
-                           onprogress_sound);
+                           &onload_sound, &onerror_sound,
+                           &onprogress_sound);
     Wfree(complete_path);
     return snd;
 #else
@@ -912,20 +915,32 @@ Se estamos xecutando o programa nativamente, após a função terminar, a
 estrutura de som já está pronta. Caso estejamos rodando no Emscripten,
 o trabalho é feito dentro das funções que passamos omo argumento para
 a função que carrega a imagem assincronamente. Definiremos as funções
-que serão usadas só neste caso. A função a ser executada depois de
-carregar assincronamente o arquivo faz praticamente a mesma coisa que
-a função que gera nova estrutura de som depois de abrir o arquivo
-quando trabalha de modo síncrono:
+que serão usadas só neste caso.
 
-@<Som: Declarações@>+=
+A primeira função que vamos definir é a que cuidará assincronamente
+dos erros. O que ela faz basicamente é imprimir um aviso e decrementar
+o número de arquivos pendentes que estão sendo carregados. Ela deve
+ser definida antes, pois podemos precisar invocar o erro dela dentro
+das outras funções assíncronas:
+
+@<Som: Funções Estáticas@>+=
 #if W_TARGET == W_WEB
-void onload_sound(void *snd, char *filename);
+  static void onerror_sound(void *snd, char *filename){
+  fprintf(stderr, "WARNING (0): Couldn't load file %s.\n",
+          filename);
+  W.pending_files --;
+}
 #endif
 @
 
-@<Som: Definições@>+=
+
+A função a ser executada depois de carregar assincronamente o arquivo
+faz praticamente a mesma coisa que a função que gera nova estrutura de
+som depois de abrir o arquivo quando trabalha de modo síncrono:
+
+@<Som: Funções Estáticas@>+=
 #if W_TARGET == W_WEB
-void onload_sound(void *snd, char *filename){
+static void onload_sound(void *snd, char *filename){
   char *ext;
   bool ret = true;
   struct sound *my_sound = (struct sound *) snd;
@@ -951,6 +966,17 @@ void onload_sound(void *snd, char *filename){
 #endif
 @
 
+E uma função vazia que precisamos passar emostra o que o Emscripten
+tem que fazer à medida que carrega cada porcentagem relevante do
+arquivo:
+
+@<Som: Funções Estáticas@>+=
+#if W_TARGET == W_WEB
+    static void onprogress_sound(unsigned int p, void *snd, char *filename){
+  return;
+}
+#endif
+@
 
 E uma vez que tal função tenha sido definida, nós a colocamos dentro
 da estrutura W:
