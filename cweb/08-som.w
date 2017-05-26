@@ -428,9 +428,13 @@ terminou de ser carregado ou não. Enquanto ele ainda não terminar,
 podemos pedir para que o som seja tocado sem que som algum seja
 produzido. Isso poderá ocorrer em ambiente Emscripten e não é um
 bug. É a melhor forma de lidar com a latência de um ambiente de
-Internet.
+Internet. E iremos também aproveitar e fazer com que arquivos também
+sejam lidos assíncronamente e paralelamente caso threads estejam
+ativadas. Mesmo que o programador não as use explicitamente, ele se
+beneficiará delas, pois Weaver poderá carregar automaticamente
+arquivos em diferentes threads.
 
-Entretanto, é importante que tenhamos terminado de carregar todos os
+Mas é importante que tenhamos terminado de carregar todos os
 arquivos da rede antes de sairmos do loop atual. Caso contrário,
 estaremos nos coloando à mercê de falhas de segmentação. Ao encerrar o
 loop atual, marcamos como disponíveis as regiões alocadas no loop. Mas
@@ -459,11 +463,43 @@ pthread_mutex_destroy(&(W._load_file_mutex));
 #endif
 @
 
+E agora impedimos que o Weaver abandone nosso loop antes de
+carregar todos os arquivos
+
+@<Código antes de Loop, mas não de Subloop@>+=
+while(W.pending_files){
+#if W_TARGET == W_ELF
+  struct timespec tim;
+  // Espera 0,1 segundo
+  tim.tv_sec = 0;
+  tim.tv_nsec = 100000000L;
+#else
+  emscripten_sleep(1);
+#endif
+}
+@
+
+E repetimos a mesma coisa caso ao invés de trocarmos o loop atual, a
+gente encerre ele para voltar a um loop de nível anterior:
+
+@<Código após sairmos de Subloop@>+=
+while(W.pending_files){
+#if W_TARGET == W_ELF
+  struct timespec tim;
+  // Espera 0,1 segundo
+  tim.tv_sec = 0;
+  tim.tv_nsec = 100000000L;
+#else
+  emscripten_sleep(1);
+#endif
+}
+@
+
 Consultar esta variável |W.pending_files| pode ser usada por loops que
 funcionam como telas de carregamento. O valor será extremamente útil
 para saber quantos arquivos ainda precisam terminar de ser carregados
 tanto no ambiente Emscripten como caso um programa use threads para
-carregararquivos e assim tentar tornar o processo mais rápido. Isso
+carregar arquivos e assim tentar tornar o processo mais rápido. Isso
 significa que temos também que oferecer um mutex para esta variável se
 estivermos usando multithreading (mas não em ambiente Emscripten, o
 Javascript realmente trata como atômicas suas expressões).
@@ -880,13 +916,23 @@ struct sound *_new_sound(char *filename){
     }
     strcpy(complete_path, dir);
     strcat(complete_path, filename);
-#if W_TARGET == W_WEB
-    mkdir("sound/", 0777);
+#if W_TARGET == W_WEB || W_MULTITHREAD
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&(_load_file_mutex));
+#endif
     W.pending_files ++;
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(_load_file_mutex));
+#endif
+#if W_TARGET = W_GEB
+    mkdir("sound/", 0777); // Emscripten
     emscripten_async_wget2(complete_path, complete_path,
                            "GET", "", (void *) snd,
                            &onload_sound, &onerror_sound,
                            &onprogress_sound);
+#else // Rodando assincronamente por meio de threads
+    // TODO
+#endif
     Wfree(complete_path);
     return snd;
 #else
@@ -934,7 +980,13 @@ static void onerror_sound(unsigned undocumented, void *snd,
                           int error_code){
   fprintf(stderr, "WARNING (0): Couldn't load a sound file. Code %d.\n",
           error_code);
-  W.pending_files --;
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&(_load_file_mutex));
+#endif
+    W.pending_files --;
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(_load_file_mutex));
+#endif
 }
 #endif
 @
@@ -968,7 +1020,13 @@ static void onload_sound(unsigned undocumented, void *snd,
     return;
   }
   my_sound -> loaded = true;
-  W.pending_files --;
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&(_load_file_mutex));
+#endif
+    W.pending_files --;
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(_load_file_mutex));
+#endif
 }
 #endif
 @
