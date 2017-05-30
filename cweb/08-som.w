@@ -1,4 +1,4 @@
-@* Suporte Básico a Som.
+@* Suporte Básico a Som e Carregamento de Arquivos.
 
 Para fornecer o suporte ao som, iremos usar a biblioteca OpenAL. Esta
 biblioteca foi criada no ano 2000 pela empresa Loki Entertainment
@@ -14,6 +14,23 @@ tridimensionais. Ela ajusta a atenuação do som de acordo com a
 distância da fonte emissora do som e da posição da câmera em um
 ambiente virtual em 3D. Além de suportar a simulação de efeitos
 físicos como o efeito Doppler.
+
+Uma outra coisa que acabaremos tendo que tratar neste capítulo é o
+carregamento de arquivos. No nosso caso, de carregamento de arquivos
+de áudio. Mas a mesma infra-esrutura depois poderá ser aproveitada
+para carregar outros tipos de arquivos, tais como texturas e fontes. É
+importante que se possível carreguemos os arquivos paralelamente por
+meio de threads para finsd e eficiência. Faremos isso se a macro
+|W_MULTITHREAD| estiver definida. Além disso, se ela estiver definida,
+checaremos o valor abaixo para saber se usaremos uma pool de threads e
+quantas threads terão a nossa pool:
+
+\macronome|W_THREAD_POOL|: O número de threads que usaremos na nossa
+pool de threads. O valor é ignorado se |W_MULTITHREAD| não estiver
+definida. Se o valor menor ou igual a zero, não usaremos pools de
+threads, apenas criaremos uma nova thread sempre que precisarmos para
+carregar um arquivo e destruiremos a thread logo em seguida. Um valor
+positivo determina o número de threads da pool.
 
 A primeira coisa a fazer para usar a biblioteca é criar um cabeçalho e
 um arquivo de código C com funções específicas de som. Nestes arquivos
@@ -39,6 +56,9 @@ iremos inserir também o cabeçalho OpenAL.
 #include <string.h> // strrchr
 #include <sys/stat.h> //mkdir
 #include <sys/types.h> //mkdir
+#ifdef W_MULTITHREAD
+#include <pthread.h>
+#endif
 #include "sound.h"
 #include "weaver.h"
 
@@ -931,7 +951,8 @@ struct sound *_new_sound(char *filename){
                            &onload_sound, &onerror_sound,
                            &onprogress_sound);
 #else // Rodando assincronamente por meio de threads
-    // TODO
+    _multithread_load_file(complete_path, (void *) snd,
+                           &onload_sound, &onerror_sound);
 #endif
     Wfree(complete_path);
     return snd;
@@ -960,11 +981,14 @@ struct sound *_new_sound(char *filename){
 }
 @
 
-Se estamos executando o programa nativamente, após a função terminar, a
-estrutura de som já está pronta. Caso estejamos rodando no Emscripten,
-o trabalho é feito dentro das funções que passamos omo argumento para
-a função que carrega a imagem assincronamente. Definiremos as funções
-que serão usadas só neste caso.
+Se estamos executando o programa nativamente sem threads, após a
+função terminar, a estrutura de som já está pronta. Caso estejamos
+rodando no Emscripten, o trabalho é feito dentro das funções que
+passamos como argumento do |emscripten_wget|. Definiremos em seguida o
+que farão tais funções que passamos como argumento. Já se estivermos
+rodando o nosso programa nativamente usando threads, também usamos
+funções que cuidarão das threads e farão elas fazerem o
+trabalho. Definiremos elas na próxima seção.
 
 A primeira função que vamos definir é a que cuidará assincronamente
 dos erros. O que ela faz basicamente é imprimir um aviso e decrementar
@@ -1088,6 +1112,48 @@ void (*play_sound)(struct sound *);
 
 Remover o som criado pode ser deixado á cargo do nosso coletor de
 lixo, então nenhuma função de desalocação precisa ser criada.
+
+@*1 Lendo nos arquivos de áudio em threads.
+
+Se estivermos executando o programa nativamente com threads
+habilitadas, nós escrevemos acima um código que chama uma função
+misteriosa chamada |_multithread_load_file| que recebe como argumento o
+caminho para o arquivo de áudio a ser lido, um ponteiro para a
+estrutura de som já alocada e uma função de carregamento de áudio e
+outra para executar se ocorreu algum erro. Não é muito diferente de
+quando nós fazemos isso no Emscripten. A única diferença é que teremos
+que definir todas essas funções e elas deverão agir de forma diferente
+de acordo com a macro |W_THREAD_POOL|.
+
+Vamos definir então a |_multithread_load_file|:
+
+@<Som: Declarações@>+=
+#ifdef W_MULTITHREAD
+#if W_TARGET == W_ELF
+void _multithread_load_file(const char *filename, void *snd,
+                            void (*onload)(void *, const char *),
+                            void (*onerror)(void *, const char *));
+#endif
+#endif
+@
+
+Não iremos declarar esta função como estática, pois ela poderá ser
+útil mais tarde para carregar outros tipos de arquivos além de som:
+
+@<Som: Definições@>+=
+#ifdef W_MULTITHREAD
+#if W_TARGET == W_ELF
+void _multithread_load_file(const char *filename, void *snd,
+                            void *(*onload)(void *),
+                            void *(*onerror)(void *)){
+#if W_THREAD_POOL == 0
+  pthread_t thread;
+  //thread = pthread_create(&thread, NULL, onload, ...);
+#endif
+}
+#endif
+#endif
+@
 
 @*1 Sumário das variáveis e Funções de Som.
 

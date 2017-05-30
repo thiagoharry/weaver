@@ -42,10 +42,16 @@
 // If you wont use multiple threads, you can comment this:
 //#define W_MULTITHREAD
 
+// If W_MULTITHREAD is defined above, this sets the size of the pool
+// of threads used to read and parse files. If the value is zero or
+// less, we don't use a pool of threads, but create a new thread each
+// time we read and parse a file with audio, font or texture
+#define W_THREAD_POOL 0
+
 // The window width. If equal 0, takes the maximum possible width
 #define W_WIDTH  0
 
-// The window height. If equal 0, takes the maximum possible width
+// The window height. If equal 0, takes the maximum possible height
 #define W_HEIGHT 0
 
 // The window default color
