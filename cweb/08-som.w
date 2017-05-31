@@ -1125,35 +1125,165 @@ quando nós fazemos isso no Emscripten. A única diferença é que teremos
 que definir todas essas funções e elas deverão agir de forma diferente
 de acordo com a macro |W_THREAD_POOL|.
 
+Se |W_THREAD_POOL| for maior do que zero, nós leremos os arquivos
+assincronamente por meio de uma pool de threads que suportará um
+número de threads igual ao valor desta macro. Primeiro precisamos de
+uma estrutura que conterá todas as informações que uma thread precisa
+para azer o seu trabalho de ler um arquivo e retornar os dados
+extraídos dele de maneira adequada:
+
+@<Som: Declarações@>+=
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF
+struct _thread_file_info{
+  char filename[256]; // Arquivo a ser lido
+  void *target;   // Onde armazenar a informação extraída
+  void *(*onload)(void *); // Função a ser chamada para ler o
+                           // arquivo. Ela receberá esta própria
+                           // struct como argumento
+  void *(*onerror)(void *); // Função a ser chamada em caso de erro,
+                            // ela receberá NULL ou esta própria
+                            // struct como argumento
+  bool valid_info; // Essa struct em inormações válidas?
+#if W_THREAD_POOL > 0
+  pthread_mutex_t mutex; // Para que a thread da pool responsável por
+                         // esta estrutura possa ser bloqueada por
+                         // |wait| e |signal|
+#endif
+};
+#endif
+@
+
+Agora se estivermos usando uma pool de threads, vamos precisar de um
+array que funcionará como uma lista de arquivos a serem tratados pelas
+threads. A lista deverá ter um mutex que precisará ser acionado sempre
+que ela for modificada (um elemento é adicionado ou removido da
+fila). Como haverá uma thread para cada posição da lista, vamos
+precisar também de uma lista de igual tamanho para  conter as próprias
+threads. Por fim, um inteiro será incrementado sempre que houver uma
+nova inserção para que assim cada arquivo a ser lido seja colocado em
+uma posição diferente da lista e assim possa ser lido por uma thread
+diferente.
+
+@<Som: Declarações@>+=
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
+struct _thread_file_info _file_list[W_THREAD_POOL];
+pthread_t _thread_list[W_THREAD_POOL];
+int _file_list_count; // Não precisa proteger com mutex, a consistência do
+                 // _file_count não é algo crítico. o importante é que
+                 // seu valor possa variar à medida que surgem novas
+                 // invocações
+pthread_mutex_t _file_list_mutex;
+#endif
+@
+
+Tais valores precisam ser inicializados:
+
+@<API Weaver: Inicialização@>=
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
+{
+  int i;
+  for(i = 0; i < W_THREAD_POOL; i ++)
+    _file_list[i].valid_info = false; // Marca posição como vazia
+  // Inicializa mutex:
+  if(pthread_mutex_init(&(_file_list_mutex), NULL) != 0){
+    fprintf(stderr, "ERROR: Failed to create mutex for file list.\n");
+    exit(1);
+  }
+  // Inicializando o contador. Não é necessário, mas previne avisos
+  // durante a compilação, além de ser útil preservar um determinismo.
+  _file_list_count = 0;  
+}
+#endif
+@
+
+E precisa também ser encerrados no fim do programa:
+
+@<API Weaver: Encerramento@>+=
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
+{
+  pthread_mutex_destroy(&(_file_list_mutex));
+}
+#endif
+@
+
+O que qualquer thread fará será conhecer qual posição da lista é
+associada a ela e ficará sempre esperando a posição ficar cheia para
+poder trabalhar:
+
+@<Som: Declarações@>+=
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
+void *file_list_thread(void *file_info);
+#endif
+@<Som: Definições@>+=
+void *file_list_thread(void *file_info){
+  pthread_mutex_t my_mutex;
+  for(;;){
+    while(! file_info -> valid){
+      pthread_cond_wait
+    }
+  }
+}
+@
+
 Vamos definir então a |_multithread_load_file|:
 
 @<Som: Declarações@>+=
-#ifdef W_MULTITHREAD
-#if W_TARGET == W_ELF
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF
 void _multithread_load_file(const char *filename, void *snd,
-                            void (*onload)(void *, const char *),
-                            void (*onerror)(void *, const char *));
-#endif
+                            void (*onload)(void *),
+                            void (*onerror)(void *));
 #endif
 @
 
 Não iremos declarar esta função como estática, pois ela poderá ser
-útil mais tarde para carregar outros tipos de arquivos além de som:
+útil mais tarde para carregar outros tipos de arquivos além de som. As
+funções |onload| e |onerror| deverão ser chamadas respectivamente se a
+thread criada terminar com sucesso ou se terminar em caso de
+erro. 
+
+E aqui vemos como a nossa função que gerencia as threads cria tal
+estrutura, a preenche e passa adiante. Primeiro definimos como ela
+funcionaria sem usar a pool de threads, criando uma nova thread para
+cada arquivo a ser lido:
 
 @<Som: Definições@>+=
-#ifdef W_MULTITHREAD
-#if W_TARGET == W_ELF
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL == 0
 void _multithread_load_file(const char *filename, void *snd,
                             void *(*onload)(void *),
                             void *(*onerror)(void *)){
-#if W_THREAD_POOL == 0
+#if W_THREAD_POOL == 0 /* Código sem pool de threads */
   pthread_t thread;
-  //thread = pthread_create(&thread, NULL, onload, ...);
+  struct _thread_file_info *arg;
+  arg = (struct _thread_file_info *) Walloc(sizeof(struct _thread_file_info));
+  if(arg != NULL){
+    // Se conseguimos alocar a estrutura preenchemos ela. Se não
+    // conseguimos, passaremos NULL adiante e invocaremos a função de
+    // erro.
+    strncpy(arg -> filename, filename, 255);
+    arg -> target = snd;
+    arg -> onload = onload;
+    arg -> onerror = onerror;
+    arg -> valid_info = true;
+  }
+  else{
+    thread = pthread_create(&thread, NULL, onerror, NULL);
+    if(thread != 0){
+      perror("Failed while trying to create a thread to read files.");
+      exit(1);
+    }
+  }
+  // Na inexistência de erros, rodamos isso:
+  thread = pthread_create(&thread, NULL, onload, (void *) arg);
+  if(thread != 0){
+    perror("Failed while trying to create a thread to read files.");
+    exit(1);
+  }
 #endif
 }
 #endif
-#endif
 @
+
+
 
 @*1 Sumário das variáveis e Funções de Som.
 
