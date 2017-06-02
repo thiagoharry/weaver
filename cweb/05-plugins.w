@@ -361,7 +361,7 @@ void _finalize_plugin(struct _plugin_data *data){
   // Destruimos o mutex:
 #ifdef W_MULTITHREAD
   if(pthread_mutex_destroy(&(data -> mutex)) != 0)
-    perror("Finalizing plugin %s", data -> plugin_name);
+    error(0, 1, "Finalizing plugin %s", data -> plugin_name);
 #endif
   // Nos desligando do plugin
   if(dlclose(data -> handle) != 0)

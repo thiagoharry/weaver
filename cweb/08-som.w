@@ -465,13 +465,13 @@ quantos arquivos pendentes estamos carregando.
 @<Variáveis Weaver@>+=
 unsigned pending_files;
 #ifdef W_MULTITHREAD
-pthread_mutex_t _load_file_mutex;
+pthread_mutex_t _pending_files_mutex;
 #endif
 @
 @<API Weaver: Inicialização@>+=
 W.pending_files = 0;
 #ifdef W_MULTITHREAD
-if(pthread_mutex_init(&(W._load_file_mutex), NULL) != 0){
+if(pthread_mutex_init(&(W._pending_files_mutex), NULL) != 0){
   fprintf(stderr, "ERROR (0): Can't initialize mutex for file loading.\n");
   exit(1);
 }
@@ -479,7 +479,7 @@ if(pthread_mutex_init(&(W._load_file_mutex), NULL) != 0){
 @
 @<API Weaver: Finalização@>+=
 #ifdef W_MULTITHREAD
-pthread_mutex_destroy(&(W._load_file_mutex));
+pthread_mutex_destroy(&(W._pending_files_mutex));
 #endif
 @
 
@@ -493,6 +493,7 @@ while(W.pending_files){
   // Espera 0,1 segundo
   tim.tv_sec = 0;
   tim.tv_nsec = 100000000L;
+  nanosleep(&tim, NULL);
 #else
   emscripten_sleep(1);
 #endif
@@ -509,6 +510,7 @@ while(W.pending_files){
   // Espera 0,1 segundo
   tim.tv_sec = 0;
   tim.tv_nsec = 100000000L;
+    nanosleep(&tim, NULL);
 #else
   emscripten_sleep(1);
 #endif
@@ -936,16 +938,16 @@ struct sound *_new_sound(char *filename){
     }
     strcpy(complete_path, dir);
     strcat(complete_path, filename);
-#if W_TARGET == W_WEB || W_MULTITHREAD
+#if W_TARGET == W_WEB || defined(W_MULTITHREAD)
+#if W_TARGET = W_WEB
+    mkdir("sound/", 0777); // Emscripten
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(&(_load_file_mutex));
+    pthread_mutex_lock(&(_pending_files_mutex));
 #endif
     W.pending_files ++;
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(&(_load_file_mutex));
+    pthread_mutex_unlock(&(_pending_files_mutex));
 #endif
-#if W_TARGET = W_GEB
-    mkdir("sound/", 0777); // Emscripten
     emscripten_async_wget2(complete_path, complete_path,
                            "GET", "", (void *) snd,
                            &onload_sound, &onerror_sound,
@@ -1005,11 +1007,11 @@ static void onerror_sound(unsigned undocumented, void *snd,
   fprintf(stderr, "WARNING (0): Couldn't load a sound file. Code %d.\n",
           error_code);
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(&(_load_file_mutex));
+    pthread_mutex_lock(&(_pending_files_mutex));
 #endif
     W.pending_files --;
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(&(_load_file_mutex));
+    pthread_mutex_unlock(&(_pending_files_mutex));
 #endif
 }
 #endif
@@ -1045,11 +1047,11 @@ static void onload_sound(unsigned undocumented, void *snd,
   }
   my_sound -> loaded = true;
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(&(_load_file_mutex));
+    pthread_mutex_lock(&(_pending_files_mutex));
 #endif
     W.pending_files --;
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(&(_load_file_mutex));
+    pthread_mutex_unlock(&(_pending_files_mutex));
 #endif
 }
 #endif
@@ -1144,15 +1146,14 @@ struct _thread_file_info{
                             // ela receberá NULL ou esta própria
                             // struct como argumento
   // E abaixo a função que realmente irá abrir e interpretar o
-  // arquivo. Seu primeiro argumento é onde ela deve armazenar o
-  // resultado, o segundo será a própria função onload e o terceiro
-  // será a função onerrro acima:
-  void *(*process)(void *, void* (*onload)(void *), void *(*onerror)(void *));
+  // arquivo. Seu argumento será sempre esta própria struct:
+  void *(*process)(void *);
   bool valid_info; // Essa struct em inormações válidas?
 #if W_THREAD_POOL > 0
   pthread_mutex_t mutex; // Para que a thread da pool responsável por
                          // esta estrutura possa ser bloqueada por
                          // |wait| e |signal|
+  pthread_mutex_t struct_mutex; // Mutex para quando esta estrutura for mudada
   pthread_cond_t condition; // Idem.
   bool _kill_switch; // Se verdadeiro, faz a thread se encerrar.
 #endif
@@ -1175,11 +1176,8 @@ diferente.
 #if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
 struct _thread_file_info _file_list[W_THREAD_POOL];
 pthread_t _thread_list[W_THREAD_POOL];
-int _file_list_count; // Não precisa proteger com mutex, a consistência do
-                 // _file_count não é algo crítico. o importante é que
-                 // seu valor possa variar à medida que surgem novas
-                 // invocações
-pthread_mutex_t _file_list_mutex;
+int _file_list_count; // Usado para determinar qual thread vai receber a tarefa
+pthread_mutex_t _file_list_count_mutex; // Mutex para _file_list_count
 #endif
 @
 
@@ -1196,6 +1194,10 @@ Tais valores precisam ser inicializados:
       fprintf(stderr, "ERROR: Failed to create mutex for file list.\n");
       exit(1);
     }
+    if(pthread_mutex_init(&(_file_list[i].struct_mutex), NULL) != 0){
+      fprintf(stderr, "ERROR: Failed to create mutex for file list.\n");
+      exit(1);
+    }
     if(pthread_cond_init(&(_lile_list[i].condition), NULL) ! 0){
       fprintf(stderr, "ERROR: Failed to create condition variable for thread "
               "synchronization.\n");
@@ -1203,12 +1205,12 @@ Tais valores precisam ser inicializados:
     }
   }
   // Inicializa mutex:
-  if(pthread_mutex_init(&(_file_list_mutex), NULL) != 0){
+  if(pthread_mutex_init(&(_file_list_count_mutex), NULL) != 0){
     fprintf(stderr, "ERROR: Failed to create mutex for file list.\n");
     exit(1);
   }
-  // Inicializando o contador. Não é necessário, mas previne avisos
-  // durante a compilação, além de ser útil preservar um determinismo.
+  // Inicializando o contador. Não usamos o mutex porque ainda não
+  // foram criadas as primeiras threads que podem modificá-lo:
   _file_list_count = 0;  
 }
 #endif
@@ -1227,9 +1229,10 @@ E precisa também ser encerrados no fim do programa:
     pthread_join(_thread_list[i], NULL);
     // Agora que a thread morreu, destruimos seu mutex:
     pthread_mutex_destroy(&(_file_list[i].mutex));
+    pthread_mutex_destroy(&(_file_list[i].struct_mutex));
     pthread_cond_destroy(&(_file_list[i].condition));
   }
-  pthread_mutex_destroy(&(_file_list_mutex));
+  pthread_mutex_destroy(&(_file_list_count_mutex));
 }
 #endif
 @
@@ -1242,7 +1245,9 @@ poder trabalhar:
 #if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
 void *_file_list_thread(void *p);
 #endif
+@
 @<Som: Definições@>+=
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
 void *_file_list_thread(void *p){
   struct _thread_file_info *file_info = (struct _thread_info *) p;
   for(;;){
@@ -1255,13 +1260,10 @@ void *_file_list_thread(void *p){
       pthread_exit(NULL);
     }
     // Se não, fazemos o trabalho esperado:
-    file_info -> process(file_info -> target, file_info -> onload,
-                         file_info -> onerror);
-    // E em seguida volta ao estado inicial esperando o próximo
-    // trabalho:
-    pthread_mutex_unlock(&(file_info -> mutex));
+    file_info -> process(p);
   }
 }
+#endif
 @
 
 Sabendo o que realmente fará cada thread, podemos então inicializar
@@ -1276,6 +1278,7 @@ todas elas:
                    (void *) &(_file_list[i]));
   }
 }
+#endif
 @
 
 Vamos definir então a |_multithread_load_file|:
@@ -1283,9 +1286,7 @@ Vamos definir então a |_multithread_load_file|:
 @<Som: Declarações@>+=
 #if defined(W_MULTITHREAD) && W_TARGET == W_ELF
 void _multithread_load_file(const char *filename, void *snd,
-                            void *(*process)(void *,
-                                             void *(*load)(void *)
-                                             void *(*error)(void *)),
+                            void *(*process)(void *),
                             void *(*onload)(void *),
                             void *(*onerror)(void *));
 
@@ -1306,14 +1307,16 @@ cada arquivo a ser lido:
 @<Som: Definições@>+=
 #if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL == 0
 void _multithread_load_file(const char *filename, void *snd,
-                            void *(*process)(void *,
-                                             void *(*load)(void *),
-                                             void *(*error)(void *)),
+                            void *(*process)(void *),
                             void *(*onload)(void *),
                             void *(*onerror)(void *)){
   int return_code;
   pthread_t thread;
   struct _thread_file_info *arg;
+  // Registramos a existência do arquivo a ser carregado:
+  pthread_mutex_lock(&(_pending_files_mutex));
+  W.pending_files ++;
+  pthread_mutex_unlock(&(_pending_files_mutex));
   arg = (struct _thread_file_info *) Walloc(sizeof(struct _thread_file_info));
   if(arg != NULL){
     // Se conseguimos alocar a estrutura preenchemos ela. Se não
@@ -1343,28 +1346,118 @@ void _multithread_load_file(const char *filename, void *snd,
 #endif
 @
 
-Isos é para o caso de não usarmos uma pool de threads. Se usamos,
+Isso é para o caso de não usarmos uma pool de threads. Se usamos,
 nosso código fica bastante diferente:
 
 @<Som: Definições@>+=
 #if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
 void _multithread_load_file(const char *filename, void *snd,
-                            void *(*process)(void *,
-                                             void *(*load)(void *),
-                                             void *(*error)(void *)),
+                            void *(*process)(void *),
                             void *(*onload)(void *),
                             void *(*onerror)(void *)){
-  // Bloqueando o mutex da lista de arquivos a serem processados:
-  pthread_mute_lock(&_file_list_mutex);
-  // A variável global _file_list_count deve ajudar a determinar par
-  // qual thread passamos o trabalho:
-  do{
-    _file_list_count = (_file_list_count + 1) % W_THREAD_POOL;
-
-  }while
+  int thread_number;
+  // Registramos a existência do arquivo a ser carregado:
+  pthread_mutex_lock(&(_pending_files_mutex));
+  W.pending_files ++;
+  pthread_mutex_unlock(&(_pending_files_mutex));
+  // Primeiro vamos ober e copiar localmente qual thread receberá
+  // nossa tarefa e incrementamos o valor do contador que indica isso
+  // para que a próxima thread que for fazer isso peça para uma thread
+  // diferente:
+  pthread_mutex_lock(&(_file_list_count_mutex));
+  thread_number = _file_list_count;
+  _file_list_count = (_file_list_count + 1) % W_THREAD_POOL;
+  pthread_mutex_unlock(&(_file_list_count_mutex));
+  // Agora que sabemos para qual thread pedir a tarefa, esperaremos
+  // até que a thread esteja disponível. Somente a inicialização e a
+  // thread responsável pode tornar a variável abaixo falsa. Se ela
+  // for verdadeira, é porque os dados de outro pedido estão
+  // preenchidos e a thread ainda está trabalhando neles:
+  pthread_mutex_lock(&(_file_list[thread_number].caller_mutex));
+  while(_file_list[thread_number].valid_info == true)
+    pthread_yield();
+  strncpy(_file_list[thread_number].filename, filename, 255);
+  _file_list[thread_number].target = snd;
+  _file_list[thread_number].onload = onload;
+  _file_list[thread_number].onerror = onerror;
+  _file_list[thread_number].process = process;
+  _file_list[thread_number].valid_info = true;
+  pthread_mutex_unlock(&(_file_list[thread_number].caller_mutex));
+  // Agora que preenchemos todas as informações, é só sinalizar
+  // chamando a thread que a missão foi cumprida:
+  pthread_cond_signal(&(_file_list[thread_number].condition));
 }
 #endif
 @
+
+Terminamos agora de fazer todas as funções genéricas responsáveis por
+invocar threads para processar arquivos. Mas agora precisamos das
+funções específicas para processar os arquivos de áudio. Para isso
+vamos enfim definir as três funções que temos que passar para a função
+acima como argumentos. A primeira é a responsável por ler e processar
+o arquivo de áudio:
+
+@<Som: Funções Estáticas@>+=
+#if defined(W_MULTITHREAD) && W_TARGET == W_ELF
+static void *process_sound(void *p){
+  char *ext;
+  bool ret = true;
+  struct _thread_file_info *file_info = (struct _thread_info *) p;
+  struct sound *my_sound = (struct sound *) (file_info -> target);
+  ext = strrchr(filename, '.');  
+  if(! ext){
+    file_info -> onerror(p);
+  }
+  else if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
+    my_sound -> _data = extract_wave(filename, &(my_sound -> size),
+                                     &(my_sound -> freq),
+                                     &(my_sound -> channels),
+                                     &(my_sound -> bitrate), &ret);
+  }
+  if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
+    file_info -> onerror(p);
+  }
+  else{
+    file_info -> onload(p);
+  }
+  // Finalização:
+#if W_THREAD_POOL == 0
+  Wfree(p); // Sem pool de threads, nosso argumento foi alocado
+            // dinamicamente e precisa ser destruído.
+#endif
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&(_pending_files_mutex));
+#endif
+  W.pending_files --;
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&(_pending_files_mutex));
+#endif
+  return NULL;
+}
+#endif
+@
+
+Agora as funções de finalização que fazem algo em caso de sucesso caso
+tenhamos terminado de carregar o som e caso tenha oorrido algum erro:
+
+@<Som: Funções Estáticas@>+=
+#if W_TARGET == W_ELF && defined(W_MULTITHREAD)
+static void *onload_sound(void *p){
+  struct _thread_file_info *file_info = (struct _thread_info *) p;
+  struct sound *my_sound = (struct sound *) (file_info -> target);
+  my_sound -> loaded = true;
+  return NULL;
+}
+static void *onerror_sound(void *p){
+  struct _thread_file_info *file_info = (struct _thread_info *) p;
+  fprintf(stderr, "Warning (0): Failed to load sound file: %s\n",
+          file_info -> filename);
+  return NULL;
+}
+#endif
+@
+
+E isso é tudo.
 
 @*1 Sumário das variáveis e Funções de Som.
 

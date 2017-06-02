@@ -152,9 +152,9 @@ void _flush_interfaces(void){
             _interfaces[_number_of_loops][i].type = W_NONE;
         }
 #ifdef W_MULTITHREAD
-        if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i].mutex)) !=
+        if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex)) !=
            0)
-            perror("Finalizing interface mutex:", NULL);
+            perror("Finalizing interface mutex:");
 #endif
     }
 }
@@ -375,8 +375,7 @@ bool _destroy_interface(struct interface *inter){
     }
     @<Código ao Remover Interface@>
 #ifdef W_MULTITHREAD
-    if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex),
-                          NULL) != 0){
+    if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex)) != 0){
         perror("Error destroying mutex from interface:");
         Wexit();
     }
@@ -474,13 +473,13 @@ dada em pixels.
 @<Interface: Definições@>=
 void _move_interface(struct interface *inter, float x, float y){
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(inter -> _mutex);
+    pthread_mutex_lock(&(inter -> _mutex));
 #endif
     inter -> x = x;
     inter -> y = y;
     @<Ajusta Matriz de Interface após Mover@>
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(inter -> _mutex);
+    pthread_mutex_unlock(&(inter -> _mutex));
 #endif
 }
 @
@@ -553,13 +552,13 @@ A definição da função que muda o tamanho das interfaces é então:
 @<Interface: Definições@>=
 void _resize_interface(struct interface *inter, float size_x, float size_y){
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(inter -> _mutex);
+    pthread_mutex_lock(&(inter -> _mutex));
 #endif
     inter -> height = size_y;
     inter -> width = size_x;
     @<Ajusta Matriz de Interface após Redimensionar ou Rotacionar@>
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(inter -> _mutex);
+    pthread_mutex_unlock(&(inter -> _mutex));
 #endif
 }
 @
@@ -634,12 +633,12 @@ descrevemos. A definição da função de rotação é dada então por:
 @<Interface: Definições@>+=
 void _rotate_interface(struct interface *inter, float rotation){
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(inter -> _mutex);
+    pthread_mutex_lock(&(inter -> _mutex));
 #endif
     inter -> rotation = rotation;
     @<Ajusta Matriz de Interface após Redimensionar ou Rotacionar@>
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(inter -> _mutex);
+    pthread_mutex_unlock(&(inter -> _mutex));
 #endif
 }
 @
@@ -812,7 +811,7 @@ void _update_interface_screen_size(void){
         for(j = 0; j < W_MAX_INTERFACES; j ++){
             if(_interfaces[i][j].type == W_NONE) continue;
 #ifdef W_MULTITHREAD
-            pthread_mutex_lock(_interfaces[i][j]._mutex);
+            pthread_mutex_lock(&_interfaces[i][j]._mutex);
 #endif
             nx = 2.0 * _interfaces[i][j].width;
             ny = 2.0 *  _interfaces[i][j].height;
@@ -827,7 +826,7 @@ void _update_interface_screen_size(void){
             _interfaces[i][j]._transform_matrix[5] = (ny * cosine) /
                 (float) W.height;
 #ifdef W_MULTITHREAD
-            pthread_mutex_unlock(_interfaces[i][j]._mutex);
+            pthread_mutex_unlock(&_interfaces[i][j]._mutex);
 #endif
         }
 }
