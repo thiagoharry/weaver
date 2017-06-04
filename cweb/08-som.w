@@ -1223,7 +1223,9 @@ E precisa também ser encerrados no fim do programa:
   int i;
   for(i = 0; i < W_THREAD_POOL; i ++){
     // Começamos matando a thread:
+    pthread_mutex_lock(&(_file_list[i].struct_mutex));
     _file_list[i]._kill_switch = true;
+    pthread_mutex_unlock(&(_file_list[i].struct_mutex));
     pthread_cond_signal(&(_file_list[i].condition));
     pthread_join(_thread_list[i], NULL);
     // Agora que a thread morreu, destruimos seu mutex:
@@ -1260,6 +1262,8 @@ void *_file_list_thread(void *p){
     }
     // Se não, fazemos o trabalho esperado:
     file_info -> process(p);
+    file_info -> valid_info = false;
+    pthread_mutex_unlock(&(file_info -> mutex));
   }
 }
 #endif
