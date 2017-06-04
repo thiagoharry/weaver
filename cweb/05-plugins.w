@@ -152,6 +152,7 @@ arquivos \monoespaco{plugins.c} e \monoespaco{plugins.h}:
 #endif
 @
 @(project/src/weaver/plugins.c@>=
+#include <error.h>
 #include "plugins.h"
 @
 
@@ -251,7 +252,7 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
 #ifdef W_MULTITHREAD
   if(pthread_mutex_init(&(data -> mutex), NULL) != 0){
     perror("_initialize_plugin:");
-    return false;
+    return;
   }
 #endif
   p = basename(data -> library);
@@ -1121,7 +1122,7 @@ bool _Wenable_plugin(int plugin_id){
      !(_plugins[plugin_id].defined))
     return false;
 #ifdef W_MULTITHREAD
-  pthread_mutex_lock(&(_plugins[plugin_id] -> mutex));
+  pthread_mutex_lock(&(_plugins[plugin_id].mutex));
 #endif
   _plugins[plugin_id].enabled = true;
   if(_plugins[plugin_id]._enable_plugin != NULL)
@@ -1131,7 +1132,7 @@ bool _Wenable_plugin(int plugin_id){
           _plugins[plugin_id].plugin_name);
 #endif
 #ifdef W_MULTITHREAD
-  pthread_mutex_unlock(&(_plugins[plugin_id] -> mutex));
+  pthread_mutex_unlock(&(_plugins[plugin_id].mutex));
 #endif
   return true;
 }
@@ -1140,7 +1141,7 @@ bool _Wdisable_plugin(int plugin_id){
      !(_plugins[plugin_id].defined))
     return false;
 #ifdef W_MULTITHREAD
-  pthread_mutex_lock(&(_plugins[plugin_id] -> mutex));
+  pthread_mutex_lock(&(_plugins[plugin_id].mutex));
 #endif
   _plugins[plugin_id].enabled = false;
   if(_plugins[plugin_id]._disable_plugin != NULL)
@@ -1150,7 +1151,7 @@ bool _Wdisable_plugin(int plugin_id){
           _plugins[plugin_id].plugin_name);
 #endif
 #ifdef W_MULTITHREAD
-  pthread_mutex_unlock(&(_plugins[plugin_id] -> mutex));
+  pthread_mutex_unlock(&(_plugins[plugin_id].mutex));
 #endif
   return true;
 }

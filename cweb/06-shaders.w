@@ -128,7 +128,7 @@ ter é destruir o mutex:
 @<API Weaver: Finalização@>+=
 #ifdef W_MULTITHREAD
 if(pthread_mutex_destroy(&_interface_mutex) != 0)
-    perror("Finalizing interface mutex:", NULL);
+    perror("Finalizing interface mutex:");
 #endif
 @
 

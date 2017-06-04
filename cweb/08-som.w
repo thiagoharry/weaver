@@ -903,7 +903,7 @@ capítulos futuros podemos obter suporte de mais extensões:
 struct sound *_new_sound(char *filename){
     char *complete_path;
     struct sound *snd;
-#if W_TARGET == W_ELF
+#if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
     bool ret = true;
     char *ext;
 #endif
@@ -939,14 +939,14 @@ struct sound *_new_sound(char *filename){
     strcpy(complete_path, dir);
     strcat(complete_path, filename);
 #if W_TARGET == W_WEB || defined(W_MULTITHREAD)
-#if W_TARGET = W_WEB
+#if W_TARGET == W_WEB
     mkdir("sound/", 0777); // Emscripten
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(&(_pending_files_mutex));
+    pthread_mutex_lock(&(W._pending_files_mutex));
 #endif
     W.pending_files ++;
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(&(_pending_files_mutex));
+    pthread_mutex_unlock(&(W._pending_files_mutex));
 #endif
     emscripten_async_wget2(complete_path, complete_path,
                            "GET", "", (void *) snd,
@@ -1007,11 +1007,11 @@ static void onerror_sound(unsigned undocumented, void *snd,
   fprintf(stderr, "WARNING (0): Couldn't load a sound file. Code %d.\n",
           error_code);
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(&(_pending_files_mutex));
+    pthread_mutex_lock(&(W._pending_files_mutex));
 #endif
     W.pending_files --;
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(&(_pending_files_mutex));
+    pthread_mutex_unlock(&(W._pending_files_mutex));
 #endif
 }
 #endif
@@ -1047,11 +1047,11 @@ static void onload_sound(unsigned undocumented, void *snd,
   }
   my_sound -> loaded = true;
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(&(_pending_files_mutex));
+    pthread_mutex_lock(&(W._pending_files_mutex));
 #endif
     W.pending_files --;
 #ifdef W_MULTITHREAD
-    pthread_mutex_unlock(&(_pending_files_mutex));
+    pthread_mutex_unlock(&(W._pending_files_mutex));
 #endif
 }
 #endif
@@ -1314,9 +1314,9 @@ void _multithread_load_file(const char *filename, void *snd,
   pthread_t thread;
   struct _thread_file_info *arg;
   // Registramos a existência do arquivo a ser carregado:
-  pthread_mutex_lock(&(_pending_files_mutex));
+  pthread_mutex_lock(&(W._pending_files_mutex));
   W.pending_files ++;
-  pthread_mutex_unlock(&(_pending_files_mutex));
+  pthread_mutex_unlock(&(W._pending_files_mutex));
   arg = (struct _thread_file_info *) Walloc(sizeof(struct _thread_file_info));
   if(arg != NULL){
     // Se conseguimos alocar a estrutura preenchemos ela. Se não
@@ -1357,9 +1357,9 @@ void _multithread_load_file(const char *filename, void *snd,
                             void *(*onerror)(void *)){
   int thread_number;
   // Registramos a existência do arquivo a ser carregado:
-  pthread_mutex_lock(&(_pending_files_mutex));
+  pthread_mutex_lock(&(W._pending_files_mutex));
   W.pending_files ++;
-  pthread_mutex_unlock(&(_pending_files_mutex));
+  pthread_mutex_unlock(&(W._pending_files_mutex));
   // Primeiro vamos ober e copiar localmente qual thread receberá
   // nossa tarefa e incrementamos o valor do contador que indica isso
   // para que a próxima thread que for fazer isso peça para uma thread
@@ -1402,14 +1402,14 @@ o arquivo de áudio:
 static void *process_sound(void *p){
   char *ext;
   bool ret = true;
-  struct _thread_file_info *file_info = (struct _thread_info *) p;
+  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
   struct sound *my_sound = (struct sound *) (file_info -> target);
-  ext = strrchr(filename, '.');  
+  ext = strrchr(file_info -> filename, '.');  
   if(! ext){
     file_info -> onerror(p);
   }
   else if(!strcmp(ext, ".wav") || !strcmp(ext, ".WAV")){ // Suportando .wav
-    my_sound -> _data = extract_wave(filename, &(my_sound -> size),
+    my_sound -> _data = extract_wave(file_info -> filename, &(my_sound -> size),
                                      &(my_sound -> freq),
                                      &(my_sound -> channels),
                                      &(my_sound -> bitrate), &ret);
@@ -1426,11 +1426,11 @@ static void *process_sound(void *p){
             // dinamicamente e precisa ser destruído.
 #endif
 #ifdef W_MULTITHREAD
-  pthread_mutex_lock(&(_pending_files_mutex));
+  pthread_mutex_lock(&(W._pending_files_mutex));
 #endif
   W.pending_files --;
 #ifdef W_MULTITHREAD
-  pthread_mutex_unlock(&(_pending_files_mutex));
+  pthread_mutex_unlock(&(W._pending_files_mutex));
 #endif
   return NULL;
 }
@@ -1443,13 +1443,13 @@ tenhamos terminado de carregar o som e caso tenha oorrido algum erro:
 @<Som: Funções Estáticas@>+=
 #if W_TARGET == W_ELF && defined(W_MULTITHREAD)
 static void *onload_sound(void *p){
-  struct _thread_file_info *file_info = (struct _thread_info *) p;
+  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
   struct sound *my_sound = (struct sound *) (file_info -> target);
   my_sound -> loaded = true;
   return NULL;
 }
 static void *onerror_sound(void *p){
-  struct _thread_file_info *file_info = (struct _thread_info *) p;
+  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
   fprintf(stderr, "Warning (0): Failed to load sound file: %s\n",
           file_info -> filename);
   return NULL;
