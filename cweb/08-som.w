@@ -35,7 +35,6 @@ positivo determina o número de threads da pool.
 A primeira coisa a fazer para usar a biblioteca é criar um cabeçalho e
 um arquivo de código C com funções específicas de som. Nestes arquivos
 iremos inserir também o cabeçalho OpenAL.
-
 @(project/src/weaver/sound.h@>=
 #ifndef _sound_h_
 #define _sound_h_
@@ -57,11 +56,11 @@ iremos inserir também o cabeçalho OpenAL.
 #include <sys/stat.h> //mkdir
 #include <sys/types.h> //mkdir
 #ifdef W_MULTITHREAD
+#include <sched.h>
 #include <pthread.h>
 #endif
 #include "sound.h"
 #include "weaver.h"
-
 // Previne warnings irritantes e desnecessários no Emscripten
 #if W_TARGET == W_WEB
 extern ALenum alGetError(void);
@@ -1198,7 +1197,7 @@ Tais valores precisam ser inicializados:
       fprintf(stderr, "ERROR: Failed to create mutex for file list.\n");
       exit(1);
     }
-    if(pthread_cond_init(&(_lile_list[i].condition), NULL) ! 0){
+    if(pthread_cond_init(&(_file_list[i].condition), NULL) != 0){
       fprintf(stderr, "ERROR: Failed to create condition variable for thread "
               "synchronization.\n");
       exit(1);
@@ -1249,10 +1248,10 @@ void *_file_list_thread(void *p);
 @<Som: Definições@>+=
 #if defined(W_MULTITHREAD) && W_TARGET == W_ELF && W_THREAD_POOL > 0
 void *_file_list_thread(void *p){
-  struct _thread_file_info *file_info = (struct _thread_info *) p;
+  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
   for(;;){
     pthread_mutex_lock(&(file_info -> mutex));
-    while(!file_info -> valid && !file_info -> _kill_switch){
+    while(!file_info -> valid_info && !file_info -> _kill_switch){
       pthread_cond_wait(&(file_info -> condition), &(file_info -> mutex));
     }
     // Primeiro checamos se devemos encerrar:
@@ -1373,16 +1372,16 @@ void _multithread_load_file(const char *filename, void *snd,
   // thread responsável pode tornar a variável abaixo falsa. Se ela
   // for verdadeira, é porque os dados de outro pedido estão
   // preenchidos e a thread ainda está trabalhando neles:
-  pthread_mutex_lock(&(_file_list[thread_number].caller_mutex));
+  pthread_mutex_lock(&(_file_list[thread_number].struct_mutex));
   while(_file_list[thread_number].valid_info == true)
-    pthread_yield();
+    sched_yield();
   strncpy(_file_list[thread_number].filename, filename, 255);
   _file_list[thread_number].target = snd;
   _file_list[thread_number].onload = onload;
   _file_list[thread_number].onerror = onerror;
   _file_list[thread_number].process = process;
   _file_list[thread_number].valid_info = true;
-  pthread_mutex_unlock(&(_file_list[thread_number].caller_mutex));
+  pthread_mutex_unlock(&(_file_list[thread_number].struct_mutex));
   // Agora que preenchemos todas as informações, é só sinalizar
   // chamando a thread que a missão foi cumprida:
   pthread_cond_signal(&(_file_list[thread_number].condition));
