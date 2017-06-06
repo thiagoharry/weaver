@@ -953,7 +953,7 @@ forte uso de macros abaixo:
 #else
   void *_alloc(void *arena, size_t size);
 #endif
-#if W_DEBUG_LEVEL >= 2
+#if W_DEBUG_LEVEL >= 2 && !defined(W_MULTITHREAD)
   void _free(void *mem, char *filename, unsigned long line);
 #else
   void _free(void *mem);
@@ -1099,7 +1099,7 @@ ainda não foram. É neste momento em que realmente as desalocamos
 eliminando a fragmentação naquela parte.
 
 @(project/src/weaver/memory.c@>+=
-#if W_DEBUG_LEVEL >= 2
+#if W_DEBUG_LEVEL >= 2 && !defined(W_MULTITHREAD)
 void _free(void *mem, char *filename, unsigned long line){
 #else
 void _free(void *mem){
@@ -1125,7 +1125,7 @@ void _free(void *mem){
     pthread_mutex_unlock(&(arena -> mutex));
 #endif
     mem_header -> flags = 0x0;
-#if W_DEBUG_LEVEL >= 2
+#if W_DEBUG_LEVEL >= 2 && !defined(W_MULTITHREAD)
   // Pode ser que tenhamos que imprimir um aviso de depuração acusando
   // desalocação na ordem errada:
     fprintf(stderr,
@@ -1163,7 +1163,7 @@ E por fim, colocamos a nova função definida dentro da estrutura |W|:
 
 @<Funções Weaver@>+=
 // Esta declaração fica dentro de 'struct _weaver_struct{(...)} W;':
-#if W_DEBUG_LEVEL >= 2
+#if W_DEBUG_LEVEL >= 2 && !defined(W_MULTITHREAD)
 void (*free)(void *, char *, unsigned long);
 #else
 void (*free)(void *);
@@ -1178,7 +1178,7 @@ Na prática usaremos sempre a seguinte macro, já que o número de
 argumentos de |W.free| pode mudar:
 
 @<Declarações de Memória@>+=
-#if W_DEBUG_LEVEL >= 2
+#if W_DEBUG_LEVEL >= 2 && !defined(W_MULTITHREAD)
 #define Wfree(a) W.free(a, __FILE__, __LINE__)
 #else
 #define Wfree(a) W.free(a)
