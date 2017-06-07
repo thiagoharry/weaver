@@ -1632,7 +1632,7 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
         ERROR();
     }
     fprintf(fp, "#version 100\n\n");
-    fprintf(fp, "#if GL_FRAGMENT_PRECISION_HIGHT == 1\n");
+    fprintf(fp, "#if GL_FRAGMENT_PRECISION_HIGH == 1\n");
     fprintf(fp, "  precision highp float;\n  precision highp int;\n");
     fprintf(fp, "#else\n");
     fprintf(fp, "  precision mediump float;\n  precision mediump int;\n");
@@ -1655,7 +1655,7 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
         ERROR();
     }
     fprintf(fp, "#version 100\n\n");
-    fprintf(fp, "#if GL_FRAGMENT_PRECISION_HIGHT == 1\n");
+    fprintf(fp, "#if GL_FRAGMENT_PRECISION_HIGH == 1\n");
     fprintf(fp, "  precision highp float;\n  precision highp int;\n");
     fprintf(fp, "#else\n");
     fprintf(fp, "  precision mediump float;\n  precision mediump int;\n");
