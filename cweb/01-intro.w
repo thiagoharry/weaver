@@ -1566,9 +1566,9 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
         if(dp -> d_name == NULL) continue;
         if(dp -> d_name[0] == '.') continue;
         if(dp -> d_name[0] == '\0') continue;
-        buffer = concatenate("shaders/", dp -> d_name[0], "");
+        buffer = concatenate("shaders/", dp -> d_name, "");
         if(buffer == NULL) ERROR();
-        if(directory_exist(buffer) != 1){
+        if(directory_exist(buffer) != 1){ // Não há diretório com esse nome
             free(buffer);
             continue;
         }
@@ -1597,7 +1597,7 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
         if(dp -> d_name == NULL) continue;
         if(dp -> d_name[0] == '.') continue;
         if(dp -> d_name[0] == '\0') continue;
-        buffer = concatenate("shaders/", dp -> d_name[0], "");
+        buffer = concatenate("shaders/", dp -> d_name, "");
         if(buffer == NULL) ERROR();
         if(directory_exist(buffer) != 1){
             free(buffer);
