@@ -2,9 +2,9 @@ SHELL := /bin/bash
 INSTALL_BIN_DIR=/usr/bin/
 INSTALL_SHARE_DIR=/usr/share/weaver
 PROJECT_SHARE=${INSTALL_SHARE_DIR}/project
-W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w\
-        cweb/03-janela.w cweb/04-entrada.w cweb/05-plugins.w\
-	cweb/06-shaders.w cweb/07-resolucao.w cweb/08-som.w cweb/99-fim.w
+W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w cweb/03-numeros.w\
+        cweb/04-janela.w cweb/05-entrada.w cweb/06-plugins.w\
+	cweb/07-shaders.w cweb/08-resolucao.w cweb/09-som.w cweb/99-fim.w
 CORES=$(shell grep -c ^processor /proc/cpuinfo)
 
 main: program
@@ -115,6 +115,8 @@ install: uninstall
 	install -c project/src/weaver/shaders.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/sound.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/sound.c ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/numeric.h ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/numeric.c ${PROJECT_SHARE}/src/weaver
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
