@@ -1816,9 +1816,8 @@ de renderização, separada da engine de física e controle do jogo.
     int i;
     bool first_element = true;
     struct _shader *current_shader;
-    // Primeiro limpamos o buffer de profundidade para que a interface
-    // sempre apareça
-    glClear(GL_DEPTH_BUFFER_BIT);
+    // Não usamos teste de profundidade ao desenhar interfaces:
+    glDisable(GL_DEPTH_TEST);
     // Ativamos os vértices das interfaces:
     glBindVertexArray(_interface_VAO);
     // Agora iteramos sobre as interfaes renderizando-as. Como elas
@@ -1870,6 +1869,7 @@ de renderização, separada da engine de física e controle do jogo.
     // Parando de usar o VAO com as configurações de renderização de
     // interface:
     glBindVertexArray(0);
+    glEnable(GL_DEPTH_TEST);
 }
 @
 
