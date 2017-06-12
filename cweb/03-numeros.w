@@ -82,16 +82,16 @@ bastante testado.
 
 Como o nosso número no expoente é $19937$, o nosso algoritmo irá
 precisar armazenar na memória um total de $\lfloor{19937 \over
-129}\rfloor=154$ sequências de números de 128 bits. Ou seja, 19712
+128}\rfloor+1=156$ sequências de números de 128 bits. Ou seja, 19968
 bits. Esta sequência representa o estado atual do nosso gerador de
 números pseudo-randômicos. Iremos gerá-la no começo do programa e com
-ela teremos a resposta para os próximos 616 números
+ela teremos a resposta para os próximos 624 números
 pseudo-randômicos. Se precisarmos de mais, geramos um novo estado
 representado pela sequência de novos 154 números de 128 bits.
 
 @<Funções Numéricas: Variáveis Estáticas@>=
 // A sequência de números:
-static uint32_t _sfmt_sequence[616];
+  static uint32_t _sfmt_sequence[624];
 // O índice que determina qual o próximo número a ser retornado:
 static int _sfmt_index;
 #if defined(W_MULTITHREAD)
@@ -188,7 +188,7 @@ começar a implementar a inicialização de nosso vetor:
 @<Funções Numéricas: Inicialização@>+=
 {
   int i;
-  for(i = 1; i < 616; i ++){
+  for(i = 1; i < 624; i ++){
     _sfmt_sequence[i] = 1812433253ul *
       (_sfmt_sequence[i-1]^(_sfmt_sequence[i-1] >> 30)) + i;
   }
@@ -307,8 +307,8 @@ static void _regenerate_sequence(void){
   // representará a penúltima. Inicialmente temos:
   memcpy(r2, &(_sfmt_sequence[612]), 16);
   memcpy(r1, &(_sfmt_sequence[608]), 16);
-  // Para os primeiros 32 números de 128 bits gerados:
-  for(i = 0; i < 154; i ++){// 32
+  // Gerando cada número de 128 bits:
+  for(i = 0; i < 156; i ++){
     // Primeiro fazemos um shift à esquerda de 1 byte no valor de 128
     // bits que temos na posição atual de nosso vetor de sequências e
     // armazenamos em x:
@@ -342,7 +342,6 @@ static void _regenerate_sequence(void){
       j = i + 121;
     else
       j = i - 32;
-    printf("i <- %d\n", i);
     // E agora preenchemos um novo valor de 128 bits no nosso vetor de
     // números pseudo-randômicos:
     _sfmt_sequence[i * 4] = _sfmt_sequence[i * 4] ^ x[0] ^
