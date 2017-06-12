@@ -1640,7 +1640,8 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     fprintf(fp, "  precision lowp sampler2D;\n  precision lowp samplerCube;\n");
     fprintf(fp, "\n\nattribute vec3 vertex_position;\n\n");
     fprintf(fp, "uniform vec4 object_color;\nuniform mat4 model_view_matrix;");
-    fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n\n");
+    fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n");
+    fprintf(fp, "uniform int integer;\n\n");
     fprintf(fp, "void main(){\n  gl_Position = model_view_matrix * ");
     fprintf(fp, "vec4(vertex_position, 1.0);\n}\n");
     free(buffer2);
@@ -1663,6 +1664,7 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     fprintf(fp, "  precision lowp sampler2D;\n  precision lowp samplerCube;\n");
     fprintf(fp, "\nuniform vec4 object_color;\n");
     fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n");
+    fprintf(fp, "uniform int integer;\n");
     fprintf(fp, "\nuniform sampler2D texture1;\n\n");
     fprintf(fp, "void main(){\n  gl_FragData[0] = object_color;\n}\n ");
     // Finalizando
