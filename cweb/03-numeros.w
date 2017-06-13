@@ -305,8 +305,8 @@ static void _regenerate_sequence(void){
   // como um vetor de números de 128 bits, não como 32 bits. Então, r2
   // sempre irá representar a última sequência de 128 bits gerada e r1
   // representará a penúltima. Inicialmente temos:
-  memcpy(r2, &(_sfmt_sequence[612]), 16);
-  memcpy(r1, &(_sfmt_sequence[608]), 16);
+  memcpy(r2, &(_sfmt_sequence[620]), 16);
+  memcpy(r1, &(_sfmt_sequence[616]), 16);
   // Gerando cada número de 128 bits:
   for(i = 0; i < 156; i ++){
     // Primeiro fazemos um shift à esquerda de 1 byte no valor de 128
@@ -338,22 +338,21 @@ static void _regenerate_sequence(void){
     y[3] = (uint32_t) (aux1 >> 32);
     y[2] = (uint32_t) aux1;
     // O j armazenará a posição do número de 128 bits 8 posições atrás:
-    if(i < 32)
-      j = i + 121;
+    if(i < 34)
+      j = i + 122;
     else
-      j = i - 32;
+      j = i - 34;
     // E agora preenchemos um novo valor de 128 bits no nosso vetor de
     // números pseudo-randômicos:
     _sfmt_sequence[i * 4] = _sfmt_sequence[i * 4] ^ x[0] ^
-      ((_sfmt_sequence[j] >> 11) & 0xdfffffefU) ^ y[0] ^ (r2[0] << 18);
+      ((_sfmt_sequence[j * 4] >> 11) & 3758096367ul) ^ y[0] ^ (r2[0] << 18);
     _sfmt_sequence[i * 4 + 1] = _sfmt_sequence[i * 4 + 1] ^ x[1] ^
-      ((_sfmt_sequence[j + 1] >> 11) & 0xddfecb7fU) ^ y[1] ^ (r2[1] << 18);
+      ((_sfmt_sequence[4 * j + 1] >> 11) & 3724462975ul) ^ y[1] ^ (r2[1] << 18);
     _sfmt_sequence[i * 4 + 2] = _sfmt_sequence[i * 4 + 2] ^ x[2] ^
-      ((_sfmt_sequence[j + 2] >> 11) & 0xbffaffffU) ^ y[2] ^ (r2[2] << 18);
+      ((_sfmt_sequence[4 * j + 2] >> 11) & 3220897791ul) ^ y[2] ^ (r2[2] << 18);
     _sfmt_sequence[i * 4 + 3] = _sfmt_sequence[i * 4 + 3] ^ x[3] ^
-      ((_sfmt_sequence[j + 3] >> 11) & 0xbffffff6U) ^ y[3] ^ (r2[3] << 18);
+      ((_sfmt_sequence[4 * j + 3] >> 11) & 3221225462ul) ^ y[3] ^ (r2[3] << 18);
     // E por fim atualizamos os valores de r1 e r2 para a próxima iteração
-    printf("i <- %d\n", i);
     memcpy(r1, r2, 16);
     memcpy(r2, &(_sfmt_sequence[4 * i]), 16);
   }
