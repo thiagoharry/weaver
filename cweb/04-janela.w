@@ -858,7 +858,8 @@ leve em conta a distância de cada pixel de um polígono para saber se
 ele deve ser desenhado ou não (não deve ser desenhado se tiver algo na
 sua frente). E por fim, também impedimos que as faces internas de um
 polígono precisem ser desenhadas. É uma otimização extremamente
-necessária para garantirmos um bom desempenho:
+necessária para garantirmos um bom desempenho. Por fim, ativamos
+suporte à transparência.
 
 @<API Weaver: Inicialização@>+=
 // Com que cor limpamos a tela:
@@ -867,6 +868,9 @@ glClearColor(W_DEFAULT_COLOR, 1.0f);
 glEnable(GL_DEPTH_TEST);
 // Descartamos a face interna de qualquer triângulo (otimização necessária)
 glEnable(GL_CULL_FACE);
+// Ativamos transparência
+glEnable (GL_BLEND);
+glBlendFunc (GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA); 
 @
 
 @<Código a executar todo loop@>+=
