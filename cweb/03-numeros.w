@@ -168,7 +168,6 @@ semente que passaremos sempre terá 32 bits.
       seed = (uint32_t) t.time + (uint32_t) (t.millitm << 2);
   }
   // Colocamos a semente como primeiro valor na nossa sequência aleatória:
-  seed = 0;
   _sfmt_sequence[0] = seed;
 }
 @
@@ -258,7 +257,7 @@ unsigned long _random(void){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_sfmt_mutex);
 #endif
-  if(_sfmt_index < 615){
+  if(_sfmt_index < 623){
     _sfmt_index ++;
   }
   else{
@@ -359,7 +358,7 @@ static void _regenerate_sequence(void){
 }
 @
 
-E tendo terminado a nossa implementação do SFMT, rresta apenas
+E tendo terminado a nossa implementação do SFMT, resta apenas
 declararmos e inicializarmos um ponteiro para a função geradora de
 números pseudo-randômicos na estrutura |W|:
 
@@ -371,6 +370,33 @@ unsigned long (*random)(void);
 @<API Weaver: Inicialização@>=
 W.random = &_random;
 @
+
+Recapitulando, o primeiro número de 128 bits gerado pelo nosso
+Mersenne Twister depende da semente. Os primeiros 32 bits são
+idênticos à semente e os demais envolvem operações envolvendo a
+semente. Em seguida, os próximos 155 são preenchidos na inicialização
+e cada um deles depende inteiramente do número anterior. Somente
+depois que 156 números de 128 bits são gerados na inicialização
+envolvendo operações mais simples, aplicamos o algoritmo do Mersenne
+Twister em toda a sua glória, onde a geração de cada número envolve
+embaralhar os seus bits com uma constante, com o número anterior, com
+o anterior do anterior, com o número 8 posições atrás e com o número
+de 156 posições atrás.
+
+A geração de números com a qualidade esperada só ocorre então depois
+dos 156 iniciais. Por causa disso, é importante que na inicialização
+nós descartemos os números iniciais para gerar os próximos 156 que
+virão com uma qualidade maior após a preparação inicial:
+
+@<Funções Numéricas: Inicialização@>+=
+{
+  _sfmt_index = -1;
+  _regenerate_sequence();
+}
+@
+
+Feito isso, terminamos toda a preparação e nosso gerador de números
+pseudo-randômicos está pronto.
 
 @*1 Sumário das Variáveis e Funções Numéricas.
 
