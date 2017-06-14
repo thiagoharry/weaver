@@ -12,12 +12,26 @@ header{
     margin: 0px;
     height: 52px;
     line-height: 52px;
-    text-align: center;
+    padding-left: 25px;
 }
 
 h1{
     margin-top: 0px;
     font-size: 20px;
+    display: inline;
+}
+
+span.menu a{
+    margin-left: 25px;
+    color: #999999;
+    display: inline-block;
+    border-color: blue;
+    border-bottom-style: solid;
+    height: 47px;
+    text-decoration: none;
+    text-transform: uppercase;
+    font-size: small;
+    font-weight: bold;
 }
 
 div.presentation{
@@ -27,7 +41,51 @@ div.presentation{
     border-style: solid;
 }
 
-p, li{
+div.docs{
+    padding-top: 25px;
+    padding-left: 100px;
+}
+
+h2, h3{
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+}
+
+div.topics{
+    max-width: 800px;
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 25px;
+}
+
+div.topic{
+    width: 230px;
+    height: 100px;
+    border-style: solid;
+    border-width: 1px;
+    border-color: black;
+    padding: 3px;
+    float: left;
+    margin: 5px;
+}
+
+div.topic h4{
+    color: #005590;
+}
+
+div.topic p{
+    font-size: small;
+    width: 230px;
+    color: black;
+}
+
+div.topic img{
+    float: left;
+    margin: 3px;
+}
+
+div.presentation p, li{
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
