@@ -4,4 +4,6 @@
 #include "weaver/weaver.h"
 #include "includes.h"
 
+MAIN_LOOP main_loop(void);
+
 #endif

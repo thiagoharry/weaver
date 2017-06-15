@@ -390,6 +390,12 @@ no diretório Weaver e devemos receber dois argumentos. O primeiro deve
 ser \monoespaco{--shader} e o segundo deve ser o nome do shader, o
 qual deve ser um nome válido seguindo as mesmas regras dos módulos.
 
+\negrito{Caso de Uso 9: Criar um Novo Loop Principal:} Para isso
+devemos estar em um diretório Weaver e devemos receber dois
+argumentos. O primeiro deve ser \monoespaco{--loop} e o segundo deve
+ser o nome do novo loop principal, que também deve ter um nome válido
+segundo nossas regras e também as regras de identificadores da
+linguagem C.
 
 @*2 Variáveis do Programa Weaver.
 
@@ -430,6 +436,9 @@ O comportamento de Weaver deve depender das seguintes variáveis:
 |arg_is_valid_plugin|: Se o segundo argumento existe e se ele é um
  nome válido para um novo plugin.
 
+|arg_is_valid_function|: Se o segundo argumento existe e se ele seria
+ um nome válido para um loop principal e também para um arquivo.
+
 |project_path|: Se estamos dentro de um diretório de projeto
   Weaver, qual o caminho para a sua base (onde há o Makefile)
 
@@ -464,7 +473,8 @@ int main(int argc, char **argv){@/
   int return_value = 0; /* Valor de retorno. */
   bool inside_weaver_directory = false, arg_is_path = false,
     arg_is_valid_project = false, arg_is_valid_module = false,
-    have_arg = false, arg_is_valid_plugin = false; /* Variáveis booleanas. */
+    have_arg = false, arg_is_valid_plugin = false,
+    arg_is_valid_function = false; /* Variáveis booleanas. */
   unsigned int project_version_major = 0, project_version_minor = 0,
     weaver_version_major = 0, weaver_version_minor = 0,
     year = 0;
@@ -480,6 +490,7 @@ int main(int argc, char **argv){@/
   @<Caso de uso 6: Criar novo projeto@>
   @<Caso de uso 7: Criar novo plugin@>
   @<Caso de uso 8: Criar novo shader@>
+  @<Caso de uso 9: Criar novo loop principal@>
 END_OF_PROGRAM:
   @<Finalização@>
   return return_value;
@@ -613,18 +624,25 @@ restrição do número de barras será cumprida. Ex: ``/etc/'' e
 
 Para checar se o diretório \monoespaco{.weaver} existe, definimos
 |directory_exist(x)| como uma função que recebe uma string
-correspondente à localização de um arquivo e que deve retornar
-1 se |x| for um diretório existente, -1 se |x| for um arquivo
-existente e 0 caso contrário:
+correspondente à localização de um arquivo e que deve retornar 1 se
+|x| for um diretório existente, -1 se |x| for um arquivo existente e 0
+caso contrário. Primeiro criamos as macros para não nos esquecermos do
+que significa cada número de retorno:
+
+@<Macros do Programa Weaver@>+=
+#define NAO_EXISTE             0
+#define EXISTE_E_EH_DIRETORIO  1
+#define EXISTE_E_EH_ARQUIVO   -1
+@
 
 @<Funções auxiliares Weaver@>+=
 int directory_exist(char *dir){
   struct stat s; // Armazena status se um diretório existe ou não.
   int err; // Checagem de erros
   err = stat(dir, &s); // .weaver existe?
-  if(err == -1) return 0; // Não existe
-  if(S_ISDIR(s.st_mode)) return 1; // Diretório
-  return -1; // Arquivo
+  if(err == -1) return NAO_EXISTE;
+  if(S_ISDIR(s.st_mode)) return EXISTE_E_EH_DIRETORIO;
+  return EXISTE_E_EH_ARQUIVO;
 }
 @
 
@@ -687,7 +705,7 @@ loop, sempre vamos para o diretório-pai do qual estamos:
 
 @<Inicialização@>+=
 while(strcmp(complete_path, "/.weaver")){ // Testa se chegamos ao fim
-  if(directory_exist(complete_path) == 1){ // Testa se achamos o diretório
+  if(directory_exist(complete_path) == EXISTE_E_EH_DIRETORIO){
     inside_weaver_directory = true;
     complete_path[strlen(complete_path)-7] = '\0'; // Apaga o '.weaver'
     project_path = concatenate(complete_path, "");
@@ -782,7 +800,7 @@ encontramos o caminho de um diretório existente ou não.
 if(have_arg){
   char *buffer = concatenate(argument, "/.weaver", "");
   if(buffer == NULL) ERROR();
-  if(directory_exist(buffer) == 1){
+  if(directory_exist(buffer) == EXISTE_E_EH_DIRETORIO){
     arg_is_path = 1;
   }
   free(buffer);
@@ -849,13 +867,13 @@ if(have_arg && !arg_is_path){
     }
   }
   // Checando se arquivo existe:
-  if(directory_exist(argument) != 0){
+  if(directory_exist(argument) != NAO_EXISTE){
     goto NOT_VALID;
   }
   // Checando se conflita com arquivos de compilação:
   buffer = concatenate(shared_dir, "project/", base, "");
   if(buffer == NULL) ERROR();
-  if(directory_exist(buffer) != 0){
+  if(directory_exist(buffer) != NAO_EXISTE){
     free(buffer);
     goto NOT_VALID;
   }
@@ -887,12 +905,12 @@ if(have_arg && inside_weaver_directory){
   // Checando por conflito de nomes:
   buffer = concatenate(project_path, "src/", argument, ".c", "");
   if(buffer == NULL) ERROR();
-  if(directory_exist(buffer) != 0){
+  if(directory_exist(buffer) != NAO_EXISTE){
     free(buffer);
     goto NOT_VALID_MODULE;
   }
   buffer[strlen(buffer) - 1] = 'h';
-  if(directory_exist(buffer) != 0){
+  if(directory_exist(buffer) != NAO_EXISTE){
     free(buffer);
     goto NOT_VALID_MODULE;
   }
@@ -922,7 +940,7 @@ if(argument2 != NULL && inside_weaver_directory){
   // Checando se já existe plugin com mesmo nome:
   buffer = concatenate(project_path, "plugins/", argument2, ".c", "");
   if(buffer == NULL) ERROR();
-  if(directory_exist(buffer) != 0){
+  if(directory_exist(buffer) != NAO_EXISTE){
     free(buffer);
     goto NOT_VALID_PLUGIN;
   }
@@ -930,6 +948,63 @@ if(argument2 != NULL && inside_weaver_directory){
   arg_is_valid_plugin = true;
 }
 NOT_VALID_PLUGIN:
+@
+
+@*3 Inicializando \monoespaco{arg\_is\_valid\_function}.
+
+Para que essa variável seja verdadeira, é preciso existir um segundo
+argumento e ele deve ser formado somente por caracteres
+alfanuméricos. Além disso, o primeiro caractere precisa ser uma letra
+e ele não pode ter o mesmo nome de alguma palavra reservada em C.
+
+@<Inicialização@>+=
+if(argument2 != NULL && inside_weaver_directory && !strcmp(argument, "--loop")){
+  int i, size;
+  char *buffer;
+  // Primeiro caractere não pode ser dígito
+  if(isdigit(argument2[0]))
+    goto NOT_VALID_FUNCTION;
+  size = strlen(argument2);
+  // Checando caracteres inválidos no nome:
+  for(i = 0; i < size; i ++){
+    if(!isalnum(argument2[i])){
+      goto NOT_VALID_PLUGIN;
+    }
+  }
+  // Checando se existem arquivos com o nome indicado:
+  buffer = concatenate(project_path, "src/", argument2, ".c", "");
+  if(buffer == NULL) ERROR();
+  if(directory_exist(buffer) != NAO_EXISTE){
+    free(buffer);
+    goto NOT_VALID_FUNCTION;
+  }
+  buffer[strlen(buffer)-1] = 'h';
+  if(directory_exist(buffer) != NAO_EXISTE){
+    free(buffer);
+    goto NOT_VALID_FUNCTION;
+  }
+  free(buffer);
+  // Checando se recebemos como argumento uma palavra reservada em C:
+  if(!strcmp(argument2, "auto") || !strcmp(argument2, "break") ||
+     !strcmp(argument2, "case") || !strcmp(argument2, "char") ||
+     !strcmp(argument2, "const") || !strcmp(argument2, "continue") ||
+     !strcmp(argument2, "default") || !strcmp(argument2, "do") ||
+     !strcmp(argument2, "int") || !strcmp(argument2, "long") ||
+     !strcmp(argument2, "register") || !strcmp(argument2, "return") ||
+     !strcmp(argument2, "short") || !strcmp(argument2, "signed") ||
+     !strcmp(argument2, "sizeof") || !strcmp(argument2, "static") ||
+     !strcmp(argument2, "struct") || !strcmp(argument2, "switch") ||
+     !strcmp(argument2, "typedef") || !strcmp(argument2, "union") ||
+     !strcmp(argument2, "unsigned") || !strcmp(argument2, "void") ||
+     !strcmp(argument2, "volatile") || !strcmp(argument2, "while") ||
+     !strcmp(argument2, "double") || !strcmp(argument2, "else") ||
+     !strcmp(argument2, "enum") || !strcmp(argument2, "extern") ||
+     !strcmp(argument2, "float") || !strcmp(argument2, "for") ||
+     !strcmp(argument2, "goto") || !strcmp(argument2, "if"))
+    goto NOT_VALID_FUNCTION;
+  arg_is_valid_function = true;
+}
+NOT_VALID_FUNCTION:
 @
 
 @*3 Inicializando \monoespaco{author\_name}.
@@ -1078,6 +1153,9 @@ que imprimiremos é semelhante à esta:
         \\/____\\/          Creates NAME.c and NAME.h, updating
         /      \\          the Makefile and headers
        /
+                          weaver --loop NAME
+                           Creates a new main loop in a new file src/NAME.c
+
                           weaver --plugin NAME
                            Creates new plugin in plugin/NAME.c
 
@@ -1099,8 +1177,12 @@ if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
   "        \\/____\\/          Creates NAME.c and NAME.h, updating\n"
   "        /      \\          the Makefile and headers\n"
   "       /\n"
+  "                        weaver --loop NAME\n"
+  "                         Creates a new main loop in a new file src/NAME.c\n\n"
   "                        weaver --plugin NAME\n"
-  "                         Creates a new plugin in plugin/NAME.c\n");
+  "                         Creates a new plugin in plugin/NAME.c\n\n"
+  "                        weaver --shader NAME\n"
+  "                         Creates a new shader directory in shaders/\n");
   END();
 }
 
@@ -1237,7 +1319,7 @@ int copy_files(char *orig, char *dst){
             return 0;
           }
           if(strcmp(dir -> d_name, ".") && strcmp(dir -> d_name, "..")){
-            if(!directory_exist(new_dst)) mkdir(new_dst, 0755);
+            if(directory_exist(new_dst) == NAO_EXISTE) mkdir(new_dst, 0755);
             if(copy_files(file, new_dst) == 0){
               free(new_dst);
               free(file);
@@ -1344,7 +1426,8 @@ Já o código de criação de novo módulo passa a ser:
 
 @<Caso de uso 5: Criar novo módulo@>=
 if(inside_weaver_directory && have_arg &&
-   strcmp(argument, "--plugin") && strcmp(argument, "--shader")){
+   strcmp(argument, "--plugin") && strcmp(argument, "--shader") &&
+   strcmp(argument, "--loop")){
   if(arg_is_valid_module){
     char *filename;
     FILE *fp;
@@ -1568,7 +1651,7 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
         if(dp -> d_name[0] == '\0') continue;
         buffer = concatenate("shaders/", dp -> d_name, "");
         if(buffer == NULL) ERROR();
-        if(directory_exist(buffer) != 1){ // Não há diretório com esse nome
+        if(directory_exist(buffer) != EXISTE_E_EH_DIRETORIO){
             free(buffer);
             continue;
         }
@@ -1599,7 +1682,7 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
         if(dp -> d_name[0] == '\0') continue;
         buffer = concatenate("shaders/", dp -> d_name, "");
         if(buffer == NULL) ERROR();
-        if(directory_exist(buffer) != 1){
+        if(directory_exist(buffer) != EXISTE_E_EH_DIRETORIO){
             free(buffer);
             continue;
         }
@@ -1671,6 +1754,64 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     free(buffer);
     free(buffer2);
     END();
+}
+@
+
+@*2 Caso de uso 9: Criar novo loop principal.
+
+Este caso de uso ocorre quando o segundo argumento é
+\monoespaco{--loop} e quando o próximo argumento for um nome válido
+para uma função. Se não for, imprimimos uma mensagem de erro para
+avisar:
+
+@<Caso de uso 9: Criar novo loop principal@>=
+if(inside_weaver_directory && !strcmp(argument, "--loop")){
+  if(!arg_is_valid_function){
+    if(argument2 == NULL)
+      fprintf(stderr, "ERROR: You should pass a name for your new loop.\n");
+    else
+      fprintf(stderr, "ERROR: %s not a valid loop name.\n", argument2);
+    ERROR();
+  }
+  char *filename;
+  FILE *fp;
+  // Criando LOOP_NAME.c
+  filename = concatenate(project_path, "src/", argument2, ".c", "");
+  if(filename == NULL) ERROR();
+  fp = fopen(filename, "w");
+  if(fp == NULL){
+    free(filename);
+    ERROR();
+  }
+  write_copyright(fp, author_name, project_name, year);
+  fprintf(fp, "#include \"%s.h\"\n\n", argument2);
+  fprintf(fp, "MAIN_LOOP %s(void){\n", argument2);
+  fprintf(fp, " LOOP_INIT:\n\n");
+  fprintf(fp, " LOOP_BODY:\n");
+  fprintf(fp, "  if(W.keyboard[W_ANY])\n");
+  fprintf(fp, "    Wexit_loop();\n");
+  fprintf(fp, " LOOP_END:\n");
+  fprintf(fp, "  return;\n");
+  fprintf(fp, "}\n");
+  fclose(fp);
+  // Criando LOOP_NAME.h
+  filename[strlen(filename)-1] = 'h';
+  fp = fopen(filename, "w");
+  if(fp == NULL){
+    free(filename);
+    ERROR();
+  }
+  write_copyright(fp, author_name, project_name, year);
+  fprintf(fp, "#ifndef _%s_h_\n", argument2);
+  fprintf(fp, "#define _%s_h_\n\n", argument2);
+  fprintf(fp, "MAIN_LOOP %s(void);\n\n", argument2);
+  fprintf(fp, "#endif\n");
+  fclose(fp);
+  free(filename);
+  // Atualizando src/includes.h
+  fp = fopen("src/includes.h", "a");
+  fprintf(fp, "#include \"%s.h\"\n", argument2);
+  fclose(fp);  
 }
 @
 

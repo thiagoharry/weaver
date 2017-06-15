@@ -2,7 +2,7 @@
 <html lang="en">
   <head>
     <meta charset="utf-8">
-    <title></title>
+    <title>Installing and Using Weaver</title>
     <link rel="stylesheet" href="weaver.css">
   </head>
   <body>
@@ -29,10 +29,16 @@
         </li>
         <li>
           <a href="#compiling">Compiling a Weaver Project</a>
-          <ol>
-            <li><a href="#linux">Compiling as a Linux Game</a></li>
-          </ol>
         </li>
+        <ol>
+            <li><a href="#linux">Compiling as a Linux Game</a></li>
+            <li><a href="#web">Compiling to Play in a Web Browser</a></li>
+          </ol>
+        <li><a href="#source">Adding Source Code Files to Weaver
+            Projects</a></li>
+        <li><a href="#updating">Updating Weaver Projects</a></li>
+        <li><a href="#plugin">Creating a New Plugin</a></li>
+        <li><a href="#shader">Creating a New Shader</a></li>
       </ol>
       <h3 id="installing">Installing Weaver</h3>
       <p>Currently there is only one way to install Weaver.</p>
@@ -278,6 +284,79 @@ Testing XXD..................OK</pre>
         in <tt>conf/conf.h</tt> the value of <tt>W_DEBUG_LEVEL</tt>
         to <tt>0</tt>, recompile and then install. This marks the game
         as a finished project, not a development version.
+      </p>
+      <h3 id="web">Compiling to Play in a Web Browser</h3>
+      <p>
+        Before compiling a game for a web browser, check if you have
+        all the dependencies:
+      </p>
+      <ul>
+        <li>
+          <a href="http://kripken.github.io/emscripten-site/">Emscripten</a>,
+          a project to compile C and C++ code to highly optimized
+          Javascript in asm.js format. Please, use version 1.34.0 or
+          greater.
+        </li>
+        <li>
+          XXD command. A linux comand-line tool which creates
+          hex dumps of files. Currently it's distributed as part
+          of <a href="http://www.vim.org/">Vim</a> text editor.
+        </li>        
+      </ul>
+      <p>
+        To install dese dependencies in Ubuntu, Linux Mint and
+        Debian-related distros, you can use the command:
+      </p>
+      <pre class="terminal">
+sudo apt-get install emscripten vim-common</pre>
+      <p>
+        But beware! After installing Emscripten, check if you
+        installed version 1.34.0 or greater. If not, uninstall it and
+        proceed to Emscripten web page for information about how to
+        install the latest version.
+      </p>
+      <p>
+        If you have all the dependencies, you can configure the
+        project to create a web page instead of an executable
+        program. First open the file <tt>conf/conf.h</tt> and find a
+        line with <tt>#define W_TARGET W_ELF</tt>. Change this line
+        to <tt>#define W_TARGET W_WEB</tt>. Save the file and run the
+        command:
+      </p>
+      <pre class="terminal">
+make</pre>
+      <p>
+        If you have all the dependencies, you should got in your
+        terminal:
+      </p>
+      <pre class="terminal">
+Testing EMCC.................OK
+Testing XXD..................OK</pre>
+      <p>
+        And much more text showing all the commands executed to create
+        your game web page. The result will be put in
+        directory <tt>web</tt>. But the game probably won't work if
+        you run in locally using your web browser. The game must be
+        served by a web server because it uses AJAX to load
+        dinamically your game assets. You can change the
+        directory <tt>web</tt> name and put in in some place where a
+        web server can serve it via Internet.
+      </p>
+      <h3 id="source">Adding Source Code Files to Weaver Projects</h3>
+      <p>
+        As you develop your game, you will need to create new C source
+        code files and their headers for your project. Instead of
+        creating them manually, you can go inside your project
+        directory and use the command:
+      </p>
+      <pre class="terminal">
+weaver FILENAME</pre>
+      <p>
+        Using this command a new file <tt>src/FILENAME.c</tt>
+        and <tt>src/FILENAME.h</tt> will be created. You won't need to
+        worry about updating a Makefile nor putting a <tt>#include
+        "FILENAME.h"</tt> in other files. Weaver will take care of
+        this automatically.
       </p>
     </div>
   </body>

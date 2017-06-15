@@ -153,20 +153,26 @@ semente que passaremos sempre terá 32 bits.
 @<Funções Numéricas: Inicialização@>+=
 {
   uint32_t seed;
-  bool got_seed = false;
 #if W_TARGET == W_ELF
+  bool got_seed = false;
   int file = open("/dev/urandom", O_RDONLY);
   if(file != -1){
     if(read(file, &seed, sizeof(seed)) != -1)
       got_seed = true;
     close(file);
   }
-#endif
   if(!got_seed){
-      struct timeb t;
-      ftime(&t);
-      seed = (uint32_t) t.time + (uint32_t) (t.millitm << 2);
+    struct timeb t;
+    ftime(&t);
+    seed = (uint32_t) t.time + (uint32_t) (t.millitm << 2);
   }
+#else
+  {
+    struct timeb t;
+    ftime(&t);
+    seed = (uint32_t) t.time + (uint32_t) (t.millitm << 2);
+  }
+#endif
   // Colocamos a semente como primeiro valor na nossa sequência aleatória:
   _sfmt_sequence[0] = seed;
 }

@@ -133,7 +133,7 @@ test_cc: .weaver/have_cc
 	fi
 test_emcc: .weaver/have_emcc
 .weaver/have_emcc:
-p	@echo -n "Testing EMCC................."
+	@echo -n "Testing EMCC................."
 	@(which emcc &> /dev/null && touch .weaver/have_emcc) ||true
 	@if [ -e .weaver/have_emcc ]; then \
 	echo "OK";  \
