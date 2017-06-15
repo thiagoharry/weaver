@@ -8,9 +8,9 @@ INSTALL_PROG_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_PROG[ \t]\+" conf/conf.h
 DEBUG_LEVEL=$(shell grep "\#define[ \t]\+W_DEBUG_LEVEL[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
 
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
-web: test_emcc shader_data make-web
+web: test_emcc test_xxd shader_data make-web
 else ifeq ($(strip $(TARGET_TEST)),W_ELF)
-prog: test_cc test_xlib test_xrandr shader_data make-prog
+prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd shader_data make-prog
 else
 err:
 	$(error Invalid W_TARGET in conf/conf.h)
@@ -44,9 +44,21 @@ distclean: clean
 	rm -f ${PROG}
 	rm -rf web
 	rm -f .weaver/have_*
+test_xxd: .weaver/have_xxd
+test_openal: .weaver/have_openal
+test_opengl: .weaver/have_opengl
 test_xrandr: .weaver/have_xrandr
 test_xlib: .weaver/have_xlib
 test_cc: .weaver/have_cc
+.weaver/have_xxd:
+	@echo -n "Testing XXD.................."
+	@(which xxd &> /dev/null && touch .weaver/have_xxd) || true
+	@if [ -e .weaver/have_xxd ]; then \
+	echo "OK";  \
+	else /bin/echo -e "\033[31mFAILED\033[m";\
+	touch .error;\
+	echo "ERROR: Install xxd program to run this command.";\
+	fi
 .weaver/have_cc:
 	@echo -n "Testing GCC or CLANG........."
 	@(which gcc &> /dev/null && touch .weaver/have_cc) || \
@@ -72,6 +84,23 @@ test_cc: .weaver/have_cc
 	touch .error;\
 	echo "ERROR: Install Xlib headers to run this command.";\
 	fi
+.weaver/have_opengl:
+	@echo -n "Testing OpenGL..............."
+	@echo "#include <X11/Xlib.h>" > .weaver/dummy.c
+	@echo "#include <GL/glew.h>" >> .weaver/dummy.c
+	@echo "#include <GL/gl.h>" >> .weaver/dummy.c
+	@echo "#include <GL/glx.h>" >> .weaver/dummy.c
+	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
+	@(gcc .weaver/dummy.c -o .weaver/a.out -lX11 -lGL -lGLEW &> /dev/null && \
+	touch .weaver/have_opengl) || \
+	(clang .weaver/dummy.c -o .weaver/a.out -lX11 -lGL -lGLEW &> /dev/null && \
+	touch .weaver/have_opengl) ||true
+	@if [ -e .weaver/have_opengl ]; then \
+	echo "OK";  \
+	else /bin/echo -e "\033[31mFAILED\033[m";\
+	touch .error;\
+	echo "ERROR: You need GLX extension and GLEW library and header files.";\
+	fi
 .weaver/have_xrandr:
 	@echo -n "Testing XRandR..............."
 	@echo "#include <X11/Xlib.h>" > .weaver/dummy.c
@@ -87,9 +116,24 @@ test_cc: .weaver/have_cc
 	touch .error;\
 	echo "ERROR: Install XRandR library and headers to run this command.";\
 	fi
+.weaver/have_openal:
+	@echo -n "Testing OpenAL..............."
+	@echo "#include <AL/al.h>" > .weaver/dummy.c
+	@echo "#include <AL/alc.h>" >> .weaver/dummy.c
+	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
+	@(gcc .weaver/dummy.c -o .weaver/a.out -lopenal &> /dev/null && \
+	touch .weaver/have_openal) || \
+	(clang .weaver/dummy.c -o .weaver/a.out -lopenal &> /dev/null && \
+	touch .weaver/have_openal) ||true
+	@if [ -e .weaver/have_openal ]; then \
+	echo "OK";  \
+	else /bin/echo -e "\033[31mFAILED\033[m";\
+	touch .error;\
+	echo "ERROR: Install OpenAL library and headers to run this command.";\
+	fi
 test_emcc: .weaver/have_emcc
 .weaver/have_emcc:
-	@echo -n "Testing EMCC................."
+p	@echo -n "Testing EMCC................."
 	@(which emcc &> /dev/null && touch .weaver/have_emcc) ||true
 	@if [ -e .weaver/have_emcc ]; then \
 	echo "OK";  \
@@ -104,6 +148,6 @@ install:
 	cp -r sound/ ${INSTALL_DATA_DIR}/${PROG}/
 	install -m755 -c ${PROG} ${INSTALL_PROG_DIR}
 else
-install:
-	$(error Please, change W_DEBUG_LEVEL definition to 0 in conf/conf.h before installing the program.)
+install: clean
+	$(error Please, change W_DEBUG_LEVEL definition to 0 in conf/conf.h and recompile before installing the program.)
 endif

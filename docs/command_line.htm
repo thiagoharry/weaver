@@ -7,7 +7,7 @@
   </head>
   <body>
     <header>
-      <h1>Weaver: A Game Engine for GNU/Linux</h1>
+      <h1><a href="index.htm">Weaver: A Game Engine for GNU/Linux</a></h1>
       <span class="menu">
         <a href="documentation.htm">Documentation</a>
         <a href="tutorial.htm">Tutorial</a>
@@ -221,9 +221,64 @@ weaver PROJECT_NAME</pre>
           need the headers for C code. You can install the header
           from <a href="https://www.x.org/wiki/">X.org</a>
           project. You must also have the XRandR extension, which
-          Weaver uses if it needs to move or resize your game window.
+          Weaver uses if it needs to move or resize your game window
+          and the GLX extension to use OpenGL.
+        </li>
+        <li>
+          <a href="http://glew.sourceforge.net/">OpenGL Extension
+            Wrangler Library</a>, a library that helps in querying and
+            loading OpenGL Extensions.
+        </li>
+        <li>
+          <a href="https://openal.org/">OpenAL</a>, a 3D audio library
+          for game applications.
+        </li>
+        <li>
+          XXD command. A linux comand-line tool which creates
+          hex dumps of files. Currently it's distributed as part
+          of <a href="http://www.vim.org/">Vim</a> text editor.
         </li>
       </ul>
+      <p>
+        If you are using Ubuntu, Linux Mint or distros like these, you
+        can install all the dependencies running the command:
+      </p>
+      <pre class="terminal">
+sudo apt-get install build-essentials libx11-dev mesa-common-dev libxrandr-dev libglew-dev libopenal1 \
+libopenal-dev vim-common</pre>
+      <p>
+        If you have all the dependencies installed, you can compile a
+        Weaver project going to the project directory and using the
+        command:
+      </p>
+      <pre class="terminal">
+make</pre>
+      <p>
+        The command should print in your terminal:
+      </p>
+      <pre class="terminal">
+Testing GCC or CLANG.........OK
+Testing Xlib.................OK
+Testing XRandR...............OK
+Testing OpenGL...............OK
+Testing OpenAL...............OK
+Testing XXD..................OK</pre>
+      <p>
+        And after this, should print the compiling commands used. If
+        you wish to play the project game, just use:
+      </p>
+      <pre class="terminal">
+./PROJECT_NAME</pre>
+      <p>
+        Where PROJECT_NAME is the name of your project. By default,
+        when you create a new Weaver project, it creates an empty
+        game, which creates a fullscreen window and exits if you press
+        any key. You can also install the game with <tt>make
+        install</tt>, but before installing, change
+        in <tt>conf/conf.h</tt> the value of <tt>W_DEBUG_LEVEL</tt>
+        to <tt>0</tt>, recompile and then install. This marks the game
+        as a finished project, not a development version.
+      </p>
     </div>
   </body>
 </html>
