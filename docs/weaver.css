@@ -93,11 +93,18 @@ div.topic img{
     margin: 3px;
 }
 
-div.presentation p, div.docs *, li{
+div.presentation p, div.docs *{
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
+}
+
+h2, h3, h4, p, pre, ul{
     margin-top: 20px;
+}
+
+li{
+    margin-top: 0px;
 }
 
 pre.terminal{

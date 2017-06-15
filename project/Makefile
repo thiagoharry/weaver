@@ -10,7 +10,7 @@ DEBUG_LEVEL=$(shell grep "\#define[ \t]\+W_DEBUG_LEVEL[ \t]\+" conf/conf.h | gre
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
 web: test_emcc shader_data make-web
 else ifeq ($(strip $(TARGET_TEST)),W_ELF)
-prog: test_cc test_xlib shader_data make-prog
+prog: test_cc test_xlib test_xrandr shader_data make-prog
 else
 err:
 	$(error Invalid W_TARGET in conf/conf.h)
@@ -44,6 +44,7 @@ distclean: clean
 	rm -f ${PROG}
 	rm -rf web
 	rm -f .weaver/have_*
+test_xrandr: .weaver/have_xrandr
 test_xlib: .weaver/have_xlib
 test_cc: .weaver/have_cc
 .weaver/have_cc:
@@ -70,6 +71,21 @@ test_cc: .weaver/have_cc
 	else /bin/echo -e "\033[31mFAILED\033[m";\
 	touch .error;\
 	echo "ERROR: Install Xlib headers to run this command.";\
+	fi
+.weaver/have_xrandr:
+	@echo -n "Testing XRandR..............."
+	@echo "#include <X11/Xlib.h>" > .weaver/dummy.c
+	@echo "#include <X11/extensions/Xrandr.h>" >> .weaver/dummy.c
+	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
+	@(gcc .weaver/dummy.c -o .weaver/a.out -lX11 -lXrandr &> /dev/null && \
+	touch .weaver/have_xrandr) || \
+	(clang .weaver/dummy.c -o .weaver/a.out -lX11 -lXrandr &> /dev/null && \
+	touch .weaver/have_xrandr) ||true
+	@if [ -e .weaver/have_xrandr ]; then \
+	echo "OK";  \
+	else /bin/echo -e "\033[31mFAILED\033[m";\
+	touch .error;\
+	echo "ERROR: Install XRandR library and headers to run this command.";\
 	fi
 test_emcc: .weaver/have_emcc
 .weaver/have_emcc:

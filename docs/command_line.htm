@@ -27,6 +27,12 @@
         <li>
           <a href="#creating">Creating a New Game</a>
         </li>
+        <li>
+          <a href="#compiling">Compiling a Weaver Project</a>
+          <ol>
+            <li><a href="#linux">Compiling as a Linux Game</a></li>
+          </ol>
+        </li>
       </ol>
       <h3 id="installing">Installing Weaver</h3>
       <p>Currently there is only one way to install Weaver.</p>
@@ -44,20 +50,28 @@
         your computer the following programs:
       </p>
       <ul>
-        <li>CTANGLE (Classic program to write C literary programs
-        created by Donald Knuth) or NOTANGLE (a more modern and robust
-        program to write literary programs in any language). The first
-        program can be found in
-        the <a href="http://www-cs-faculty.stanford.edu/~uno/cweb.html">
-        CWEB</a> package and the later is part of
+        <li>
+          CTANGLE (Classic program to write C literary programs
+          created by Donald Knuth) or NOTANGLE (a more modern and
+          robust program to write literary programs in any
+          language). The first program can be found in
+          the <a href="http://www-cs-faculty.stanford.edu/~uno/cweb.html">
+          CWEB</a> package and the later is part of
           <a href="http://www.cs.tufts.edu/~nr/noweb/">NOWEB</a>
-          package.</li>
+          package.
+        </li>
         <li>
           A C compiler. Currently we
           support <a href="https://gcc.gnu.org/">GCC</a>
           and <a href="https://clang.llvm.org/">Clang</a>.
         </li>
       </ul>
+      <p>
+        In Ubuntu, Linux Mint and distros like these, you can
+        install all the dependencies using the command:
+      </p>
+      <pre class="terminal">
+sudo apt-get install noweb build-essential</pre>
       <p>
         If you have all the dependencies, you can compile Weaver with
         the command:
@@ -105,13 +119,15 @@ weaver PROJECT_NAME</pre>
         find the following files:
       </p>
       <ul>
-        <li><tt>COPYING</tt>: A file with the license. Any Weaver
-        project have GPLv3 code. So, you are allowed to choose only
-        compatible licenses for your code. Or just use GPLv3 too. You
-        can read the GPL license in this file. If you don't want to
-        use a compatible version, you should contact Weaver copyright
-        holder and negotiate if he could license some Weaver version
-          with a non-GPL version.</li>
+        <li>
+          <tt>COPYING</tt>: A file with the license. Any Weaver
+          project have GPLv3 code. So, you are allowed to choose only
+          compatible licenses for your code. Or just use GPLv3
+          too. You can read the GPL license in this file. If you don't
+          want to use a compatible version, you should contact Weaver
+          copyright holder and negotiate if he could license some
+          Weaver version with a non-GPL version.
+        </li>
         <li>
           <tt>Makefile</tt>: Weaver uses this Makefile to know how to
           compile your project. But you never should need to change or
@@ -121,12 +137,14 @@ weaver PROJECT_NAME</pre>
           <tt>compiled_plugins</tt>: If you created a plugin for your
           game, it would be placed here after compilation.
         </li>
-        <li><tt>conf</tt>: A directory with the
+        <li>
+          <tt>conf</tt>: A directory with the
           file <tt>conf.h</tt>. Changing the headers in that file you
           can change your project configuration. You can choose, for
           example, if you want to use C or C++. Or if you want to
           compile your project for linux or for a Web Page to play
-          online.</li>
+          online.
+        </li>
         <li>
           <tt>fonts</tt>: Reserved for future usage.
         </li>
@@ -176,6 +194,34 @@ weaver PROJECT_NAME</pre>
           <tt>web.Makefile</tt>: A Makefile to instruct how to compile
           the game as a web page. You never should need to edit this
           file.
+        </li>
+      </ul>
+      <h3 id="compiling">Compiling a Weaver Project</h3>
+      <p>n
+        You have two choices of target compilation for your Weaver
+        projects. You can compile them to became Linux programs or you
+        can compile them to became javascript and HTML which could be
+        played in a web browser. Below you will find what you need in
+        each case.
+      </p>
+      <h3 id="linux">Compiling as a Linux Game</h3>
+      <p>
+        Before compiling your game, you must check if you have all the
+        dependencies installed in your machine. You will need:
+      </p>
+      <ul>
+        <li>
+          A C compiler. Currently we
+          support <a href="https://gcc.gnu.org/">GCC</a>
+          and <a href="https://clang.llvm.org/">Clang</a>.
+        </li>
+        <li>
+          A X server and it's header. If you have a graphical
+          interface, the libraries are already installed, but you will
+          need the headers for C code. You can install the header
+          from <a href="https://www.x.org/wiki/">X.org</a>
+          project. You must also have the XRandR extension, which
+          Weaver uses if it needs to move or resize your game window.
         </li>
       </ul>
     </div>
