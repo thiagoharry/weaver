@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title></title>
+    <link rel="stylesheet" href="weaver.css">
+  </head>
+  <body>
+    <header>
+      <h1>Weaver: A Game Engine for GNU/Linux</h1>
+      <span class="menu">
+        <a href="documentation.htm">Documentation</a>
+        <a href="tutorial.htm">Tutorial</a>
+        <a href="examples.htm">Examples</a>
+        <a href="download.htm">Download</a>
+      </span>
+    </header>
+    <div class="docs">
+      <h2>Installing and Using Weaver</h2>
+      <h3>Index</h3>
+      <ol>
+        <li><a href="#installing">Installing Weaver</a></li>
+        <ol>
+          <li><a href="#unstable">Compiling Unstable Version from
+              Repository</a></li>
+        </ol>
+        <li>
+          <a href="#creating">Creating a New Game</a>
+        </li>
+      </ol>
+      <h3 id="installing">Installing Weaver</h3>
+      <p>Currently there is only one way to install Weaver.</p>
+      <h4 id="unstable">Compiling Unstable Version from Repository</h4>
+      <p>
+        Check Weaver repository
+        at <a href="https://github.com/thiagoharry/weaver">
+        https://github.com/thiagoharry/weaver</a>. Click in "Clone or
+        Download". Or just use
+        <a href="https://github.com/thiagoharry/weaver/archive/master.zip">
+          this link</a>.</p>
+      <p>
+        Weaver was developed using literary programming technics. So
+        before compiling the program, check if you have installed in
+        your computer the following programs:
+      </p>
+      <ul>
+        <li>CTANGLE (Classic program to write C literary programs
+        created by Donald Knuth) or NOTANGLE (a more modern and robust
+        program to write literary programs in any language). The first
+        program can be found in
+        the <a href="http://www-cs-faculty.stanford.edu/~uno/cweb.html">
+        CWEB</a> package and the later is part of
+          <a href="http://www.cs.tufts.edu/~nr/noweb/">NOWEB</a>
+          package.</li>
+        <li>
+          A C compiler. Currently we
+          support <a href="https://gcc.gnu.org/">GCC</a>
+          and <a href="https://clang.llvm.org/">Clang</a>.
+        </li>
+      </ul>
+      <p>
+        If you have all the dependencies, you can compile Weaver with
+        the command:
+      </p>
+      <pre class="terminal">
+make</pre>
+      <p>
+        Which should print the following message in your terminal:
+      </p>
+      <pre class="terminal">
+Testing CTANGLE or NOTANGLE..OK
+Testing GCC or CLANG.........OK
+Compiling....................OK</pre>
+      <p>
+        If you found no errors, proceed with the installation running
+        the following command as root:
+      </p>
+      <pre class="terminal">
+make install</pre>
+      <p>
+        Which should print a lot of messages in your terminal to show
+        all the files that are copied during installation. If no error
+        messages were found, Weaver was correctly installed in your
+        machine.
+      </p>
+      <h2 id="creating">Creating a New Game</h2>
+      <p>
+        After installing Weaver, you can create a new game project
+        going to any directory where you wish to place your game and
+        running the command:
+      </p>
+      <pre class="terminal">
+weaver PROJECT_NAME</pre>
+      <p>
+        Where PROJECT_NAME is any name you wish to give for your
+        project. Please, use ony alphanumeric characters. Weaver will
+        also block your name if it would create some sort of conflict
+        inside the project directory. For example, "Makefile" isn't a
+        valid project name. Weaver also block the name if it
+        corresponds to an existing file.
+      </p>
+      <p>
+        If Weaver allowed your name, it should have created a new
+        directory called PROJECT_NAME. Inside the directory, you can
+        find the following files:
+      </p>
+      <ul>
+        <li><tt>COPYING</tt>: A file with the license. Any Weaver
+        project have GPLv3 code. So, you are allowed to choose only
+        compatible licenses for your code. Or just use GPLv3 too. You
+        can read the GPL license in this file. If you don't want to
+        use a compatible version, you should contact Weaver copyright
+        holder and negotiate if he could license some Weaver version
+          with a non-GPL version.</li>
+        <li>
+          <tt>Makefile</tt>: Weaver uses this Makefile to know how to
+          compile your project. But you never should need to change or
+          edit this file.
+        </li>
+        <li>
+          <tt>compiled_plugins</tt>: If you created a plugin for your
+          game, it would be placed here after compilation.
+        </li>
+        <li><tt>conf</tt>: A directory with the
+          file <tt>conf.h</tt>. Changing the headers in that file you
+          can change your project configuration. You can choose, for
+          example, if you want to use C or C++. Or if you want to
+          compile your project for linux or for a Web Page to play
+          online.</li>
+        <li>
+          <tt>fonts</tt>: Reserved for future usage.
+        </li>
+        <li>
+          <tt>image</tt>: Reserved for future usage.
+        </li>
+        <li>
+          <tt>models</tt>: Reserved for future usage.
+        </li>
+        <li>
+          <tt>music</tt>: Reserved for future usage.
+        </li>
+        <li>
+          <tt>plugins</tt>: The source code for your game plugins. You
+          can create a new plugin running inside a weaver project
+          directory the command <tt>weaver --plugin PLUGIN_NAME</tt>.
+        </li>
+        <li>
+          <tt>prog.Makefile</tt>: Another Makefile to guide the game
+          executable installation. You never should need to edit this.
+        </li>
+        <li>
+          <tt>shaders</tt>: Your game shaders. GLSL code that will be
+          run in your GPU, not CPU. You can create a new shader and
+          check the result running inside a weaver project directory
+          the command <tt>weaver --shader SHADER_NAME</tt>.
+        </li>
+        <li>
+          <tt>sound</tt>: You can put here any WAVE sound that you
+          wish to use in your game.
+        </li>
+        <li>
+          <tt>src</tt>: Your game source code. You can create a new C
+          file and header running the command <tt>weaver FILENAME</tt>
+          inside a weaver project directoy. You can then place your
+          game code. It's not recommended to change the code
+          inside <tt>src/weaver</tt> directory. The code there isn't
+          easy to understand because it was extracted using CTANGLE or
+          NOTANGLE program during installation. And any changes made
+          in that directory would be overwritten if you update your
+          project to run with a new Weaver version.
+        </li>
+        <li>
+          <tt>tex</tt>: Reserved for future usage.
+        </li>
+        <li>
+          <tt>web.Makefile</tt>: A Makefile to instruct how to compile
+          the game as a web page. You never should need to edit this
+          file.
+        </li>
+      </ul>
+    </div>
+  </body>
+</html>

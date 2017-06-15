@@ -7,7 +7,7 @@ LINK=-lm
 
 main-prog:
 	@echo -n "Compiling...................."
-	${TANGLE} cweb/weaver.w 
-	rm weaver.c
-	${CC} ${FLAGS} src/weaver.c -o bin/weaver > /dev/null
-	echo "OK"
+	@${TANGLE} cweb/weaver.w > /dev/null
+	@rm weaver.c
+	@${CC} ${FLAGS} src/weaver.c -o bin/weaver > /dev/null
+	@echo "OK"

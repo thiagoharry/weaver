@@ -1410,9 +1410,9 @@ if(! inside_weaver_directory && have_arg){
     if(err == -1) ERROR();
     err = chdir(argument);
     if(err == -1) ERROR();
-    mkdir(".weaver", 0755); mkdir("conf", 0755);
-    mkdir("src", 0755); mkdir("src/weaver", 0755);
-    mkdir("image", 0755); mkdir("sound", 0755);
+    mkdir(".weaver", 0755); mkdir("conf", 0755); mkdir("tex", 0755);
+    mkdir("src", 0755); mkdir("src/weaver", 0755); mkdir ("fonts", 0755);
+    mkdir("image", 0755); mkdir("sound", 0755); mkdir ("models", 0755);
     mkdir("music", 0755); mkdir("plugins", 0755);
     mkdir("compiled_plugins", 0755);
     mkdir("shaders", 0755);
