@@ -375,6 +375,112 @@ weaver --loop FILENAME</pre>
         remove the files created and also edit <tt>src/includes.h</tt>
         to remove the inclusion of the deleted header.
       </p>
+      <h3 id="updating">Updating Weaver Projects</h3>
+      <p>
+        If you or someone else created a Weaver project with some old
+        version of Weaver and you wish to upgrade, you just need to
+        have installed in your machine a newer version of Weaver.
+      </p>
+      <p>
+        If you wish to know which Weaver version you have, just use
+        the command:
+      </p>
+      <pre class="terminal">
+weaver --version</pre>
+      <p>
+        This should output in your terminal something like this:
+      </p>
+      <pre class="terminal">
+Weaver	Alpha</pre>
+      <p>
+        Or perhaps:
+      </p>
+      <pre class="terminal">
+Weaver 0.1</pre>
+      <p>
+        In the first case, the version in identified by a codiname
+        (Alpha), with no numbers. It means that you have installed a
+        development version of Weaver. In the second case, you have an
+        stable Weaver version.
+      </p>
+      <p>
+        To upgrade a Weaver project, just use the command:
+      </p>
+      <pre class="terminal">
+weaver PATH_TO_PROJECT</pre>
+      <p>
+        A Weaver stable version would upgrade only if the project was
+        created by an older version of Weaver. It wouldn't do nothing
+        if you pass a project created by an new version. Stable
+        versions never downgrade projects.
+      </p>
+      <p>
+        But a development version of Weaver assumes that you are using
+        this version to test Weaver changes and it always upgrades a
+        project. Even if this means making a downgrade. If you don't
+        want to downgrade projects (which in some cases could lead to
+        some bugs in the project), avoid Weaver development versions,
+        unless you know what you are doing.
+      </p>
+      <h3 id="plugin">Creating a New Plugin</h3>
+      <p>
+        Plugins are code that can be dinamically loaded in your
+        projects. They can allow you to program and change a game
+        while it is executing with no need to close and reload the
+        game. It can also create optional parts of your game, which
+        can be distributed separately. They can also be some generic
+        code which could be used by any Weaver project. Perhaps
+        something which makes some unhandled keyboard key works or a
+        small plugin to print the frames per second.
+      </p>
+      <p>
+        To create a new plugin for your project, you can use the
+        command:
+      </p>
+      <pre class="terminal">
+weaver --plugin PLUGIN_NAME</pre>
+      <p>
+        Please, use just alphanumeric characters in your plugin
+        name. It will then be created in the
+        directory <tt>plugins/</tt>, where you can edit it.
+      </p>
+      <p>
+        The Makefile and other files will handle automatically the new
+        plugins.
+      </p>
+      <p>
+        To read more about plugins, check
+        the <a href="plugins.htm">Plugins Documentation Page</a>.
+      </p>
+      <h3 id="shader">Creating a New Shader</h3>
+      <p>
+        Shaders are code written not in C or C++, but in GLSL
+        language. It's compilling during game execution and it's
+        executed not in the CPU, but in GPU. They can create and
+        change textures and geometries in real time.
+      </p>
+      <p>
+        To create a new shader for your project, you can use the
+        command:
+      </p>
+      <pre class="terminal">
+weaver --shader SHADER_NAME</pre>
+      <p>
+        Please, use only alphanumeric characters for yur shader
+        name. The shaders will be created at <tt>shaders/</tt>
+        directory. Each shader created is in fact to shaders: a vertex
+        shader and fragment shader. Both will be placed in the same
+        numbered directory, and the number assigned to them is how you
+        can identify them in your C code.
+      </p>
+      <p>
+        The Makefile and other files will handle automatically the new
+        plugins.
+      </p>
+      <p>
+        To read more about shaders, check
+        the <a href="shaders.htm">Shader Documentation Page</a>.
+      </p>
     </div>
   </body>
 </html>
