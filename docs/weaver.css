@@ -55,7 +55,7 @@ div.docs{
     padding-left: 100px;
 }
 
-h2, h3{
+h2, h3, h4, h5{
     max-width: 800px;
     margin-left: auto;
     margin-right: auto;
@@ -104,7 +104,7 @@ div.presentation p, div.presentation ul, div.docs *{
     margin-right: auto;
 }
 
-h2, h3, h4, p, pre, ul{
+h2, h3, h4, h5, p, pre, ul{
     margin-top: 20px;
 }
 

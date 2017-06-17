@@ -381,7 +381,7 @@ casos de uso. Eis a lista deles:
   deve-se poder criar um projeto chamado \monoespaco{Makefile}).
 
 \negrito{Caso de Uso 7: Criar um novo plugin:} Para isso devemos estar
-no diretório Weaver e devemos receber dois argumentos. O primeiro deve
+nno diretório Weaver e devemos receber dois argumentos. O primeiro deve
 ser \monoespaco{--plugin} e o segundo deve ser o nome do plugin, o
 qual deve ser um nome válido seguindo as mesmas regras dos módulos.
 
@@ -2079,7 +2079,8 @@ variáveis:
 
 @<Variáveis Weaver@>=
 // Isso fica dentro da estrutura W:
-unsigned long t, dt;
+unsigned long long t;
+unsigned long dt;
 @
 
 @<Cabeçalhos Weaver@>=
@@ -2135,6 +2136,29 @@ unsigned long _update_time(void){
 }
 @
 
+@*1 As Variáveis do Jogo.
+
+Todo projeto Weaver define uma estrutura localizada em
+\monoespaco{src/game.h} que pode ter qualquer tipo de variáveis e
+estruturas de dados características do jogo. O nome de tal estrutura é
+sempre |_game|.
+
+É importante que esta estrutura possa ser acessada de dentro da
+estrutura |W|. Para isso, colocamos a seguinte declaração:
+
+@<Cabeçalhos Weaver@>+=
+extern struct _game_struct _game;
+@
+
+@<Variáveis Weaver@>=
+// Isso fica dentro da estrutura W:
+struct _game_struct *game;
+@
+
+@<API Weaver: Inicialização@>=
+W.game = &_game;
+@
+
 @*1 Sumário das Variáveis e Funções da Introdução.
 
 Terminaremos todo capítulo deste livro/programa com um sumário de
@@ -2150,13 +2174,13 @@ necessário para inicializá-lo e defini-lo.
 globais da API Weaver, bem como as suas funções globais. Exceto as
 três outras funções definidas neste capítulo.
 
-\macrovalor|W.@/t|: O tempo em microsegundos que se passou
+\macrovalor|W.t|: O tempo em microsegundos que se passou
 desde que o programa se inicializou. Valor somente para leitura.
 
 \macrovalor|W.dt|: O intervalo de tempo que passa entre uma iteração e
 outra no loop principal.
 
-\macronome Este capítulo apresentou 3 novas funções da API Weaver:
+\macronome Este capítulo apresentou 2 novas funções da API Weaver:
 
 \macrovalor|void Winit(void)|: Inicializa a API Weaver. Deve ser a
 primeira função invocada pelo programa antes de usar qualquer coisa da
