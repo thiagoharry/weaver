@@ -91,7 +91,7 @@ representado pela sequência de novos 154 números de 128 bits.
 
 @<Funções Numéricas: Variáveis Estáticas@>=
 // A sequência de números:
-  static uint32_t _sfmt_sequence[624];
+static uint32_t _sfmt_sequence[624];
 // O índice que determina qual o próximo número a ser retornado:
 static int _sfmt_index;
 #if defined(W_MULTITHREAD)
@@ -108,7 +108,8 @@ void _finalize_numeric_functions(void);
 @
 @<Funções Numéricas: Definições@>=
 void _initialize_numeric_functions(void){
-     @<Funções Numéricas: Inicialização@>
+  uint32_t seed;
+  @<Funções Numéricas: Inicialização@>
 }
 void _finalize_numeric_functions(void){
   @<Funções Numéricas: Finalização@>
@@ -131,7 +132,7 @@ A primeira coisa a ser inicializada e finalizada é o nosso mutex, que
 não tem nenhum mistério:
 
 @<Funções Numéricas: Inicialização@>=
-#ifdef W_MULTITHREAD
+#if defined(W_MULTITHREAD)
 if(pthread_mutex_init(&_sfmt_mutex, NULL) != 0){
   fprintf(stderr, "ERROR (0): Can't initialize mutex for random numbers.\n");
   exit(1);
@@ -140,7 +141,7 @@ if(pthread_mutex_init(&_sfmt_mutex, NULL) != 0){
 @
 
 @<Funções Numéricas: Finalização@>=
-#ifdef W_MULTITHREAD
+#if defined(W_MULTITHREAD)
   pthread_mutex_destroy(&_sfmt_mutex);
 #endif
 @
@@ -152,7 +153,6 @@ semente que passaremos sempre terá 32 bits.
 
 @<Funções Numéricas: Inicialização@>+=
 {
-  uint32_t seed;
 #if W_TARGET == W_ELF
   bool got_seed = false;
   int file = open("/dev/urandom", O_RDONLY);
@@ -404,6 +404,57 @@ virão com uma qualidade maior após a preparação inicial:
 Feito isso, terminamos toda a preparação e nosso gerador de números
 pseudo-randômicos está pronto.
 
+Tudo isso é interessante, mas a pergunta que deve ser feita é: o quão
+rápido é? Realmente vale à pena usar um algoritmo como o Mersenne
+Twister em jogos que precisam de um bom desempenho? Como esta versão
+do Mersenne Twister se dá ao ser compilada para Javascript, onde as
+operações bit-a-bit podem não ser tão rápidas? A resposta pode ser
+vista no gráfico abaixo:
+
+\hbox{
+\cor{1.0 0.75 0.75}{\vrule height 3.31mm width 25mm}
+\cor{1.0 0.6 0.6}{\vrule height 8.71mm width 25mm}
+\cor{1.0 0.45 0.45}{\vrule height 28mm width 25mm}
+\cor{1.0 0.2 0.2}{\vrule height 70mm width 25mm}
+\cor{0.0 0.0 1.0}{\vrule height 110mm width 25mm}
+}
+
+Nele cada milímetro corresponde a 100 microssegundos no computador
+usado nos testes. A primeira e menor coluna corresponde ao tempo que a
+implementação de referência criada por Mutsuo Saito e Makoto Matsumoto
+leva para gerar 100 mil números pseudo-randômicos. A segunda coluna é
+o tempo gasto pela implementação usada no Weaver, a qual foi descrita
+acima. A terceira coluna é o tempo gasto pela função |rand()| da
+biblioteca padrão do C. A quarta coluna é o tempo gasto pela |rand()|
+quando compilada usando Emscripten. E a última coluna é a nossa
+implementação do Mersenne Twister quando compilada usando o Mersenne
+Twister.
+
+Isso nos permite concluir que mesmo não tendo no momento otimizado
+tanto a implementação do algoritmo como conseguiram seus criadores,
+mesmo assim o Mersenne Twister consegue um desempenho muito melhor que
+a função usada pela biblioteca padrão C. Então mesmo ainda tendo muito
+espaço para melhorias, ainda é melhor ficarmos com esta implementação
+que com a implementação padrão da Glibc.
+
+No caso do Emscripten, lidamos com uma questão mais complicada. Se
+usarmos |rand()| diretamente, o desempenho é muito melhor que usando
+nossa implementação de Mersennet Twister (neste caso, o Emscripten usa
+uma implementação própria de gerador de números pseudo-randômicos em
+Javascript). Mas se nós fizermos com que a nossa função |W.random|
+passe a apontar para |rand|, todo o benefício de velocidade se perde e
+o desempenho torna-se cerca de 50\% pior do que se usarmos nossa
+implementação de Mersenne Twister. Aparentemente, para gerar números
+pseudo-randômicos de forma rápida no Emscripten, deve-se chamar |rand|
+diretamente sem ``wrappers''.
+
+Mas como Weaver precisa por consistência de sua API fornecer suas
+funções por meio da estrutura |W|, só nos resta então fornecer
+|W.random| como implementando o Mersenne Twister, que ainda é o que
+fornece o melhor desempenho neste caso. Mas devemos avisar na
+documentação que o uso da função |rand| sem ``wrappers'' fornece um
+desempenho melhor, ao menos quando medido no Emscripten 1.34.0.
+                                          
 @*1 Sumário das Variáveis e Funções Numéricas.
 
 \macronome Ao longo deste capítulo, definimos a seguinte função:

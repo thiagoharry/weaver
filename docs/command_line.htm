@@ -358,6 +358,23 @@ weaver FILENAME</pre>
         "FILENAME.h"</tt> in other files. Weaver will take care of
         this automatically.
       </p>
+      <p>
+        If instead of create a generic C file you wish to create a new
+        main loop for your game, you can use the command:
+      </p>
+      <pre class="terminal">
+weaver --loop FILENAME</pre>
+      <p>
+        It works like the later command, but it also creates in
+        FILENAME.c some initial code for your new loop. Just take care
+        to don't give to your main loop the same name than some
+        existing global variable in your code.
+      </p>
+      <p>
+        If you want to remove a C source code created this way, just
+        remove the files created and also edit <tt>src/includes.h</tt>
+        to remove the inclusion of the deleted header.
+      </p>
     </div>
   </body>
 </html>
