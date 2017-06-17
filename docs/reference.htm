@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Weaver Reference Guide</title>
+    <link rel="stylesheet" href="weaver.css">
+  </head>
+  <body>
+    <header>
+      <h1><a href="index.htm">Weaver: A Game Engine for GNU/Linux</a></h1>
+      <span class="menu">
+        <a href="documentation.htm">Documentation</a>
+        <a href="tutorial.htm">Tutorial</a>
+        <a href="examples.htm">Examples</a>
+        <a href="download.htm">Download</a>
+      </span>
+    </header>
+    <div class="docs">
+      <h2>Weaver Reference Guide</h2>
+      <p>
+        This page lists all functions and data structures defined in
+        Weaver API. We use the following icons to help you check some
+        properties of the variables in Weaver API:
+      </p>
+      <ul>
+        <li><img class="icon" src="images/read_only.png" width="25px"
+                 height="25px" title="Read-only">: This variable is
+          read-only. Never try to change it's value.</li>
+        <li>
+          <img class="icon" src="images/loop.png" width="25px"
+               height="25px" title="Main loop only">: This variable or
+               function should be run or read only inside a main
+               loop.
+        </li>
+        <li>
+          <img class="icon" src="images/not_thread.png" width="25px"
+               height="25px" title="Not thread-safe">: This function
+               is not thread-safe.
+        </li>
+      </ul>
+      <h3>Index</h3>
+      <ol>
+        <li><a href="#basic">Basic Functions and Variables</a></li>
+        <ol>
+          <li><a href="#basic_variable">Variables</a></li>
+          <ol>
+            <li><a href="#W">W</a></li>
+            <li><a href="#game">W.game</a></li>
+            <li><a href="#t">W.t</a></li>
+            <li><a href="#dt">W.dt</a></li>
+          </ol>
+          <li><a href="#basic_functions">Functions</a></li>
+          <ol>
+            <li><a href="#Wexit">Wexit</a></li>
+            <li><a href="#Winit">Winit</a></li>
+          </ol>
+        </ol>
+      </ol>
+      <h3 id="#basic">Basic Functions and Variables</h3>
+      <h4 id="basic_variable">Variables</h4>
+      <h5 id="W">struct W <img class="icon" src="images/read_only.png"
+             width="25px" height="25px" title="Read-only"></h5>
+      <p>
+        The <tt>W</tt> struct is a struct where you can find almost
+        all the variables and functions defined by Weaver API. It's
+        main function is act as a namespace, avoiding conflicts
+        between user variable names and the API names. Almost all
+        variables and functions listed in this page is
+        inside <tt>W</tt>.
+      </p>
+      <p>
+        Another advantage of defining almost all variables and
+        functions inside this struct it's that we can pass the struct
+        to plugins and then they can have access to all Weaver
+        functions and variables.
+      </p>
+      <p>
+        Usually you shouldn't worry about the <tt>W</tt> struct and
+        never should need to pass it directly to some function. You
+        just invoke it's functions and access it's variables.
+      </p>
+      <h5 id="game">struct _game_struct *W.game</h5>
+      <p>
+        This is just a pointer to the struct defined
+        at <tt>src/game.h</tt> in your project. You decide which
+        variables you create and define in this struct. This
+        user-defined struct is a way to store your game's global
+        variables and also where you put data that should be
+        accessible for plugins.
+      </p>
+      <h5 id="t">unsigned long long W.t <img class="icon"
+             src="images/read_only.png" width="25px" height="25px"
+             title="Read-only"><img class="icon" src="images/loop.png"
+             width="25px" height="25px" title="Main loop only"></h5>
+      <p>
+        This variable hold the times in microseconds since the
+        program's initialization. A microsecond is 0.000001 second. So
+        if you wish to know the value in seconds, you should divide it
+        by 1,000,000.
+      </p>
+      <p>
+        As this value is at least 64-bits long, this would overflow
+        only after more than 500,000 years.
+      </p>
+      <h5 id="dt">unsigned long long W.dt <img class="icon"
+             src="images/read_only.png" width="25px" height="25px"
+             title="Read-only"><img class="icon" src="images/loop.png"
+             width="25px" height="25px" title="Main loop only"></h5>
+      <p>
+        This variable holds the time in microseconds between the
+        current main loop iteration and the previous loop
+        iteration. As Weaver uses a fixed time step to run C code in
+        the game loop, it's value should always be about 40,000, wich
+        means that your C-code is running at 25 frames per second (but
+        the game probably is rendering at a higher rate).
+      </p>
+      <p>
+        If you check this value and it has a value much higher than
+        40,000, it means that your game is running too slowly and it's
+        acting like a stop motion movie. You should then do something
+        like render less things, lower the resolution or the ammount
+        of calculations in each frame.
+      </p>
+      <h4 id="basic_functions">Functions</h4>
+      <h5 id="Wexit">void Wexit(void)<img class="icon"
+               src="images/not_thread.png" width="25px" height="25px"
+               title="Not thread-safe"></h5>
+      <p>
+        This function exits the game immediately. The game window is
+        closed and the program exits if applicable. You can't access
+        any variable or function listed here after
+        calling <tt>Wexit</tt>.
+      </p>
+      <h5 id="Winit">void Winit(void)<img class="icon"
+               src="images/not_thread.png" width="25px" height="25px"
+                                          title="Not thread-safe"></h5>
+      <p>
+        This is the first function you should call in a Weaver
+        program. Only after calling this function you can call any
+        other function listed here or read any Weaver variable.
+      </p>
+      <p>
+        This is the function who creates a new window according with
+        the configurations in <tt>conf/conf.h</tt>.
+      </p>
+    </div>
+  </body>
+</html>
