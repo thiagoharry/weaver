@@ -1513,7 +1513,7 @@ E por fim as adicionamos à |W|:
 #if W_DEBUG_LEVEL >= 1
 int (*breakpoint)(char *, unsigned long);
 #else
-int *(*breakpoint)(void);
+int (*breakpoint)(void);
 #endif
 void (*trash)(void);
 @
