@@ -1,4 +1,4 @@
-/* Contains Weaver configuration rules */
+n/* Contains Weaver configuration rules */
 
 // BASIC CONFIGURATION
 
@@ -7,11 +7,9 @@
 
 // The ammount of details printed by weaver functions:
 // 0: No warning is printed.
-// 1: General warnings will be printed
-// 2: General and memory manager warnings will be printed
-// 3: General, memory and informational warnings will be printed
-// If you aren't developing the game anymore and wish to distribute it,
-// choose the level 0
+// 1: Info about non-fatal errors will be printed
+// 2: General warnings will be printed
+// Before installing and distributing this game, set the macro to 0
 #define W_DEBUG_LEVEL 2
 
 // This macro determines if we are building a native program (W_ELF) or
@@ -76,6 +74,6 @@
 #define W_CAMERA_SIZE     0.3
 
 /* Various Limits */
-#define W_LIMIT_SUBLOOP 16 // Max number of subloops
+#define W_MAX_SUBLOOP 16 // Max number of subloops
 #define W_MAX_PERIODIC_FUNCTIONS 16 // Max periodic functions in a loop
 #define W_MAX_INTERFACES         16 // Max number of interface elements

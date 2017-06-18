@@ -51,8 +51,13 @@
           </ol>
           <li><a href="#basic_functions">Functions</a></li>
           <ol>
+            <li><a href="#Walloc">Walloc</a></li>
             <li><a href="#Wexit">Wexit</a></li>
+            <li><a href="#Wexit_loop">Wexit_loop</a></li>
+            <li><a href="#Wfree">Wfree</a></li>
             <li><a href="#Winit">Winit</a></li>
+            <li><a href="#Wloop">Wloop</a></li>
+            <li><a href="#Wsubloop">Wsubloop</a></li>
           </ol>
         </ol>
       </ol>
@@ -121,6 +126,32 @@
         resolution or the ammount of calculations in each frame.
       </p>
       <h4 id="basic_functions">Functions</h4>
+      <h5 id="Walloc">void *Walloc(size_t size)</h5>
+      <p>
+        This function is like <tt>malloc</tt>, but the memory
+        allocated is handled by Weaver's memory manager and usually
+        don't need to be manually freed. The gargage collector
+        will take away the memory allocated when you exit the current
+        main loop.
+      </p>
+      <p>
+        You should free the memory only if you use this function
+        outside a main loop. Or if you just allocated the memory but
+        won't need it anymore. In this case, use
+        the <a href="#Wfree">Wfree</a> function.
+      </p>
+      <p>
+        To check how the garbage collector and the memory in Weaver
+        works, check <a href="loop.htm">Weaver Main Loops and Memory
+        Model</a>.
+      </p>
+      <p>
+        <b>Tip:</b> Avoid calling <tt>Walloc</tt> in a main loop
+        body. This leads to memory leaks. It's better to allocate a
+        pool of objects in the loop initialization and then in the
+        loop body you check which objects in the pool are initialized
+        and should be handled.
+      </p>
       <h5 id="Wexit">void Wexit(void)<img class="icon"
                src="images/not_thread.png" width="25px" height="25px"
                title="Not thread-safe"></h5>
@@ -129,6 +160,44 @@
         closed and the program exits if applicable. You can't access
         any variable or function listed here after
         calling <tt>Wexit</tt>.
+      </p>
+      <h5 id="Wexit_loop">void Wexit_loop(void)<img class="icon"
+               src="images/not_thread.png" width="25px" height="25px"
+                                               title="Not
+                                                      thread-safe">
+      <img class="icon" src="images/loop.png" width="25px"
+             height="25px" title="Main loop only"></h5>
+      <p>
+        This function exits the current main loop, remove it from the
+        stack and resume the execution of the next main loop in the
+        stack. If there's just one main loop in the stack when this
+        function is called, then it just exits the game.
+      </p>
+      <p>
+        The garbage collector frees all the memory allocated in a loop
+        after it calls this function. To know more about main loops,
+        please check <a href="loop.htm">Weaver Main Loops and Memory
+        Model</a>.
+      </p>
+      <h5 id="Wfree">void Wfree(void *memory)</h5>
+      <p>
+        This function frees the memory allocated
+        with <a href="#Walloc">Walloc</a>. Call this only if the
+        memory was allocated outside a main loop or in the same main
+        loop where we currently are. Or we can use this function in a
+        memory already freed by the garbage collector.
+      </p>
+      <p>
+        When in doubt, don't use <tt>Wfree</tt>. Just let the garbage
+        collector do the work. If your
+        macro <a href="configuration.htm#W_DEBUG_LEVEL">W_DEBUG_LEVEL</a>
+        is greater than 0, then Weaver will print a warning in the
+        screen if it detects a memory leak while exiting the game.
+      </p>
+      <p>
+        To check how the garbage collector and the memory in Weaver
+        works, check <a href="loop.htm">Weaver Main Loops and Memory
+        Model</a>.
       </p>
       <h5 id="Winit">void Winit(void)<img class="icon"
                src="images/not_thread.png" width="25px" height="25px"
@@ -141,6 +210,49 @@
       <p>
         This is the function who creates a new window according with
         the configurations in <tt>conf/conf.h</tt>.
+      </p>
+      <h5 id="Wloop">void Wloop(MAIN_LOOP (*loop)(void))<img class="icon"
+               src="images/not_thread.png" width="25px" height="25px"
+                                          title="Not
+                                                 thread-safe"></h5>
+      <p>
+        If this function is called outside a main loop, it puts the
+        loop received as argument in the loop stack and executes it.
+        If this function is called inside a main loop, it stops the
+        execution of the current loop, removes it from the stack, put
+        the received loop in the stack and executes it. In other
+        words, it substitute the current loop by the loop passed as
+        argument.
+      </p>
+      <p>
+        A main loop is where a game spends almost all the time, where
+        we can get player's input and update the screen showing the
+        objects created.
+      </p>
+      <p>
+        To know more how main loops work in Weaver,
+        check <a href="loop.htm">Weaver Main Loops and Memory
+        Model</a>.
+      </p>
+      <h5 id="Wsubloop">void Wsubloop(MAIN_LOOP
+               (*loop)(void))<img class="icon"
+               src="images/not_thread.png" width="25px" height="25px"
+               title="Not thread-safe"><img class="icon"
+               src="images/loop.png" width="25px" height="25px"
+                                            title="Main loop only"></h5>
+      <p>
+        This function pauses the execution of the current main loop,
+        put the loop received as argument in the loop stack and
+        executes it.
+      </p>
+      <p>
+        It doesn't destroy the previous loop. So the garbage collector
+        won't free the memory allocated in that loop.
+      </p>
+      <p>
+        To know more how main loops work in Weaver,
+        check <a href="loop.htm">Weaver Main Loops and Memory
+          Model</a>.
       </p>
     </div>
   </body>

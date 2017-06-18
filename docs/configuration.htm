@@ -34,6 +34,13 @@
           <li><a href="#W_SOURCE">W_SOURCE</a></li>
           <li><a href="#W_TARGET">W_TARGET</a></li>
         </ol>
+        <li><a href="#limit">Macros About Weaver Limits</a></li>
+        <ol>
+          <li><a href="#W_INTERNAL_MEMORY">W_INTERNAL_MEMORY</a></li>
+          <li><a href="#W_MAX_MEMORY">W_MAX_MEMORY</a></li>
+          <li><a href="#W_MAX_SUBLOOP">W_MAX_SUBLOOP</a></li>
+          <li><a href="#W_WEB_MEMORY">W_WEB_MEMORY</a></li>
+        </ol>
       </ol>
       <h3 id="basic">Basic Macros</h3>
       <h4 id="W_DEBUG_LEVEL">W_DEBUG_LEVEL (0, 1, or 2)</h4>
@@ -103,6 +110,65 @@
         should be transformed in a Linux executable (<tt>W_ELF</tt>)
         or in a web page in the form of optimized javascript
         (<tt>W_WEB</tt>).
+      </p>
+      <h3 id="limit">Macros About Weaver Limits</h3>
+      <h4 id="W_INTERNAL_MEMORY">W_INTERNAL_MEMORY (any positive
+        integer)</h4>
+      <p>
+        The maximal memory that should be used by Weaver's internal
+        operations. Probably it's value should be much smaller
+        than <tt>W_MAX_MEMORY</tt>.
+      </p>
+      <p>
+        Usually you should care about this value only if your game
+        crashed with some message about not having enough internal
+        memory. Sometimes if you need to read a very big shader, you
+        need to increase the default value of this macro.
+      </p>
+      <p>
+        If this macro is not defined, it's value is assumed to be
+        1/10,000 of <tt>W_MAX_MEMORY</tt>, but not less than 16 KB.
+      </p>
+      <h4 id="W_MAX_MEMORY">W_MAX_MEMORY (any positive integer)</h4>
+      <p>
+        This macro sets the maximum memory that your game should use
+        for game elements. The value is in bytes. 
+      </p>
+      <p>
+        In fact, Weaver will probably choose a value bigger than what
+        you define in this macro, as the memory manager expects that
+        the limit is a multiple of the page size in your computer.
+      </p>
+      <p>
+        Any memory allocation using Weaver functions will fail if you
+        already are using all the reserved memory for your game. Even
+        if the computer still have plenty of free memory in RAM.
+      </p>
+      <h4 id="W_MAX_SUBLOOP">W_MAX_SUBLOOP (any positive integer)</h4>
+      <p>
+        This macro defines the maximum size of the main loop
+        stack. Each time you call the
+        function <a href="reference.htm#Wsubloop">Wsubloop</a> without
+        calling <a href="reference.htm#Wexit_loop">Wexit_loop</a>, you
+        use one position in the stack.
+      </p>
+      <p>
+        The correct value for this macro depends of your game
+        structure and design. Please, check <a href="loop.htm">Weaver
+        Main Loops and Memory Model</a> to understand this macro.
+      </p>
+      <h4 id="W_WEB_MEMORY">W_WEB_MEMORY (any positive integer)</h4>
+      <p>
+        This macro defines the additional memory that should be
+        reserved if your game is being compiled using Emscripten. It's
+        perfect value depends of the ammount of memory needed outside
+        the Weaver memory manager. If your code and it's libraries use
+        a lot of <tt>malloc</tt>s, it will need more memory for the
+        web.
+      </p>
+      <p>
+        You should care about changing this macro only if your game
+        shows problems running out of memory in the web browser.
       </p>
     </div>
   </body>

@@ -78,7 +78,7 @@ struct interface {
 #ifdef W_MULTITHREAD
     pthread_mutex_t _mutex;
 #endif
-} _interfaces[W_LIMIT_SUBLOOP][W_MAX_INTERFACES];
+} _interfaces[W_MAX_SUBLOOP][W_MAX_INTERFACES];
 #ifdef W_MULTITHREAD
   // Para impedir duas threads de iserirem ou removerem interfaces
   // desta matriz:
@@ -110,7 +110,7 @@ Na inicialização do programa preenchemos a nossa matriz de interfaces:
 @<API Weaver: Inicialização@>+=
 {
     int i, j;
-    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+    for(i = 0; i < W_MAX_SUBLOOP; i ++)
         for(j = 0; j < W_MAX_INTERFACES; j ++)
             _interfaces[i][j].type = W_NONE;
 #ifdef W_MULTITHREAD
@@ -1617,7 +1617,7 @@ e que seja ordenada de acordo com o seu shader. E cada loop também
 deve possuir a sua própria lista de interfaces.
 
 @<Interface: Declarações@>+=
-struct interface *_interface_queue[W_LIMIT_SUBLOOP][W_MAX_INTERFACES];
+struct interface *_interface_queue[W_MAX_SUBLOOP][W_MAX_INTERFACES];
 @
 
 A nossa lista de interfaces deve ser inicializada:
@@ -1625,7 +1625,7 @@ A nossa lista de interfaces deve ser inicializada:
 @<API Weaver: Inicialização@>+=
 {
     int i, j;
-    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+    for(i = 0; i < W_MAX_SUBLOOP; i ++)
         for(j = 0; j < W_MAX_INTERFACES; j ++)
             _interface_queue[i][j] = NULL;
 }
@@ -1895,7 +1895,7 @@ com a mudança de tamanho da janela. Para isso, são os seus atributos
     //int change_x = width - old_width;
     //int change_y = height - old_height;
     float new_width, new_height;
-    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+    for(i = 0; i < W_MAX_SUBLOOP; i ++)
         for(j = 0; j < W_MAX_INTERFACES; j ++){
             if(_interfaces[i][j].type == W_NONE) continue;
             W.move_interface(&_interfaces[i][j],

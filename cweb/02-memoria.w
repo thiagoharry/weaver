@@ -184,11 +184,21 @@ para operações internas da engine.
   dos \monoespaco{Makefiles}, não por código que definiremos neste
   PDF.
 
-\macronome|W_LIMIT_SUBLOOP|: O tamanho máximo da pilha de loops
+\macronome|W_MAX_SUBLOOP|: O tamanho máximo da pilha de loops
 principais que o jogo pode ter. No exemplo dado acima do Final
 Fantasy, precisamos de um amanho de pelo menos 3 para conter os
 estados ``Tela Inicial'', ``Jogo'' e ``Combate''.
 
+Vamos criar um valor padrão para |W_INTERNAL_MEMORY| como sendo
+1/10000 de W_MAX_MEMORY, but not less than 16 KB:
+
+@(project/src/weaver/conf_end.h@>+=
+#ifndef W_INTERNAL_MEMORY
+#define W_INTERNAL_MEMORY \
+  (((W_MAX_MEMORY)/10000>16384)?((W_MAX_MEMORY)/10000):(16384))
+#endif
+@
+  
 @*1 Estruturas de Dados Usadas.
 
 Vamos considerar primeiro uma \negrito{arena}. Toda \negrito{arena} terá
@@ -1910,7 +1920,7 @@ podemos voltar:
 bool _first_loop;
 // A pilha de loops principais:
 int _number_of_loops;
-MAIN_LOOP (*_loop_stack[W_LIMIT_SUBLOOP]) (void);
+MAIN_LOOP (*_loop_stack[W_MAX_SUBLOOP]) (void);
 @
 
 E a inicializaremos as variáveis. O primeiro loop logo deverá mudar
@@ -2023,9 +2033,9 @@ void Wsubloop(void (*f)(void)){
   _number_of_loops ++;
   @<Código Imediatamente antes de Loop Principal@>
 #if W_DEBUG_LEVEL >= 1
-  if(_number_of_loops >= W_LIMIT_SUBLOOP){
+  if(_number_of_loops >= W_MAX_SUBLOOP){
     fprintf(stderr, "Error (1): Max number of subloops achieved.\n");
-    fprintf(stderr, "Please, increase W_LIMIT_SUBLOOP in conf/conf.h.\n");
+    fprintf(stderr, "Please, increase W_MAX_SUBLOOP in conf/conf.h.\n");
   }
 #endif
   _loop_stack[_number_of_loops] = f;

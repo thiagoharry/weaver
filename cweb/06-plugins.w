@@ -953,7 +953,7 @@ struct{
   unsigned long last_execution; // Quando foi executada pela última vez
   unsigned long period; // De quanto em quanto tempo tem que executar
   void (*f)(void); // A função em si a ser executada
-} _periodic_functions[W_LIMIT_SUBLOOP][W_MAX_PERIODIC_FUNCTIONS];
+} _periodic_functions[W_MAX_SUBLOOP][W_MAX_PERIODIC_FUNCTIONS];
 @
 
 Isso precisa ser inicializado preenchendo os valores de cada |f| com
@@ -962,7 +962,7 @@ Isso precisa ser inicializado preenchendo os valores de cada |f| com
 @<API Weaver: Inicialização@>+=
 {
   int i, j;
-  for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+  for(i = 0; i < W_MAX_SUBLOOP; i ++)
     for(j = 0; j < W_MAX_PERIODIC_FUNCTIONS; j ++)
       _periodic_functions[i][j].f = NULL;
 }

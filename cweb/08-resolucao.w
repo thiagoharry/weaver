@@ -363,7 +363,7 @@ void _change_resolution(int resolution_x, int resolution_y){
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     // Feito. Agora temos apenas que atualizar a posição das
     // interfaces:
-    for(i = 0; i < W_LIMIT_SUBLOOP; i ++)
+    for(i = 0; i < W_MAX_SUBLOOP; i ++)
         for(j = 0; j < W_MAX_INTERFACES; j ++){
             if(_interfaces[i][j].type == W_NONE) continue;
             W.move_interface(&_interfaces[i][j],
