@@ -93,6 +93,7 @@ install: uninstall
 	install -c project/src/weaver/weaver.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/weaver.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/conf_begin.h ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/conf_end.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/memory.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/memory.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/window.h ${PROJECT_SHARE}/src/weaver

@@ -64,6 +64,9 @@
         makes some error message appear in the screen, even when this
         macro is set to 0.
       </p>
+      <p>
+        If this macro is not present, it's treated as if it's value is 0.
+      </p>
       <h4 id="W_MULTITHREAD">W_MULTITHREAD (nothing)</h4>
       <p>
         This thread defines if the project should support multiple
@@ -78,6 +81,11 @@
         possibility of multiple threads running the code and doesn't
         create mutexes and semaphores. All the functions became not
         thread-safe.
+      </p>
+      <p>
+        As the web environment doesn't support threads, this macro is
+        alway treated as not defined if you compile the game as a web
+        page.
       </p>
       <h4 id="W_SOURCE">W_SOURCE (W_C or W_CPP)</h4>
       <p>

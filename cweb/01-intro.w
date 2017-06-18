@@ -1896,16 +1896,33 @@ de arquivos da API Weaver é:
 @<Inclui Cabeçalho de Configuração@>=
 #include "conf_begin.h"
 #include "../../conf/conf.h"
+#include "conf_end.h"
 @
 
-Note que haverão também cabeçalhos \monoespaco{conf\_begin.h} que cuidarão
-de toda declaração de inicialização que forem necessárias. Para
-começar, criaremos o \monoespaco{conf\_begin.h} para inicializar as macros
-|W_WEB| e |W_ELF|:
+Note que haverão também cabeçalhos \monoespaco{conf\_begin.h} que
+cuidarão de toda declaração de inicialização que forem necessárias. E
+um \monoespaco{conf\_end.h} para tratar de qualquer pós-processamento
+necessário. Para começar, criaremos o \monoespaco{conf\_begin.h} para
+inicializar as macros |W_WEB| e |W_ELF|:
 
 @(project/src/weaver/conf_begin.h@>=
 #define W_ELF 0
 #define W_WEB 1
+@
+
+E vamos começar usando o \monoespaco{conf\_end.h} para iimpedir que
+suportemos threads se estivermos compilando para Emscripten, já que as
+threads não funcionam neste ambiente. E também determinamos que se o
+|W_DEBUG_LEVEL| não estiver definido, ele deve ser tratado como zero
+como valor padrão.
+
+@(project/src/weaver/conf_end.h@>=
+#ifndef W_DEBUG_LEVEL
+#define W_DEBUG_LEVEL 0
+#endif
+#if W_TARGET == W_WEB && defined(W_MULTITHREAD)
+#undef W_MULTITHREAD
+#endif
 @
 
 @*1 Funções básicas Weaver.
