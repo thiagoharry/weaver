@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Configuring Weaver Projects</title>
+    <link rel="stylesheet" href="weaver.css">
+  </head>
+  <body>
+    <header>
+      <h1><a href="index.htm">Weaver: A Game Engine for GNU/Linux</a></h1>
+      <span class="menu">
+        <a href="documentation.htm">Documentation</a>
+        <a href="tutorial.htm">Tutorial</a>
+        <a href="examples.htm">Examples</a>
+        <a href="download.htm">Download</a>
+      </span>
+    </header>
+    <div class="docs">
+      <h2>Configuring Weaver Projects</h2>
+      <p>
+        Inside the directory of every Weaver project there's the
+        file <tt>conf/conf.h</tt>. That file is just a C header file
+        and editing it you can change a lot of configurations of your
+        game. This page lists all the different macros that can be
+        defined to different values (or not be defined) and how it
+        changes your game's behaviour.
+      </p>
+      <h3>Index</h3>
+      <ol>
+        <li><a href="#basic">Basic Macros</a></li>
+        <ol>
+          <li><a href="#W_DEBUG_LEVEL">W_DEBUG_LEVEL</a></li>
+          <li><a href="#W_MULTITHREAD">W_MULTITHREAD</a></li>
+          <li><a href="#W_SOURCE">W_SOURCE</a></li>
+          <li><a href="#W_TARGET">W_TARGET</a></li>
+        </ol>
+      </ol>
+      <h3 id="basic">Basic Macros</h3>
+      <h4 id="W_DEBUG_LEVEL">W_DEBUG_LEVEL (0, 1, or 2)</h4>
+      <p>
+        This macro enables and disables debug messages in your game
+        and also determines if your game is finished or still is in a
+        development version.
+      </p>
+      <p>
+        In a finished game, which is ready to be distributed, you
+        should always set this macro to 0. You also needs to set this
+        value to 0 if you wish to install the game with a <tt>make
+        install</tt> command (don't forget to recompile it). When this
+        macro is set to 0, a game run faster and without wasting
+        memory in information for debug messages.
+      </p>
+      <p>
+        If you set the macro to 1, the game will print messages warns
+        you about non-fatal errors found during execution. If you set
+        the macro to 2, warnings about strange conditions also will be
+        print (but not always these warnings represent errors or
+        things tht should be fixed). Values greater than 2 are
+        reserved to Weaver engine development and should never be used
+        in games.
+      </p>
+      <p>
+        Of course, fatal errors always halts the game execution and
+        makes some error message appear in the screen, even when this
+        macro is set to 0.
+      </p>
+      <h4 id="W_MULTITHREAD">W_MULTITHREAD (nothing)</h4>
+      <p>
+        This thread defines if the project should support multiple
+        threads or not. If this macro is defined, all the functions
+        marked as thread-safe in <a href="reference.htm">Weaver
+        Reference Guide</a> becames thread-safe. If the macro is
+        defined, all the functions that read game assets also try do
+        do it's job asynchronously in a separated thread.
+      </p>
+      <p>
+        If the macro isn't defined, then Weaver doesn't care about the
+        possibility of multiple threads running the code and doesn't
+        create mutexes and semaphores. All the functions became not
+        thread-safe.
+      </p>
+      <h4 id="W_SOURCE">W_SOURCE (W_C or W_CPP)</h4>
+      <p>
+        This macros defines the language which we are using in aa
+        project. There's two options: C (<tt>W_C</tt>) or C++
+        (<tt>W_CPP</tt>).
+      </p>
+      <p>
+        With the help of this macro, Weaver knows wich compiler should
+        be used and also how the headers should be defined.
+      </p>
+      <h4 id="W_TARGET">W_TARGET (W_ELF or W_WEB)</h4>
+      <p>
+        This macro defines the target for the compilation. If the game
+        should be transformed in a Linux executable (<tt>W_ELF</tt>)
+        or in a web page in the form of optimized javascript
+        (<tt>W_WEB</tt>).
+      </p>
+    </div>
+  </body>
+</html>

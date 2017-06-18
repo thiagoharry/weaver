@@ -1842,7 +1842,7 @@ foi detectado, um arquivo de textura não foi encontrado, etc.
 \macrovalor|3|) Mensagens informativas com dados sobre a execução, mas que não
  representam problemas são impressas.
 
-\macrovalor|4|) Código de teste adicional é execuado apenas para garantir que
+\macrovalor|4|) Código de teste adicional é executado apenas para garantir que
  condições que tornem o código incorreto não estão presentes. Use só
  se você está depurando ou desenvolvendo a própria API Weaver, não o
  projeto de um jogo que a usa.
