@@ -104,12 +104,20 @@
         With the help of this macro, Weaver knows wich compiler should
         be used and also how the headers should be defined.
       </p>
+      <p>
+        If this macro isn't present, <tt>W_C</tt> is assumed, but a
+        warning will be print during compilation.
+      </p>
       <h4 id="W_TARGET">W_TARGET (W_ELF or W_WEB)</h4>
       <p>
         This macro defines the target for the compilation. If the game
         should be transformed in a Linux executable (<tt>W_ELF</tt>)
         or in a web page in the form of optimized javascript
         (<tt>W_WEB</tt>).
+      </p>
+      <p>
+        If this macro isn't defined, <tt>W_ELF</tt> is assumed, but a
+        warning will be print during compilation.
       </p>
       <h3 id="limit">Macros About Weaver Limits</h3>
       <h4 id="W_INTERNAL_MEMORY">W_INTERNAL_MEMORY (any positive

@@ -1871,7 +1871,6 @@ na Internet. Isso é feito usando Emscripten.
 Opcionalmente as seguintes macros podem ser definidas também (dentre
 outras):
 
-
 \macronome|W_MULTITHREAD|: Se a macro for definida, Weaver é compilado com
 suporte à múltiplas threads acionadas pelo usuário. Note que de
 qualquer forma vai existir mais de uma thread rodando no programa para
@@ -1910,11 +1909,12 @@ inicializar as macros |W_WEB| e |W_ELF|:
 #define W_WEB 1
 @
 
-E vamos começar usando o \monoespaco{conf\_end.h} para iimpedir que
+E vamos começar usando o \monoespaco{conf\_end.h} para impedir que
 suportemos threads se estivermos compilando para Emscripten, já que as
 threads não funcionam neste ambiente. E também determinamos que se o
 |W_DEBUG_LEVEL| não estiver definido, ele deve ser tratado como zero
-como valor padrão.
+como valor padrão. Criamos os valore padrão para as demais macros
+também, mas algumas devem imprimir avisos se não estiverem presentes.
 
 @(project/src/weaver/conf_end.h@>=
 #ifndef W_DEBUG_LEVEL
@@ -1922,6 +1922,15 @@ como valor padrão.
 #endif
 #if W_TARGET == W_WEB && defined(W_MULTITHREAD)
 #undef W_MULTITHREAD
+#warning "Threads won't be used when compiling the game to a web browser."
+#endif
+#ifndef W_SOURCE
+#warning "Not W_SOURCE defined at conf/conf.h. Assuming W_C (C)."
+#define W_SOURCE W_C
+#endif
+#ifndef W_TARGET
+#warning "Not W_TARGET defined at conf/conf.h. Assuming W_ELF (linux executable)."
+#define W_TARGET W_ELF
 #endif
 @
 
