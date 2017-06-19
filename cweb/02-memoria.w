@@ -189,13 +189,26 @@ principais que o jogo pode ter. No exemplo dado acima do Final
 Fantasy, precisamos de um amanho de pelo menos 3 para conter os
 estados ``Tela Inicial'', ``Jogo'' e ``Combate''.
 
-Vamos criar um valor padrão para |W_INTERNAL_MEMORY| como sendo
-1/10000 de W_MAX_MEMORY, but not less than 16 KB:
+Vamos agora definir os valores padrão para tais macros se elas não
+ estiverem definidas. Vamos criar um valor padrão para
+|W_INTERNAL_MEMORY| como sendo 1/10000 de W_MAX_MEMORY, but not less
+than 16 KB:
 
 @(project/src/weaver/conf_end.h@>+=
+#ifndef W_MAX_MEMORY
+#warning "W_MAX_MEMORY not defined at conf/conf.h. Assuming the smallest value possible"
+#define W_MAX_MEMORY 1
+#endif
 #ifndef W_INTERNAL_MEMORY
 #define W_INTERNAL_MEMORY \
   (((W_MAX_MEMORY)/10000>16384)?((W_MAX_MEMORY)/10000):(16384))
+#endif
+#if !defined(W_WEB_MEMORY) && W_TARGET == W_ELF
+#warning "W_WEB_MEMORY not defined at conf/conf.h."
+#endif
+#ifndef W_MAX_SUBLOOP
+#warning "W_MAX_SUBLOOP not defined at conf/conf.h. Assuming 1."
+#define W_MAX_SUBLOOP 1
 #endif
 @
   

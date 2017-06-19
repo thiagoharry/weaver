@@ -35,7 +35,7 @@ n/* Contains Weaver configuration rules */
 #define W_INTERNAL_MEMORY 16384
 // When compiling for the web, we usually need aditional memory. So we
 // sum the memory above with the value below:
-#define W_WEB_MEMORY 900000000
+#define W_WEB_MEMORY 2097152
 
 // If you wont use multiple threads, you can comment this:
 //#define W_MULTITHREAD

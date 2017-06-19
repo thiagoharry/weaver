@@ -152,6 +152,11 @@
         already are using all the reserved memory for your game. Even
         if the computer still have plenty of free memory in RAM.
       </p>
+      <p>
+        If this value is not defined, Weaver prints a warning during
+        compilation and tries to use 1, reserving the minimum ammount
+        of memory possible.
+      </p>
       <h4 id="W_MAX_SUBLOOP">W_MAX_SUBLOOP (any positive integer)</h4>
       <p>
         This macro defines the maximum size of the main loop
@@ -165,6 +170,10 @@
         structure and design. Please, check <a href="loop.htm">Weaver
         Main Loops and Memory Model</a> to understand this macro.
       </p>
+      <p>
+        If this macro is not defined, 1 is assumed and a warning is
+        print during compilation.
+      </p>
       <h4 id="W_WEB_MEMORY">W_WEB_MEMORY (any positive integer)</h4>
       <p>
         This macro defines the additional memory that should be
@@ -176,7 +185,14 @@
       </p>
       <p>
         You should care about changing this macro only if your game
-        shows problems running out of memory in the web browser.
+        shows problems running out of memory in the web browser, where
+        a error message will warn about not being able to enlarge
+        memory arrays. If this happens, increase the value of this
+        macro or try to use less <tt>malloc</tt>s.
+      </p>
+      <p>
+        This macro must be present if you are compiling your game to a
+        web browser and it's value should be at least 1MB.
       </p>
     </div>
   </body>
