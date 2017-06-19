@@ -60,6 +60,14 @@
             <li><a href="#Wsubloop">Wsubloop</a></li>
           </ol>
         </ol>
+        <li><a href="#numeric">Numeric Functions and
+            Variables</a></li>
+        <ol>
+          <li><a href="#numeric_functions">Functions</a>
+            <ol>
+              <li><a href="#random">W.random</a>
+            </ol>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -253,6 +261,18 @@
         To know more how main loops work in Weaver,
         check <a href="loop.htm">Weaver Main Loops and Memory
           Model</a>.
+      </p>
+      <h3 id="numeric">Numeric Variables and Functions</h3>
+      <h4 id="numeric_functions">Numeric Functions</h4>
+      <h5 id="random">unsigned long W.random(void)</h5>
+      <p>
+        This function uses a variation of the Meersenne Twister
+        algorithm to generate a 32-bits pseudo-random number. If you
+        want your game to always use the same seed, set the
+        macro <a href="configuring.htm#W_SEED">W_SEED</a>
+        at <tt>conf/conf.h</tt>, otherwise Weaver tries to use an
+        unpredictable seed, as a value read from <tt>/dev/urandom</tt>
+        or the current time in milisseconds.
       </p>
     </div>
   </body>
