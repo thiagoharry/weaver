@@ -116,3 +116,23 @@ pre.terminal{
     background-color: black;
     color: #00ff00;
 }
+
+pre.codigo{
+    background-color: #d2cbbe;
+}
+
+pre.codigo span.tipo{
+    color: #006600;
+}
+
+pre.codigo span.comment{
+    color: red;
+}
+
+pre.codigo span.label{
+    color: #c71585;
+}
+
+pre.codigo span.word{
+    color: blue;
+}

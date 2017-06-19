@@ -20,10 +20,258 @@
       <p>
         When you play a game you interact with some sort of virtual
         environment and with allies, enemies or neutral entities that
-        also inhabit that environment. The computer creates a
+        also inhabit that environment. Even when you don't press any
+        key, the game world keeps moving. The computer creates a
         simulation in this environment in a loop which runs forever
         until some kind of condition puts you in another environment,
         which also runs in another loop.
+      </p>
+      <p>
+        From the point of view of a character who lives inside your
+        game, each iteration of the main loop is the minimal interval
+        of time. If the character could make scientific experiments,
+        he would discover that no phenomenon could happen in a
+        interval of time smaller than one iteration of the main
+        loop. Weaver tries to keep this interval of time at 0.04
+        seconds. This is faster than the frame rate of a movie and
+        only people extremely quick can have reflex response to visual
+        stimuli in such a small time interval. You can check the elapsed
+        microseconds between the current iteration in the game loop
+        and the last iteration in the
+        variable <a href="reference.htm#dt">W.dt</a>. The value should
+        be next to 40,000.
+      </p>
+      <p>
+        A game can have lots of main loops. Each of them acts like an
+        isolated universe. One game loop won't have information about
+        previous game loops, except if you choose to explicitly store
+        information in variables and share them. The animation before
+        the intro screen is a main loop, the title screen is a main
+        loop, each stage of a game usually is a main loop and so are
+        the Game Over screen and the ending of the game. This image
+        shows all the main loops from Super Mario Bros. The title
+        screen is yellow, the game over screen is red, the game ending
+        is green and all the game stages are white:
+      </p>
+      <p>
+        <img src="images/super_mario_bros_loop.png" width="100%">
+      </p>
+      <p>
+        Notice how the player always is in a game loop and each game
+        loop can send you to two or more different game loops
+        depending of what happens with your character in each
+        scenario. If it dies, the game go to the Game Over main loop
+        and from there to the Title Screen again. World 4-2 have two
+        warp points, a normal ending area and some enemies which could
+        kill you. So this stage can lead you to 6 different game loops.
+      </p>
+      <p>
+        When you create a new Weaver project, it is initialized with
+        the following code in <tt>src/game.c</tt>:
+      </p>
+      <pre class="codigo">
+<span class="tipo">MAIN_LOOP</span> <b>main_loop</b>(<span class="tipo">void</span>){ <span class="comment">// The game loop</span>
+ <span class="label">LOOP_INIT:</span> <span class="comment">// Code executed during loop initialization</span>
+
+ <span class="label">LOOP_BODY:</span> <span class="comment">// Code executed every loop iteration</span>
+  <span class="word">if</span>(<a href="reference.htm#keyboard">W.keyboard</a>[W_ANY])
+    <a href="reference.htm#Wexit_loop"><b>Wexit_loop</b></a>();
+ <span class="label">LOOP_END:</span> <span class="comment">// Code executed at the end of the loop</span>
+  <span class="word">return</span>;
+}
+
+<span class="tipo">int</span> <b>main</b>(<span class="tipo">void</span>){
+  <a href="reference.htm#Winit"><b>Winit</b></a>(); <span class="comment">// Initializes Weaver</span>
+  <a href="reference.htm#Wloop"><b>Wloop</b></a>(main_loop); <span class="comment">// Enter a new game loop</span>
+  <span class="word">return</span> 0;
+}</pre>
+      <p>
+        The code has a main function like every C and C++ program. The
+        main function starts
+        calling <a href="reference.htm#Winit">Winit</a>, the function
+        which initializes Weaver and should be the first function
+        called in a Weaver program. And then it runs a main loop
+        called <tt>min_loop</tt> defined in the previous lines. The
+        following <tt>return 0</tt> never will be executed, Weaver
+        never abandons a main loop after entering in the first.
+      </p>
+      <p>
+        A main loop looks like a function. But appearances can be
+        deceiving. You should never treat a main loop like an ordinary
+        function. For example, never declare variables in the
+        beginning of a main loop. If you wish, you can declare
+        variables in a block inside the loop. But if you want a
+        variable whose scope should be the entire loop, declare it as
+        a static variable outside the loop "function".
+      </p>
+      <p>
+        You can say that this doesn't look like a loop. In fact, the
+        loop is hidden. You should read that main loop as:
+      </p>
+      <pre class="codigo">
+ <span class="tipo">MAIN_LOOP</span> <b>main_loop</b>(<span class="tipo">void</span>){ <span class="comment">// The game loop</span>
+ <span class="label">LOOP_INIT:</span> <span class="comment">// Code executed during loop initialization</span>
+
+ <span class="label">LOOP_BODY:</span> <span class="comment">// Code executed every loop iteration</span>
+ <b><i>while(1){</i></b>
+    <span class="word">if</span>(<a href="reference.htm#keyboard">W.keyboard</a>[W_ANY])
+      <a href="reference.htm#Wexit_loop"><b>Wexit_loop</b></a>();
+  <b><i>}</i></b>
+ <span class="label">LOOP_END:</span> <span class="comment">// Code executed at the end of the loop</span>
+  <span class="word">return</span>;
+}</pre>
+      <p>
+        But that <tt>while</tt> is hidden and should never be put
+        explicitly. The labels <tt>LOOP_INIT</tt>, <tt>LOOP_BODY</tt>
+        and <tt>LOOP_END</tt> marks respectively the beginning of loop
+        initialization, the beginning of loop body and the beginning of
+        loop finalization. They never should be ommited.
+      </p>
+      <p>
+        Never put anything before <tt>LOOP_INIT</tt>.
+      </p>
+      <p>
+        Everything between <tt>LOOP_INIT</tt> and <tt>LOOP_BODY</tt>
+        will be executed only in the beginning of the loop before the
+        first iteration.
+      </p>
+      <p>
+        Everything between <tt>LOOP_BODY</tt> and <tt>LOOP_END</tt>
+        will be executed in every iteration.
+      </p>
+      <p>
+        Everything after <tt>LOOP_END</tt> wil be executed only once
+        before you exit the loop.
+      </p>
+      <p>
+        The function <a href="reference.htm#Wloop">Wloop</a> enters in
+        the first main loop of the game. But once in a main loop, you
+        can change to another main loop
+        calling <a href="reference.htm#Wloop">Wloop</a> again. For
+        example, if you were programming Super Mario Bros using
+        Weaver, part of the code for World 1-1 should be:
+      </p>
+      <pre class="codigo">
+<span class="tipo">MAIN_LOOP</span> <b>world_1-1</b>(<span class="tipo">void</span>){
+ <span class="label">LOOP_INIT:</span>
+
+ <span class="label">LOOP_BODY:</span>
+  <span class="word">if</span>(mario_jumped_in_the_flag)
+    <a href="reference.htm#Wloop"><b>Wloop</b></a>(<b>world_1-2</b>);
+  <span class="word">else if</span>(mario_died)
+    <a href="reference.htm#Wloop"><b>Wloop</b></a>(<b>game_over</b>);
+ <span class="label">LOOP_END:</span>
+  <span class="word">return</span>;
+}</pre>
+      <p>
+        If Mario dies or if he complete the stage, we won't need the
+        World 1-1 anymore. All the memory allocated and related to
+        that scenario should be freed. Weaver does this
+        automatically. The garbage collector always frees the memory
+        when you change the current main loop for a new main loop.
+      </p>
+      <p>
+        But there's two problems. First, sometimes we want to go
+        outside World 1-1 temporarily. Mario sometimes can enter in
+        Warp Pipes, visit some subterranean hiding place full of coins
+        and then return to World 1-1. And second, if the garbage
+        collector frees all the memory related to the previous main
+        loops, how could we prevent it from freeing the memory
+        associated with Mario? We need some way to preserve objects
+        between main loops.
+      </p>
+      <p>
+        The solution for this problem is the creation of subloops. Any
+        main loop can be treated as a subloop using the function
+        <a href="reference.htm#Wsubloop">Wsubloop</a>. Wih this
+        function we can change World 1-1 to support our Warp Pipe:
+      </p>
+      <pre class="codigo">
+<span class="tipo">MAIN_LOOP</span> <b>world_1-1</b>(<span class="tipo">void</span>){
+ <span class="label">LOOP_INIT:</span>
+
+ <span class="label">LOOP_BODY:</span>
+  <span class="word">if</span>(mario_enters_warp_pipe)
+    <a href="reference.htm#Wloop"><b>Wsubloop</b></a>(<b>hidden_world_1-2</b>);
+  <span class="word">else if</span>(mario_jumped_in_the_flag)
+    <a href="reference.htm#Wloop"><b>Wloop</b></a>(<b>world_1-2</b>);
+  <span class="word">else if</span>(mario_died)
+    <a href="reference.htm#Wloop"><b>Wloop</b></a>(<b>game_over</b>);
+ <span class="label">LOOP_END:</span>
+  <span class="word">return</span>;
+}</pre>
+      <p>
+        When you enter a subloop, you pauses the current loop and
+        execute a new one without freeing the memory associated with
+        the previous loop. When the new loop exits (calling
+        <a href="reference.htm#Wexit_subloop">Wexit_subloop()</a>),
+        then the previous loop resumes.
+      </p>
+      <p>
+        But a new loop entered
+        with <a href="reference.htm#Wsubloop">Wsubloop</a> could call
+        another loop with <a href="reference.htm#Wloop">Wloop</a>
+        instead of just exiting
+        with <a href="reference.htm#Wexit_loop">Wexit_loop</a>. Perhaps
+        Mario can enter in another Warp Pipe after entering the first
+        Warp Pipe. In this case, Weaver still wouldn't free the memory
+        associated with World 1-1, just the memory associated with the
+        first hidden place accessed by the first Warp Pipe.
+      </p>
+      <p>
+        To understand better what happens when we use the
+        functions <a href="reference.htm#Wloop">Wloop</a>,
+        <a href="reference.htm#Wsubloop">Wsubloop</a> and
+        <a href="reference.htm#Wexit_loop">Wexit_loop</a>, remember
+        that Weaver treats main loops in a stack. The stack of main
+        loops. Each functions in fact work this way:
+      </p>
+      <p>
+        If the stack is empty, <a href="reference.htm#Wloop">Wloop</a>
+        puts the main loop received as argument in the stack and
+        executes it. If the stack is not empty, the function pops a
+        main loop from there, puts the main loop received as argument
+        and executes it.
+      </p>
+      <p>
+        The function <a href="reference.htm#Wsubloop">Wsubloop</a>
+        just puts te loop received as argument in the stack and
+        executes. But the stack can't be empty.
+      </p>
+      <p>
+        The function <a href="reference.htm#Wexit_loop">Wexit_loop</a>
+        just pops a main loop from the stack and then resumes the
+        execution of the main loop in the top of the stack. If there's
+        no more elements in the stack, the function exits the game.
+      </p>
+      <p>
+        Using subloops you can also create objects that won't be
+        erased by the garbage collector when you cross different main
+        loops. For example, if you don't want to lose Mario when you
+        finish each world, you can use the first loop (it can be the
+        title screen) just to load Mario. Then load the first stage
+        (world 1-1 in this case) as a subloop, and when you want to
+        pass to other main loops, just
+        use <a href="reference.htm#Wloop">Wloop</a>. To return to the
+        title screen (in the Game Over main loop in this case), just
+        call <a href="reference.htm#Wexit_loop">Wexit_loop</a>.
+      </p>
+      <p>
+        In the majority of games, won't be difficult to identify the
+        main loops and how to organize them. But there's algo games
+        like Minecraft, where you have a huge world not divided in
+        stages. In these cases, Weaver still can help using the main
+        loops and the garbage collector to handle the title screen,
+        perhaps the pause screen, inventory and menus. But the game
+        won't have many main loops. And one of the game loops would be
+        very big and would need to handle it's memory without much
+        help from the garbage collector. In the case of a game like
+        Minecraft, the loop initialization could create a pool of
+        blocks and mobs. And the main loop will have the
+        responsability to fill the pool only with blocks and mobs from
+        the area visited by the player. Is a block or mob is too far
+        away, the main loop should store it in the disk (if
+        applicable) and load another sequence of blocks and mobs.
       </p>
     </div>
   </body>
