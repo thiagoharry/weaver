@@ -149,10 +149,15 @@ if(pthread_mutex_init(&_sfmt_mutex, NULL) != 0){
 A primeira coisa a fazer é escolher uma semente, um valor inicial para
 o nosso gerador de números pseudo-randômicos. Apesar de na teoria
 nosso algoritmo só tratar números como sequências de 128 bits, a
-semente que passaremos sempre terá 32 bits.
+semente que passaremos sempre terá 32 bits. Se o usuário definiu a
+macro |W_SEED| em \monoespaco{conf/conf.h}, usaremos este valor. Caso
+contrário usaremos como valor o número lido de
+\monoespaco{/dev/urandom} ou um valor baseado no número de
+milissegundos.
 
 @<Funções Numéricas: Inicialização@>+=
 {
+#ifndef W_SEED
 #if W_TARGET == W_ELF
   bool got_seed = false;
   int file = open("/dev/urandom", O_RDONLY);
@@ -175,6 +180,9 @@ semente que passaremos sempre terá 32 bits.
 #endif
   // Colocamos a semente como primeiro valor na nossa sequência aleatória:
   _sfmt_sequence[0] = seed;
+#else
+  _sfmt_sequence[0] = seed = (uint32_t) W_SEED; // Se W_SEED é definida, use ela
+#endif
 }
 @
 

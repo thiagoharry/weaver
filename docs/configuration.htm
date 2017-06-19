@@ -41,6 +41,10 @@
           <li><a href="#W_MAX_SUBLOOP">W_MAX_SUBLOOP</a></li>
           <li><a href="#W_WEB_MEMORY">W_WEB_MEMORY</a></li>
         </ol>
+        <li><a href="#numeric">Macros About Numeric Functions</a></li>
+        <ol>
+          <li><a href="#W_SEED">W_SEED</a></li>
+        </ol>
       </ol>
       <h3 id="basic">Basic Macros</h3>
       <h4 id="W_DEBUG_LEVEL">W_DEBUG_LEVEL (0, 1, or 2)</h4>
@@ -193,6 +197,14 @@
       <p>
         This macro must be present if you are compiling your game to a
         web browser and it's value should be at least 1MB.
+      </p>
+      <h3 id="numeric">Macros About Numeric Functions</h3>
+      <h4 id="W_SEED">W_SEED (any integer)</h4>
+      <p>
+        If this macro is defined, it's used as a seed to initialize
+        the pseudo-random number generator. If it's not defined, a
+        value read from <tt>/dev/urandom</tt> or from the current time
+        in milisseconds is used.
       </p>
     </div>
   </body>
