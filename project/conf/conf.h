@@ -1,4 +1,4 @@
-n/* Contains Weaver configuration rules */
+/* Contains Weaver configuration rules */
 
 // BASIC CONFIGURATION
 
