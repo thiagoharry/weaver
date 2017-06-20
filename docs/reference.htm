@@ -149,9 +149,9 @@
         the <a href="#Wfree">Wfree</a> function.
       </p>
       <p>
-        To check how the garbage collector and the memory in Weaver
-        works, check <a href="loop.htm">Weaver Main Loops and Memory
-        Model</a>.
+        Weaver garbage collector runs when you call the functions
+        <a href="#Wloop">Wloop</a> (except in the first invocation)
+        and <a href="#Wexit_loop">Wexit_loop</a>.
       </p>
       <p>
         <b>Tip:</b> Avoid calling <tt>Walloc</tt> in a main loop
@@ -183,17 +183,17 @@
       </p>
       <p>
         The garbage collector frees all the memory allocated in a loop
-        after it calls this function. To know more about main loops,
-        please check <a href="loop.htm">Weaver Main Loops and Memory
-        Model</a>.
+        when you call this function. To know more about main loops,
+        please check <a href="loop.htm">Weaver Main Loops</a>.
       </p>
       <h5 id="Wfree">void Wfree(void *memory)</h5>
       <p>
         This function frees the memory allocated
         with <a href="#Walloc">Walloc</a>. Call this only if the
-        memory was allocated outside a main loop or in the same main
-        loop where we currently are. Or we can use this function in a
-        memory already freed by the garbage collector.
+        memory was allocated outside a main loop or it was allocated
+        in the same main loop where we currently are. Otherwise, you
+        risk calling the function in a memory already freed by the
+        garbage collector.
       </p>
       <p>
         When in doubt, don't use <tt>Wfree</tt>. Just let the garbage
@@ -204,8 +204,7 @@
       </p>
       <p>
         To check how the garbage collector and the memory in Weaver
-        works, check <a href="loop.htm">Weaver Main Loops and Memory
-        Model</a>.
+        works, check <a href="loop.htm">Weaver Main Loops</a>.
       </p>
       <h5 id="Winit">void Winit(void)<img class="icon"
                src="images/not_thread.png" width="25px" height="25px"
@@ -239,8 +238,7 @@
       </p>
       <p>
         To know more how main loops work in Weaver,
-        check <a href="loop.htm">Weaver Main Loops and Memory
-        Model</a>.
+        check <a href="loop.htm">Weaver Main Loops</a>.
       </p>
       <h5 id="Wsubloop">void Wsubloop(MAIN_LOOP
                (*loop)(void))<img class="icon"
@@ -259,8 +257,7 @@
       </p>
       <p>
         To know more how main loops work in Weaver,
-        check <a href="loop.htm">Weaver Main Loops and Memory
-          Model</a>.
+        check <a href="loop.htm">Weaver Main Loops</a>.
       </p>
       <h3 id="numeric">Numeric Variables and Functions</h3>
       <h4 id="numeric_functions">Numeric Functions</h4>
@@ -269,7 +266,7 @@
         This function uses a variation of the Meersenne Twister
         algorithm to generate a 32-bits pseudo-random number. If you
         want your game to always use the same seed, set the
-        macro <a href="configuring.htm#W_SEED">W_SEED</a>
+        macro <a href="configuration.htm#W_SEED">W_SEED</a>
         at <tt>conf/conf.h</tt>, otherwise Weaver tries to use an
         unpredictable seed, as a value read from <tt>/dev/urandom</tt>
         or the current time in milisseconds.

@@ -192,7 +192,7 @@
 
  <span class="label">LOOP_BODY:</span>
   <span class="word">if</span>(mario_enters_warp_pipe)
-    <a href="reference.htm#Wloop"><b>Wsubloop</b></a>(<b>hidden_world_1-2</b>);
+    <a href="reference.htm#Wloop"><b>Wsubloop</b></a>(<b>hidden_world_1-1</b>);
   <span class="word">else if</span>(mario_jumped_in_the_flag)
     <a href="reference.htm#Wloop"><b>Wloop</b></a>(<b>world_1-2</b>);
   <span class="word">else if</span>(mario_died)
@@ -243,6 +243,12 @@
         just pops a main loop from the stack and then resumes the
         execution of the main loop in the top of the stack. If there's
         no more elements in the stack, the function exits the game.
+      </p>
+      <p>
+        The
+        macro <a href="configuration.htm#W_MAX_SUBLOOP">W_MAX_SUBLOOP</a>
+        determines the stack size. You can't create more depth of
+        subloops than it's value.
       </p>
       <p>
         Using subloops you can also create objects that won't be
