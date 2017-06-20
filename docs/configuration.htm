@@ -45,6 +45,12 @@
         <ol>
           <li><a href="#W_SEED">W_SEED</a></li>
         </ol>
+        <li><a href="#window">Macros About the Window</a></li>
+        <ol>
+          <li><a href="#W_DEFAULT_COLOR">W_DEFAULT_COLOR</a></li>
+          <li><a href="#W_HEIGHT">W_HEIGHT</a></li>
+          <li><a href="#W_WIDTH">W_WIDTH</a></li>
+        </ol>
       </ol>
       <h3 id="basic">Basic Macros</h3>
       <h4 id="W_DEBUG_LEVEL">W_DEBUG_LEVEL (0, 1, or 2)</h4>
@@ -205,6 +211,56 @@
         the pseudo-random number generator. If it's not defined, a
         value read from <tt>/dev/urandom</tt> or from the current time
         in milisseconds is used.
+      </p>
+      <h3 id="window">Macros About the Window</h3>
+      <h4 id="W_DEFAULT_COLOR">W_DEFAULT_COLOR (foat, float, float)</h4>
+      <p>
+        This is your window color. When you have no objects in the
+        screen, just your empty window, it has this color. If you want
+        to define this macro, define it as three floating point
+        numbers between 0 and 1 and separated by a comma. For example:
+      </p>
+      <pre class="codigo">
+<span class="label">#define</span> W_DEFAULT_COLOR 1.0, 0.0, 0.0 <span class="comment">// Red</span></pre>
+      <p>
+        If this macro isn't defined, it's value is assumed to
+        be <tt>0.0, 0.0, 0.0</tt> (black).
+      </p>
+      <h4 id="W_HEIGHT">W_HEIGHT (any non-negative integer)</h4>
+      <p>
+        This is the height in pixels that your game window should have
+        when is created. If this macro is defined to 0 or is not
+        present, Weaver will create the window with the biggest height
+        possible. In a web browser this means create a canvas as big
+        as the window.
+      </p>
+      <p>
+        If both this macro and <a href="#W_WIDTH">W_WIDTH</a> aren't
+        defined or are defined as 0, then Weaver will create it's
+        window in fullscreen.
+      </p>
+      <p>
+        Some window managers will ignore the size specification. But
+        if you ask your window to be fullscreen, usually even the more
+        problematic window managers will obey.
+      </p>
+      <h4 id="W_WIDTH">W_WIDTH (any non-negative integer)</h4>
+      <p>
+        This is the width in pixels that your game window should have
+        when is created. If this macro is defined to 0 or is not
+        defined, Weaver will create the window with the biggest width
+        possible. In a web browser this means create a canvas as large
+        as the window.
+      </p>
+      <p>
+        If both this macro and <a href="#W_HEIGHT">W_HEIGHT</a> aren't
+        defined or are defined as 0, then Weaver will create it's
+        window in fullscreen.
+      </p>
+      <p>
+        Some window managers will ignore the size specification. But
+        if you ask your window to be fullscreen, usually even the more
+        problematic window managers will obey.
       </p>
     </div>
   </body>

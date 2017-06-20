@@ -14,7 +14,9 @@ forma, ambos usarão OpenGL:
 @
 
 Outra coisa que sempre iremos precisar ter de informação é a resolução
-e taxa de atualização:
+e taxa de atualização. A resolução máxima ficará aramazenada em
+|max_resolution_x| e |max_resolution_y| e será a resolução do monitor
+ou do navegador Web se compilado com Emscripten.
 
 @<Variáveis Weaver@>+=
 /* Isso fica dentro da estrutura W: */
@@ -45,8 +47,22 @@ Web):
 \macronome|W_WIDTH|: A largura da janela ou do ``canvas''. Se for definido
   como zero, será o maior tamanho possível.
 
-Por padrão, ambos serão definidos como zero, o que tem o efeito de
-deixar o programa em tela-cheia.
+Começaremos definindo os valores padrão para tais macros:
+
+@(project/src/weaver/conf_end.h@>+=
+#ifndef W_DEFAULT_COLOR
+#define W_DEFAULT_COLOR 0.0, 0.0, 0.0
+#endif
+#ifndef W_HEIGHT
+#define W_HEIGHT 0
+#endif
+#ifndef W_WIDTH
+#define W_WIDTH 0
+#endif
+@
+
+Definir por padrão a altura e largura como zero tem o efeito de deixar
+o jogo em tela cheia.
 
 Vamos precisar definir também variáveis globais que armazenarão o
 tamanho da janela e sua posição. Se estivermos rodando o jogo em um

@@ -68,6 +68,14 @@
               <li><a href="#random">W.random</a>
             </ol>
         </ol>
+        <li><a href="#window">Window and Screen</a></li>
+        <ol>
+          <li><a href="#window_variables">Variables</a></li>
+          <ol>
+            <li><a href="#width">W.height</a></li>
+            <li><a href="#width">W.width</a></li>
+          </ol>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -263,13 +271,43 @@
       <h4 id="numeric_functions">Numeric Functions</h4>
       <h5 id="random">unsigned long W.random(void)</h5>
       <p>
-        This function uses a variation of the Meersenne Twister
+        This function uses a variation of the Mersenne Twister
         algorithm to generate a 32-bits pseudo-random number. If you
         want your game to always use the same seed, set the
         macro <a href="configuration.htm#W_SEED">W_SEED</a>
         at <tt>conf/conf.h</tt>, otherwise Weaver tries to use an
         unpredictable seed, as a value read from <tt>/dev/urandom</tt>
         or the current time in milisseconds.
+      </p>
+      <h3 id="window">Window and Screen</h3>
+      <h4 id="window_variables">Window and Screen Variables</h4>
+      <h5 id="width">int W.height <img class="icon"
+                 src="images/read_only.png" width="25px" height="25px"
+                                       title="Read-only"></h5>
+      <p>
+        This variable holds the height your game have in pixels. It
+        starts with the value defined in
+        macro <a href="configuration.htm#W_HEIGHT">W_HEIGHT</a>. The
+        value will keep updated if your window grows or shrinks or if
+        the resolution changes.
+      </p>
+      <p>
+        If your game was compiled to a Web Browser, this variable
+        holds the height of the canvas where your game is being drawn.
+      </p>
+      <h5 id="width">int W.width <img class="icon"
+                 src="images/read_only.png" width="25px" height="25px"
+                                      title="Read-only"></h5>
+      <p>
+        This variable holds the width your game have in pixels. It
+        starts with the value defined in
+        macro <a href="configuration.htm#W_WIDTH">W_WIDTH</a>. The
+        value will keep updated if your window grows or shrinks or if
+        the resolution changes.
+      </p>
+      <p>
+        If your game was compiled to a Web Browser, this variable
+        holds the width of the canvas where your game is being drawn.
       </p>
     </div>
   </body>
