@@ -73,6 +73,8 @@
           <li><a href="#window_variables">Variables</a></li>
           <ol>
             <li><a href="#width">W.height</a></li>
+            <li><a href="#resolution_x">W.resolution_x</a></li>
+            <li><a href="#resolution_y">W.resolution_y</a></li>
             <li><a href="#width">W.width</a></li>
           </ol>
         </ol>
@@ -288,12 +290,60 @@
         This variable holds the height your game have in pixels. It
         starts with the value defined in
         macro <a href="configuration.htm#W_HEIGHT">W_HEIGHT</a>. The
-        value will keep updated if your window grows or shrinks or if
-        the resolution changes.
+        value will keep updated if your window changes the size
+        (either because the user resized the window or because you
+        called the
+        function <a href="#resize_window">W.resize_window</a>) and
+        also if you change your screen resolution with
+        <a href="#change_resolution">W.change_resolution</a>.
       </p>
       <p>
         If your game was compiled to a Web Browser, this variable
         holds the height of the canvas where your game is being drawn.
+      </p>
+      <h5 id="resolution_x">int W.resolution_x <img class="icon"
+                 src="images/read_only.png" width="25px" height="25px"
+                                             title="Read-only"></h5>
+      <p>
+        This variable holds your screen horizontal resolution. The
+        width a full screen window would have in the screen. If your
+        program is running in a web browser, this variable holds the
+        width of the web browser window excluding toolbars and
+        scrollbars (the same value present in
+        Javascript's <tt>window.innerWidth</tt>).
+      </p>
+      <p>
+        This variable will never change, even if you call the function
+        <a href="#change_resolution">W.change_resolution</a>. It's
+        because this variable is supposed to mean the real screen
+        resolution. When Weaver calls that function, it changes
+        resolution without recofiguring your X Window system, but
+        using the more portable solution of rendering the scene in a
+        texture with the right resolution in OpenGL. If you want to
+        know your game horizontal resolution after calling that
+        function, just check <a href="#width">W.width</a>.
+      </p>
+      <h5 id="resolution_y">int W.resolution_y <img class="icon"
+                 src="images/read_only.png" width="25px" height="25px"
+                                             title="Read-only"></h5>
+      <p>
+        This variable holds your screen vertical resolution. The
+        height a full screen window would have in the screen. If your
+        program is running in a web browser, this variable holds the
+        height of the web browser window excluding toolbars and
+        scrollbars (the same value present in
+        Javascript's <tt>window.innerHeight</tt>).
+      </p>
+      <p>
+        This variable will never change, even if you call the function
+        <a href="#change_resolution">W.change_resolution</a>. It's
+        because this variable is supposed to mean the real screen
+        resolution. When Weaver calls that function, it changes
+        resolution without recofiguring your X Window system, but
+        using the more portable solution of rendering the scene in a
+        texture with the right resolution in OpenGL. If you want to
+        know your game vertical resolution after calling that
+        function, just check <a href="#width">W.height</a>.
       </p>
       <h5 id="width">int W.width <img class="icon"
                  src="images/read_only.png" width="25px" height="25px"
@@ -301,13 +351,17 @@
       <p>
         This variable holds the width your game have in pixels. It
         starts with the value defined in
-        macro <a href="configuration.htm#W_WIDTH">W_WIDTH</a>. The
-        value will keep updated if your window grows or shrinks or if
-        the resolution changes.
+        macro <a href="configuration.htm#W_WIDTH">W_WIDTH</a>.  The
+        value will keep updated if your window changes the size
+        (either because the user resized the window or because you
+        called the
+        function <a href="#resize_window">W.resize_window</a>) and
+        also if you change your screen resolution with
+        <a href="#change_resolution">W.change_resolution</a>.
       </p>
       <p>
         If your game was compiled to a Web Browser, this variable
-        holds the width of the canvas where your game is being drawn.
+        holds the widtht of the canvas where your game is being drawn.
       </p>
     </div>
   </body>

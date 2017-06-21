@@ -14,14 +14,13 @@ forma, ambos usarão OpenGL:
 @
 
 Outra coisa que sempre iremos precisar ter de informação é a resolução
-e taxa de atualização. A resolução máxima ficará aramazenada em
+ taxa de atualização. A resolução máxima ficará armazenada em
 |max_resolution_x| e |max_resolution_y| e será a resolução do monitor
 ou do navegador Web se compilado com Emscripten.
 
 @<Variáveis Weaver@>+=
 /* Isso fica dentro da estrutura W: */
 int resolution_x, resolution_y, framerate;
-int window_resolution_x, window_resolution_y;
 @
 
 Para criar uma janela, usaremos o Xlib ao invés de bibliotecas de mais
@@ -323,8 +322,6 @@ E é inicializada com os seguintes dados:
                                W.height, // Altura da janela
                                0, 0, // Borda (espessura e cor)
                                0); // Cor padrão
-  W.window_resolution_x = W.width;
-  W.window_resolution_y = W.height;
 @
 
 Isso cria a janela. Mas isso não quer dizer que a janela será
@@ -611,8 +608,6 @@ void _initialize_canvas(void){
     fprintf(stderr, "ERROR: Could not create window: %s\n", SDL_GetError());
     exit(1);
   }
-  W.window_resolution_x = W.width;
-  W.window_resolution_y = W.height;
 }
 void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
   SDL_FreeSurface(window);
@@ -724,11 +719,11 @@ void _Wresize_window(int width, int height){
   pthread_mutex_lock(&_window_mutex);
 #endif
   XResizeWindow(_dpy, _window, width, height);
-  old_width = W.window_resolution_x;
-  old_height = W.window_resolution_y;
-  W.window_resolution_x = width;
-  W.window_resolution_y = height;
-  glViewport(0, 0, W.window_resolution_x, W.window_resolution_y);
+  old_width = W.width;
+  old_height = W.height;
+  W.width = width;
+  W.height = height;
+  glViewport(0, 0, W.width, W.height);
   @<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
@@ -758,8 +753,6 @@ void _Wresize_window(int width, int height){
   old_height = W.height;
   W.width = width;
   W.height = height;
-  W.window_resolution_x = W.width;
-  W.window_resolution_y = W.height;
   glViewport(0, 0, W.width, W.height);
   @<Ações após Redimencionar Janela@>
 #ifdef W_MULTITHREAD
