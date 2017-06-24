@@ -72,10 +72,13 @@
         <ol>
           <li><a href="#window_variables">Variables</a></li>
           <ol>
+            <li><a href="#framerate">W.framerate</a></li>
             <li><a href="#width">W.height</a></li>
             <li><a href="#resolution_x">W.resolution_x</a></li>
             <li><a href="#resolution_y">W.resolution_y</a></li>
             <li><a href="#width">W.width</a></li>
+            <li><a href="#x">W.x</a></li>
+            <li><a href="#y">W.y</a></li>
           </ol>
         </ol>
       </ol>
@@ -283,6 +286,23 @@
       </p>
       <h3 id="window">Window and Screen</h3>
       <h4 id="window_variables">Window and Screen Variables</h4>
+      <h5 id="framerate">int W.framerate <img class="icon"
+                                       src="images/read_only.png"
+                                       width="25px" height="25px"
+                                              title="Read-only"></h5>
+      <p>
+        This variable holds the screen frame rate, the frequency at
+        which consecutive images are displayed in your screen. Usually
+        it's value is 60, which means that your screen is updated once
+        each 0.017 second. Of course there are machines where this
+        value can be different.
+      </p>
+      <p>
+        Don't trust in this variable f your game was compiled to a web
+        browser. There's no reliable way to discover the frame rate
+        inside a web browser and so Weaver just guesses the value as
+        60.
+      </p>
       <h5 id="width">int W.height <img class="icon"
                  src="images/read_only.png" width="25px" height="25px"
                                        title="Read-only"></h5>
@@ -362,6 +382,47 @@
       <p>
         If your game was compiled to a Web Browser, this variable
         holds the widtht of the canvas where your game is being drawn.
+      </p>
+      <h5 id="x">int W.x <img class="icon" src="images/read_only.png"
+                              width="25px" height="25px"
+                              title="Read-only"></h5>
+      <p>
+        This variable holds the horizontal position of your game
+        window in the screen. This position is defined as the column
+        where the pixel in the center of your window is. The leftmost
+        column is the column 0 and the rightmost colummn has the
+        number
+        <a href="#resolution_x">W.resolution_x</a>-1.
+      </p>
+      <p>
+        Inside a web browser, your game canvas can't move, so this
+        variable is always assumed to have the value
+        <a href="#resolution_x">W.resolution_x</a>/2 (Weaver assumes
+        that the game canvas is centralized).
+      </p>
+      <p>
+        Don't change this variable. If you want to move your window,
+        call the function <a href="#move_window">W.move_window</a>.
+      </p>
+      <h5 id="y">int W.y <img class="icon" src="images/read_only.png"
+                              width="25px" height="25px"
+                              title="Read-only"></h5>
+      <p>
+        This variable holds thevertical position of your game window
+        in the screen. This position is defined as the line where the
+        pixel in the center of your window is. The bottom line is the
+        line 0 and the top lline has the number
+        <a href="#resolution_x">W.resolution_y</a>-1.
+      </p>
+      <p>
+        Inside a web browser, your game canvas can't move, so this
+        variable is always assumed to have the value
+        <a href="#resolution_x">W.resolution_y</a>/2 (Weaver assumes
+        that the game canvas is centralized).
+      </p>
+      <p>
+        Don't change this variable. If you want to move your window,
+        call the function <a href="#move_window">W.move_window</a>.
       </p>
     </div>
   </body>

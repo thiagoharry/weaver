@@ -297,7 +297,7 @@ Window _window;
 E é inicializada com os seguintes dados:
 
 @<Janela: Inicialização@>+=
-  W.y = W.x = 0; // Na inicialização não é necessário ativar o mutex.
+  // Obtemos a resolução da tela
   W.resolution_x = DisplayWidth(_dpy, screen);
   W.resolution_y = DisplayHeight(_dpy, screen);
 #if W_WIDTH > 0
@@ -310,18 +310,23 @@ E é inicializada com os seguintes dados:
 #else
   W.height = W.resolution_y;
 #endif
+  // Iremos criar nossa janela no canto superior esquerdo da tela:
+  W.x = W.width / 2;
+  W.y = W.resolution_y - W.height / 2;
   { /* Obtendo a taxa de atualização da tela: */
     XRRScreenConfiguration *conf = XRRGetScreenInfo(_dpy, RootWindow(_dpy, 0));
     W.framerate = XRRConfigCurrentRate(conf);
     XRRFreeScreenConfigInfo(conf);
   }
   _window = XCreateSimpleWindow(_dpy, //Conexão com o servidor X
-                               DefaultRootWindow(_dpy), // A janela-mãe
-                               W.x, W.y, // Coordenadas da janela
-                               W.width, // Largura da janela
-                               W.height, // Altura da janela
-                               0, 0, // Borda (espessura e cor)
-                               0); // Cor padrão
+                                DefaultRootWindow(_dpy), // A janela-mãe
+                                // Coordenadas da janela nas coordenadas Xlib:
+                                W.x - W.width / 2,
+                                W.resolution_y - W.y - W.height / 2,
+                                W.width, // Largura da janela
+                                W.height, // Altura da janela
+                                0, 0, // Borda (espessura e cor)
+                                0); // Cor padrão
 @
 
 Isso cria a janela. Mas isso não quer dizer que a janela será
@@ -585,8 +590,11 @@ void _initialize_canvas(void){
   W.resolution_x = emscripten_run_script_int("window.innerWidth");
   W.resolution_y = emscripten_run_script_int("window.innerHeight");
   /* A taxa de atualização da tela não pode ser obtida no ambiente
-     Emscripten. Vamos usar um valor fictício: */
+     Emscripten. Vamos usar um valor fictício. Um valor igualmente
+     fictício é usado para W.x e W.y. */
   W.framerate = 60;
+  W.x = W.resolution_x / 2;
+  W.y = W.resolution_y / 2;
   window = SDL_SetVideoMode(// Definindo informações de tamanho do canvas
 #if W_WIDTH > 0
                      W.width = W_WIDTH, // Largura da janela
@@ -687,10 +695,10 @@ if(event.type == ConfigureNotify){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_window_mutex);
 #endif
-  W.x = config.x;
-  W.y = config.y;
   W.width = config.width;
   W.height = config.height;
+  W.x = config.x + W.width / 2;
+  W.y = W.resolution_y - config.y - W.height / 2;
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_window_mutex);
 #endif
@@ -786,7 +794,7 @@ void _Wmove_window(int x, int y){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_window_mutex);
 #endif
-  XMoveWindow(_dpy, _window, x, y);
+  XMoveWindow(_dpy, _window, x - W.width / 2, W.resolution_y - y - W.height / 2);
   W.x = x;
   W.y = y;
 #ifdef W_MULTITHREAD
@@ -905,10 +913,6 @@ pixels. Somente para leitura, não mude o valor.
 \macrovalor|int W.resolution_x|: A resolução horizontal da tela.
 
 \macrovalor|int W.resolution_y|: A resolução vertical da tela.
-
-\macrovalor|int W.resolution_x|: A resolução horizontal da janela em que estamos.
-
-\macrovalor|int W.resolution_y|: A resolução vertical da janela em que estamos.
 
 \macrovalor|int W.framerate|: A taxa de atualização do monitor.
 
