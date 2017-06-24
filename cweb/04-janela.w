@@ -916,7 +916,7 @@ pixels. Somente para leitura, não mude o valor.
 
 \macrovalor|int W.framerate|: A taxa de atualização do monitor.
 
-\macronome As seguintes 3 novas funções foram definidas:
+\macronome As seguintes 2 novas funções foram definidas:
 
 \macrovalor|void W.resize_window(int width, int height)|: Muda o
 tamanho da janela para os valores passados como argumento.
@@ -924,6 +924,3 @@ tamanho da janela para os valores passados como argumento.
 \macrovalor|void W.move_window(int x, int y)|: Move a janela para a
 posição indicada como argumento.
 
-\macrovalor|int W.fullscreen_mode(unsigned int id)|: Deixa a janela
-em tela-cheia usando uma das combinações de resolução e taxa de
-atualização presente em |W.modes| com a identificação de |id|.

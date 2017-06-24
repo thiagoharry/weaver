@@ -80,6 +80,11 @@
             <li><a href="#x">W.x</a></li>
             <li><a href="#y">W.y</a></li>
           </ol>
+          <li><a href="#window_functions">Functions</a></li>
+          <ol>
+            <li><a href="#move_window">W.move_window</a></li>
+            <li><a href="#resize_window">W.resize_window</a></li>
+          </ol>
         </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
@@ -313,9 +318,7 @@
         value will keep updated if your window changes the size
         (either because the user resized the window or because you
         called the
-        function <a href="#resize_window">W.resize_window</a>) and
-        also if you change your screen resolution with
-        <a href="#change_resolution">W.change_resolution</a>.
+        function <a href="#resize_window">W.resize_window</a>).
       </p>
       <p>
         If your game was compiled to a Web Browser, this variable
@@ -332,17 +335,6 @@
         scrollbars (the same value present in
         Javascript's <tt>window.innerWidth</tt>).
       </p>
-      <p>
-        This variable will never change, even if you call the function
-        <a href="#change_resolution">W.change_resolution</a>. It's
-        because this variable is supposed to mean the real screen
-        resolution. When Weaver calls that function, it changes
-        resolution without recofiguring your X Window system, but
-        using the more portable solution of rendering the scene in a
-        texture with the right resolution in OpenGL. If you want to
-        know your game horizontal resolution after calling that
-        function, just check <a href="#width">W.width</a>.
-      </p>
       <h5 id="resolution_y">int W.resolution_y <img class="icon"
                  src="images/read_only.png" width="25px" height="25px"
                                              title="Read-only"></h5>
@@ -354,17 +346,6 @@
         scrollbars (the same value present in
         Javascript's <tt>window.innerHeight</tt>).
       </p>
-      <p>
-        This variable will never change, even if you call the function
-        <a href="#change_resolution">W.change_resolution</a>. It's
-        because this variable is supposed to mean the real screen
-        resolution. When Weaver calls that function, it changes
-        resolution without recofiguring your X Window system, but
-        using the more portable solution of rendering the scene in a
-        texture with the right resolution in OpenGL. If you want to
-        know your game vertical resolution after calling that
-        function, just check <a href="#width">W.height</a>.
-      </p>
       <h5 id="width">int W.width <img class="icon"
                  src="images/read_only.png" width="25px" height="25px"
                                       title="Read-only"></h5>
@@ -375,9 +356,7 @@
         value will keep updated if your window changes the size
         (either because the user resized the window or because you
         called the
-        function <a href="#resize_window">W.resize_window</a>) and
-        also if you change your screen resolution with
-        <a href="#change_resolution">W.change_resolution</a>.
+        function <a href="#resize_window">W.resize_window</a>).
       </p>
       <p>
         If your game was compiled to a Web Browser, this variable
@@ -408,7 +387,7 @@
                               width="25px" height="25px"
                               title="Read-only"></h5>
       <p>
-        This variable holds thevertical position of your game window
+        This variable holds the vertical position of your game window
         in the screen. This position is defined as the line where the
         pixel in the center of your window is. The bottom line is the
         line 0 and the top lline has the number
@@ -423,6 +402,32 @@
       <p>
         Don't change this variable. If you want to move your window,
         call the function <a href="#move_window">W.move_window</a>.
+      </p>
+      <h4 id="window_functions">Window Functions</h4>
+      <h5 id="move_window">void W.move_window(int x, int y)</h5>
+      <p>
+        This function moves your game window for the giver
+        coordinate. The position x and y are in pixels and the
+        position (0, 0) is in the left lower part of your screen while
+        the coordinate (<a href="#resolution_x">W.resolution.x</a>-1,
+        <a href="#resolution_y">W.resolution.y</a>-1) is the right upper
+        part of your screen.
+      </p>
+      <p>
+        Moving a window to a coordinate means placing it's center in
+        this coordinate.
+      </p>
+      <p>
+        This function does nothing in a game compiled to a web
+        browser.
+      </p>
+      <h5 id="resize_window">void W.resize_window(int width, int
+        height)</h5>
+      <p>
+        This function resizes your game window. The width and height
+        passed as arguments are in pixels. In a game compiled to a web
+        browser, the function changes the size of the canvas where the
+        game is drawn.
       </p>
     </div>
   </body>
