@@ -263,6 +263,24 @@
         call <a href="reference.htm#Wexit_loop">Wexit_loop</a>.
       </p>
       <p>
+        When you declare a new main loop, it's better to put in in a
+        separated source file. This way you can declare it's variables
+        as static at that file and they won't mix with other
+        variables. First choose a name for your new main loop and then
+        call the following command inside your weaver directory:
+      </p>
+      <pre class"terminal">
+weaver --loop LOOP_NAME</pre>
+      <p>
+        Your LOOP_NAME must be a valid C identifier, must be formed
+        just by alphanumeric characters and it shouldn't have the same
+        name than a global variable in your program. If you passed a
+        valid name, Weaver will creat the
+        files <tt>src/LOOP_NAME.c</tt> and <tt>src/LOOP_NAME.h</tt>
+        and will declare and define the new main loop wih the correct
+        labels.
+      </p>
+      <p>
         In the majority of games, won't be difficult to identify the
         main loops and how to organize them. But there's algo games
         like Minecraft, where you have a huge world not divided in
