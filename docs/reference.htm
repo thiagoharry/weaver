@@ -86,6 +86,18 @@
             <li><a href="#resize_window">W.resize_window</a></li>
           </ol>
         </ol>
+        <li><a href="#input">User Input</a></li>
+        <ol>
+          <li><a href="#input_variables">Variables</a></li>
+          <ol>
+            <li><a href="#keyboard">W.keyboard</a></li>
+            <li><a href="#mouse">W.mouse</a></li>
+          </ol>
+          <li><a href="#input_functions">Functions</a></li>
+          <ol>
+            <li><a href="#hide_cursor">W.hide_cursor</a></li>
+          </ol>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -428,6 +440,130 @@
         passed as arguments are in pixels. In a game compiled to a web
         browser, the function changes the size of the canvas where the
         game is drawn.
+      </p>
+      <h3 id="input">User Input</h3>
+      <h4 id="input_variables">User Input Variables</h4>
+      <h5 id="keyboard">long W.keyboard[] <img class="icon"
+             src="images/read_only.png" width="25px" height="25px"
+             title="Read-only"><img class="icon" src="images/loop.png"
+             width="25px" height="25px" title="Main loop only"></h5>
+      <p>
+        This array stores information about the user interaction with
+        the keyboard. Each key has it's own position in the
+        array. There's a set of macros created to help finding the
+        right position in the array. To check if the key "A" is
+        pressed, for example.  check <tt>W.keyboard[W_A]</tt>.
+      </p>
+      <p>
+        Besides <tt>W_A</tt>, you can check also
+        for <tt>W_B</tt>, <tt>W_C</tt>, and all other letters, you can
+        also check the digits <tt>W_0</tt>, <tt>W_1</tt> and
+        others. The keys F1, F2, F3 and others
+        are <tt>W_F1</tt>, <tt>W_F2</tt>, <tt>W_F3</tt> and so on. The
+        arrow keys
+        are <tt>W_UP</tt>, <tt>W_RIGHT</tt>, <tt>W_LEFT</tt>
+        and <tt>W_DOWN</tt>. The Esc key is <tt>W_ESC</tt>. The Enter
+        key is <tt>W_ENTER</tt>, the spacebar is <tt>W_SPACEBAR</tt>
+        and the backspace is <tt>W_BACKSPACE</tt>. You also
+        have <tt>W_TAB</tt>, <tt>W_PAUSE</tt>, <tt>W_DELETE</tt>, <tt>W_SCROLL_LOCK</tt>, <tt>W_HOME</tt>, <tt>W_PAGE_UP</tt>, <tt>W_PAGE_DOWN</tt>, <tt>W_END</tt>,
+        <tt>W_INSERT</tt> and <tt>W_NUM_LOCK</tt> for keys Tab, Home,
+        Page Up, Page Down, End, Insert and Num Lock. And there's
+        the <tt>W_PLUS</tt> for "+" and <tt>W_MINUS</tt> for "-".
+      </p>
+      <p>
+        The keys Shift, Ctrl and Alt are a little different because
+        they have a left and a right variety. If you don't care if the
+        key pressed is left or right, you can
+        check <tt>W_SHIFT</tt>, <tt>W_CTRL</tt> and <tt>W_ALT</tt>. If
+        you want to check for the right version of these keys, check
+        for <tt>W_RIGHT_SHIFT</tt>, <tt>W_RIGHT_CTRL</tt>
+        and <tt>W_RIGHT_ALT</tt>. If you want to check the left
+        variety, check <tt>W_LEFT_SHIFT</tt>, <tt>W_LEFT_CTRL</tt>
+        and <tt>W_LEFT_ALT</tt>.
+      </p>
+      <p>
+        You can also check if any key was pressed checking the
+        position <tt>W_ANY</tt> in the array.
+      </p>
+      <p>
+        If a key is not pressed, it's position in the keyboard array
+        will have the value 0.
+      </p>
+      <p>
+        If a key just started to be pressed in this frame (in this
+        iteration in the main loop), it's position will store the
+        value 1.
+      </p>
+      <p>
+        If a key is being pressed, but the user didn't start to press
+        it in this frame, it's position will store the number of
+        microseconds since the user is pressing the key.
+      </p>
+      <p>
+        If the user released a key in this frame, it's position will
+        store (just in this frame) a negative value witch is -1
+        multiplyed by the number of microseconds that the key was
+        kept pressed.
+      </p>
+      <h5 id="mouse">struct W.mouse <img class="icon"
+             src="images/read_only.png" width="25px" height="25px"
+             title="Read-only"><img class="icon" src="images/loop.png"
+             width="25px" height="25px" title="Main loop only"></h5>
+      <p>
+        The mouse is represented by the following struct:
+      </p>
+      <pre class="codigo">
+<span class="tipo">struct</span>{
+  <span class="tipo">long</span> buttons[];
+  <span class="tipo">int</span> x, y, dx, dy, ddx, ddy;
+} W.mouse;</pre>
+      <p>
+        Weaver assumes a mouse can have 5 buttons. You can check if
+        some of these keys are being pressed checking the
+        positions <tt>W_MOUSE_LEFT</tt> (mouse left
+        button), <tt>W_MOUSE_MIDDLE</tt> (mouse middle
+        button), <tt>W_MOUSE_RIGHT</tt> (mouse right button) and the
+        aditional buttons <tt>W_MOUSE_B1</tt> and <tt>W_MOUSE_B2</tt>
+        in the array <tt>W.mouse.buttons</tt>. Keep in mind that not
+        everybody have access to all the buttons. And if the game was
+        compiled to a web browser, we may not to be able to check for
+        buttons <tt>W_MOUSE_B1</tt> and <tt>W_MOUSE_B2</tt>.
+      </p>
+      <p>
+        If a mouse button is not pressed, it will have the value 0 in
+        the array.
+      </p>
+      <p>
+        If a mouse button starts to get pressed in this frame, it will
+        have the value 1 in the array.
+      </p>
+      <p>
+        If a mouse button is getting pressed for more than 1 frame, it
+        will have the value of microseconds since the key started to
+        be pressed.
+      </p>
+      <p>
+        And if a mouse button is released in this frame, it will have
+        a negative value of -1 multiplied by the number of
+        microseconds that the button was kept pressed.
+      </p>
+      <p>
+        The variables <tt>W.mouse.x</tt> and <tt>W.mouse.y</tt> stores
+        thw mouse position in our game window. We considet the x axis
+        as the horizontal axis and the y axis as the vertical
+        axis. The position in the lower left of the window is (0,0)
+        and the position in the upper right is
+        (<a href="#width">W.width</a>-1, <a href="#height">W.height</a>-1).
+      </p>
+      <p>
+        You can get the horizontal and vertical speed of the mouse in
+        pixels per second checking the variables <tt>W.mouse.dx</tt>
+        and <tt>W.mouse.dy</tt>.
+      </p>
+      <p>
+        You can get the horizontal and vertical acceleration of the
+        mouse in pixels per second squared checking the
+        variables <tt>W.mouse.ddx</tt> and <tt>W.mouse.ddy</tt>.
       </p>
     </div>
   </body>

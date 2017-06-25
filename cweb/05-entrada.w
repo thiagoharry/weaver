@@ -52,7 +52,9 @@ próximo segundo caso o seu deslocamento continue constante na mesma
 direção e sentido em que vem sendo desde a última iteração. Desta
 forma, tal vetor também será útil para verificar se o mouse está em
 movimento ou não. E saber a intensidade e direção do movimento do
-mouse pode permitir interações mais ricas com o usuário.
+mouse pode permitir interações mais ricas com o usuário. Por fim,
+armazenaremos também a aceleração do mouse, que talvez possa ter
+alguma utilidade.
 
 @*1 O Teclado.
 
@@ -484,16 +486,16 @@ sem saber o código da tecla no Xlib:
 #define W_END         XK_End
 #define W_INSERT      XK_Insert
 #define W_NUM_LOCK    XK_Num_Lock
-#define W_ZERO        XK_0
-#define W_ONE         XK_1
-#define W_TWO         XK_2
-#define W_THREE       XK_3
-#define W_FOUR        XK_4
-#define W_FIVE        XK_5
-#define W_SIX         XK_6
-#define W_SEVEN       XK_7
-#define W_EIGHT       XK_8
-#define W_NINE        XK_9
+#define W_0           XK_0
+#define W_1           XK_1
+#define W_2           XK_2
+#define W_3           XK_3
+#define W_4           XK_4
+#define W_5           XK_5
+#define W_6           XK_6
+#define W_7           XK_7
+#define W_8           XK_8
+#define W_9           XK_9
 #define W_LEFT_SHIFT  XK_Shift_L
 #define W_RIGHT_SHIFT XK_Shift_R
 #define W_CAPS_LOCK   XK_Caps_Lock
@@ -697,16 +699,16 @@ teclado será diferente e correspondente aos valores usados pelo SDL:
 #define W_END         SDLK_END
 #define W_INSERT      SDLK_INSERT
 #define W_NUM_LOCK    SDLK_NUMLOCK
-#define W_ZERO        SDLK_0
-#define W_ONE         SDLK_1
-#define W_TWO         SDLK_2
-#define W_THREE       SDLK_3
-#define W_FOUR        SDLK_4
-#define W_FIVE        SDLK_5
-#define W_SIX         SDLK_6
-#define W_SEVEN       SDLK_7
-#define W_EIGHT       SDLK_8
-#define W_NINE        SDLK_9
+#define W_0           SDLK_0
+#define W_1           SDLK_1
+#define W_2           SDLK_2
+#define W_3           SDLK_3
+#define W_4           SDLK_4
+#define W_5           SDLK_5
+#define W_6           SDLK_6
+#define W_7           SDLK_7
+#define W_8           SDLK_8
+#define W_9           SDLK_9
 #define W_LEFT_SHIFT  SDLK_LSHIFT
 #define W_RIGHT_SHIFT SDLK_RSHIFT
 #define W_CAPS_LOCK   SDLK_CAPSLOCK
@@ -1000,14 +1002,15 @@ do primeiro movimento do cursor que ele se teletransportou.
 		&root_y_return, &win_x_return, &win_y_return, &mask_return);
   // A função acima falha apenas se o mouse estiver em outra
   // tela. Neste caso, não há o que fazer, mas adotar o padrão de
-  // assumir que a posição é zero é razoável. Então não precisamos
-  // checar se a função falha.
+  // assumir que a posição é (0, W.height-1) é razoável. Então não
+  // precisamos checar se a função falha.
   W.mouse.x = root_x_return;
-  W.mouse.y = root_y_return;
+  W.mouse.y = W.height - 1 - root_y_return;
 }
 #endif
 #if W_TARGET == W_WEB
-  SDL_GetMouseState(&(W.mouse.x), &(W.mouse.y));
+SDL_GetMouseState(&(W.mouse.x), &(W.mouse.y));
+W.mouse.y = W.height - 1 - W.mouse.y;
 #endif
 W.mouse.ddx = W.mouse.ddy = W.mouse.dx = W.mouse.dy = 0;
 @
@@ -1037,9 +1040,9 @@ static int old_dx, old_dy;
 @<API Weaver: Imediatamente após tratar eventos@>=
   // Cálculo de aceleração:
   W.mouse.ddx = (int) ((float) (W.mouse.dx - old_dx) / W.dt) *
-                1000;
+                1000000;
   W.mouse.ddy = (int) ((float) (W.mouse.dy - old_dy) / W.dt) *
-                1000;
+                1000000;
 #ifdef W_MULTITHREAD
   // Mutex bloqueado antes de tratar eventos:
   pthread_mutex_unlock(&_input_mutex);
@@ -1056,11 +1059,11 @@ do mouse:
 if(event.type == MotionNotify){
   int x, y, dx, dy;
   x = event.xmotion.x;
-  y = event.xmotion.y;
+  y = W.height - 1 - event.xmotion.y;
   dx = x - W.mouse.x;
   dy = y - W.mouse.y;
-  W.mouse.dx = ((float) dx / W.dt) * 1000;
-  W.mouse.dy = ((float) dy / W.dt) * 1000;
+  W.mouse.dx = ((float) dx / W.dt) * 1000000;
+  W.mouse.dy = ((float) dy / W.dt) * 1000000;
   W.mouse.x = x;
   W.mouse.y = y;
   continue;
@@ -1073,11 +1076,11 @@ Agora é só usarmos a mesma lógica para tratarmos o evento SDL:
 if(event.type == SDL_MOUSEMOTION){
   int x, y, dx, dy;
   x = event.motion.x;
-  y = event.motion.y;
+  y = W.height - 1 - event.motion.y;
   dx = x - W.mouse.x;
   dy = y - W.mouse.y;
-  W.mouse.dx = ((float) dx / W.dt) * 1000;
-  W.mouse.dy = ((float) dy / W.dt) * 1000;
+  W.mouse.dx = ((float) dx / W.dt) * 1000000;
+  W.mouse.dy = ((float) dy / W.dt) * 1000000;
   W.mouse.x = x;
   W.mouse.y = y;
   continue;
@@ -1189,11 +1192,7 @@ W.hide_cursor = &_Whide_cursor;
 
 @*1 Sumário das Variáveis e Funções do Teclado e Mouse.
 
-\macronome As seguintes 3 novas variáveis foram definidas:
-
-\macrovalor|int W.fps|:A cada \italico{frame} esta variável armazena a
-quantos \italico{frames} por segundo o jogo está rodando. Variável
-somente para leitura, não a modifique.
+\macronome As seguintes 2 novas variáveis foram definidas:
 
 \macrovalor|long W.keyboard[0xffff]|: Um vetor que contém informações
 sobre cada tecla do teclado. Se ela foi recém-pressionada, a posição
