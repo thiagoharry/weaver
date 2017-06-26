@@ -136,3 +136,11 @@ pre.codigo span.label{
 pre.codigo span.word{
     color: blue;
 }
+
+pre.codigo span.macro{
+    color: #228888;
+}
+
+pre.codigo span.string{
+    color: #550055;
+}

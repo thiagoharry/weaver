@@ -1,8 +1,15 @@
-@* Plugins.
+@* Plugins e Agendadores.
 
 Um projeto Weaver pode suportar \italico{plugins}. Mas o que isso
 significa depende se o projeto está sendo compilado para ser um
-executável ELF ou uma página web.
+executável ELF ou uma página web. Por causa deles, iremos suportar
+também algumas funções que irão peritir agendar uma função para ser
+executada no futuro ou periodicamente. Faremos isso porque esta é a
+forma de suportarmos programação interativa: o usuário pode pedir para
+que um plugin seja recarregado sempre que ele sofrer alterações. E em
+seguida pode modificar o código do plugin e recompilá-lo, vendo as
+mudanças instantaneamente, sem precisar fechar o jogo e abri-lo
+novamente.
 
 Do ponto de vista de um usuário, o que chamamos de \italico{plugin}
 deve ser um único arquivo com código C (digamos que
@@ -20,7 +27,7 @@ momento em que é desativado, ele executa suas atividades de
 finalização. Um plugin também pode se auto-ativar automaticamente
 durante a inicialização dependendo de sua natureza.
 
-Uma atividade típica que podem ser implementadas via \italico{plugin}
+Uma atividade típica que pode ser implementadas via \italico{plugin}
 é um esquema de tradução de teclas do teclado para que teclados com
 símbolos exóticos sejam suportados. Ele só precisaria definir o
 esquema de tradução na inicialização e nada precisaria ser feito em

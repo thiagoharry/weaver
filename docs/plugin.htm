@@ -1,0 +1,158 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Weaver Plugins</title>
+    <link rel="stylesheet" href="weaver.css">
+  </head>
+  <body>
+    <header>
+      <h1><a href="index.htm">Weaver: A Game Engine for GNU/Linux</a></h1>
+      <span class="menu">
+        <a href="documentation.htm">Documentation</a>
+        <a href="tutorial.htm">Tutorial</a>
+        <a href="examples.htm">Examples</a>
+        <a href="download.htm">Download</a>
+      </span>
+    </header>
+    <div class="docs">
+      <h2>Weaver Plugins</h2>
+      <p>
+        A plugin is a shared library loaded dinamically while a Weaver
+        game is running, not during compilation. At least when a game
+        is compiled to a Linux executable. If the game is compiled for
+        the web browser, the plugins still work, but are injected in
+        the game code during compilation. And perhaps isn't correct
+        calling them "plugins" in this case.
+      </p>
+      <p>
+        Plugins allow you to modify and extend your games while they
+        are running.
+      </p>
+      <p>
+        To create a new plugin, use the command:
+      </p>
+      <pre class="terminal">
+weaver --plugin PLUGIN_NAME</pre>
+      <p>
+        Where PLUGIN_NAME is made of alphanumeric characters. When you
+        run this command inside a weaver project directory, it creates
+        the file <tt>plugin/PLUGIN_NAME.c</tt>. This is the plugin you
+        should edit. Inside the file, you can read after the copyright
+        comment:
+      </p>
+      <pre class="codigo">
+<span class="macro">#include</span> <span class="string">"../src/weaver/weaver.h"</span>
+
+<span class="tipo">void</span> <b>_init_plugin_PLUGIN_NAME</b>(W_PLUGIN){
+
+}
+
+<span class="tipo">void</span> <b>_fini_plugin_PLUGIN_NAME</b>(W_PLUGIN){
+
+}
+
+<span class="tipo">void</span> <b>_run_plugin_PLUGIN_NAME</b>(W_PLUGIN){
+
+}
+
+<span class="tipo">void</span> <b>_enable_plugin_PLUGIN_NAME</b>(W_PLUGIN){
+
+}
+
+<span class="tipo">void</span> <b>_disable_plugin_PLUGIN_NAME</b>(W_PLUGIN){
+
+}</pre>
+      <p>
+        Don't change those function signatures. You can edit this file
+        to add other functions if you wish, but don't add global
+        variables in the file. The global state will be lost each time
+        the plugin is reloaded. It's also not safe to call extern
+        functions, because a lot of them use global variables,
+        including functions like <tt>malloc</tt>.
+      </p>
+      <p>
+        These are harsh restrictions, but fortunally you can use all
+        the Weaver functions, those beginning with the
+        "W". <a href="reference.htm#Walloc">Walloc</a> is ok. Only
+        those functions marked in the reference as not thread-safe
+        shouldn't be accessed by plugins.
+      </p>
+      <p>
+        Those 5 functions in your plugin file are how the Weaver game
+        will interact with the plugin. They are:
+      </p>
+      <ul>
+        <li><tt>_init_plugin_PLUGIN_NAME</tt>: This function will be
+          run just once, when the Weaver program detect your
+          plugin. After, even if you change the plugin ad reload it,
+          this function won't be executed again.</li>
+        <li><tt>_fini_plugin_PLUGIN_NAME</tt>: This function will be
+          executed just once, before the Weaver program exits.</li>
+        <li><tt>_run_plugin_PLUGIN_NAME</tt>: This function will be
+          run once each frame if your plugin is activated. A plugin is
+          activated
+          by <a href="reference.htm#enable_plugin">W.enable_plugin</a>,
+          but it also can activate yourself inside it' own
+          function <tt>_init_plugin_PLUGIN_NAME</tt>.</li>
+        <li><tt>_enable_PLUGIN_NAME</tt>: This function will be run
+          when the plugin is activated
+          by <a href="reference.htm#enable_plugin">W.enable_plugin</a></li>
+        <li><tt>_disable_PLUGIN_NAME</tt>: This function will be run when
+          the plugin is disabled by
+          function <a href="reference.htm#disable_plugin">W.disable_plugin</a>.</li>
+      </ul>
+      <p>
+        The Weaver program identify plugins using unique numbers. If
+        you want to know the id number of your plugin, you can call
+        the
+        function <a href="reference.htm#get_plugin">W.get_plugin</a>,
+        passing it's name as a string. The function return sthe pligin
+        id.
+      </p>
+      <p>
+        If you have a plugin id number, you can enable it
+        with <a href="reference.htm#enable_plugin">W.enable_plugin</a>,
+        passing it's id number as argument. When the plugin is
+        enabled, it's function <tt>_enable_PLUGIN_NAME</tt> runs and
+        then it's function <tt>_run_plugin_PLUGIN_NAME</tt> executes in
+        each iteration of the main loop.
+      </p>
+      <p>
+        If you want to disable a plugin, pass it's number id
+        to <a href="reference.htm#disable_plugin">W.disable_plugin</a>. When
+        the plugin is disabled, it's
+        function <tt>_disable_plugin_PLUGIN_NAME</tt> runs and then
+        it's function <tt>_run_plugin_PLUGIN_NAME</tt> stops to run
+        each iteration of the main loop.
+      </p>
+      <p>
+        If you just want to ask if a plugin is enabled, use the
+        function <a href="reference.htm#is_plugin_enabled">W.is_plugin_enabled</a>.
+      </p>
+      <p>
+        You can also reload the plugin passing it's id to
+        <a href="reference.htm#reload_plugin">W.reload_plugin</a>. If
+        the plugin wasn't modified this function does nothing. If you
+        changed the plugin, then it's reloaded from the disk with the
+        modifications. This is the function which can be run
+        periodically if you want to develop part of your game with
+        interactive programming.
+      </p>
+      <p>
+        As a plugin can't use global variables, it can have problems
+        storing it's data. It can uses your game specific interface
+        <a href="reference.htm#game">W.game</a>, but sometimes you
+        want to create some generic plugin not specific for only one
+        game with one <a href="reference.htm#game">W.game</a>
+        struct. The solution is using
+        <a href="reference.htm#set_plugin_data">W.set_plugin_data</a>
+        and <a href="reference.htm#get_plugin_data">W.get_plugin_data</a>
+        to store and retrieve data. These functions should be used
+        inside a plugin, which should allocate it's own data and use
+        these functions as a way to remember and access it, even if
+        the plugin is reloaded. 
+      </p>
+    </div>
+  </body>
+</html>
