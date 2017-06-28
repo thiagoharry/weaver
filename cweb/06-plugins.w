@@ -122,6 +122,17 @@ significa que o suporte à \italico{plugins} dee ser desativado.
 \macronome|W_MAX_PERIODIC_FUNCTIONS|: O número máximo de funções que
 executam periodica e automaicamente em cada subloop.
 
+Definiremos agora os valores padrão:
+
+@(project/src/weaver/conf_end.h@>+=
+#ifndef W_INSTALL_DATA
+#define W_INSTALL_DATA "/usr/share/games/"W_PROG
+#endif
+#ifndef W_INSTALL_PROG
+#define W_INSTALL_PROG "/usr/games/"
+#endif
+@
+
 @*1 Estruturas Básicas.
 
 Todas as informações sobre \italico{plugins} serão armazenadas nos

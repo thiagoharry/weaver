@@ -22,11 +22,6 @@
 // program (W_CPP):
 #define W_SOURCE W_C
 
-// To where the game data should be installed
-#define W_INSTALL_DATA "/usr/share/games/"W_PROG
-// Where the game binary should be installed?
-#define W_INSTALL_PROG "/usr/games/"
-
 // Where should we look for plugins? Directories separated by ':'
 #define W_PLUGIN_PATH W_INSTALL_DATA"/plugins:compiled_plugins"
 
@@ -45,15 +40,6 @@
 // less, we don't use a pool of threads, but create a new thread each
 // time we read and parse a file with audio, font or texture
 #define W_THREAD_POOL 0
-
-// The window width. If equal 0, takes the maximum possible width
-#define W_WIDTH  0
-
-// The window height. If equal 0, takes the maximum possible height
-#define W_HEIGHT 0
-
-// The window default color
-#define W_DEFAULT_COLOR 0.0, 0.0, 0.0
 
 // The maximum number of Weaver classes that can be defined:
 #define W_MAX_CLASSES   100

@@ -7,6 +7,13 @@ INSTALL_DATA_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_DATA[ \t]\+" conf/conf.h
 INSTALL_PROG_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_PROG[ \t]\+" conf/conf.h | grep -o "\".*\"")
 DEBUG_LEVEL=$(shell grep "\#define[ \t]\+W_DEBUG_LEVEL[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
 
+ifeq ($(INSTALL_DATA_DIR),)
+INSTALL_DATA_DIR := "/usr/share/games/"$(PROG)
+endif
+ifeq ($(INSTALL_PROG_DIR),)
+INSTALL_PROG_DIR := "/usr/games/"
+endif
+
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
 web: test_emcc test_xxd shader_data make-web
 else ifeq ($(strip $(TARGET_TEST)),W_ELF)
@@ -143,9 +150,10 @@ test_emcc: .weaver/have_emcc
 	fi
 ifeq ($(strip $(DEBUG_LEVEL)),0)
 install:
-	install -d ${INSTALL_DATA_DIR}/${PROG}
-	cp -r shaders/ ${INSTALL_DATA_DIR}/${PROG}/
-	cp -r sound/ ${INSTALL_DATA_DIR}/${PROG}/
+	install -d ${INSTALL_DATA_DIR}/
+	cp -r shaders/ ${INSTALL_DATA_DIR}/
+	cp -r sound/ ${INSTALL_DATA_DIR}/
+	install -d ${INSTALL_PROG_DIR}
 	install -m755 -c ${PROG} ${INSTALL_PROG_DIR}
 else
 install: clean
