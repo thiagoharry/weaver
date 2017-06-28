@@ -340,7 +340,9 @@ possíveis. Devemos pedir que o gerenciador de janelas faça todo o
 possível para cumpri-las. Por isso, começamos ajustando a flag
 ``Override Redirect'', o que propagandeia nossa janela como uma janela
 de''pop-up''. Isso faz com que nossos pedidos de entrar em tela cheia
-sejam atendidos, mesmo quando estamos em ambientes como o XMonad.
+sejam atendidos, mesmo quando estamos em ambientes como o XMonad. Mas
+só precisaremos de uma configuração tão agressiva se nos arquivos de
+configuração for pedido para que entremos em tela cheia.
 
 A próxima coisa que fazemos é informar quais eventos devem ser
 notificados para nossa janela. No caso, queremos ser avisados quando
@@ -360,7 +362,9 @@ static XSetWindowAttributes at;
 
 @<Janela: Inicialização@>+=
   {
+#if W_WIDTH == 0 && W_HEIGHT == 0
     at.override_redirect = True;
+#endif
     // Eventos que nos interessam: pressionar e soltar botão do
     // teclado, pressionar e soltar botão do mouse, movimento do mouse,
     // quando a janela é exposta e quando ela muda de tamanho.
