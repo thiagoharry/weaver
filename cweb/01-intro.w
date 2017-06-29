@@ -1524,6 +1524,7 @@ if(! inside_weaver_directory && have_arg){
     fclose(fp);
     fp = fopen("src/includes.h", "w");
     write_copyright(fp, author_name, argument, year);
+    fprintf(fp, "\n#include \"weaver/weaver.h\"");
     fclose(fp);
   }
   else{
