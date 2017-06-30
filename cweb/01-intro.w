@@ -56,16 +56,16 @@ Astrizi. Abaixo segue a licença do software:
 Copyright (c) Thiago Leucz Astrizi 2015
 
 This program is free software: you can redistribute it and/or
-modify it under the terms of the GNU General Public License as
+modify it under the terms of the GNU Affero General Public License as
 published by the Free Software Foundation, either version 3 of
 the License, or (at your option) any later version.
 
 This program is distributed in the hope that it will be useful,
 but WITHOUT ANY WARRANTY; without even the implied warranty of
 MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
-GNU General Public License for more details.
+GNU Affero General Public License for more details.
 
-You should have received a copy of the GNU General Public
+You should have received a copy of the GNU Affero General Public
 License along with this program.  If not, see
 <http://www.gnu.org/licenses/>.
 \alinhanormal
@@ -78,16 +78,16 @@ A tradução não-oficial da licença é:
 Copyright (c) Thiago Leucz Astrizi 2015
 
 Este programa é um software livre; você pode redistribuí-lo e/ou
-modificá-lo dentro dos termos da Licença Pública Geral GNU como
+modificá-lo dentro dos termos da Licença Pública Geral GNU Affero como
 publicada pela Fundação do Software Livre (FSF); na versão 3 da
 Licença, ou (na sua opinião) qualquer versão.
 
 Este programa é distribuído na esperança de que possa ser útil,
 mas SEM NENHUMA GARANTIA; sem uma garantia implícita de ADEQUAÇÃO
 a qualquer MERCADO ou APLICAÇÃO EM PARTICULAR. Veja a
-Licença Pública Geral GNU para maiores detalhes.
+Licença Pública Geral GNU Affero para maiores detalhes.
 
-Você deve ter recebido uma cópia da Licença Pública Geral GNU
+Você deve ter recebido uma cópia da Licença Pública Geral GNU Affero
 junto com este programa. Se não, veja
 <http://www.gnu.org/licenses/>.
 \alinhanormal
@@ -112,15 +112,21 @@ licença permisiva, pois arte é cultura, e portanto, também não deveria
 ser algo a ser tirado das pessoas. Mas weaver não tem como impedi-lo
 de licenciar a arte de um jogo da forma que for escolhida. Mas como
 Weaver funciona injetando estaticamente seu código em seu jogo e
-Weaver está sob a licença GPL, isso significa que seu jogo também
-deverá estar sob esta mesma licença (ou alguma outra compatível).
+Weaver está sob a licença Affero GPL, isso significa que seu jogo
+também deverá estar sob esta mesma licença (ou alguma outra
+compatível).
 
 Basicamente isso significa que você pode fazer quase qualquer coisa
 que quiser com este software. Pode copiá-lo. Usar seu código-fonte
 para fazer qualquer coisa que queira (assumindo as
 responsabilidades). Passar para outras pessoas. Modificá-lo. A única
 coisa não permitida é produzir com ele algo que não dê aos seus
-usuários exatamente as mesmas liberdades.
+usuários exatamente as mesmas liberdades. Se você criar um jogo usando
+Weaver e distribui-lo ou colocá-lo em uma página na Internet para
+outras pessoas jogarem, um link para o download do código-fonte do
+jogo deve ser fornecido. Mas não é necessário fornecer junto os
+arquivos de áudio, texturas e outros elementos que constituem a parte
+artística, sem códigos de programação.
 
 As seguintes quatro liberdades devem estar presentes em Weaver e nos
 jogos que ele desenvolve:
@@ -1410,12 +1416,13 @@ função abaixo:
 void write_copyright(FILE *fp, char *author_name, char *project_name, int year){
   char license[] = "/*\nCopyright (c) %s, %d\n\nThis file is part of %s.\n\n%s\
  is free software: you can redistribute it and/or modify\nit under the terms of\
- the GNU General Public License as published by\nthe Free Software Foundation,\
- either version 3 of the License, or\n(at your option) any later version.\n\n\
+ the GNU Affero General Public License as published by\nthe Free Software\ 
+ Foundation, either version 3 of the License, or\n(at your option) any later\
+ version.\n\n\
 %s is distributed in the hope that it will be useful,\nbut WITHOUT ANY\
   WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS\
-  FOR A PARTICULAR PURPOSE.  See the\nGNU General Public License for more\
-  details.\n\nYou should have received a copy of the GNU General Public License\
+  FOR A PARTICULAR PURPOSE.  See the\nGNU Affero General Public License for more\
+  details.\n\nYou should have received a copy of the GNU Affero General Public License\
 \nalong with %s. If not, see <http://www.gnu.org/licenses/>.\n*/\n\n";
   fprintf(fp, license, author_name, year, project_name, project_name,
           project_name, project_name);
