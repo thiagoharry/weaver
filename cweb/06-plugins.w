@@ -119,8 +119,9 @@ instalado.
 separadas por dois pontos (``:''). Se for uma string vazia, isso
 significa que o suporte à \italico{plugins} dee ser desativado.
 
-\macronome|W_MAX_PERIODIC_FUNCTIONS|: O número máximo de funções que
-executam periodica e automaicamente em cada subloop.
+\macronome|W_MAX_SCHEDULING|: O número máximo de funções que
+podem ser agendadas para executar periodicamente ou apenas uma vez em
+algum momento do futuro.
 
 Definiremos agora os valores padrão:
 
@@ -130,6 +131,16 @@ Definiremos agora os valores padrão:
 #endif
 #ifndef W_INSTALL_PROG
 #define W_INSTALL_PROG "/usr/games/"
+#endif
+#ifndef W_PLUGIN_PATH
+#if W_DEBUG_LEVEL == 0
+#define W_PLUGIN_PATH  W_INSTALL_DATA"/plugins"
+#else
+#define W_PLUGIN_PATH  "compiled_plugins"
+#endif
+#endif
+#ifndef W_MAX_SCHEDULING
+#define W_MAX_SCHEDULING 8
 #endif
 @
 
@@ -535,7 +546,7 @@ bool _reload_plugin(int plugin_id){
 @*1 Listas de Plugins.
 
 Não é apenas um \italico{plugin} que precisamos suportar. É um número
-desconhecido deles. Para sabver quantos, precisamos checar o número de
+desconhecido deles. Para saber quantos, precisamos checar o número de
 arquivos não-oultos presentes nos diretórios indicados por
 |W_PLUGIN_PATH|. Mas além deles, pode ser que novos \italico{plugins}
 sejam jogados em tais diretórios durante a execução. Por isso,
@@ -951,39 +962,61 @@ fora do Emscripten:
 #endif
 @
 
-@*1 Adendo: Executando Código Periodicamente.
+@*1 Um Agendador de Funções.
 
 Mas e se estamos desenvolvendo o jogo e queremos invocar então
 |W.reload_all_plugins| uma vez a cada segundo para podermos usar
 programação interativa de uma forma mais automática e assim o nosso
 jogo em execução se atualize automaticamente à medida que recompilamos
 o código? Será interessante termos para isso uma função tal como
-|W.periodic(W.reload_all_plugins, 1.0)|, que faz com que a função
-passada como argumento seja executada uma vez a cada 1 segundo.
+|W.run_periodically(W.reload_all_plugins, 1.0)|, que faz com que a
+função passada como argumento seja executada uma vez a cada 1
+segundo. Alternativamente também pode ser útil uma função
+|W.run_futurelly(W.reload_all_plugins, 1.0)| que execute a função
+passada como argumento após 1 segundo, mas depois não a executa mais.
 
-Cada subloop deve ter então uma lista de funções que são executadas
-periodicamente. E podemos estipular em |W_MAX_PERIODIC_FUNCTIONS| o
-número máximo de funções periódicas que cada subloop pode ter. Então
-podemos usar uma estrutura como esta para armazenar unções periódicas:
+Cada subloop deve ter então uma lista de funções agendadas para serem
+executadas. E podemos estipular em |W_MAX_SCHEDULING| o número máximo
+delas. Então podemos usar uma estrutura como esta para armazenar
+funções agendadas e ela deve ter um mutex para que diferentes threads
+possam usar o agendador:
 
 @<Cabeçalhos Weaver@>=
+#ifdef W_MULTITHREAD
+pthread_mutex_t _scheduler_mutex;
+#endif
 struct{
+  bool periodic; // A função é periódica ou será executada só uma vez?
   unsigned long last_execution; // Quando foi executada pela última vez
   unsigned long period; // De quanto em quanto tempo tem que executar
   void (*f)(void); // A função em si a ser executada
-} _periodic_functions[W_MAX_SUBLOOP][W_MAX_PERIODIC_FUNCTIONS];
+} _scheduled_functions[W_MAX_SUBLOOP][W_MAX_SCHEDULING];
 @
 
-Isso precisa ser inicializado preenchendo os valores de cada |f| com
-|NULL| para marcarmos cada posição como vazia:
+Isso precisa ser inicializado criando o mutex e preenchendo os valores
+de cada |f| com |NULL| para marcarmos cada posição como vazia:
 
 @<API Weaver: Inicialização@>+=
 {
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_init(&_scheduler_mutex, NULL) != 0){ // Inicializa mutex
+    perror(NULL);
+    exit(1);
+  }
+#endif
   int i, j;
   for(i = 0; i < W_MAX_SUBLOOP; i ++)
-    for(j = 0; j < W_MAX_PERIODIC_FUNCTIONS; j ++)
-      _periodic_functions[i][j].f = NULL;
+    for(j = 0; j < W_MAX_SCHEDULING; j ++) // Marca posição na agenda como vazia
+      _scheduled_functions[i][j].f = NULL;
 }
+@
+
+E no fim não esqueçamos de destruir o mutex:
+
+@<API Weaver: Finalização@>+=
+#ifdef W_MULTITHREAD
+  pthread_mutex_destroy(&_scheduler_mutex);
+#endif
 @
 
 E imediatamente antes de entrarmos em um novo loop, devemos limpar
@@ -995,20 +1028,32 @@ execução de suas funções periódicas:
 @<Código antes de Loop, mas não de Subloop@>=
 {
   int i;
-  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++)
-    _periodic_functions[_number_of_loops][i].f = NULL;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_scheduler_mutex);
+#endif
+  for(i = 0; i < W_MAX_SCHEDULING; i ++)
+    _scheduled_functions[_number_of_loops][i].f = NULL;
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_scheduler_mutex);
+#endif
 }
 @
 
 Além disso, quando encerramos um Subloop, também é necessário
-limparmos as suas funções periódicas para que elas aabem não sendo
+limparmos as suas funções periódicas para que elas acabem não sendo
 executadas novamente em outros subloops diferentes:
 
 @<Código após sairmos de Subloop@>=
 {
   int i;
-  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++)
-    _periodic_functions[_number_of_loops][i].f = NULL;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_scheduler_mutex);
+#endif
+  for(i = 0; i < W_MAX_SCHEDULING; i ++)
+    _scheduled_functions[_number_of_loops][i].f = NULL;
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_scheduler_mutex);
+#endif
 }
 @
 
@@ -1019,91 +1064,177 @@ executá-las:
 @<Código a executar todo loop@>+=
 {
   int i;
-  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
-    if(_periodic_functions[_number_of_loops][i].f == NULL)
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_scheduler_mutex);
+#endif
+  for(i = 0; i < W_MAX_SCHEDULING; i ++){
+    if(_scheduled_functions[_number_of_loops][i].f == NULL)
       break;
-    if(_periodic_functions[_number_of_loops][i].period <
-       W.t - _periodic_functions[_number_of_loops][i].last_execution){
-      _periodic_functions[_number_of_loops][i].f();
-      _periodic_functions[_number_of_loops][i].last_execution = W.t;
+    if(_scheduled_functions[_number_of_loops][i].period <
+       W.t - _scheduled_functions[_number_of_loops][i].last_execution){
+      _scheduled_functions[_number_of_loops][i].f();
+      _scheduled_functions[_number_of_loops][i].last_execution = W.t;
+      if(_scheduled_functions[_number_of_loops][i].periodic == false){
+        int j;
+        _scheduled_functions[_number_of_loops][i].f = NULL;
+        for(j = i + 1; j < W_MAX_SCHEDULING; j ++){
+          if(_scheduled_functions[_number_of_loops][j - 1].f == NULL)
+            break;
+          _scheduled_functions[_number_of_loops][j - 1].periodic =
+            _scheduled_functions[_number_of_loops][j].periodic;
+          _scheduled_functions[_number_of_loops][j - 1].last_execution =
+            _scheduled_functions[_number_of_loops][j].last_execution;
+          _scheduled_functions[_number_of_loops][j - 1].period =
+            _scheduled_functions[_number_of_loops][j].period;
+          _scheduled_functions[_number_of_loops][j - 1].f =
+            _scheduled_functions[_number_of_loops][j].f;
+        }
+        _scheduled_functions[_number_of_loops][j - 1].f = NULL;
+      }
     }
   }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_scheduler_mutex);
+#endif
 }
 @
 
 E finalmente funções para interagir com código executado periodicamente:
 
 @<Cabeçalhos Weaver@>+=
-void _periodic(void (*f)(void), float t); // Torna uma função periódica
-void _nonperiodic(void (*f)(void));  // Faz uma função deixar de ser periódica
-float _period(void (*f)(void));  // Obém o período de uma função periódica
+void _run_periodically(void (*f)(void), float t); // Torna uma função periódica
+void _run_futurelly(void (*f)(void), float t); // Executa ela 1x no futuro
+void _cancel(void (*f)(void));  // Cancela uma função agendada
+float _period(void (*f)(void));  // Obém o período de uma função agendada
 @
 
-Todas elas interagem sempre com as listas de funções periódicas do
-loop atual.
+Todas elas interagem sempre com as listas de funções agendadas do loop
+atual.
 
-A função que adiciona uma nova função periódica segue abaixo. É a
-única que precisa se preocupar com o caso de não haver mais espaço
-para novas funções periódicas, caso em que ela imprime um erro na
-tela. Se estamos tornando periódica uma função que já é periódica,
-tudo o que estamos fazendo é atualizar seu valor de freqüência para um
-novo valor.
+A função que adiciona uma nova função periódica segue abaixo. Ela tem
+que se preocupar também caso o espaço para se colocar uma nova função
+no agendador tenha se esgotado. Passar para ela uma função que já é
+periódica atualiza o seu período.
 
 @<API Weaver: Definições@>+=
-void _periodic(void (*f)(void), float t){
+void _run_periodically(void (*f)(void), float t){
   int i;
   unsigned long period = (unsigned long) (t * 1000000);
-  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
-    if(_periodic_functions[_number_of_loops][i].f == NULL ||
-       _periodic_functions[_number_of_loops][i].f == f){
-      _periodic_functions[_number_of_loops][i].f = f;
-      _periodic_functions[_number_of_loops][i].period = period;
-      _periodic_functions[_number_of_loops][i].last_execution = W.t;
-      return;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_scheduler_mutex);
+#endif
+  for(i = 0; i < W_MAX_SCHEDULING; i ++){
+    if(_scheduled_functions[_number_of_loops][i].f == NULL ||
+       _scheduled_functions[_number_of_loops][i].f == f){
+      _scheduled_functions[_number_of_loops][i].f = f;
+      _scheduled_functions[_number_of_loops][i].period = period;
+      _scheduled_functions[_number_of_loops][i].periodic = true;
+      _scheduled_functions[_number_of_loops][i].last_execution = W.t;
+      break;
     }
   }
-  fprintf(stderr, "ERROR (1): Can't use more periodic functions.");
-  fprintf(stderr,
-          "Please, increase W_MAX_PERIODIC_FUNCTIONS in conf/conf.h\n");
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_scheduler_mutex);
+#endif
+  if(i == W_MAX_SCHEDULING){
+    fprintf(stderr, "ERROR (1): Can't schedule more functions.");
+    fprintf(stderr, "Please, define W_MAX_SCHEDULING in conf/conf.h "
+            "with a value bigger than the current %d.\n",
+            W_MAX_SCHEDULING);                                                    
+  }
 }
 @
 
-Para fazer com que uma função deixe de ser periódica, o código é o
-abaixo. Chamar esta função para funções que não são periódicas deve
-ser inócuo.
+Agora o código para fazer com que uma função seja executada pelo
+agendador somente uma vez. Ela é idêntica, apenas ajustando a variável
+|periodic| para um valor falso:
 
 @<API Weaver: Definições@>+=
-void _nonperiodic(void (*f)(void)){
+void _run_futurelly(void (*f)(void), float t){
   int i;
-  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++){
-    if(_periodic_functions[_number_of_loops][i].f == f){
-      for(; i < W_MAX_PERIODIC_FUNCTIONS - 1; i ++){
-        _periodic_functions[_number_of_loops][i].f =
-                                  _periodic_functions[_number_of_loops][i+1].f;
-        _periodic_functions[_number_of_loops][i].period =
-                             _periodic_functions[_number_of_loops][i+1].period;
-        _periodic_functions[_number_of_loops][i].last_execution =
-                     _periodic_functions[_number_of_loops][i+1].last_execution;
+  unsigned long period = (unsigned long) (t * 1000000);
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_scheduler_mutex);
+#endif
+  for(i = 0; i < W_MAX_SCHEDULING; i ++){
+    if(_scheduled_functions[_number_of_loops][i].f == NULL ||
+       _scheduled_functions[_number_of_loops][i].f == f){
+      _scheduled_functions[_number_of_loops][i].f = f;
+      _scheduled_functions[_number_of_loops][i].period = period;
+      _scheduled_functions[_number_of_loops][i].periodic = false;
+      _scheduled_functions[_number_of_loops][i].last_execution = W.t;
+      break;
+    }
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_scheduler_mutex);
+#endif
+  if(i == W_MAX_SCHEDULING){
+    fprintf(stderr, "ERROR (1): Can't schedule more functions.");
+    fprintf(stderr, "Please, define W_MAX_SCHEDULING in conf/conf.h "
+            "with a value bigger than the current %d.\n",
+            W_MAX_SCHEDULING);                                                    
+  }
+}
+@
+
+Para remover uma função do agendador, podemos usar a função
+abaixo. Chamá-la para uma função que não está agendada deve ser
+inócuo:
+
+@<API Weaver: Definições@>+=
+void _cancel(void (*f)(void)){
+  int i;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_scheduler_mutex);
+#endif
+  for(i = 0; i < W_MAX_SCHEDULING; i ++){
+    if(_scheduled_functions[_number_of_loops][i].f == f){
+      for(; i < W_MAX_SCHEDULING - 1; i ++){
+        _scheduled_functions[_number_of_loops][i].f =
+                                  _scheduled_functions[_number_of_loops][i+1].f;
+        _scheduled_functions[_number_of_loops][i].period =
+                             _scheduled_functions[_number_of_loops][i+1].period;
+        _scheduled_functions[_number_of_loops][i].last_execution =
+                     _scheduled_functions[_number_of_loops][i+1].last_execution;
       }
-      _periodic_functions[_number_of_loops][i].f = NULL;
+      _scheduled_functions[_number_of_loops][i].f = NULL;
       return;
     }
   }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_scheduler_mutex);
+#endif
 }
 @
 
 Por fim, pode ser importante checar se uma função é periódica ou não e
-obter o seu período. A função abaixo retorna o período de umas função
-periódica e retorna NaN se ela não for uma função periódica.
+obter o seu período. A função abaixo retorna o período de uma função
+periódica. Vamos definir o período de uma função agendada para
+executar somente uma vez como sendo infinito. E o período de uma
+função que não está agendada como sendo NaN.
 
 @<API Weaver: Definições@>+=
 float _period(void (*f)(void)){
   int i;
-  for(i = 0; i < W_MAX_PERIODIC_FUNCTIONS; i ++)
-    if(_periodic_functions[_number_of_loops][i].f == f)
-      return (float) (_periodic_functions[_number_of_loops][i].period) /
-             1000000.0;
-  return NAN;
+  float result = -1.0;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_scheduler_mutex);
+#endif
+  for(i = 0; i < W_MAX_SCHEDULING; i ++)
+    if(_scheduled_functions[_number_of_loops][i].f == f){
+      if(_scheduled_functions[_number_of_loops][i].periodic == true)
+        result =  (float) (_scheduled_functions[_number_of_loops][i].period) /
+          1000000.0;
+      else
+        result = INFINITY;
+    }
+  if(result < 0.0)
+    result =  NAN;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_scheduler_mutex);
+#endif
+  return result;
 }
 @
 
@@ -1111,14 +1242,16 @@ E finalmente colocamos tudo isso dentro da estrutura |W|:
 
 @<Funções Weaver@>=
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
-void (*periodic)(void (*f)(void), float);
-void (*nonperiodic)(void (*f)(void));
+void (*run_periodically)(void (*f)(void), float);
+void (*run_futurelly)(void (*f)(void), float);
+void (*cancel)(void (*f)(void));
 float (*period)(void (*f)(void));
 @
 
 @<API Weaver: Inicialização@>=
-W.periodic = &_periodic;
-W.nonperiodic = &_nonperiodic;
+W.run_periodically = &_run_periodically;
+W.run_futurelly = &_run_futurelly;
+W.cancel = &_cancel;
 W.period = &_period;
 @
 

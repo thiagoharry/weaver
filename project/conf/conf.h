@@ -22,9 +22,6 @@
 // program (W_CPP):
 #define W_SOURCE W_C
 
-// Where should we look for plugins? Directories separated by ':'
-#define W_PLUGIN_PATH W_INSTALL_DATA"/plugins:compiled_plugins"
-
 // The maximum ammount of memory for the game
 #define W_MAX_MEMORY 100000000
 #define W_INTERNAL_MEMORY 16384

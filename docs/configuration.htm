@@ -51,10 +51,12 @@
           <li><a href="#W_HEIGHT">W_HEIGHT</a></li>
           <li><a href="#W_WIDTH">W_WIDTH</a></li>
         </ol>
-        <li><a href="#install">Macros about Installation</a></li>
+        <li><a href="#install">Macros about Directories and
+        Installation</a></li>
         <ol>
           <li><a href="#W_INSTALL_DATA">W_INSTALL_DATA</a></li>
           <li><a href="#W_INSTALL_PROG">W_INSTALL_PROG</a></li>
+          <li><a href="#W_PLUGIN_PATH">W_PLUGIN_PATH</a></li>
         </ol>
       </ol>
       <h3 id="basic">Basic Macros</h3>
@@ -267,7 +269,7 @@
         if you ask your window to be fullscreen, usually even the more
         problematic window managers will obey.
       </p>
-      <h3 id="install">Macros about Installation</h3>
+      <h3 id="install">Macros about Directories and Installation</h3>
       <h4 id="W_INSTALL_DATA">W_INSTALL_DATA</h4>
       <p>
         This is where the game data shall be installed when someone
@@ -287,6 +289,21 @@
       <p>
         If this macro is not defined, it's assumed to be
         "/usr/games/".
+      </p>
+      <h4 id="W_PLUGIN_PATH">W_PLUGIN_PATH</h4>
+      <p>
+        This is where your game should look for plugins. You can
+        definee this macro as a string with different paths separated
+        by a ":". For example:
+        "/usr/share/games/my_game/plugin:~/.mygame/".
+      </p>
+      <p>
+        If this macro is not set, it's assumed to be the
+        "compiled_plugins" directory in your game top directory if you
+        are still building the game (the macro
+        <a href="#W_DEBUG_LEVEL">W_DEBUG_LEVEL</a> is not set to 0),
+        or is set to a directory called "plugins"
+        at <a href="#W_INSTALL_DATA">W_INSTAL_DATA</a> otherwise.
       </p>
     </div>
   </body>
