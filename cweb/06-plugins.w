@@ -1090,6 +1090,7 @@ executá-las:
             _scheduled_functions[_number_of_loops][j].f;
         }
         _scheduled_functions[_number_of_loops][j - 1].f = NULL;
+        i --;
       }
     }
   }

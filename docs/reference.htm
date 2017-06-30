@@ -98,6 +98,17 @@
             <li><a href="#hide_cursor">W.hide_cursor</a></li>
           </ol>
         </ol>
+        <li><a href="#scheduling">Scheduling</a></li>
+        <ol>
+          <li><a href="#scheduling_functions">Scheduling
+              Functions</a></li>
+          <ol>
+            <li><a href="#cancel">W.cancel</a></li>
+            <li><a href="#period">W.period</a></li>
+            <li><a href="#run_futurelly">W.run_futurelly</a></li>
+            <li><a href="#run_periodically">W.run_periodically</a></li>
+          </ol>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -569,6 +580,78 @@
       <h5 id="hide_cursor">void W.hide_cursor(void)</h5>
       <p>
         Makes the cursor hidden.
+      </p>
+      <h3 id="scheduling">Scheduling</h3>
+      <h4 id="scheduling_functions">Scheduling Functions</h4>
+      <h5 id="cancel">void W.cancel(void (*f)(void))<img class="icon"
+               src="images/loop.png" width="25px" height="25px"
+               title="Main loop only"></h5>
+      <p>
+        If you asked Weaver to run some function f periodically with
+        <a href="#run_periodically">W.run_periodically</a> or in some
+        moment in the future
+        with <a href="#run_futurelly">W.run_futurelly</a>, you can
+        cancel this passing the function f to W.cancel.
+      </p>
+      <p>
+        If you pass a function not scheduled for future execution or
+        an invalid pointer for this function, nothing happens.
+      </p>
+      <h5 id="period">float W.period(void (*f)(void))<img class="icon"
+               src="images/loop.png" width="25px" height="25px"
+               title="Main loop only"></h5>
+      <p>
+        If <b>f</b> is a function scheduled to be run periodically
+        using <a href="#run_periodically">W.run_periodically</a>, this
+        function returns the function period in seconds.
+      </p>
+      <p>
+        If <b>f</b> is a function scheduled to be run once in some
+        moment in the future
+        with <a href="#run_futurelly">W.run_futurelly</a>, this
+        function returns INFINITY.
+      </p>
+      <p>
+        Otherwise, this function returns NaN.
+      </p>
+      <h5 id="run_futurelly">void W.run_futurelly(void (*f)(void),
+               float s)<img class="icon"
+               src="images/loop.png" width="25px" height="25px"
+               title="Main loop only"></h5>
+      <p>
+        Run the function <b>f</b> in the future. Waits the number of
+        seconds <b>s</b> passed as argument before executing the
+        function.
+      </p>
+      <p>
+        If the function <b>f</b> was already scheduled for execution,
+        the entry in the scheduler is updated to transform the
+        function in a non-periodic function.
+      </p>
+      <p>
+        This function won't work if your scheduler has more than
+        <a href="configuring.htm#W_MAX_SCHEDULING">W_MAX_SCHEDULING</a>
+        waiting for execution.
+      </p>
+      <h5 id="run_periodically">void W.run_periodically(void (*f)(void),
+               float s)<img class="icon"
+               src="images/loop.png" width="25px" height="25px"
+               title="Main loop only"></h5>
+      <p>
+        Run the function <b>f</b> periodically, every <b>s</b>
+        seconds. The first execution will be <b>s</b> seconds after
+        you call this function.
+      </p>
+      <p>
+        If the function <b>f</b> was already scheduled for execution,
+        the entry in the scheduler is updated to transform the
+        function in a periodic function and it's period is also
+        updated.
+      </p>
+      <p>
+        This function won't work if your scheduler has more than
+        <a href="configuring.htm#W_MAX_SCHEDULING">W_MAX_SCHEDULING</a>
+        waiting for execution.
       </p>
     </div>
   </body>
