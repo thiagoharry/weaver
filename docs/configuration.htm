@@ -34,10 +34,16 @@
           <li><a href="#W_SOURCE">W_SOURCE</a></li>
           <li><a href="#W_TARGET">W_TARGET</a></li>
         </ol>
+        <li><a href="#security">Security Macros</a></li>
+        <ol>
+          <li><a href="#W_PREVENT_SELF_ENABLING_PLUGINS">
+              W_PREVENT_SELF_LOADING_MACROS</a></li>          
+        </ol>
         <li><a href="#limit">Macros About Weaver Limits</a></li>
         <ol>
           <li><a href="#W_INTERNAL_MEMORY">W_INTERNAL_MEMORY</a></li>
           <li><a href="#W_MAX_MEMORY">W_MAX_MEMORY</a></li>
+          <li><a href="#W_MAX_SCHEDULING">W_MAX_SCHEDULING</a></li>
           <li><a href="#W_MAX_SUBLOOP">W_MAX_SUBLOOP</a></li>
           <li><a href="#W_WEB_MEMORY">W_WEB_MEMORY</a></li>
         </ol>
@@ -136,6 +142,24 @@
         If this macro isn't defined, <tt>W_ELF</tt> is assumed, but a
         warning will be print during compilation.
       </p>
+      <h3 id="security">Security Macros</h3>
+      <h4 id="W_PREVENT_SELF_ENABLING_PLUGINS">
+        W_PREVENT_SELF_ENABLING_PLUGINS (nothing)
+      </h4>
+      <p>
+        This macro prevents plugins from self-enabling
+        themselves. They still are loaded in your game, and so still
+        are able to run initialization code. They just can't be
+        automatically enabled. Only you can enable them with
+        <a href="reference.htm#enable_plugin">W.enable_plugin</a>.
+      </p>
+      <p>
+        This macro won't protect a user if a malicious plugin is put
+        in the
+        directory <a href="#W_PLUGIN_PATH">W_PLUGIN_PATH</a>. Only
+        trustable plugins should be put in that directory and the
+        directory itself should be secure.
+      </p>
       <h3 id="limit">Macros About Weaver Limits</h3>
       <h4 id="W_INTERNAL_MEMORY">W_INTERNAL_MEMORY (any positive
         integer)</h4>
@@ -173,6 +197,19 @@
         If this value is not defined, Weaver prints a warning during
         compilation and tries to use 1, reserving the minimum ammount
         of memory possible.
+      </p>
+      <h4 id="W_MAX_SCHEDULING">W_MAX_SCHEDULING (any positive
+        integer)</h4>
+      <p>
+        Weaver can schedule the execution of functions without
+        arguments and return values with functions like
+        <a href="reference.htm#run_futurelly">W.run_futurelly</a> and
+        <a href="reference.htm#run_periodically">W.run_periodically</a>. These
+        functions put functions in the scheduler.
+      </p>
+      <p>
+        This macro sets the maximum number of functions that Weaver
+        can store in it's scheduler for each main loop.
       </p>
       <h4 id="W_MAX_SUBLOOP">W_MAX_SUBLOOP (any positive integer)</h4>
       <p>
@@ -270,7 +307,8 @@
         problematic window managers will obey.
       </p>
       <h3 id="install">Macros about Directories and Installation</h3>
-      <h4 id="W_INSTALL_DATA">W_INSTALL_DATA</h4>
+      <h4 id="W_INSTALL_DATA">W_INSTALL_DATA (a string with a
+      directory path)</h4>
       <p>
         This is where the game data shall be installed when someone
         uses the command <tt>make install</tt> in the game top
@@ -280,7 +318,8 @@
         If you don't define this macro, it's value is assumed to be
         /usr/share/games/W_PROG, where W_PROG is your project name.
       </p>
-      <h4 id="W_INSTALL_PROG">W_INSTALL_PROG</h4>
+      <h4 id="W_INSTALL_PROG">W_INSTALL_PROG (a string with a
+      directory path)</h4>
       <p>
         This is the directory where your game executable shall be
         installed if someone uses the command <tt>make install</tt> at
@@ -290,7 +329,8 @@
         If this macro is not defined, it's assumed to be
         "/usr/games/".
       </p>
-      <h4 id="W_PLUGIN_PATH">W_PLUGIN_PATH</h4>
+      <h4 id="W_PLUGIN_PATH">W_PLUGIN_PATH (a string with a directory
+      path)</h4>
       <p>
         This is where your game should look for plugins. You can
         definee this macro as a string with different paths separated

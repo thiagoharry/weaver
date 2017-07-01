@@ -109,6 +109,20 @@
             <li><a href="#run_periodically">W.run_periodically</a></li>
           </ol>
         </ol>
+        <li><a href="#plugins">Plugins</a></li>
+        <ol>
+          <li><a href="#plugins_functions">Plugin Functions</a></li>
+          <ol>
+            <li><a href="#disable_plugin">W.disable_plugin</a></li>
+            <li><a href="#enable_plugin">W.enable_plugin</a></li>
+            <li><a href="#get_plugin">W.get_plugin</a></li>
+            <li><a href="#get_plugin_data">W.get_plugin_data</a></li>
+            <li><a href="#is_plugin_enabled">W.is_plugin_enabled</a></li>
+            <li><a href="#reload_all_plugins">W.reload_all_plugins</a></li>
+            <li><a href="#reload_plugin">W.reload_plugin</a></li>
+            <li><a href="#set_plugin_data">W.set_plugin_data</a></li>
+          </ol>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -652,6 +666,106 @@
         This function won't work if your scheduler has more than
         <a href="configuring.htm#W_MAX_SCHEDULING">W_MAX_SCHEDULING</a>
         waiting for execution.
+      </p>
+      <h3 id="plugins">Plugins</h3>
+      <h4 id="plugins_functions">Plugin Functions</h4>
+      <h5 id="disable_plugin">bool W.disable_plugin(int id)</h5>
+      <p>
+        This function disables a plugin given it's id number and
+        returns true if the opperation was successful. This function
+        fails if a plugin id is invalid and returns false.
+      </p>
+      <p>
+        Trying to disable an already disabled plugin does nothing (but
+        the function returns true anyway.
+      </p>
+      <p>
+        Immediately before the plugin is disabled, it executes it's
+        function _disable_plugin_PLUGIN_NAME.  A disabled plugin won't
+        run it's function _run_plugin_PLUGIN_NAME every iteration in
+        the main loop. Check <a href="plugin.htm">Weaver Plugins</a>
+        for more info.
+      </p>
+      <h5 id="enable_plugin">bool W.enable_plugin(int id)</h5>
+      <p>
+        This function enables a plugin given it's id number and
+        returns true if the opperation was successful. This function
+        fails if a plugin id is invalid and returns false.
+      </p>
+      <p>
+        Trying to enable an already enabled plugin does nothing. But
+        the function returns true anyway.
+      </p>
+      <p>
+        Immediately after the plugin is enabled, it executes it's
+        function _enable_plugin_PLUGIN_NAME.  An enabled plugin will
+        run it's function _run_plugin_PLUGIN_NAME every iteration in
+        the main loop. Check <a href="plugin.htm">Weaver Plugins</a>
+        for more info.
+      </p>
+      <h5 id="get_plugin">int W.get_plugin(char *plugin_name)</h5>
+      <p>
+        Get a plugin id number given it's name. If a plugin is not
+        found, this function returns -1.
+      </p>
+      <h5 id="get_plugin_data">void *W.get_plugin_data(int id)</h5>
+      <p>
+        This function stores some data previously stored with
+        <a href="#set_plugin_data">W.set_plugin_data</a>, given a
+        plugin id number.
+      </p>
+      <p>
+        This function should be called by plugins, not by your
+        program. It's how plugins should store data that should be
+        preserved, even if the plugin is disabled or if the plugin is
+        reloaded.
+      </p>
+      <h5 id="is_plugin_enabled">bool W.is_plugin_enabled(int id)</h5>
+      <p>
+        A simple test which returns true if a plugin is enabled and
+        returns false otherwise. The plugin is identified by it's id
+        number.
+      </p>
+      <h5 id="reload_all_plugins">void W.reload_all_plugins(void)</h5>
+      <p>
+        This function reloads all the existing plugins, updating them
+        if they were recompiled. It also checks the directory
+        <a href="configuring.htm#W_PLUGIN_PATH">W_PLUGIN_PATH</a> if
+        there are new plugins. If it finds a new plugin, the function
+        makes it accessible by <a href="#get_plugin">W.get_plugin</a>,
+        allowing you to enable or disable the plugin.
+      </p>
+      <p>
+        This function always is called before you enter in a new main
+        loop.
+      </p>
+      <p>
+        This function does nothing if your game is compiled for a web
+        browser.
+      </p>
+      <h5 id="reload_plugin">void W.reload_plugin(int id)</h5>
+      <p>
+        This function checks if a plugin was recompiled since it was
+        loaded. In this case, it reloads the plugin, updating all the
+        changes made to him.
+      </p>
+      <p>
+        This function does nothing if your game was compiled to a web
+        browser.
+      </p>
+      <h5 id="set_plugin_data">bool W.set_plugin_data(int id, void
+        *data)</h5>
+      <p>
+        This function stores data in the place reserved for a plugin
+        identified by it's id number. You can put any kind of data
+        there. If you wast to retrieve data stored with this function,
+        use <a href="#get_plugin_data">W.get_plugiin_data</a>.
+      </p>
+      <p>
+        This function should be used by plugins, not your main
+        program. It's how plugins can store data that is preserved,
+        even after they are disabled and enabled again or if they are
+        reloaded.
       </p>
     </div>
   </body>

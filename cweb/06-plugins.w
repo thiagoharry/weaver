@@ -196,6 +196,9 @@ struct _plugin_data{
   char library[256];
   void *handle;
   ino_t id;
+#ifdef W_PREVENT_SELF_ENABLING_PLUGINS
+  bool finished_initialization;
+#endif
 #ifdef W_MULTITHREAD
   pthread_mutex_t mutex;
 #endif
@@ -256,6 +259,9 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   struct stat attr;
   char *p, buffer[256];
   int i;
+#ifdef W_PREVENT_SELF_ENABLING_PLUGINS
+  data -> finished_initialization = false;
+#endif
 #if W_DEBUG_LEVEL >= 1
   if(strlen(path) >= 128){
     fprintf(stderr, "ERROR: Plugin path bigger than 255 characters: %s\n",
@@ -347,6 +353,9 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   data -> defined = true;
   if(data -> _init_plugin != NULL)
     data -> _init_plugin(&W);
+#ifdef W_PREVENT_SELF_ENABLING_PLUGINS
+  data -> finished_initialization = true;
+#endif
 #if W_DEBUG_LEVEL >= 3
   fprintf(stderr, "WARNING (3): New plugin loaded: %s.\n", data -> plugin_name);
 #endif
@@ -547,7 +556,7 @@ bool _reload_plugin(int plugin_id){
 
 Não é apenas um \italico{plugin} que precisamos suportar. É um número
 desconhecido deles. Para saber quantos, precisamos checar o número de
-arquivos não-oultos presentes nos diretórios indicados por
+arquivos não-ocultos presentes nos diretórios indicados por
 |W_PLUGIN_PATH|. Mas além deles, pode ser que novos \italico{plugins}
 sejam jogados em tais diretórios durante a execução. Por isso,
 precisamos de um espaço adicional para comportar
@@ -1272,19 +1281,25 @@ bool _Wis_enabled(int plugin_id);
 
 @(project/src/weaver/plugins.c@>+=
 bool _Wenable_plugin(int plugin_id){
+#ifdef W_PREVENT_SELF_ENABLING_PLUGINS
+    if(_plugins[plugin_id].finished_initialization == false)
+      return false;
+#endif
   if(plugin_id >= _max_number_of_plugins ||
      !(_plugins[plugin_id].defined))
     return false;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(_plugins[plugin_id].mutex));
 #endif
-  _plugins[plugin_id].enabled = true;
-  if(_plugins[plugin_id]._enable_plugin != NULL)
-    _plugins[plugin_id]._enable_plugin(&W);
+  if(!_plugins[plugin_id].enabled){
+    _plugins[plugin_id].enabled = true;
+    if(_plugins[plugin_id]._enable_plugin != NULL)
+      _plugins[plugin_id]._enable_plugin(&W);
 #if W_DEBUG_LEVEL >=3
-  fprintf(stderr, "WARNING (3): Plugin enabled: %s.\n",
-          _plugins[plugin_id].plugin_name);
+    fprintf(stderr, "WARNING (3): Plugin enabled: %s.\n",
+            _plugins[plugin_id].plugin_name);
 #endif
+  }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&(_plugins[plugin_id].mutex));
 #endif
@@ -1297,13 +1312,15 @@ bool _Wdisable_plugin(int plugin_id){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(_plugins[plugin_id].mutex));
 #endif
-  _plugins[plugin_id].enabled = false;
-  if(_plugins[plugin_id]._disable_plugin != NULL)
-    _plugins[plugin_id]._disable_plugin(&W);
+  if(_plugins[plugin_id].enabled){
+    if(_plugins[plugin_id]._disable_plugin != NULL)
+      _plugins[plugin_id]._disable_plugin(&W);
+    _plugins[plugin_id].enabled = false;
 #if W_DEBUG_LEVEL >=3
-  fprintf(stderr, "WARNING (3): Plugin disabled: %s.\n",
-          _plugins[plugin_id].plugin_name);
+    fprintf(stderr, "WARNING (3): Plugin disabled: %s.\n",
+            _plugins[plugin_id].plugin_name);
 #endif
+  }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&(_plugins[plugin_id].mutex));
 #endif

@@ -153,6 +153,20 @@ weaver --plugin PLUGIN_NAME</pre>
         these functions as a way to remember and access it, even if
         the plugin is reloaded. 
       </p>
+      <p>
+        You can create plugins which can enable themselves during
+        initalization with this code:
+      </p>
+      <pre class="codigo">
+<span class="tipo">void</span> <b>_init_plugin_PLUGIN_NAME</b>(W_PLUGIN){
+  <span class="tipo">int</span> my_id = W.get_plugin(<span class="string">"PLUGIN_NAME"</span>);
+  W.enable_plugin(my_id);
+}</pre>
+      <p>
+        If you want to prevent self-enabling plugins, define the macro
+        <a href="configuring.htm#W_PREVENT_SELF_ENABLING_PLUGINS">
+          W_PREVENT_SELF_ENABLING_PLUGINS</a> in <tt>conf/conf.h</tt>.
+      </p>
     </div>
   </body>
 </html>
