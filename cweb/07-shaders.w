@@ -266,10 +266,12 @@ vazio é então procurado na nossa matriz de interfaces e o processo
 particular de criação dela dependendo de seu tipo tem início:
 
 @<Interface: Declarações@>+=
-struct interface *_new_interface(int type, int x, int y, ...);
+struct interface *_new_interface(int type, int x, int y, int width,
+                                 int height, ...);
 @
 @<Interface: Definições@>=
-struct interface *_new_interface(int type, int x, int y, ...){
+ struct interface *_new_interface(int type, int x, int y, int width,
+                                  int height, ...){
     int i;
     va_list valist;
 #ifdef W_MULTITHREAD
@@ -296,7 +298,8 @@ struct interface *_new_interface(int type, int x, int y, ...){
     _interfaces[_number_of_loops][i].x = (float) x;
     _interfaces[_number_of_loops][i].y = (float) y;
     _interfaces[_number_of_loops][i].rotation = 0.0;
-
+    _interfaces[_number_of_loops][i].width = (float) width;
+    _interfaces[_number_of_loops][i].height = (float) height;
     // Modo padrão de desenho de interface:
     _interfaces[_number_of_loops][i]._mode = GL_TRIANGLE_FAN;
 #ifdef W_MULTITHREAD
@@ -311,9 +314,7 @@ struct interface *_new_interface(int type, int x, int y, ...){
         _interfaces[_number_of_loops][i]._mode = GL_LINE_LOOP;
         // Realmente não precisa de um 'break' aqui.
     case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor
-        va_start(valist, y);
-        _interfaces[_number_of_loops][i].width = (float) va_arg(valist, int);
-        _interfaces[_number_of_loops][i].height = (float) va_arg(valist, int);
+        va_start(valist, height);
         _interfaces[_number_of_loops][i].r = va_arg(valist, double);
         _interfaces[_number_of_loops][i].g = va_arg(valist, double);
         _interfaces[_number_of_loops][i].b = va_arg(valist, double);
@@ -322,10 +323,7 @@ struct interface *_new_interface(int type, int x, int y, ...){
         //@<Interface: Leitura de Argumentos e Inicialização@>
         break;
     default:
-        va_start(valist, y);
-        _interfaces[_number_of_loops][i].width = (float) va_arg(valist, int);
-        _interfaces[_number_of_loops][i].height = (float) va_arg(valist, int);
-        va_end(valist);
+      ;
     }
     @<Preenche Matriz de Transformação de Interface na Inicialização@>
     @<Código logo após criar nova interface@>
@@ -339,7 +337,7 @@ struct interface *_new_interface(int type, int x, int y, ...){
 Após a definirmos, atribuiremos esta função à estrutura |W|:
 
 @<Funções Weaver@>+=
-struct interface *(*new_interface)(int, int, int, ...);
+  struct interface *(*new_interface)(int, int, int, int, int, ...);
 @
 
 @<API Weaver: Inicialização@>+=
@@ -391,6 +389,61 @@ E adicionamos à estrutura |W|:
 @
 @<API Weaver: Inicialização@>+=
   W.destroy_interface = &_destroy_interface;
+@
+
+Existe uma outra operação que pode também ser útil. Cada interface
+criada tipicamente é associada especificamente a somente um loop
+principal. Mas alguns subloops podem querer usar elementos da
+interface do loop que o chamou, mantendo as suas características de
+posição e tamanho.
+
+Para isso seria importante definirmos um |W.copy_interface| que
+permitiria copiar uma interface de um loop principal para
+outro. Alternativamente, a mesma função pode ser usada para criar
+cópias de elementos da interface em um mesmo loop principal.
+
+Tal função de copiar interfaces precisa receber como argumento uma
+interface e retornar outra, que será a sua cópia:
+
+@<Interface: Declarações@>+=
+struct interface *_copy_interface(struct interface *inter);
+@
+@<Interface: Definições@>=
+struct interface *_copy_interface(struct interface *inter){
+  int i;
+  struct interface *new_interface;
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&_interface_mutex);
+#endif
+    // Vamos encontrar no pool de interfaces um espaço vazio:
+    for(i = 0; i < W_MAX_INTERFACES; i ++)
+        if(_interfaces[_number_of_loops][i].type == W_NONE)
+            break;
+    if(i == W_MAX_INTERFACES){
+        fprintf(stderr, "ERROR (0): Not enough space for interfaces. Please, "
+                "increase the value of W_MAX_INTERFACES at conf/conf.h.\n");
+#ifdef W_MULTITHREAD
+        pthread_mutex_unlock(&_interface_mutex);
+#endif
+        Wexit();
+    }
+    // Espaço vazio encontrado. Se estamos aqui, este espaço é a posição i
+    new_interface = &(_interfaces[_number_of_loops][i]);
+    memcpy(new_interface, inter, sizeof(struct interface));
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&_interface_mutex);
+#endif
+    return new_interface;
+}
+@
+
+E agora adicionamos tal função à estrutura |W|:
+
+@<Funções Weaver@>+=
+  struct interface *(*copy_interface)(struct interface *);
+@
+@<API Weaver: Inicialização@>+=
+  W.copy_interface = &_copy_interface;
 @
 
 @*2 Movendo, Redimencionando e Rotacionando Interfaces.
@@ -1955,7 +2008,7 @@ ser modificado.
 \macrovalor|bool stretch_x, stretch_y|: Se a interface deve ser esticada ou
 encolhida quando a janela em que está muda de tamanho.
 
-\macronome As seguintes 5 novas funções foram definidas:
+\macronome As seguintes 6 novas funções foram definidas:
 
 \macrovalor|struct interface *W.new_interface(int type, int x, int y, ...)|:
 Cria uma nova interface. O número e detalhes dos argumentos depende do
@@ -1966,6 +2019,10 @@ como a altura e largura são depois convertidos para |float|. No caso
 de interfaces que são meros quadrados ou perímetros, os próximos 4
 argumentos são a cor. A nova interface gerada é retornada.
 
+\macrovalor|struct interface *W.copy_interface(struct interface *i)|:
+Copia uma interface já existente, fazendo com que ela seja considerada
+pertencente ao loop principal atual.
+  
 \macrovalor|void W.destroy_interface(struct interface *i)|: Destrói uma
 interface, liberando seu espaço para ser usada por outra.
 

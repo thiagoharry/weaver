@@ -123,6 +123,19 @@
             <li><a href="#set_plugin_data">W.set_plugin_data</a></li>
           </ol>
         </ol>
+        <li><a href="#interfaces">Interfaces</a></li>
+        <ol>
+          <li><a href="#interfaces_records">Records</a></li>
+          <ol>
+            <li><a href="#struct_interface">struct interface</a></li>
+          </ol>
+          <li><a href="#interface_functions">Interface
+              Functions</a></li>
+          <ol>
+            <li><a href="#destroy_interface">W.destroy_interface</a></li>
+            <li><a href="#new_interface">W.new_interface</a></li>
+          </ol>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -766,6 +779,162 @@
         program. It's how plugins can store data that is preserved,
         even after they are disabled and enabled again or if they are
         reloaded.
+      </p>
+      <h3 id="interfaces">Interfaces</h3>
+      <h4 id="interfaces_records">Interface Records</h4>
+      <h5 id="struct_interface">struct interface</h5>
+      <p>
+        An "interface" is a record (what C calls "struct") which
+        stores information about a graphical element which usually
+        appears in the screen. This element can be manipulated by
+        built-in functions to move it in the screen, rotate and
+        resize. But there's no built-in functions to make it interact
+        with other objects, even other interfaces. This record was
+        created to represent user interface elements.
+      </p>
+      <p>
+        An interface is defined roughly as:
+      </p>
+      <pre class="codigo">
+<span class="word">struct</span> <span class="tipo">interface</span>{
+  <span class="tipo">int</span> type;
+  <span class="tipo">int</span> integer;
+  <span class="tipo">float</span> x,y;
+  <span class="tipo">float</span> rotation;
+  <span class="tipo">float</span> r, g, b, a;
+  <span class="tipo">float</span> width, height;
+  <span class="tipo">bool</span> visible;
+  <span class="tipo">bool</span> stretch_x, stretch_y;
+}</pre>
+      <p>
+        An interface record is created with the function
+        <a href="#new_interface">W.new_interface</a>
+        or <a href="#copy_interface">W.copy_interface</a> and can be
+        destroyed
+        by <a href="#destroy_interface">W.destroy_interface</a>.
+      </p>
+      <p>
+        Every interface record has the following variables:
+      </p>
+      <h6>int type</h6>
+      <p>
+        How the interface should be rendered. If it's a positive
+        integer, then it's the number of the shader which will render
+        the interface in the screen. It can also have the
+        value <tt>W_INTERFACE_SQUARE</tt> (if it should be rendered as
+        a solid rectangle) or <tt>W_INTERFACE_PERIMETER</tt> (if it
+        should be rendered as the perimeter of a rectangle).
+      </p>
+      <h6>int integer</h6>
+      <p>
+        An integer which will be passed to the shader. You have
+        freedom to change and use this value as you wish in your
+        shaders. Weaver sets this variable as 0 in the initialization
+        and never changes it again. The built-in shaders never uses
+        this variable.
+      </p>
+      <h6>float x, y <img class="icon" src="images/read_only.png"
+                 width="25px" height="25px" title="Read-only"></h6>
+      <p>
+        The interface position in the screen. The interface position
+        is defined as the position of the interface's central
+        pixel. The bottom left position in the window is the position
+        x=0.0, y=0.0. The upper right position in the screen in the
+        window is the position
+        x=(float)<a href="#width">W.width</a>-1,
+        y=(float)<a href="#height">W.height</a>-1.
+      </p>
+      <p>
+        If you want to change an interface position, don't try to set
+        directly it's <tt>x</tt> and <tt>y</tt> variable. Use the
+        function <a href="#move_interface">W.move_interface</a>
+        instead.
+      </p>
+      <h6>float rotation <img class="icon" src="images/read_only.png"
+                 width="25px" height="25px" title="Read-only"></h6>
+      <p>
+        This is the angle in which the interface is rotated counter
+        clockwise in radians.
+      </p>
+      <p>
+        If you want to change an interface rotation, don't try to set
+        directly it's <tt>rotation</tt> variable. Use the
+        function <a href="#rotate_interface">W.rotate_interface</a>
+        instead.
+      </p>
+      <h6>float r, g, b, a</h6>
+      <p>
+        These variables are passed as the color in the
+        shader. Built-in shaders will treat this value as the
+        interface color whem applicable. You can create custom shaders
+        which use these variables in different ways.
+      </p>
+      <h6>float width, height <img class="icon" src="images/read_only.png"
+                 width="25px" height="25px" title="Read-only"></h6>
+      <p>
+        This is the interface width and height in pixels.
+      </p>
+      <p>
+        If you want to change an interface size, don't try to set
+        directly it's <tt>width</tt> and <tt>height</tt>
+        variables. Use the
+        function <a href="#resize_interface">W.resize_interface</a>
+        instead.
+      </p>
+      <h6>bool visible</h6>
+      <p>
+        This variable sets if the interface is visible and should be
+        rendered or if it's invisible. This is set as true by default.
+      </p>
+      <h6>bool stretch_x, stretch_y</h6>
+      <p>
+        This variable sets if the interface should be stretched or
+        shrinked is the window changes it's size. This is set as false
+        by default.
+      </p>
+      <h4 id="interface_functions">Interface Functions</h4>
+      <h5 id="destroy_interface">bool W.destroy_interface(struct
+        interface *i) <img class="icon" src="images/loop.png" width="25px"
+               height="25px" title="Main loop only"></h5>
+      <p>
+        This function destroys the interface passed as argument if we
+        are in the same main loop that the interface was created. Use
+        this function only if you need more space for new interfaces
+        in the current loop. Otherwise, let the garbage collector
+        erase interfaces not used anymore.
+      </p>
+      <p>
+        This function returns if the opperation was successful. If you
+        pass an invalid pointer or a pointer to an interface created
+        in another main loop, the function does nothing and returns
+        false.
+      </p>
+      <h5 id="new_interface">struct interface *W.new_interface(int
+        type, int x, int y, int width, int height, ...)
+        <img class="icon" src="images/loop.png" width="25px"
+               height="25px" title="Main loop only"></h5>
+      <p>
+        This function creates a
+        new <a href="#struct_interface">interface</a> record and
+        returns a pointer for it.
+      </p>
+      <p>
+        The arguments <tt>x</tt>, <tt>y</tt>, <tt>width</tt>
+        and <tt>height</tt> determines the initial position and size
+        of the interface in the screen. More arguments can be passed
+        depending of the interface type.
+      </p>
+      <p>
+        If type is a positive integer, then the interface will be
+        rendered using a custom shader created by you and idetified by
+        that number. No more arguments should be passed.
+      </p>
+      <p>
+        If type is <tt>W_INTERFACE_SQUARE</tt>
+        or <tt>W_INTERFACE_PERIMETER</tt>, then you must pass 4 more
+        values which represent the interface color. These 4 values
+        should be floating point numbers between 0.0 and 1.0 and they
+        represent the color RGBA value.
       </p>
     </div>
   </body>
