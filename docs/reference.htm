@@ -134,7 +134,10 @@
           <ol>
             <li><a href="#copy_interface">W.copy_interface</a></li>
             <li><a href="#destroy_interface">W.destroy_interface</a></li>
+            <li><a href="#move_interface">W.move_interface</a></li>
             <li><a href="#new_interface">W.new_interface</a></li>
+            <li><a href="#resize_interface">W.resize_interface</a></li>
+            <li><a href="#rotate_interface">W.rotate_interface</a></li>
           </ol>
         </ol>
       </ol>
@@ -929,6 +932,15 @@
         in another main loop, the function does nothing and returns
         false.
       </p>
+      <h5 id="move_interface"> void W.move_interface(struct interface
+        *i, float x, float y)</h5>
+      <p>
+        This function changes the interface position. It puts the
+        center of the interface in position (x, y) passed as argument,
+        where the bottom left corner of the window is position (0,0)
+        and the upper right corner is position
+        (<a href="#width">W.width</a>-1, <a href="#height">W.height</a>-1).
+      </p>
       <h5 id="new_interface">struct interface *W.new_interface(int
         type, int x, int y, int width, int height, ...)
         <img class="icon" src="images/loop.png" width="25px"
@@ -958,6 +970,19 @@
         values which represent the interface color. These 4 values
         should be floating point numbers between 0.0 and 1.0 and they
         represent the color RGBA value.
+      </p>
+      <h5 id="resize_interface">void W.resize_interface(struct
+        interface *i, float width, float height)</h5>
+      <p>
+        Resize an existing interface. It's width and height becames
+        the value passed as argument in pixels.
+      </p>
+      <h5 id="rotate_interface">void W.rotate_interface(struct
+        interface *i, float angle)</h5>
+      <p>
+        This function changes how the interface should be rotated
+        comparing with it's original position. The second argument is
+        the counter clockwise rotation angle in radians.
       </p>
     </div>
   </body>

@@ -467,13 +467,11 @@ E agora adicionamos tal função à estrutura |W|:
 @*2 Movendo, Redimencionando e Rotacionando Interfaces.
 
 Para mudarmos a cor de uma interface, nós podemos sempre mudar
-manualmente seus valores dentro da estrutura. Para mudar seu
-comportamento em relação ao mouse, podemos também atribuir manualmente
-as funções na estrutura. Mas para mudar a posição, não basta meramente
-mudar os seus valores $(x, y)$, pois precisamos também modificar
-variáveis internas que serão usadas pelo OpenGL durante a
-renderização. Então teremos que fornecer funções específicas para
-podermos movê-las.
+manualmente seus valores dentro da estrutura. Mas para mudar a
+posição, não basta meramente mudar os seus valores $(x, y)$, pois
+precisamos também modificar variáveis internas que serão usadas pelo
+OpenGL durante a renderização. Então teremos que fornecer funções
+específicas para podermos movê-las.
 
 Para mudar a posição de uma interface usaremos a função:
 
@@ -811,8 +809,8 @@ Assim, na inicialização de uma nova interface, a matriz é preenchida:
     sine = sinf(_interfaces[_number_of_loops][i].rotation);
     x1 = (2.0 *((float) _interfaces[_number_of_loops][i].x /
                 (float) W.width)) - 1.0;
-    y1 = -((2.0 *((float) _interfaces[_number_of_loops][i].y /
-                  (float) W.height)) - 1.0);
+    y1 = (2.0 *((float) _interfaces[_number_of_loops][i].y /
+                  (float) W.height)) - 1.0;
     _interfaces[_number_of_loops][i]._transform_matrix[0] = nx * cosine /
                (float) W.width;
     _interfaces[_number_of_loops][i]._transform_matrix[4] = -(ny * sine) /
@@ -843,7 +841,7 @@ temos que mudar duas posições da matriz na última coluna:
 {
     float x1, y1;
     x1 = (2.0 *((float) inter -> x / (float) W.width)) - 1.0;
-    y1 = -((2.0 *((float) inter -> y / (float) W.height)) - 1.0);
+    y1 = (2.0 *((float) inter -> y / (float) W.height)) - 1.0;
     inter -> _transform_matrix[12] = x1;
     inter -> _transform_matrix[13] = y1;
 }
