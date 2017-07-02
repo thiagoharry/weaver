@@ -132,6 +132,7 @@
           <li><a href="#interface_functions">Interface
               Functions</a></li>
           <ol>
+            <li><a href="#copy_interface">W.copy_interface</a></li>
             <li><a href="#destroy_interface">W.destroy_interface</a></li>
             <li><a href="#new_interface">W.new_interface</a></li>
           </ol>
@@ -893,6 +894,25 @@
         by default.
       </p>
       <h4 id="interface_functions">Interface Functions</h4>
+      <h5 id="copy_interface">struct interface
+        *W.copy_interface(struct interface *i)<img class="icon"
+        src="images/loop.png" width="25px" height="25px" title="Main
+        loop only"></h5>
+      <p>
+        This function creates a
+        new <a href="#struct_interface">interface record</a> which is
+        a copy of the interface record pointed by the argument. It
+        returns a pointer for the new interface record created. If
+        some error happened (you can't create more interfaces in this
+        main loop because
+        of <a href="configuring.htm#W_MAX_INTERFACES">W_MAX_INTERFACES</a>
+        or the creation of some mutex failed), this function returns NULL.
+      </p>
+      <p>
+        The interface passed as argument can be an interface created
+        in another main loop. But the new interface created will be
+        created in the current main loop.
+      </p>
       <h5 id="destroy_interface">bool W.destroy_interface(struct
         interface *i) <img class="icon" src="images/loop.png" width="25px"
                height="25px" title="Main loop only"></h5>
@@ -916,7 +936,10 @@
       <p>
         This function creates a
         new <a href="#struct_interface">interface</a> record and
-        returns a pointer for it.
+        returns a pointer for it. In case of error (you can't create
+        more interfaces in the current main loop because of
+        <a href="#W_MAX_INTERFACES">W_MAX_INTERFACES</a> or the
+        creation of some mutex failed), this function returns NULL.
       </p>
       <p>
         The arguments <tt>x</tt>, <tt>y</tt>, <tt>width</tt>

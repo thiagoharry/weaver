@@ -274,6 +274,7 @@ struct interface *_new_interface(int type, int x, int y, int width,
                                   int height, ...){
     int i;
     va_list valist;
+    struct interface *new_interface = (struct interface *) 1;
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(&_interface_mutex);
 #endif
@@ -282,55 +283,61 @@ struct interface *_new_interface(int type, int x, int y, int width,
         if(_interfaces[_number_of_loops][i].type == W_NONE)
             break;
     if(i == W_MAX_INTERFACES){
-        fprintf(stderr, "ERROR (0): Not enough space for interfaces. Please, "
-                "increase the value of W_MAX_INTERFACES at conf/conf.h.\n");
-#ifdef W_MULTITHREAD
-        pthread_mutex_unlock(&_interface_mutex);
+#if W_DEBUG_LEVEL > 0
+      fprintf(stderr, "WARNING (1): Unable to create new interfaces. Please, "
+              "define W_MAX_INTERFACES as a value greater than %d at "
+              "conf/conf.h.\n", W_MAX_INTERFACES);
 #endif
-        Wexit();
+      new_interface = NULL;
     }
-    _interfaces[_number_of_loops][i].type = type;
-    _interfaces[_number_of_loops][i].visible = true;
-    _interfaces[_number_of_loops][i].integer = 0;
-    _interfaces[_number_of_loops][i].stretch_x = false;
-    _interfaces[_number_of_loops][i].stretch_y = false;
-    // Posição:
-    _interfaces[_number_of_loops][i].x = (float) x;
-    _interfaces[_number_of_loops][i].y = (float) y;
-    _interfaces[_number_of_loops][i].rotation = 0.0;
-    _interfaces[_number_of_loops][i].width = (float) width;
-    _interfaces[_number_of_loops][i].height = (float) height;
-    // Modo padrão de desenho de interface:
-    _interfaces[_number_of_loops][i]._mode = GL_TRIANGLE_FAN;
+    else{
+      _interfaces[_number_of_loops][i].type = type;
+      _interfaces[_number_of_loops][i].visible = true;
+      _interfaces[_number_of_loops][i].integer = 0;
+      _interfaces[_number_of_loops][i].stretch_x = false;
+      _interfaces[_number_of_loops][i].stretch_y = false;
+      // Posição:
+      _interfaces[_number_of_loops][i].x = (float) x;
+      _interfaces[_number_of_loops][i].y = (float) y;
+      _interfaces[_number_of_loops][i].rotation = 0.0;
+      _interfaces[_number_of_loops][i].width = (float) width;
+      _interfaces[_number_of_loops][i].height = (float) height;
+      // Modo padrão de desenho de interface:
+      _interfaces[_number_of_loops][i]._mode = GL_TRIANGLE_FAN;
 #ifdef W_MULTITHREAD
-    if(pthread_mutex_init(&(_interfaces[_number_of_loops][i]._mutex),
-                          NULL) != 0){
+      if(pthread_mutex_init(&(_interfaces[_number_of_loops][i]._mutex),
+                            NULL) != 0){
+        _interfaces[_number_of_loops][i].type = W_NONE;
         perror("Initializing interface mutex:");
-        Wexit();
-    }
+        new_interface = NULL;
+      }
 #endif
-    switch(type){
-    case W_INTERFACE_PERIMETER:
-        _interfaces[_number_of_loops][i]._mode = GL_LINE_LOOP;
-        // Realmente não precisa de um 'break' aqui.
-    case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor
-        va_start(valist, height);
-        _interfaces[_number_of_loops][i].r = va_arg(valist, double);
-        _interfaces[_number_of_loops][i].g = va_arg(valist, double);
-        _interfaces[_number_of_loops][i].b = va_arg(valist, double);
-        _interfaces[_number_of_loops][i].a = va_arg(valist, double);
-        va_end(valist);
-        //@<Interface: Leitura de Argumentos e Inicialização@>
-        break;
-    default:
-      ;
+      if(new_interface != NULL){
+        switch(type){
+        case W_INTERFACE_PERIMETER:
+          _interfaces[_number_of_loops][i]._mode = GL_LINE_LOOP;
+          // Realmente não precisa de um 'break' aqui.
+        case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor
+          va_start(valist, height);
+          _interfaces[_number_of_loops][i].r = va_arg(valist, double);
+          _interfaces[_number_of_loops][i].g = va_arg(valist, double);
+          _interfaces[_number_of_loops][i].b = va_arg(valist, double);
+          _interfaces[_number_of_loops][i].a = va_arg(valist, double);
+          va_end(valist);
+          //@<Interface: Leitura de Argumentos e Inicialização@>
+          break;
+        default:
+          ;
+        }
+        @<Preenche Matriz de Transformação de Interface na Inicialização@>
+        @<Código logo após criar nova interface@>
+        new_interface = &(_interfaces[_number_of_loops][i]);
+      }
     }
-    @<Preenche Matriz de Transformação de Interface na Inicialização@>
-    @<Código logo após criar nova interface@>
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_interface_mutex);
 #endif
-    return &(_interfaces[_number_of_loops][i]);
+    return new_interface;
 }
 @
 
@@ -356,29 +363,29 @@ bool _destroy_interface(struct interface *inter);
 @
 @<Interface: Definições@>=
 bool _destroy_interface(struct interface *inter){
-    int i;
-    // Só iremos remover uma dada interface se ela pertence ao loop atual:
-    for(i = 0; i < W_MAX_INTERFACES; i ++)
-        if(&(_interfaces[_number_of_loops][i]) == inter)
-            break;
-    if(i == W_MAX_INTERFACES)
-        return false; // Não encontrada
-    switch(_interfaces[_number_of_loops][i].type){
+  int i;
+  // Só iremos remover uma dada interface se ela pertence ao loop atual:
+  for(i = 0; i < W_MAX_INTERFACES; i ++)
+    if(&(_interfaces[_number_of_loops][i]) == inter && inter -> type != W_NONE)
+      break;
+  if(i == W_MAX_INTERFACES)
+    return false; // Não encontrada
+  switch(_interfaces[_number_of_loops][i].type){
     //@<Desaloca Interfaces de Vários Tipos@>
-    case W_INTERFACE_SQUARE:
-    case W_INTERFACE_PERIMETER:
-    case W_NONE:
-    default: // Nos casos mais simples é só remover o tipo
-        _interfaces[_number_of_loops][i].type = W_NONE;
-    }
-    @<Código ao Remover Interface@>
+  case W_INTERFACE_SQUARE:
+  case W_INTERFACE_PERIMETER:
+  case W_NONE:
+  default: // Nos casos mais simples é só remover o tipo
+    _interfaces[_number_of_loops][i].type = W_NONE;
+  }
+  @<Código ao Remover Interface@>
 #ifdef W_MULTITHREAD
-    if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex)) != 0){
-        perror("Error destroying mutex from interface:");
-        Wexit();
-    }
+  if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex)) != 0){
+    perror("Error destroying mutex from interface:");
+    Wexit();
+  }
 #endif
-    return true;
+  return true;
 }
 @
 
@@ -411,25 +418,36 @@ struct interface *_copy_interface(struct interface *inter);
 @<Interface: Definições@>=
 struct interface *_copy_interface(struct interface *inter){
   int i;
-  struct interface *new_interface;
+  struct interface *new_interface = (struct interface *) 1;
 #ifdef W_MULTITHREAD
-    pthread_mutex_lock(&_interface_mutex);
+  pthread_mutex_lock(&_interface_mutex);
 #endif
-    // Vamos encontrar no pool de interfaces um espaço vazio:
-    for(i = 0; i < W_MAX_INTERFACES; i ++)
-        if(_interfaces[_number_of_loops][i].type == W_NONE)
-            break;
-    if(i == W_MAX_INTERFACES){
-        fprintf(stderr, "ERROR (0): Not enough space for interfaces. Please, "
-                "increase the value of W_MAX_INTERFACES at conf/conf.h.\n");
-#ifdef W_MULTITHREAD
-        pthread_mutex_unlock(&_interface_mutex);
+  // Vamos encontrar no pool de interfaces um espaço vazio:
+  for(i = 0; i < W_MAX_INTERFACES; i ++)
+    if(_interfaces[_number_of_loops][i].type == W_NONE)
+      break;
+  if(i == W_MAX_INTERFACES){
+#if W_DEBUG_LEVEL > 0
+    fprintf(stderr, "WARNING (1): Not enough space for interfaces. Please, "
+            "increase the value of W_MAX_INTERFACES at conf/conf.h.\n");
 #endif
-        Wexit();
-    }
+    new_interface = NULL;
+  }
+  else{
     // Espaço vazio encontrado. Se estamos aqui, este espaço é a posição i
     new_interface = &(_interfaces[_number_of_loops][i]);
     memcpy(new_interface, inter, sizeof(struct interface));
+    // Se existir um mutex, não podemos meramente copiar ele com o
+    // memcpy:
+#ifdef W_MULTITHREAD
+    if(pthread_mutex_init(&(_interfaces[_number_of_loops][i]._mutex),
+                          NULL) != 0){
+      _interfaces[_number_of_loops][i].type = W_NONE;
+      perror("Initializing interface mutex:");
+      new_interface = NULL;
+    }
+#endif
+  }
 #ifdef W_MULTITHREAD
     pthread_mutex_unlock(&_interface_mutex);
 #endif
