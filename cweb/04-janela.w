@@ -385,7 +385,10 @@ evento de sua criação. Quando formos notificados do evento, pedimos
 para que a janela receba foco, mas que devolva o foco para a
 janela-mãe quando terminar de executar. Ajustamos o nome que aparecerá
 na barra de título do programa. E se nosso programa tiver várias
-threads, avisamos o Xlib disso:
+threads, avisamos o Xlib disso. por fim, podemos verificar com qual
+tamanho a nossa janela foi criada (o gerenciador de janelas pode ter
+desobedecido o nosso pedido de criar uma janela com um tamanho
+específico).
 
 @<Janela: Inicialização@>+=
   XMapWindow(_dpy, _window);
@@ -397,6 +400,18 @@ threads, avisamos o Xlib disso:
     }
   }
   XSetInputFocus(_dpy, _window, RevertToParent, CurrentTime);
+  { // Obtendo características verdadeiras da janela, que podem ser
+    // diferentes daquelas que pedimos para ela ter
+    int x_return, y_return;
+    unsigned int width_return, height_return, dummy_border, dummy_depth;
+    Window dummy_window;
+    XGetGeometry(_dpy, _window, &dummy_window, &x_return, &y_return, &width_return,
+                 &height_return, &dummy_border, &dummy_depth);
+    W.width = width_return;
+    W.height = height_return;
+    W.x = x_return + W.width / 2;
+    W.y = W.resolution_y - y_return - W.height / 2;
+  }
 #ifdef W_PROGRAM_NAME
   XStoreName(_dpy, _window, W_PROGRAM_NAME);
 #else
