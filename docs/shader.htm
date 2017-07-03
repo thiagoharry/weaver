@@ -1,0 +1,123 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Using Custom Shaders</title>
+    <link rel="stylesheet" href="weaver.css">
+  </head>
+  <body>
+    <header>
+      <h1><a href="index.htm">Weaver: A Game Engine for GNU/Linux</a></h1>
+      <span class="menu">
+        <a href="documentation.htm">Documentation</a>
+        <a href="tutorial.htm">Tutorial</a>
+        <a href="examples.htm">Examples</a>
+        <a href="download.htm">Download</a>
+      </span>
+    </header>
+    <div class="docs">
+      <h2>Using Custom Shaders</h2>
+      <p>
+        Shaders are computer programs which doesn't run in your
+        computer CPU, but in the computer GPU, or video graphics
+        card. These programs compute every vertex position and pixel
+        color you see in the screen. If you create any interface in
+        your Weaver program, you are using shaders.
+      </p>
+      <p>
+        If your game is made of very simple elements, like solid
+        rectangles, you won't need o create a custom shader. But if
+        you wish to show advanced visual effects to give for your game
+        some unique visual identity, you will need to create custom
+        shaders.
+      </p>
+      <h3>Creating a New Shader</h3>
+      <p>
+        If you want to use a custom shader, first create it using the
+        following command inside a Weaver directory:
+      </p>
+      <pre class="terminal">
+weaver --shader SHADER_NAME</pre>
+      <p>
+        Where SHADER_NAME is your shader name. A shader name can
+        countain any alphanumeric character. After using this command,
+        check the directory <tt>shaders/</tt>. You should find a new
+        directory called <tt>shaders/1-SHADER_NAME/</tt>. Or perhaps,
+        instead of "1", you find another number before your shader
+        name. This is your shader's id number and it's how you will
+        identify this shader in your program.
+      </p>
+      <h3>Using the New Shader in an Interface</h3>
+      <p>
+        To create a
+        new <a href="reference.htm#struct_interface">interface</a>
+        which will use your custom shader, just
+        call <a href="reference.htm#new_interface">W.new_interface</a>,
+        passing the shader id number as the first argument. For
+        example:
+      </p>
+      <pre class="codigo">
+W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height);</pre>        
+      <p>
+        This creates a new interface as big as your game window which
+        will render using your brand new shader. If you want to make
+        an existing interface render in the screen with the new
+        shader, just change it's <tt>type</tt> variable/attribute.
+      </p>
+      <p>
+        If you look inside the
+        directory <tt>shaders/1-SHADER_NAME/</tt>, you will discover
+        that your new shader is in fact two shaders. One is a vertex
+        shader (in the file <tt>vertex.glsl</tt>) and the other is a
+        fragment shader (in the file <tt>fragment.glsl</tt>). The
+        first will be run in parallel once for each vertex drawn in
+        your game every frame. The second will be run in parallel once
+        for each pixel drawn in your game every frame.
+      </p>
+      <p>
+        The two shaders are written in the language GLSL, which is
+        very similar to C. Teaching how to program in GLSL is out of
+        scope of this page. But you can find lot of examples,
+        tutorials and documentation in books and in the Internet. But
+        we will document below what variables these shaders get from
+        your game.
+      </p>
+      <h3>Shader Variables</h3>
+      <h4>Global Uniform Variables</h4>
+      <p>
+        This is a list of variables that both the vertex shader and
+        the fragment shader get from your main program:
+      </p>
+      <h5>uniform vec4 integer</h5>
+      <p>
+        An arbitrary integer which you can set in your game and use as
+        you wish in your shaders.  If you are rendering
+        an <a href="reference.htm#struct_interface">interface</a>, you
+        can set this value in the <tt>integer</tt>
+        variable/attribute. If you are rendering the entire screen in
+        a 2-pass rendering, you can set this number in the variable
+        <a href="reference.htm#final_shader_integer">W.final_shader_integer</a>.
+      </p>
+      <h5>uniform vec4 object_color</h5>
+      <p>
+        If you are rendering
+        an <a href="reference.htm#struct_interface">interface</a>,
+        this is the interface color represented by it's
+        variable/attribute <tt>r</tt>, <tt>g</tt>, <tt>b</tt>
+        and <tt>a</tt>. For other elements, this value is undefined.
+      </p>
+      <h5>uniform vec2 object_size</h5>
+      <p>
+        If you are rendering
+        an <a href="reference.htm#struct_interface">interface</a>,
+        this is the interface width and height in pixels. If you are
+        rendering the game screen (if you use 2 pass rendering), this
+        is your window width and height.
+      </p>
+      <h5>uniform float time</h5>
+      <p>
+        This is the time in seconds since the beginning of the game.
+      </p>
+    </div>
+  </body>
+</html>

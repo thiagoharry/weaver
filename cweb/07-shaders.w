@@ -296,6 +296,11 @@ struct interface *_new_interface(int type, int x, int y, int width,
       _interfaces[_number_of_loops][i].integer = 0;
       _interfaces[_number_of_loops][i].stretch_x = false;
       _interfaces[_number_of_loops][i].stretch_y = false;
+      // Por padrão vamos deixar as interfaces brancas:
+      _interfaces[_number_of_loops][i].r = 1.0;
+      _interfaces[_number_of_loops][i].g = 1.0;
+      _interfaces[_number_of_loops][i].b = 1.0;
+      _interfaces[_number_of_loops][i].a = 1.0;
       // Posição:
       _interfaces[_number_of_loops][i].x = (float) x;
       _interfaces[_number_of_loops][i].y = (float) y;
