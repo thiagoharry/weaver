@@ -348,10 +348,10 @@ A próxima coisa que fazemos é informar quais eventos devem ser
 notificados para nossa janela. No caso, queremos ser avisados quando
 um botão é pressionado, liberado, bem como botões do mouse, quando a
 janela é revelada ou tem o seu tamanho mudado e quando por algum
-motivo nossa janela perder o foco (o usuário talvez tenha pressionado
-um botão usado como tecla de atalho pelo gerenciador de janela, mas
-como o jogo estará rodando em tela cheia, não podemos deixar que isso
-ocorra).
+motivo nossa janela perder o foco estando em tela cheia (o usuário
+talvez tenha pressionado um botão usado como tecla de atalho pelo
+gerenciador de janela, mas como o jogo estará rodando em tela cheia,
+não podemos deixar que isso ocorra).
 
 E por fim, mudamos tais atributos na janela e fazemos o pedido para
 começarmos a ser notificados de quando houverem eventos de entrada:
@@ -849,41 +849,28 @@ W.move_window = &_Wmove_window;
 
 Agora vamos lidar com um problema específico do Xlib.
 
-E se a nossa janela perder o foco? Um gerenciador de janelas pode ter
-umaoperação associada com algumas sequencias de tecla tais como
-Alt+Tab ou com alguma tecla específica como a tecla Super (vulgo Tecla
-do Windows). Se o usuário aperta alguma destas combinações ou teclas
-especiais, o controle passa a ser do gerenciador de janelas. Mas se a
-nossa janela está em tela-cheia, ela continua neste estado, mas sem
-receber mais qualquer resposta do \italico{mouse} e teclado. Então o
-usuário fica preso, vendo a tela do jogo, mas sem poder interagir de
-modo a continuar o jogo ou encerrá-lo.
+E se a nossa janela perder o foco quando estivermos em tela cheia? Um
+gerenciador de janelas pode ter umaoperação associada com algumas
+sequencias de tecla tais como Alt+Tab ou com alguma tecla específica
+como a tecla Super (vulgo Tecla do Windows). Se o usuário aperta
+alguma destas combinações ou teclas especiais, o controle passa a ser
+do gerenciador de janelas. Mas se a nossa janela está em tela-cheia,
+ela continua neste estado, mas sem receber mais qualquer resposta do
+\italico{mouse} e teclado. Então o usuário fica preso, vendo a tela do
+jogo, mas sem poder interagir de modo a continuar o jogo ou
+encerrá-lo.
 
-Para evitar isso, se estivermos ocupando mais da metade da altura ou
-da largura da tela e perdermos o foco, não devemos permiir que isso
-ocorra e devemos voltar para o jogo. Caso nossa janela não seja muito
-grande, o melhor é permitir que ela perca o foco, pois não deverá ser
-um problema para o usuário voltar nela depois usando o gerenciador de
-janelas.
-
-Isso também nos permite lidar com o problema do usuário tentar usar um
-Alt+Tab para sair do jogo quando estivermos em tela-cheia, mas com uma
-resolução menor que o padrão. Neste aso é melhor que ele não veja a
-sua área de trabalho degradada visualmente com uma resolução menor que
-o normal.
+Eta linha de código irá prevenir este problema no caso de estarmos em
+tala cheia:
 
 @<API Weaver: Trata Evento Xlib@>=
+#if W_WIDTH == 0 && W_HEIGHT == 0
 if(event.type == FocusOut){
-  if(W.width > W.resolution_x / 2 ||
-     W.height > W.resolution_y / 2)
-    XSetInputFocus(_dpy, _window, RevertToParent, CurrentTime);
+  XSetInputFocus(_dpy, _window, RevertToParent, CurrentTime);
   continue;
 }
+#endif
 @
-
-Lembrando que se a nossa janela perder o foco, sempre podemos voltar
-até ela com um clique. Garantiremos isso no próximo capítulo quando
-tratarmos os eventos de entrada, tais como cliques de \italico{mouse}.
 
 @*1 Configurações Básicas OpenGL.
 
