@@ -151,6 +151,15 @@
             <li><a href="#change_final_shader">W.change_final_shader</a></li>
           </ol>
         </ol>
+        <li><a href="#sound">Sound</a></li>
+        <ol>
+          <li><a href="#sound_records">Sound Records</a></li>
+          <ol>
+            <li><a href="#struct_sound">struct sound</a></li>
+          </ol>
+          <li><a href="#sound_variables">Sound Variables</a></li>
+          <li><a href="#sound_functions">Sound Functions</a></li>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -1019,6 +1028,55 @@
         Please, ensure that you pass the id of an existing shader for
         this function. Passing an invalid id number is a fatal error.
       </p>
+      <h3 id="sound">Sound</h3>
+      <h4 id="sound_records">Sound Records</h4>
+      <h5 id="struct_sound">struct sound</h5>
+      <p>
+        This record stores information about sound effects in your
+        game. Not long audio like music, but small sound effects which
+        should be stored in memory for fast playing.
+      </p>
+      <p>
+        A sound record is defined roughly as:
+      </p>
+      <pre class="codigo">
+<span class="word">struct</span> <span class="tipo">sound</span>{
+  <span class="tipo">unsigned long</span> size;
+  <span class="tipo">int</span> channels, freq, bitrate;
+  <span class="tipo">bool</span> loaded;
+};</pre>
+      <p>
+        A new sound record is created by
+        function <a href="#new_sound">W.new_sound</a> and can be
+        destroyed by
+        function <a href="#destroy_sound">W.destroy_sound</a> (but if
+        you created a sound inside a main loop, you shoould let the
+        garbage collector destroy the record).
+      </p>
+      <p>
+        Every sound record has the following variables:
+      </p>
+      <h6>unsigned long size</h6>
+      <p>
+        The sound size in bytes.
+      </p>
+      <h6>int channels</h6>
+      <p>
+        The number of channels. If the sound in monoaural (1), stereo
+        (2) or have even more channels.
+      </p>
+      <h6>int freq</h6>
+      <p>
+        The sampling frequency. Usually it's value is 44100, because
+        it's the sampling frequency of Compact Disks.
+      </p>
+      <h6>int bitrate</h6>
+      <p>
+        The bit rate, or the number of bits per second that should be
+        converted to sound and played.
+      </p>
+      <h4 id="sound_variables">Sound Variables</h4>
+      <h4 id="sound_functions">Sound Functions</h4>
     </div>
   </body>
 </html>
