@@ -108,6 +108,10 @@ h2, h3, h4, h5, h6, p, pre, ul{
     margin-top: 20px;
 }
 
+div.docs ul{
+    margin-top: 0px;
+}
+
 li{
     margin-top: 0px;
 }

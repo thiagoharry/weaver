@@ -140,6 +140,17 @@
             <li><a href="#rotate_interface">W.rotate_interface</a></li>
           </ol>
         </ol>
+        <li><a href="#shader">Shaders</a></li>
+        <ol>
+          <li><a href="#shader_variables">Shader Variables</a></li>
+          <ol>
+            <li><a href="#final_shader_integer">W.final_shader_integer</a></li>
+          </ol>
+          <li><a href="#shader_functions">Shader Functions</a></li>
+          <ol>
+            <li><a href="#change_final_shader">W.change_final_shader</a></li>
+          </ol>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -983,6 +994,30 @@
         This function changes how the interface should be rotated
         comparing with it's original position. The second argument is
         the counter clockwise rotation angle in radians.
+      </p>
+      <h3 id="shader">Shaders</h3>
+      <h4 id="shader_variables">Shader Variables</h4>
+      <h5 id="final_shader_integer">int W.final_shader_integer</h5>
+      <p>
+        If you enable 2-pass rendering, where you first render your
+        game to a texture, and then use a custom shader to render it
+        in the screen
+        using <a href="#change_final_shader">W.change_final_shader</a>,
+        then you can set this variable to pass any integer you wish
+        for this custom shader.
+      </p>
+      <h4 id="shader_functions">Shader Functions</h4>
+      <h5 id="change_final_shader">void W.change_final_shader(int
+        shader_id)</h5>
+      <p>
+        This function activate the 2-pass rendering, where you first
+        render all your game to a texture, and then render it to the
+        screen with a custom shader, whose id number you pass as
+        argument for this function.
+      </p>
+      <p>
+        Please, ensure that you pass the id of an existing shader for
+        this function. Passing an invalid id number is a fatal error.
       </p>
     </div>
   </body>

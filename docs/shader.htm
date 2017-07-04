@@ -31,7 +31,32 @@
         some unique visual identity, you will need to create custom
         shaders.
       </p>
-      <h3>Creating a New Shader</h3>
+      <h3>Index</h3>
+      <ul>
+        <li><a href="#creating">Creating a New Shader</a></li>
+        <li><a href="#using">Using the New Shader in an Interface</a></li>
+        <li><a href="#variables">Shader Variables</a></li>
+        <ul>
+          <li><a href="#global">Global Uniform Variables</a></li>
+          <ul>
+            <li><a href="#integer">integer</a></li>
+            <li><a href="#object_color">object_color</a></li>
+            <li><a href="#object_size">object_size</a></li>
+            <li><a href="#time">time</a></li>
+          </ul>
+          <li><a href="#vertex">Vertex Shader Variables</a></li>
+          <ul>
+            <li><a href="#model_view_matrix">model_view_matrix</a></li>
+            <li><a href="#vertex_position">vertex_position</a></li>
+          </ul>
+          <li><a href="#fragment">Fragment Shader Variables</a></li>
+          <ul>
+            <li><a href="#texture1">texture1</a></li>
+          </ul>
+        </ul>
+        <li><a href="#2pass">Using 2-Pass Rendering</a></li>
+      </ul>
+      <h3 id="creating">Creating a New Shader</h3>
       <p>
         If you want to use a custom shader, first create it using the
         following command inside a Weaver directory:
@@ -40,14 +65,15 @@
 weaver --shader SHADER_NAME</pre>
       <p>
         Where SHADER_NAME is your shader name. A shader name can
-        countain any alphanumeric character. After using this command,
-        check the directory <tt>shaders/</tt>. You should find a new
-        directory called <tt>shaders/1-SHADER_NAME/</tt>. Or perhaps,
-        instead of "1", you find another number before your shader
-        name. This is your shader's id number and it's how you will
-        identify this shader in your program.
+        countain any alphanumeric character and shouldn't begin with a
+        digit. After using this command, check the
+        directory <tt>shaders/</tt>. You should find a new directory
+        called <tt>shaders/1-SHADER_NAME/</tt>. Or perhaps, instead of
+        "1", you find another number before your shader name. This is
+        your shader's id number and it's how you will identify this
+        shader in your program.
       </p>
-      <h3>Using the New Shader in an Interface</h3>
+      <h3 id="using">Using the New Shader in an Interface</h3>
       <p>
         To create a
         new <a href="reference.htm#struct_interface">interface</a>
@@ -82,13 +108,13 @@ W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height);</pre>
         we will document below what variables these shaders get from
         your game.
       </p>
-      <h3>Shader Variables</h3>
-      <h4>Global Uniform Variables</h4>
+      <h3 id="variables">Shader Variables</h3>
+      <h4 id="global">Global Uniform Variables</h4>
       <p>
         This is a list of variables that both the vertex shader and
         the fragment shader get from your main program:
       </p>
-      <h5>uniform vec4 integer</h5>
+      <h5 id="integer">uniform vec4 integer</h5>
       <p>
         An arbitrary integer which you can set in your game and use as
         you wish in your shaders.  If you are rendering
@@ -98,7 +124,7 @@ W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height);</pre>
         a 2-pass rendering, you can set this number in the variable
         <a href="reference.htm#final_shader_integer">W.final_shader_integer</a>.
       </p>
-      <h5>uniform vec4 object_color</h5>
+      <h5 id="object_color">uniform vec4 object_color</h5>
       <p>
         If you are rendering
         an <a href="reference.htm#struct_interface">interface</a>,
@@ -106,7 +132,7 @@ W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height);</pre>
         variable/attribute <tt>r</tt>, <tt>g</tt>, <tt>b</tt>
         and <tt>a</tt>. For other elements, this value is undefined.
       </p>
-      <h5>uniform vec2 object_size</h5>
+      <h5 id="object_size">uniform vec2 object_size</h5>
       <p>
         If you are rendering
         an <a href="reference.htm#struct_interface">interface</a>,
@@ -114,9 +140,60 @@ W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height);</pre>
         rendering the game screen (if you use 2 pass rendering), this
         is your window width and height.
       </p>
-      <h5>uniform float time</h5>
+      <h5 id="time">uniform float time</h5>
       <p>
         This is the time in seconds since the beginning of the game.
+      </p>
+      <h4 id="vertex">Vertex Shader Variables</h4>
+      <p>
+        This is a list of variables accessible only in the vertex
+        shader:
+      </p>
+      <h5 id="vertex_position">attribute vec3 vertex_position</h5>
+      <p>
+        The vertex coordinates before any movement, rotation or
+        resize. An <a href="#reference.htm#struct_interface">interface</a>
+        or a screen in 2-pass rendering always are quads with
+        coordinates (-0.5, -0.5), (-0.5, 0.5), (0.5, 0.5) and (0.5,
+        -0.5).
+      </p>
+      <h5 id="model_view_matrix">uniform mat4 model_view_matrix</h5>
+      <p>
+        The matrix to multiply each vertex position to make it appear
+        in the screen taking into account the window size, the object
+        rotation, the object size and the object translation.
+      </p>
+      <h4 id="fragment">Fragment Shader Variables</h4>
+      <p>
+        This is a list of variables accessible only in the fragment
+        shader:
+      </p>
+      <h5 id="texture1">uniform sampler2D texture1</h5>
+      <p>
+        The object texture. If you are rendering the screen in a
+        2-pass rendering, this texture was the image rendered in the
+        first pass.
+      </p>
+      <h3 id="2pass">Using 2-Pass Rendering</h3>
+      <p>
+        Use a 2-pass rendering means instead of render all your game
+        and interfaces in the window, you first render to a texture,
+        and then render the texture in the screen. This means that
+        when you finally are drawing in the screen, you already have a
+        texture which tells you all about the scene yu are rendering.
+      </p>
+      <p>
+        You can then create a new shader to render the game in the
+        screen with post-processing effects. You can use tricks like
+        blurring or distorting your final image in the screen.
+      </p>
+      <p>
+        To enable a 2-pass rendering, just use the function
+        <a href="reference.htm#change_final_shader">W.change_final_shader</a>,
+        passing the id number of the shader which should render your
+        final image in the screen. You can also pass an integer for
+        this shader, setting the
+        variable <a href="reference.htm#final_shader_integer">W.final_shader_integer</a>.
       </p>
     </div>
   </body>

@@ -414,11 +414,11 @@ fazer é associar a última etapa de renderização com um dos shaders
 personalizados:
 
 @<Shaders: Declarações@>+=
-void _change_shader(int type);
+void _change_final_shader(int type);
 @
 
 @<Shaders: Definições@>+=
-void _change_shader(int type){
+void _change_final_shader(int type){
     _use_non_default_render = true;
     _custom_final_shader = type;
 }
@@ -427,10 +427,10 @@ void _change_shader(int type){
 E adicionando à estrutura |W|:
 
 @<Funções Weaver@>+=
-void (*change_shader)(int);
+void (*change_final_shader)(int);
 @
 @<API Weaver: Inicialização@>+=
-  W.change_shader = &_change_shader;
+  W.change_final_shader = &_change_final_shader;
 @
 
 
@@ -466,7 +466,7 @@ E está feito!
 do jogo para os valores passados como argumento, que correspondem
 respectivamente à resolução horizontal e vertical.
 
-\macrovalor|void W.change_shader(int shader)|: Faz com que a imagem
+\macrovalor|void W.change_final_shader(int shader)|: Faz com que a imagem
 final, antes de ser passada para a tela passe por um shader
 intermediário representado pelo valor indicado.
 
