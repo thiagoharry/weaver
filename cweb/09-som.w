@@ -55,6 +55,7 @@ iremos inserir também o cabeçalho OpenAL.
 #include <string.h> // strrchr
 #include <sys/stat.h> //mkdir
 #include <sys/types.h> //mkdir
+#include <time.h> // nanosleep
 #ifdef W_MULTITHREAD
 #include <sched.h>
 #include <pthread.h>
@@ -1112,7 +1113,47 @@ void (*play_sound)(struct sound *);
 @
 
 Remover o som criado pode ser deixado á cargo do nosso coletor de
-lixo, então nenhuma função de desalocação precisa ser criada.
+lixo, então geralmente não precisaremos de uma função de
+desalocação. Mas para o caso específico de um som ter sido lido fora
+de um loop principal, ou se o usuário realmente quiser, forneceremos
+uma função para isso:
+
+@<Som: Declarações@>+=
+void _destroy_sound(struct sound *snd);
+@
+
+@<Som: Definições@>+=
+void _destroy_sound(struct sound *snd){
+  // Desalocar um som envolce desalocar o seu dado sonoro (sua
+  // variável _data) e desalocar a própria estrutura de som. Mas antes
+  // de podermos fazer isso, precisamos esperar que o som já tenha
+  // sido carregado:
+  while(snd -> loaded == false && W.pending_files > 0){
+#ifdef W_MULTITHREAD
+    sched_yield();
+#elif W_TARGET == W_ELF
+    {
+      struct timespec t;
+      t.sec = 0;
+      t.usec = 1000;
+      nanosleep(t, NULL);
+    }
+#elif W_TARGET == W_WEB
+    emscripten_sleep(1);
+#endif
+  }
+  // Ok, podemos desalocar:
+  Wfree(snd -> data);
+  Wfree(snd);
+}
+@
+
+@<Funções Weaver@>+=
+void (*destroy_sound)(struct sound *);
+@
+@<API Weaver: Inicialização@>+=
+  W.destroy_sound = &_destroy_sound;
+@
 
 @*1 Lendo nos arquivos de áudio em threads.
 
@@ -1516,3 +1557,6 @@ corretamente um áudio.
 \macrovalor|bool W.play_sound(struct sound *snd)|:
 Toca um som representado por uma estrutura de som. Em seguida retorna
 se foi possível tocar o som com sucesso.
+
+\macrovalor|void W.destroy_sound(struct sound *snd)|:
+Desaloca um som alocado com |W.new_sound|.

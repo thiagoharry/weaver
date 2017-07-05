@@ -46,6 +46,7 @@
           <ol>
             <li><a href="#W">W</a></li>
             <li><a href="#game">W.game</a></li>
+            <li><a href="#pending_files">W.pending_files</a></li>
             <li><a href="#t">W.t</a></li>
             <li><a href="#dt">W.dt</a></li>
           </ol>
@@ -158,7 +159,19 @@
             <li><a href="#struct_sound">struct sound</a></li>
           </ol>
           <li><a href="#sound_variables">Sound Variables</a></li>
+          <ol>
+            <li><a href="#number_of_sound_devices">W.number_of_sound_devices</a>
+            </li>
+            <li><a href="#sound_device_name">W.sound_device_name</a></li>
+          </ol>
           <li><a href="#sound_functions">Sound Functions</a></li>
+          <ol>
+            <li><a href="#current_sound_device">W.current_sound_device</a></li>
+            <li><a href="#destroy_sound">W.destroy_sound</a></li>
+            <li><a href="#new_sound">W.new_sound</a></li>
+            <li><a href="#play_sound">W.play_sound</a></li>
+            <li><a href="#select_sound_device">W.select_sound_device</a></li>
+          </ol>
         </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
@@ -192,6 +205,17 @@
         user-defined struct is a way to store your game's global
         variables and also where you put data that should be
         accessible for plugins.
+      </p>
+      <h5 id="pending_files">unsigned int
+             W.pending_files<img class="icon"
+             src="images/read_only.png" width="25px" height="25px"
+                                 title="Read-only"></h5>
+      <p>
+        When you ask to Weaver open some kind of files like sound
+        effect files, sometimes it opens and reads the file in a
+        parallel thread, even when you compile your game to a web
+        browser. This variable holds how many files Weaver is still
+        reading.
       </p>
       <h5 id="t">unsigned long long W.t <img class="icon"
              src="images/read_only.png" width="25px" height="25px"
@@ -1050,33 +1074,142 @@
         function <a href="#new_sound">W.new_sound</a> and can be
         destroyed by
         function <a href="#destroy_sound">W.destroy_sound</a> (but if
-        you created a sound inside a main loop, you shoould let the
+        you created a sound inside a main loop, you should let the
         garbage collector destroy the record).
       </p>
       <p>
         Every sound record has the following variables:
       </p>
-      <h6>unsigned long size</h6>
+      <h6>unsigned long size<img class="icon"
+                 src="images/read_only.png" width="25px" height="25px"
+                 title="Read-only"></h6>
       <p>
         The sound size in bytes.
       </p>
-      <h6>int channels</h6>
+      <h6>int channels<img class="icon" src="images/read_only.png" width="25px"
+                 height="25px" title="Read-only"></h6>
       <p>
         The number of channels. If the sound in monoaural (1), stereo
         (2) or have even more channels.
       </p>
-      <h6>int freq</h6>
+      <h6>int freq<img class="icon" src="images/read_only.png" width="25px"
+                 height="25px" title="Read-only"></h6>
       <p>
         The sampling frequency. Usually it's value is 44100, because
         it's the sampling frequency of Compact Disks.
       </p>
-      <h6>int bitrate</h6>
+      <h6>int bitrate<img class="icon" src="images/read_only.png" width="25px"
+                 height="25px" title="Read-only"></h6>
       <p>
         The bit rate, or the number of bits per second that should be
         converted to sound and played.
       </p>
+      <h6>bool loaded<img class="icon" src="images/read_only.png" width="25px"
+                 height="25px" title="Read-only"></h6>
+      <p>
+        If the sound was properly loaded or not. If this variable is
+        false, it means that Weaver still is loading the sound
+        asynchronously. Or the code which should load the sound
+        asynchronously failed for some reason and the sound won't
+        load. You can try to play the sound
+        with <a href="#play_sound">W.play_sound</a>, but this function
+        will fail silenly when asked to play a non-loaded sound.
+      </p>
+      <p>
+        You can check the value of the
+        variable <a href="#pending_files">W.pending_files</a> if you
+        want to know if Weaver still is loading your files. If it's
+        value is 0, it means that Weaver isn't loading any file and if
+        your sound have the variable <tt>loaded</tt> set as false,
+        then the loading failed.
+      </p>
       <h4 id="sound_variables">Sound Variables</h4>
+      <h5 id="number_of_sound_devices">int
+        W.number_of_sound_devices<img class="icon"
+        src="images/read_only.png" width="25px" height="25px"
+        title="Read-only"></h5>
+      <p>
+        This variable holds the number of detected sound devices in
+        your system. It's useful to know the size of the
+        array <a href="#sound_device_name">W.sound_device_name</a> and
+        to know which values you can pass to
+        function <a href="#select_sound_device">W.select_sound_device</a>.
+      </p>
+      <h5 id="sound_device_name">char*
+        W.sound_device_name[ ]<img class="icon"
+        src="images/read_only.png" width="25px" height="25px"
+        title="Read-only"></h5>
+      <p>
+        This is an array of strings with the name of each sound device
+        detected in the system. The array
+        has <a href="#number_of_sound_devices">W.number_of_sound_devices</a>
+        elements and if you wish to choose one of them as the default
+        sound device, pass it's position to the
+        function <a href="#select_sound_device">W.select_sound_device</a>. If
+        you want to know the position of the current sound device (if
+        we can detect), call
+        function <a href="#current_sound_device">W.current_sound_device</a>.
+      </p>
+      <p>
+        If we didn't detect any sound device, this variabel is set as NULL.
+      </p>
       <h4 id="sound_functions">Sound Functions</h4>
+      <h5 id="current_sound_device">int
+        W.current_sound_device(void)</h5>
+      <p>
+        This function identify if possible which sound device we are
+        using in the
+        list <a href="#sound_device_name">W.sound_device_name</a>. The
+        function return the position of the sound device name in that
+        list, or -1 if it isn't able to detect the current device.
+      </p>
+      <h5 id="destroy_sound">void W.destroy_sound(struct sound
+        *snd)</h5>
+      <p>
+        This function frees the memory previously allocated
+        by <a href="#new_sound">W.new_sound</a>. Usually you don't
+        need to use this function because the garbage collector will
+        free the memory when you exit the main loop where the sound
+        was allocated. But if you allocated the sound outside a main
+        loop, you need this function to avoid a memory leak.
+      </p>
+      <h5 id="new_sound">struct sound *W.new_sound(char
+        *filename)</h5>
+      <p>
+        This function opens a sound file in the <tt>sound/</tt>
+        directory given it's filename. Then it parses and extract the
+        file content as a <a href="#struct_sound">sound record</a>.
+      </p>
+      <p>
+        Weaver can return from this function before finishing to
+        extact the file. The engine prefers to extract files
+        asynchronously in a thread if possible. You can check if a
+        sound was really extracted checking it's
+        variable <tt>loaded</tt>.
+      </p>
+      <p>
+        Currently Weaver is able to extract onle WAVE files.  If
+        Weaver can't extract a sound file, it returns NULL.
+      </p>
+      <h5 id="play_sound">bool W.play_sound(struct sound *snd)</h5>
+      <p>
+        Play a sound created by <a href="#new_sound">W.new_sound</a>
+        and then returns if it was possible to play the sound. If the
+        sound wasn't fully loaded, the function fails and return
+        false.
+      </p>
+      <h5 id="select_sound_device">bool W.select_sound_device(int
+        id)</h5>
+      <p>
+        This function selects a detected sound device to play our
+        audio. You should pass for this function the position of the
+        chosen audio in the
+        array <a href="#sound_device_name">W.sound_device_name</a>.
+      </p>
+      <p>
+        If you pass an invalid number or this function fails for some
+        other reason, it returns false.
+      </p>
     </div>
   </body>
 </html>
