@@ -1133,17 +1133,18 @@ void _destroy_sound(struct sound *snd){
     sched_yield();
 #elif W_TARGET == W_ELF
     {
-      struct timespec t;
-      t.sec = 0;
-      t.usec = 1000;
-      nanosleep(t, NULL);
+      struct timespec tim;
+      // Espera 0,001 segundo
+      tim.tv_sec = 0;
+      tim.tv_nsec = 1000000L;
+      nanosleep(&tim, NULL);
     }
 #elif W_TARGET == W_WEB
     emscripten_sleep(1);
 #endif
   }
   // Ok, podemos desalocar:
-  Wfree(snd -> data);
+  alDeleteBuffers(1, &(snd -> _data));
   Wfree(snd);
 }
 @
