@@ -635,6 +635,15 @@ void _initialize_canvas(void){
     fprintf(stderr, "ERROR: Could not create window: %s\n", SDL_GetError());
     exit(1);
   }
+  // Ajustando a aparência no navegador:
+  EM_ASM(
+         var el = document.getElementById("canvas");
+         el.style.position = "absolute";
+         el.style.top =  "0px";
+         el.style.left =  "0px";
+         el = document.getElementById("output");
+         el.style.display = "none";
+         );
 }
 void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
   SDL_FreeSurface(window);
