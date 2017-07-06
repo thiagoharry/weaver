@@ -947,6 +947,14 @@ A grande novidade que temos no código acima é o |#include|. Ele irá
 inserir o código de inicialização de cada plugin que sejá gerado pelo
 Makefile no momento da compilação.
 
+Não nos esqueçamos de desalocar a memória locada para os plugins:
+
+@<API Weaver: Encerramento@>+=
+#if W_TARGET == W_WEB
+Wfree(_plugins);
+#endif
+@
+
 Além desta inclusão iremos inserir também o seguinte cabeçalho gerado
 pelo Makefile durante a compilação e que tem todas as funções
 definidas em cada plugin:
