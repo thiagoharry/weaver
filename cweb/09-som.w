@@ -136,7 +136,7 @@ finalização da API Weaver:
 }
 @
 
-@<API Weaver: Encerramento@>+=
+@<API Weaver: Som: Encerramento@>+=
 {
     _finalize_sound();
 }

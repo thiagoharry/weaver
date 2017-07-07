@@ -1884,6 +1884,8 @@ de renderização, separada da engine de física e controle do jogo.
 
 @<Renderizar Interface@>=
 {
+  // Ativamos os vértices das nossas interfaes
+  glBindBuffer(GL_ARRAY_BUFFER,_interface_VBO);
     // Lembrando que '_number_of_loops' contém em qual subloop nós
     // estamos no momento.
     int last_type;

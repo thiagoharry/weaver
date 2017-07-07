@@ -267,6 +267,8 @@ enfim renderizar tudo:
 @<Depois da Renderização@>=
 if(_use_non_default_render){
     struct _shader *current_shader;
+    // Usar os vértices das interfaces
+    glBindBuffer(GL_ARRAY_BUFFER,_interface_VBO);
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Usar framebuffer padrão
     glViewport(0, 0, W.resolution_x, W.resolution_y);
     glBindVertexArray(_interface_VAO);

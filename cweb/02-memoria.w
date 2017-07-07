@@ -1430,6 +1430,7 @@ _initialize_memory();
 // Primeiro a finalização das coisas antes de desalocar memória:
 @<API Weaver: Encerramento@>
 // Só então podemos finalizar o gerenciador de memória:
+
 _finalize_memory();
 @
 
