@@ -1502,8 +1502,8 @@ void _compile_and_insert_new_shader(char *dir, int position){
         vertex_file = NULL;
     }
     // Checando existência do código-fonte de shader de fragmento:
-    fragment_file = (char *) _iWalloc(strlen(dir) + strlen("/fragment.glsl" +
-                                                           1));
+    fragment_file = (char *) _iWalloc(strlen(dir) + strlen("/fragment.glsl") +
+                                      1);
     fragment_file[0] = '\0';
     strcat(fragment_file, dir);
     strcat(fragment_file, "/fragment.glsl");
