@@ -1812,7 +1812,7 @@ if(inside_weaver_directory && !strcmp(argument, "--loop")){
   write_copyright(fp, author_name, project_name, year);
   fprintf(fp, "#ifndef _%s_h_\n", argument2);
   fprintf(fp, "#define _%s_h_\n#include \"weaver/weaver.h\"\n\n", argument2);
-  fprintf(fp, "##include \"includes.h\"\n\n", argument2);
+  fprintf(fp, "##include \"includes.h\"\n\n");
   fprintf(fp, "MAIN_LOOP %s(void);\n\n", argument2);
   fprintf(fp, "#endif\n");
   fclose(fp);
