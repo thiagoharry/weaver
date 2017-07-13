@@ -1,4 +1,4 @@
-@* Mudança de Resolução.
+@* Renderização em Duas Etapas.
 
 Toda vez que renderizamos algo, renderizamos para um framebuffer.
 
@@ -11,13 +11,20 @@ iremos ou não iremos de fato desenhar (buffer de stencil).
 
 Até agora nós estivemos desenhando apenas no framebuffer padrão, o
 qual é habilitado quando criamos o contexto OpenGL na
-inicialização. Mas podemos renderizar as coisas também em outros
+inicialização. Tal framebuffer simplesmente representa a janela de
+nosso programa. Mas podemos renderizar as coisas também em outros
 framebuffers. A ideia é que assim podemos renderizar texturas ou
 aplicar efeitos especiais na imagem antes de passá-la para a tela. Um
 dos tais efeitos especiais seria fazer com que ela tenha uma resolução
 menor que a tela. Assim podemos reduzir a resolução de nosso jogo caso
 ele seja muito pesado, tentando assim economizar o desempenho gasto
 para desenhar cada pixel na tela por meio do shader de fragmento.
+
+Além disso, se nós renderizarmos todo o nosso cenário para uma textura
+e depois renderiazar a textura na tela, seremos capazes de usar vários
+efeitos especiais interessantes. Coisas como inverter cores, borrar
+imagens, detectar bordas e muito mais coisas. Basta mudarmos assm o
+shader que irá renderizar a nossa textura final na tela.
 
 A primeira coisa que precisamos é de um novo framebuffer não-padrão, o
 qual iremos declarar e gerar na inicialização.
@@ -52,8 +59,7 @@ Mas o framebuffer gerado não possui nenhum buffer ligado à ele.  Então
 ele não está completo e não pode ser usado. Primeiramente nós
 precisamos de um buffer de cor. E usaremos uma textura para isso. A
 ideia é que iremos renderizar tudo na textura e em seguida aplicamos a
-textura em um quadrado que renderizaremos ocupando toda a tela. Nossa
-textura deverá ter a resolução que queremos para o nosso jogo:
+textura em um quadrado que renderizaremos ocupando toda a tela.
 
 @<Cabeçalhos Weaver@>+=
 // A textura na qual renderizaremos se estivermos fazendo uma
@@ -63,35 +69,36 @@ GLuint _texture;
 
 @<API Weaver: Inicialização@>+=
 {
-    // Gerando a textura:
-    glGenTextures(1, &_texture);
-    glBindTexture(GL_TEXTURE_2D, _texture);
-    glTexImage2D(
-        GL_TEXTURE_2D, // É uma imagem em 2D
-        0, // Nível de detalhe. Não usaremos mipmaps aqui
-        GL_RGB, // Formato interno do pixel
-        W.width, // Largura
-        W.height, // Altura
-        0, // Borda: a especifiação pede que aqui sempre seja 0
-        GL_RGB, GL_UNSIGNED_BYTE, // Formato dos pixels como serão passados
-        NULL); // NULL, pois os pixels serão criados dinamicamente
-    // Ativa antialiasing para melhorar aparência de jogo em resolução
-    // menor:
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // Ligamos a nossa textura ao buffer de cor do framebuffer
-    // não-padrão:
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_2D, _texture, 0);
+  // Gerando a textura:
+  glGenTextures(1, &_texture);
+  glBindTexture(GL_TEXTURE_2D, _texture);
+  glTexImage2D(
+               GL_TEXTURE_2D, // É uma imagem em 2D
+               0, // Nível de detalhe. Não usaremos mipmaps aqui
+               GL_RGB, // Formato interno do pixel
+               W.width, // Largura
+               W.height, // Altura
+               0, // Borda: a especifiação pede que aqui sempre seja 0
+               GL_RGB, GL_UNSIGNED_BYTE, // Formato dos pixels
+               NULL); // NULL, pois os pixels serão criados dinamicamente
+  // Ativa antialiasing para melhorar aparência de jogo em resolução
+  // menor:
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  // Ligamos a nossa textura ao buffer de cor do framebuffer
+  // não-padrão:
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                         GL_TEXTURE_2D, _texture, 0);
 }
 @
 
 Mas o nosso framebuffer não-padrão precisa de mais buffers além de um
-único bufer de cor. Vamos precisar de um buffer de profundidade, e
-quem sabe de um buffer de stêncil. Como temos certeza de que o que
-estamos criando será sempre interpretado como uma imagem, ao invés de
-criar mais texturas para isso, criaremos diretamente um buffer de
-renderização:
+único bufer de cor. Vamos precisar de um buffer de profundidade. Como
+temos certeza de que o que estamos criando será sempre interpretado
+como uma imagem, ao invés de criar mais texturas para isso, criaremos
+diretamente um buffer de renderização:
 
 @<Cabeçalhos Weaver@>+=
 // Buffer de renderização:
@@ -100,14 +107,15 @@ GLuint _depth_stencil;
 
 @<API Weaver: Inicialização@>+=
 {
-    glGenRenderbuffers(1, &_depth_stencil);
-    glBindRenderbuffer(GL_RENDERBUFFER, _depth_stencil);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8,
-                          W.width, W.height);
-    // Ligando o buffer de renderização ao framebuffer não-padrão:
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
-                              GL_RENDERBUFFER, _depth_stencil);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  glGenRenderbuffers(1, &_depth_stencil);
+  glBindRenderbuffer(GL_RENDERBUFFER, _depth_stencil);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
+                        W.width, W.height);
+  // Ligando o buffer de renderização ao framebuffer não-padrão:
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                            GL_RENDERBUFFER, _depth_stencil);
+  
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 @
 
@@ -357,10 +365,10 @@ void _change_resolution(int resolution_x, int resolution_y){
     glDeleteRenderbuffers(1, &_depth_stencil);
     glGenRenderbuffers(1, &_depth_stencil);
     glBindRenderbuffer(GL_RENDERBUFFER, _depth_stencil);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH24_STENCIL8,
+    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
                           W.width, W.height);
     // Ligando o buffer de renderização ao framebuffer não-padrão:
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_STENCIL_ATTACHMENT,
+    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                               GL_RENDERBUFFER, _depth_stencil);
     glBindFramebuffer(GL_FRAMEBUFFER, 0);
     // Feito. Agora temos apenas que atualizar a posição das
