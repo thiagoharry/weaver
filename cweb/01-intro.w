@@ -1457,8 +1457,9 @@ if(inside_weaver_directory && have_arg &&
     }
     write_copyright(fp, author_name, project_name, year);
     fprintf(fp, "#ifndef _%s_h_\n", argument);
-    fprintf(fp, "#define _%s_h_\n\n#include \"weaver/weaver.h\"\n#endif",
+    fprintf(fp, "#define _%s_h_\n\n#include \"weaver/weaver.h\"\n",
             argument);
+    fprintf(fp, "#include \"includes.h\"\n\n#endif");
     fclose(fp);
     free(filename);
 
