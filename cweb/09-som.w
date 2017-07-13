@@ -831,7 +831,16 @@ buffer com o som:
     status = alGetError();
     if(status != AL_NO_ERROR){
         fprintf(stderr, "WARNING(0)): No sound buffer could be created. "
-                "alGenBuffers failed. Sound may not work.\n");
+                "alGenBuffers failed. ");
+        if(status == AL_INVALID_VALUE){
+          fprintf(stderr, "Internal error: buffer array isn't large enough.\n");
+        }
+        else if(status == AL_OUT_OF_MEMORY){
+          fprintf(stderr, "Internal error: out of memory.\n");
+        }
+        else{
+          fprintf(stderr, "Unknown error (%d).\n", status);
+        }
         Wfree(returned_data);
         *error = true;
         fclose(fp);
