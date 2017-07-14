@@ -643,6 +643,8 @@ void _initialize_canvas(void){
          el.style.left =  "0px";
          el = document.getElementById("output");
          el.style.display = "none";
+         el = document.getElementsByTagName("BODY")[0];
+         el.style.overflow = "hidden";
          );
 }
 void _finalize_canvas(void){// Desalocando a nossa superfície de canvas
