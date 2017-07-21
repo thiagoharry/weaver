@@ -278,7 +278,7 @@ if(_use_non_default_render){
     // Usar os vértices das interfaces
     glBindBuffer(GL_ARRAY_BUFFER,_interface_VBO);
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Usar framebuffer padrão
-    glViewport(0, 0, W.resolution_x, W.resolution_y);
+    glViewport(0, 0, W.width, W.height);
     glBindVertexArray(_interface_VAO);
     glDisable(GL_DEPTH_TEST); // Avaliar se é necessário
     if(_custom_final_shader){
