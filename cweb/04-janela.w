@@ -608,6 +608,10 @@ void _initialize_canvas(void){
   SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
   W.resolution_x = emscripten_run_script_int("window.innerWidth");
   W.resolution_y = emscripten_run_script_int("window.innerHeight");
+  if(W.resolution_x < 800)
+    W.resolution_x = 800;
+  if(W.resolution_y < 600)
+    W.resolution_y = 600;
   /* A taxa de atualização da tela não pode ser obtida no ambiente
      Emscripten. Vamos usar um valor fictício. Um valor igualmente
      fictício é usado para W.x e W.y. */
@@ -618,12 +622,12 @@ void _initialize_canvas(void){
 #if W_WIDTH > 0
                      W.width = W_WIDTH, // Largura da janela
 #else
-                     W.width = ((W.resolution_x > 800)?(W.resolution_x):(800)),
+                     W.width = W.resolution_x;
 #endif
 #if W_HEIGHT > 0
                      W.height = W_HEIGHT, // Altura da janela
 #else
-                     W.height = ((W.resolution_y > 600)?(W.resolution_y):(600)),
+                     W.height = W.resolution_y;
 #endif
                      0, // Bits por pixel, usar o padrão
                      SDL_OPENGL // Inicializar o contexto OpenGL
