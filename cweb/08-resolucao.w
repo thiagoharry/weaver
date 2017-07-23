@@ -1,5 +1,9 @@
 @* Renderização em Duas Etapas.
 
+% TODO: Ver porque o DEBUG_MODE 0 nãoo está funcionando com shaders finais
+% TODO: Fazer os shaders finais serem locais a loop principal
+% TODO: Fazer a mudança de resolução funcionar
+
 Toda vez que renderizamos algo, renderizamos para um framebuffer.
 
 Todo framebuffer é composto por um ou mais buffer. Pode haver um para
@@ -15,39 +19,61 @@ inicialização. Tal framebuffer simplesmente representa a janela de
 nosso programa. Mas podemos renderizar as coisas também em outros
 framebuffers. A ideia é que assim podemos renderizar texturas ou
 aplicar efeitos especiais na imagem antes de passá-la para a tela. Um
-dos tais efeitos especiais seria fazer com que ela tenha uma resolução
-menor que a tela. Assim podemos reduzir a resolução de nosso jogo caso
-ele seja muito pesado, tentando assim economizar o desempenho gasto
-para desenhar cada pixel na tela por meio do shader de fragmento.
-
-Além disso, se nós renderizarmos todo o nosso cenário para uma textura
-e depois renderiazar a textura na tela, seremos capazes de usar vários
-efeitos especiais interessantes. Coisas como inverter cores, borrar
-imagens, detectar bordas e muito mais coisas. Basta mudarmos assm o
-shader que irá renderizar a nossa textura final na tela.
+dos tais efeitos especiais seria fazer com que o jogo tenha uma
+resolução menor que a tela. Assim podemos reduzir a resolução caso ele
+seja muito pesado, tentando assim economizar o desempenho gasto para
+desenhar cada pixel na tela por meio do shader de fragmento. Em muitos
+monitores com resolução muito alta, é bastante necessário que os jogos
+forneçam a opção de escolha de resolução.
 
 A primeira coisa que precisamos é de um novo framebuffer não-padrão, o
-qual iremos declarar e gerar na inicialização.
+qual iremos declarar e gerar na inicialização. Além disso, precisamos
+armazenar para cada loop que estivermos, se estamos usando um shader
+fora do padrão para renderizar ou não. Se nós não mudamos a resolução,
+iremos representar o shader final como |W_NONE|, o que significa que
+não usaremos esse framebuffer alternativo e tudo que formos renderizar
+vai direto para a tela. Se nós apenas mudamos a resolução, então vamos
+representar essa opção pelo número -1, ou pelo seu equivalente que
+estamos definindo, o |W_DEFAULT_SHADER|:
 
 @<Cabeçalhos Weaver@>+=
-// Abaixo saberemos se mudamos a nossa resolução e com isso precisamos
-// renderizar no framebuffer de renderização não-padrão:
-bool _use_non_default_render;
-// E este é o framebuffer de renderização não-padrão:
+#define W_NONE            0
+#define W_DEFAULT_SHADER -1
+@
+
+@<Cabeçalhos Weaver@>+=
+// Informa qual o shader final que deve ser usado em cada loop. Ou
+// seja, qual shader deverá ser usado para renderizar a imagem final
+// da tela depois de termos renderizado ela para uma imagem. O W_NONE
+// indica que não usamos a renderização em dois passos, e sim
+// renderizaremos direto para a tela. O W_DEFAULT_SHADER indica que
+// nós mudamos a resolução, mas não pretendemos fazer qualquer mudança
+// adicional na nossa imagem final além de restringir a resolução. Um
+// inteiro positivo representa qual shader será usado para renderizar
+// a imagem final.
+int _final_shader[W_MAX_SUBLOOP];
+// Apenas armazena se nós mudamos a resolução para fins de consulta
+// interna:
+bool _changed_resolution;
+// E este é o framebuffer de renderização não-padrão que será usado em
+// todos os casos, exceto quando nosso shader final for W_NONE:
 GLuint _framebuffer;
 @
 
 @<API Weaver: Inicialização@>+=
 {
-    // Inicialmente iremos renderizar diretamente na tela. Se esta
-    // variável mudar, aí sim renderizaremos no nosso framebuffer:
-    _use_non_default_render = false;
-   // Na inicialização geramos o nosso framebuffer de renderização
-    // não-padrão:
-    glGenFramebuffers(1, &_framebuffer);
-    // A função acima só gera erro se passarmos um número negativo
-    // como primeiro argumento.
-    glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+  _changed_resolution = false;
+  // Por padrão nós começamos não mudando a resolução e nem usando
+  // qualquer shader adicional:
+  int i;
+  for(i = 0; i < W_MAX_SUBLOOP; i ++)
+    _final_shader[i] = W_NONE;
+  // Na inicialização geramos o nosso framebuffer de renderização
+  // não-padrão:
+  glGenFramebuffers(1, &_framebuffer);
+  // A função acima só gera erro se passarmos um número negativo
+  // como primeiro argumento.
+  glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
 }
 @
 
@@ -128,11 +154,11 @@ glDeleteRenderbuffers(1, &_depth_stencil);
 
 Feito isso, nosso framebuffer está pronto para ser usado em
 renderização. Então, antes de começarmos a renderizar qualquer coisa,
-podemos checar se devemos renderizar na tela ou na nossa textura
-especial:
+devemos sempre checar onde devemos fazer isso. Direto na tela ou no
+nosso fram3ebuffer alternativo?
 
 @<Antes da Renderização@>=
-if(_use_non_default_render){
+if(_final_shader[_number_of_loops] != W_NONE){
     glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
     glViewport(0, 0, W.width, W.height);
     glEnable(GL_DEPTH_TEST); // Avaliar se é necessário
@@ -147,18 +173,16 @@ momento no qual temos que ver se não devemos aplicar algum efeito
 especial na imagem por meio de algum shader personalizado.
 
 Primeiro vamos definir qual é o shader padrão que usaremos caso nenhum
-shader personalizado seja selecionado para renderizar nossa textura. E
-como iremos renderizar usando shaders, vamos precisar de uma matriz
-que representará o tamanho da nossa imagem na tela.
+shader personalizado seja selecionado para renderizar nossa textura
+(caso em que estejamos usando o |W_DEFAULT_SHADER|). E como iremos
+renderizar usando shaders, vamos precisar de uma matriz que
+representará o tamanho da nossa imagem na tela.
 
 @<Shaders: Declarações@>=
 extern char _vertex_interface_texture[];
 extern char _fragment_interface_texture[];
 struct _shader _framebuffer_shader;
 GLfloat _framebuffer_matrix[16];
-// Usamos um shader personalizado para a renderização final?
-// Se sim, a variável abaixo tem o seu ID. Se não, seu valor é 0.
-int _custom_final_shader;
 @
 
 @<Shaders: Definições@>=
@@ -218,7 +242,6 @@ matriz do tamanho do framebuffer precisa ser inicializada.
     GLuint vertex, fragment;
     // Começamos assumindo que vamos usar o shader padrão que
     // definimos para a renderização final:
-    _custom_final_shader = 0;
     vertex = _compile_vertex_shader(_vertex_interface_texture);
     fragment = _compile_fragment_shader(_fragment_interface_texture);
     // Preenchendo variáeis uniformes e atributos:
@@ -273,17 +296,18 @@ Uma vez que inicializamos os detalhes do shader, podemos usá-lo para
 enfim renderizar tudo:
 
 @<Depois da Renderização@>=
-if(_use_non_default_render){
+if(_final_shader[_number_of_loops] != W_NONE){
     struct _shader *current_shader;
     // Usar os vértices das interfaces
     glBindBuffer(GL_ARRAY_BUFFER,_interface_VBO);
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Usar framebuffer padrão
     glViewport(0, 0, W.width, W.height);
     glBindVertexArray(_interface_VAO);
-    glDisable(GL_DEPTH_TEST); // Avaliar se é necessário
-    if(_custom_final_shader){
-        glUseProgram(_shader_list[_custom_final_shader - 1].program_shader);
-        current_shader = &(_shader_list[_custom_final_shader - 1]);
+    glDisable(GL_DEPTH_TEST);
+    if(_final_shader[_number_of_loops] > 0){
+        glUseProgram(_shader_list[_final_shader[_number_of_loops] -
+                                  1].program_shader);
+        current_shader = &(_shader_list[_final_shader[_number_of_loops] - 1]);
     }
     else{
         glUseProgram(_framebuffer_shader.program_shader);
@@ -313,11 +337,14 @@ expliamos como fazer a renderização caso a resolução seja
 mudada. Precisamos de uma função que mude a resolução. E isso implica
 fazer as seguintes coisas:
 
-1) Ajustar a flag |_use_non_default_render| para verdadeiro. Apenas
-fazer isso já é o suficiente para que as cenas do jogo sejam
-renderizadas em duas etapas. Isso é preciso para mudar a resolução,
-mas ainda não mude a resolução em si.
+0) Se não estamos em tela cheia, mudar a resolução é simplesmente
+redimensionar a nossa janela. Toda a nossa preocupação com
+framebuffers é só se estivermos em tela cheia.
 
+1) Ajustar o valor do shader final do loop atual para
+|W_DEFAULT_SHADER|, o que de pronto ativa a renderização final em duas
+etapas fazendo o valor ser diferente de |W_NONE|. Embora isso por si
+só ainda não mude a resolução.
 
 2) Na primeira etapa da renderização, consultamos as variáveis
 |W.width| e |W.height| para saber a altura e largura da janela em
@@ -332,7 +359,7 @@ medem isso em pixels. Com a mudança de resolução, a posição delas não
 é mais a mesma. Nesta parte realizamos as mesmas transformações de
 antes para garantir a correção na posição das interfaces.
 
-5) Podemos preisar mudar o tamanho de cada interface se elas foram
+5) Podemos precisar mudar o tamanho de cada interface se elas foram
 configuradas para serem esticáveis.
 
 @<Shaders: Declarações@>+=
@@ -341,61 +368,70 @@ void _change_resolution(int resolution_x, int resolution_y);
 
 @<Shaders: Definições@>+=
 void _change_resolution(int resolution_x, int resolution_y){
-    int width, height, old_width = W.width, old_height = W.height;
-    int i, j;
-    _use_non_default_render = true;
-    width = W.width = ((resolution_x > 0)?(resolution_x):(W.width));
-    height = W.height = ((resolution_y > 0)?(resolution_y):(W.height));
-    // Aqui começamos a gerar novamente os buffers do framebuffer que
-    // usaremos na renderização. Ele deve ter a nova
-    // resolução. Começamos gerando novamente o buffer de cor:
-    glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
-    glDeleteTextures(1, &_texture);
-    glGenTextures(1, &_texture);
-    glBindTexture(GL_TEXTURE_2D, _texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, W.width, W.height, 0, GL_RGB,
-                 GL_UNSIGNED_BYTE, NULL); // Mesmos parâmetros de antes
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    // Ligamos a nossa textura ao buffer de cor do framebuffer
-    // não-padrão:
-    glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                           GL_TEXTURE_2D, _texture, 0);
-    // Agora geraremos novamente os buffers de profundidade e stêncil:
-    glDeleteRenderbuffers(1, &_depth_stencil);
-    glGenRenderbuffers(1, &_depth_stencil);
-    glBindRenderbuffer(GL_RENDERBUFFER, _depth_stencil);
-    glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
-                          W.width, W.height);
-    // Ligando o buffer de renderização ao framebuffer não-padrão:
-    glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                              GL_RENDERBUFFER, _depth_stencil);
-    glBindFramebuffer(GL_FRAMEBUFFER, 0);
-    // Feito. Agora temos apenas que atualizar a posição das
-    // interfaces:
-    for(i = 0; i < W_MAX_SUBLOOP; i ++)
-        for(j = 0; j < W_MAX_INTERFACES; j ++){
-            if(_interfaces[i][j].type == W_NONE) continue;
-            W.move_interface(&_interfaces[i][j],
-                             _interfaces[i][j].x *
-                             ((float) width) / ((float) old_width),
-                             _interfaces[i][j].y *
-                             ((float) height) / ((float) old_height));
-            W.rotate_interface(&_interfaces[i][j],
-                               _interfaces[i][j].rotation);
-            // Se a interface possui os atributos stretch_x e
-            // stretch_y como verdadeiros, o seu tamanho deve ser
-            // mudado de acordo com a mudança da resolução:
-            if(_interfaces[i][j].stretch_x || _interfaces[i][j].stretch_y){
-                float new_height = _interfaces[i][j].height;
-                float new_width = _interfaces[i][j].width;
-                if(_interfaces[i][j].stretch_x)
-                    new_width *= (float) width / (float) old_width;
-                if(_interfaces[i][j].stretch_y)
-                    new_height *= (float) height / (float) old_height;
-                W.resize_interface(&_interfaces[i][j], new_width, new_height);
-            }
-        }
+#if W_WIDTH != 0 || W_HEIGHT != 0
+  W.resize_window(resolution_x, resolution_y);
+#else
+  int width, height, old_width = W.width, old_height = W.height;
+  int i, j;
+  _changed_resolution = true;
+  // Não podemos mais em nenhum loop renderizar direto para a tela:
+  for(i = 0; i < W_MAX_SUBLOOP; i ++)
+    if(_final_shader[i] == W_NONE)
+      _final_shader[i] = W_DEFAULT_SHADER;
+  width = W.width = ((resolution_x > 0)?(resolution_x):(W.width));
+  height = W.height = ((resolution_y > 0)?(resolution_y):(W.height));
+  // Aqui começamos a gerar novamente os buffers do framebuffer que
+  // usaremos na renderização. Ele deve ter a nova
+  // resolução. Começamos gerando novamente o buffer de cor:
+  glBindFramebuffer(GL_FRAMEBUFFER, _framebuffer);
+  glDeleteTextures(1, &_texture);
+  glGenTextures(1, &_texture);
+  glBindTexture(GL_TEXTURE_2D, _texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, W.width, W.height, 0, GL_RGB,
+      GL_UNSIGNED_BYTE, NULL); // Mesmos parâmetros de antes
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  // Ligamos a nossa textura ao buffer de cor do framebuffer
+  // não-padrão:
+  glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                         GL_TEXTURE_2D, _texture, 0);
+  // Agora geraremos novamente os buffers de profundidade e stêncil:
+  glDeleteRenderbuffers(1, &_depth_stencil);
+  glGenRenderbuffers(1, &_depth_stencil);
+  glBindRenderbuffer(GL_RENDERBUFFER, _depth_stencil);
+  glRenderbufferStorage(GL_RENDERBUFFER, GL_DEPTH_COMPONENT16,
+                        W.width, W.height);
+  // Ligando o buffer de renderização ao framebuffer não-padrão:
+  glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                            GL_RENDERBUFFER, _depth_stencil);
+  glBindFramebuffer(GL_FRAMEBUFFER, 0);
+  // Feito. Agora temos apenas que atualizar a posição das
+  // interfaces:
+  for(i = 0; i < W_MAX_SUBLOOP; i ++){
+    for(j = 0; j < W_MAX_INTERFACES; j ++){
+      if(_interfaces[i][j].type == W_NONE) continue;
+      W.move_interface(&_interfaces[i][j],
+                       _interfaces[i][j].x *
+                       ((float) width) / ((float) old_width),
+                       _interfaces[i][j].y *
+                       ((float) height) / ((float) old_height));
+      W.rotate_interface(&_interfaces[i][j],
+                         _interfaces[i][j].rotation);
+      // Se a interface possui os atributos stretch_x e
+      // stretch_y como verdadeiros, o seu tamanho deve ser
+      // mudado de acordo com a mudança da resolução:
+      if(_interfaces[i][j].stretch_x || _interfaces[i][j].stretch_y){
+        float new_height = _interfaces[i][j].height;
+        float new_width = _interfaces[i][j].width;
+        if(_interfaces[i][j].stretch_x)
+          new_width *= (float) width / (float) old_width;
+        if(_interfaces[i][j].stretch_y)
+          new_height *= (float) height / (float) old_height;
+        W.resize_interface(&_interfaces[i][j], new_width, new_height);
+      }
+    }
+  }
+#endif
 }
 @
 
@@ -429,8 +465,7 @@ void _change_final_shader(int type);
 
 @<Shaders: Definições@>+=
 void _change_final_shader(int type){
-    _use_non_default_render = true;
-    _custom_final_shader = type;
+  _final_shader[_number_of_loops] = type;   
 }
 @
 
@@ -466,7 +501,29 @@ glUniform1i(current_shader -> _uniform_integer,
             W.final_shader_integer);
 @
 
-E está feito!
+E está feito! A única coisa que não ppodemos nos esquecer é que se nós
+mudamos o nosso shader atual, antes de encerrar nosso loop atual temos
+que remover o shader personalizado. Também temos que fazer isso ao
+entrar em um novo loop:
+
+@<Código Imediatamente antes de Loop Principal@>+=
+  if(_changed_resolution){
+    _final_shader[_number_of_loops] = W_DEFAULT_SHADER;
+  }
+  else{
+    _final_shader[_number_of_loops] = W_NONE;
+  }
+@
+
+@<Código após sairmos de Subloop@>+=
+  if(_changed_resolution){
+    _final_shader[_number_of_loops] = W_DEFAULT_SHADER;
+  }
+  else{
+    _final_shader[_number_of_loops] = W_NONE;
+  }
+@
+
 
 @*1 Sumário das variáveis e Funções de Resolução.
 

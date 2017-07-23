@@ -422,6 +422,22 @@ específico).
 #endif
 @
 
+Adicionamos também código para pedir para que o gerenciador de janelas
+não permita o redimensionamento da janela. Devemos ter em mente,
+porém, que haverão gerenciadores de janela que não obedecerão o
+pedido:
+
+@<Janela: Inicialização@>+=
+{
+  XSizeHints *hints = XAllocSizeHints();
+  hints -> flags = PMinSize | PMaxSize;
+  hints -> min_width = hints -> max_width = W.width;
+  hints -> min_height = hints -> max_height = W.height;
+  XSetWMNormalHints(_dpy, _window, hints);
+  XFree(hints);
+}
+@
+
 Antes de inicializarmos o código para OpenGL, precisamos garantir que
 tenhamos uma versão do GLX de pelo menos 1.3. Antes disso, não
 poderíamos ajustar as configurações do contexto OpenGL como
