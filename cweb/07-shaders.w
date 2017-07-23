@@ -50,11 +50,11 @@ Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
 @
 
 Cada interface deverá ter no mínimo uma posição e um tamanho. Para
-isso, vamos usar a mesma convenção que já usamos para o cursor do
-mouse. Seu tamanho e posição será dado por números inteiros que
-representam valores em pixels. A posição de uma interface é a
-localização de seu canto superior esquerdo (todas as interfaces são
-retangulares). O canto superior direito da ela é a posição $(0,0)$.
+isso, vamos usar convenção semelhante à usada para o cursor do
+mouse. Seu tamanho e posição será dado por números em ponto flutuante
+que representam valores em pixels. A posição de uma interface é a
+localização de seu centro 9todas as interfaces são retangulares). O
+canto inferior esquerdo da tela é a posição $(0,0)$.
 
 Assim, nossa lista de interfaces é declarada da seguinte forma:
 
@@ -68,8 +68,6 @@ struct interface {
     float r, g, b, a; // Cor
     float height, width; // Tamanho em pixels
     bool visible; // A interface é visível?
-    bool stretch_x, stretch_y; // A interface muda a largura e altura
-                               // com a janela?
     // Matriz de transformação OpenGL:
     GLfloat _transform_matrix[16];
     // O modo com o qual a interface é desenhada ao invocar glDrawArrays:
@@ -294,8 +292,6 @@ struct interface *_new_interface(int type, int x, int y, int width,
       _interfaces[_number_of_loops][i].type = type;
       _interfaces[_number_of_loops][i].visible = true;
       _interfaces[_number_of_loops][i].integer = 0;
-      _interfaces[_number_of_loops][i].stretch_x = false;
-      _interfaces[_number_of_loops][i].stretch_y = false;
       // Por padrão vamos deixar as interfaces brancas:
       _interfaces[_number_of_loops][i].r = 1.0;
       _interfaces[_number_of_loops][i].g = 1.0;
@@ -1960,9 +1956,8 @@ uma interface cuja posição é a parte de baixo da tela, após mudarmos
 para tela-cheia, a interface deve permanecer na parte de baixo da
 tela, e não no centro.
 
-Além disso, uma interface pode ou não esticar ou encolher de acordo
-com a mudança de tamanho da janela. Para isso, são os seus atributos
-|stretch_X| e |stretch_y| que definem isso.
+Além disso, uma interface deverá esticar ou encolher de acordo
+com a mudança de tamanho da janela. 
 
 @<Ações após Redimencionar Janela@>=
 {
@@ -1980,14 +1975,10 @@ com a mudança de tamanho da janela. Para isso, são os seus atributos
                              ((float) width) / ((float) old_width),
                              _interfaces[i][j].y *
                              ((float) height) / ((float) old_height));
-            if(_interfaces[i][j].stretch_x)
-                new_width = _interfaces[i][j].width *
-                    ((float) width  / (float) old_width);
-            else new_width = _interfaces[i][j].width;
-            if(_interfaces[i][j].stretch_y)
-                new_height = _interfaces[i][j].height *
-                    ((float) height  / (float) old_height);
-            else new_height = _interfaces[i][j].height;
+            new_width = _interfaces[i][j].width *
+              ((float) width  / (float) old_width);
+            new_height = _interfaces[i][j].height *
+              ((float) height  / (float) old_height);
             W.resize_interface(&_interfaces[i][j], new_width, new_height);
         }
 }
@@ -2002,7 +1993,6 @@ com a mudança de tamanho da janela. Para isso, são os seus atributos
     int type;
     float x, y, height, width, rotation, r, g, b, a;
     bool visible;
-    bool stretch_x, stretch_y;
 }|
 
 \macrovalor|type|: representa o seu tipo, que pode ser

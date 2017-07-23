@@ -433,6 +433,15 @@
         scrollbars (the same value present in
         Javascript's <tt>window.innerWidth</tt>).
       </p>
+      <p>
+        This variable doesn't change when you
+        use <a href="#change_resolution">W.change_resolution</a>. This
+        variable keeps the resolution of your window manager or your
+        browser body area. This is the amximum resolution your game
+        can have. The
+        function <a href="#change_resolution">W.change_resolution</a>
+        changes the resolution in the game internal renderer.
+      </p>
       <h5 id="resolution_y">int W.resolution_y <img class="icon"
                  src="images/read_only.png" width="25px" height="25px"
                                              title="Read-only"></h5>
@@ -443,6 +452,17 @@
         height of the web browser window excluding toolbars and
         scrollbars (the same value present in
         Javascript's <tt>window.innerHeight</tt>).
+      </p>
+      <p>
+      <p>
+        This variable doesn't change when you
+        use <a href="#change_resolution">W.change_resolution</a>. This
+        variable keeps the resolution of your window manager or your
+        browser body area. This is the amximum resolution your game
+        can have. The
+        function <a href="#change_resolution">W.change_resolution</a>
+        changes the resolution in the game internal renderer.
+      </p>
       </p>
       <h5 id="width">int W.width <img class="icon"
                  src="images/read_only.png" width="25px" height="25px"
@@ -852,7 +872,6 @@
   <span class="tipo">float</span> r, g, b, a;
   <span class="tipo">float</span> width, height;
   <span class="tipo">bool</span> visible;
-  <span class="tipo">bool</span> stretch_x, stretch_y;
 }</pre>
       <p>
         An interface record is created with the function
@@ -929,16 +948,17 @@
         function <a href="#resize_interface">W.resize_interface</a>
         instead.
       </p>
+      <p>
+        The interface width and height will also change if you change
+        resolution
+        with <a href="#change_resolution">W.change_resolution</a>. During
+        a resolution change the interfaces will keep their proportions
+        with the window size in pixels.
+      </p>
       <h6>bool visible</h6>
       <p>
         This variable sets if the interface is visible and should be
         rendered or if it's invisible. This is set as true by default.
-      </p>
-      <h6>bool stretch_x, stretch_y</h6>
-      <p>
-        This variable sets if the interface should be stretched or
-        shrinked is the window changes it's size. This is set as false
-        by default.
       </p>
       <h4 id="interface_functions">Interface Functions</h4>
       <h5 id="copy_interface">struct interface

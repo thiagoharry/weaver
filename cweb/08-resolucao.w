@@ -413,16 +413,13 @@ void _change_resolution(int resolution_x, int resolution_y){
                        ((float) height) / ((float) old_height));
       W.rotate_interface(&_interfaces[i][j],
                          _interfaces[i][j].rotation);
-      // Se a interface possui os atributos stretch_x e
-      // stretch_y como verdadeiros, o seu tamanho deve ser
-      // mudado de acordo com a mudança da resolução:
-      if(_interfaces[i][j].stretch_x || _interfaces[i][j].stretch_y){
+      // Redimensionando as interfaces de acordo com a mudança de
+      // resolução
+      {
         float new_height = _interfaces[i][j].height;
         float new_width = _interfaces[i][j].width;
-        if(_interfaces[i][j].stretch_x)
-          new_width *= (float) width / (float) old_width;
-        if(_interfaces[i][j].stretch_y)
-          new_height *= (float) height / (float) old_height;
+        new_width *= (float) width / (float) old_width;
+        new_height *= (float) height / (float) old_height;
         W.resize_interface(&_interfaces[i][j], new_width, new_height);
       }
     }
