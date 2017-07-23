@@ -1,0 +1,56 @@
+<!DOCTYPE html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <title>Weaver Examples</title>
+    <link rel="stylesheet" href="weaver.css">
+    <script>
+      function activate(src, tar){
+        var win;
+        var el = document.getElementById(src);
+        el.innerHTML = "<iframe src='" + tar + "'></iframe>";
+        win = el.children[0].contentWindow;
+        win.document.body.focus();
+      }
+    </script>
+  </head>
+  <body>
+    <header>
+      <h1><a href="index.htm">Weaver: A Game Engine for GNU/Linux</a></h1>
+      <span class="menu">
+        <a href="documentation.htm">Documentation</a>
+        <a href="tutorial.htm">Tutorial</a>
+        <a href="examples.htm">Examples</a>
+        <a href="download.htm">Download</a>
+      </span>
+    </header>
+    <div class="docs">
+      <h2>Examples</h2>
+      <p>
+        This page shows some games written with the Weaver Engine.
+      </p>
+      <h3>Pong</h3>
+      <p>
+        <img src="pong1.png"><img src="pong2.png"><img src="pong3.png"><img src="pong4.png">
+      </p>
+      <p>
+        In the first impression, this is just a Pong with very old
+        style graphics. You can control the paddles with the arrow
+        keys or with the keys W and S in 2-players mode.
+      </p>
+      <p>
+        During the game you can get some items which can improve the
+        game graphics with new skins, blow up the opponent paddle with
+        a bomb , or activate some hallucinogen effect in the screen.
+      </p>
+      <a href="#"
+         onclick="activate('pong-prev', 'https://thiagoharry.github.io/pong');">
+        <div class="iframe_prev" id="pong-prev">
+          <img src="play.png" alt="" width="400px" height="400px">
+        </div>
+      </a>
+      <!--<iframe src="https://thiagoharry.github.io/pong" width="800px">
+      </iframe>-->
+    </div>
+  </body>
+</html>
