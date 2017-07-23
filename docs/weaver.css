@@ -1,8 +1,10 @@
 *{
     margin: 0px;
 }
-body{
+html, body{
     margin: 0px;
+    width: 100%;
+    height: 100%;
 }
 
 p, li{
@@ -10,7 +12,9 @@ p, li{
 }
 
 #main_presentation{
- background-image: url("weaver_sample.png");
+    background-image: url("weaver_sample.png");
+    width: 100%;
+    height: 100%;
 }
 
 #main_presentation p, #main_presentation ul{
@@ -157,4 +161,28 @@ pre.codigo span.macro{
 
 pre.codigo span.string{
     color: #550055;
+}
+
+iframe{
+    width: 800px;
+    height: 600px;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+}
+
+div.iframe_prev{
+    width: 805px;
+    height: 605px;
+    margin-left: auto;
+    margin-right: auto;
+    display: block;
+    background-color: gray;
+}
+
+div.iframe_prev img{
+    display: block;
+    margin-left: auto;
+    margin-right: auto;
+    padding-top: 100px;
 }
