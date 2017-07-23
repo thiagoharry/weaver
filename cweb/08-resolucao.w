@@ -1,9 +1,5 @@
 @* Renderização em Duas Etapas.
 
-% TODO: Ver porque o DEBUG_MODE 0 nãoo está funcionando com shaders finais
-% TODO: Fazer os shaders finais serem locais a loop principal
-% TODO: Fazer a mudança de resolução funcionar
-
 Toda vez que renderizamos algo, renderizamos para um framebuffer.
 
 Todo framebuffer é composto por um ou mais buffer. Pode haver um para
@@ -524,6 +520,35 @@ entrar em um novo loop:
   }
 @
 
+Desafio maior é fazer com que mudanças à variável
+|W.final_shader_integer| também sejam locais ao loop em que são
+feitas. Para isso antes de entrar em um subloop, sempre temos que
+armazenar o valor anterior deste inteiro. E vamos precisar de um vetor
+de inteiros para isso:
+
+@<Cabeçalhos Weaver@>+=
+int _final_shader_integer[W_MAX_SUBLOOP];
+@
+
+@<Código antes de Subloop@>=
+{
+  _final_shader_integer[_number_of_loops - 1] = W.final_shader_integer;
+  W.final_shader_integer = 0;
+}
+@
+
+Ao sair de um subloop temos que resgatar este valor:
+
+@<Código após sairmos de Subloop@>+=
+  W.final_shader_integer = _final_shader_integer[_number_of_loops - 1];
+@
+
+E ao passar para um novo loop comum, mas não um subloop, nós apenas
+reiniciamos o valor como zero:
+
+@<Código antes de Loop, mas não de Subloop@>+=
+  W.final_shader_integer = 0;
+@
 
 @*1 Sumário das variáveis e Funções de Resolução.
 

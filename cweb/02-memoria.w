@@ -2046,6 +2046,7 @@ void Wsubloop(void (*f)(void)){
   _loop_begin = 1;
   _number_of_loops ++;
   @<Código Imediatamente antes de Loop Principal@>
+  @<Código antes de Subloop@>
 #if W_DEBUG_LEVEL >= 1
   if(_number_of_loops >= W_MAX_SUBLOOP){
     fprintf(stderr, "Error (1): Max number of subloops achieved.\n");
