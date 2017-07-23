@@ -9,6 +9,17 @@ p, li{
     text-align: justify;
 }
 
+#main_presentation{
+ background-image: url("weaver_sample.png");
+}
+
+#main_presentation p, #main_presentation ul{
+    background-color: white;
+    opacity: 0.75;
+    padding-left: 40px;
+    padding-right: 20px;
+}
+
 header{
     width: 100%;
     background-color: black;
@@ -70,7 +81,6 @@ div.topics{
 
 div.docs div.topic{
     width: 230px;
-    height: 100px;
     border-style: solid;
     border-width: 1px;
     border-color: black;
