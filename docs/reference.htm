@@ -83,8 +83,8 @@
           </ol>
           <li><a href="#window_functions">Functions</a></li>
           <ol>
+            <li><a href="#change_resolution">W.change_resolution</a></li>
             <li><a href="#move_window">W.move_window</a></li>
-            <li><a href="#resize_window">W.resize_window</a></li>
           </ol>
         </ol>
         <li><a href="#input">User Input</a></li>
@@ -502,6 +502,14 @@
         call the function <a href="#move_window">W.move_window</a>.
       </p>
       <h4 id="window_functions">Window Functions</h4>
+      <h5 id="change_resolution">void W.change_resolution(int horizontal, int
+        vertical)</h5>
+      <p>
+        This changes the resolution of your game window. If you are
+        not in fullscreen mode, this just changes the window
+        size. Otherwise, it changes the game renderer to show your
+        game in the desired resolution.
+      </p>
       <h5 id="move_window">void W.move_window(int x, int y)</h5>
       <p>
         This function moves your game window for the giver
@@ -518,14 +526,6 @@
       <p>
         This function does nothing in a game compiled to a web
         browser.
-      </p>
-      <h5 id="resize_window">void W.resize_window(int width, int
-        height)</h5>
-      <p>
-        This function resizes your game window. The width and height
-        passed as arguments are in pixels. In a game compiled to a web
-        browser, the function changes the size of the canvas where the
-        game is drawn.
       </p>
       <h3 id="input">User Input</h3>
       <h4 id="input_variables">User Input Variables</h4>
@@ -1039,6 +1039,12 @@
         then you can set this variable to pass any integer you wish
         for this custom shader.
       </p>
+      <p>
+        Changes to this variable are always local to a main loop. When
+        you enter in a main loop this variable is set to 0 again. And
+        if you exit from a subloop, this variable recover the value it
+        had before entering in the last subloop.
+      </p>
       <h4 id="shader_functions">Shader Functions</h4>
       <h5 id="change_final_shader">void W.change_final_shader(int
         shader_id)</h5>
@@ -1051,6 +1057,10 @@
       <p>
         Please, ensure that you pass the id of an existing shader for
         this function. Passing an invalid id number is a fatal error.
+      </p>
+      <p>
+        When you change the final shader, the change is always local
+        to the main loop where the function is invoked.
       </p>
       <h3 id="sound">Sound</h3>
       <h4 id="sound_records">Sound Records</h4>

@@ -1312,6 +1312,7 @@ verificar o al diretório que armazena shaders:
     shader_directory[0] = '\0';
 #if W_DEBUG_LEVEL == 0
     strcat(shader_directory, W_INSTALL_DATA);
+    strcat(shader_directory, "/");
 #endif
     strcat(shader_directory, "shaders/");
     // Pra começar, abrimos o diretório e percorremos os arquivos para
@@ -1329,7 +1330,7 @@ verificar o al diretório que armazena shaders:
                         shader_directory, dir -> d_name);
                 continue;
             }
-#if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
+#if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)
             if(dir -> d_type != DT_DIR) continue; // Ignora não-diretórios
 #else
             { // Ignorando não-diretórios se não pudermos checar o
