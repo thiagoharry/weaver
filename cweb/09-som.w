@@ -1478,6 +1478,13 @@ acima como argumentos. A primeira é a responsável por ler e processar
 o arquivo de áudio:
 
 @<Som: Funções Estáticas@>+=
+// Uma função rápida para desalocar buffers do OpenAL e que podemos
+// usar abaixo:
+static void _finalize_openal(void *data){
+  ALuint *p = (ALuint *) data;
+  alDeleteBuffers(1, p);
+}
+// A função para processar o som em si.
 #if defined(W_MULTITHREAD) && W_TARGET == W_ELF
 static void *process_sound(void *p){
   char *ext;
@@ -1638,17 +1645,6 @@ void _finalize_after(void *data, void (*finalizer)(void *)){
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_finalizing_mutex);
 #endif
-}
-@
-
-No caso específico deste capítulo, onde o que queremos finalizar
-depois é um buffer OpenAL, o nosso segunfo argumento para
-|_finalize_after| será esta função:
-
-@<Som: Funções Estáticas@>+=
-static void _finalize_openal(void *data){
-  ALuint *p = (ALuint *) data;
-  alDeleteBuffers(1, p);
 }
 @
 
