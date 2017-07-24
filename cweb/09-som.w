@@ -866,7 +866,10 @@ buffer com o som:
         else if(*channels == 2) format = AL_FORMAT_STEREO16;
     }
     if(format == 0xfff5){
-      fprintf(stderr, "WARNING(0): Sound with not supported format.\n");
+      fprintf(stderr, "WARNING(0): Combination of channel and bitrate not "
+              "supported (sound have %d channels and %d bitrate while "
+              "we support just 1 or 2 channels and 8 or 16 as bitrate).\n",
+              *channels, *bitrate);
       Wfree(returned_data);
       alDeleteBuffers(1, &returned_buffer);
       *error = true;
