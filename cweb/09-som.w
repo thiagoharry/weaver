@@ -834,6 +834,8 @@ buffer com o som:
 {
     ALenum status;
     ALuint format = 0;
+    // Limpando erros anteriores
+    alGetError();
     // Gerando buffer OpenAL
     alGenBuffers(1, &returned_buffer);
     status = alGetError();
@@ -855,6 +857,7 @@ buffer com o som:
         return 0;
     }
     // Determinando informações sobre o áudio antes de enviá-lo
+    format = 0xfff5;
     if(*bitrate == 8){
         if(*channels == 1)      format = AL_FORMAT_MONO8;
         else if(*channels == 2) format = AL_FORMAT_STEREO8;
@@ -862,12 +865,20 @@ buffer com o som:
         if(*channels == 1)      format = AL_FORMAT_MONO16;
         else if(*channels == 2) format = AL_FORMAT_STEREO16;
     }
+    if(format == 0xfff5){
+      fprintf(stderr, "WARNING(0): Sound with not supported format.\n");
+      Wfree(returned_data);
+      alDeleteBuffers(1, &returned_buffer);
+      *error = true;
+      fclose(fp);
+      return 0;
+    }
     // Enviando o buffer de dados para o OpenAL:
     alBufferData(returned_buffer, format, returned_data, (ALsizei) *size,
                  *freq);
     status = alGetError();
     if(status != AL_NO_ERROR){
-        fprintf(stderr, "WARNING(0)): Can't pass audio to OpenAL. "
+        fprintf(stderr, "WARNING(0): Can't pass audio to OpenAL. "
                 "alBufferData failed. Sound may not work.\n");
         Wfree(returned_data);
         alDeleteBuffers(1, &returned_buffer);
@@ -918,7 +929,7 @@ capítulos futuros podemos obter suporte de mais extensões:
 
 @<Som: Definições@>+=
 struct sound *_new_sound(char *filename){
-    char *complete_path;
+    char complete_path[256];
     struct sound *snd;
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
     bool ret = true;
@@ -942,19 +953,9 @@ struct sound *_new_sound(char *filename){
         return NULL;
     }
     snd -> loaded = false;
-    complete_path = (char *) Walloc(strlen(filename) + strlen(dir) + 1);
-    if(complete_path == NULL){
-        Wfree(snd);
-        printf("WARNING(0): Not enough memory to read file: %s.\n",
-               filename);
-#if W_DEBUG_LEVEL >= 1
-        fprintf(stderr, "WARNING (1): You should increase the value of "
-                "W_INTERNAL_MEMORY at conf/conf.h.\n");
-#endif
-        return NULL;
-    }
-    strcpy(complete_path, dir);
-    strcat(complete_path, filename);
+    strncpy(complete_path, dir, 256);
+    complete_path[255] = '\0';
+    strncat(complete_path, filename, 256 - strlen(complete_path));
 #if W_TARGET == W_WEB || defined(W_MULTITHREAD)
 #if W_TARGET == W_WEB
     mkdir("sound/", 0777); // Emscripten
@@ -973,7 +974,6 @@ struct sound *_new_sound(char *filename){
     _multithread_load_file(complete_path, (void *) snd, &process_sound,
                            &onload_sound, &onerror_sound);
 #endif
-    Wfree(complete_path);
     return snd;
 #else
     // Obtendo a extensão:
@@ -993,11 +993,14 @@ struct sound *_new_sound(char *filename){
         _finalize_after(&(snd -> _data), _finalize_openal);
     }
     if(ret){ // ret é verdadeiro caso um erro tenha acontecido
-        Wfree(complete_path);
-        Wfree(snd);
-        return NULL;
+      // Se estamos em um loop principal, removemos o buffer OpenAL da
+      // lista de elementos que precisam ser desalocados depois. A função
+      // _finalize_this é vista logo mais neste capítulo
+      if(_running_loop)
+        _finalize_this(&(snd -> _data), true);
+      Wfree(snd);
+      return NULL;
     }
-    Wfree(complete_path);
     snd -> loaded = true;
     return snd;
 #endif
@@ -1173,7 +1176,7 @@ void _destroy_sound(struct sound *snd){
   // lista de elementos que precisam ser desalocados depois. A função
   // _finalize_this é vista logo mais neste capítulo
   if(_running_loop)
-    _finalize_this(&(snd -> _data));
+    _finalize_this(&(snd -> _data), false);
   Wfree(snd);
 }
 @
@@ -1687,11 +1690,11 @@ podemos remover o seu buffer OpenAL da lista de coisas que precisam
 ser desalocadas depois:
 
 @<Cabeçalhos Weaver@>+=
-void _finalize_this(void *);
+  void _finalize_this(void *, bool);
 @
 
 @<API Weaver: Definições@>+=
-void _finalize_this(void *data){
+  void _finalize_this(void *data, bool remove){
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_finalizing_mutex);
 #endif
@@ -1703,6 +1706,8 @@ void _finalize_this(void *data){
           p -> prev -> next = p -> next;
         if(p -> next != NULL)
           p -> next -> prev = p -> prev;
+        if(remove)
+          Wfree(p);
         return;
       }
       p = p -> next;
