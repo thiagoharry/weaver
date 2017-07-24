@@ -986,11 +986,12 @@ Mas e se estamos desenvolvendo o jogo e queremos invocar então
 programação interativa de uma forma mais automática e assim o nosso
 jogo em execução se atualize automaticamente à medida que recompilamos
 o código? Será interessante termos para isso uma função tal como
-|W.run_periodically(W.reload_all_plugins, 1.0)|, que faz com que a
-função passada como argumento seja executada uma vez a cada 1
-segundo. Alternativamente também pode ser útil uma função
-|W.run_futurelly(W.reload_all_plugins, 1.0)| que execute a função
-passada como argumento após 1 segundo, mas depois não a executa mais.
+\monoespaco{W.run\_periodically( W.reload\_all\_plugins, 1.0)}, que
+faz com que a função passada como argumento seja executada uma vez a
+cada 1 segundo. Alternativamente também pode ser útil uma função
+\monoespaco{W.run\_futurelly( W.reload\_all\_plugins, 1.0)} que
+execute a função passada como argumento após 1 segundo, mas depois não
+a executa mais.
 
 Cada subloop deve ter então uma lista de funções agendadas para serem
 executadas. E podemos estipular em |W_MAX_SCHEDULING| o número máximo

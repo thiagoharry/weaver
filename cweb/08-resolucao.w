@@ -170,9 +170,9 @@ especial na imagem por meio de algum shader personalizado.
 
 Primeiro vamos definir qual é o shader padrão que usaremos caso nenhum
 shader personalizado seja selecionado para renderizar nossa textura
-(caso em que estejamos usando o |W_DEFAULT_SHADER|). E como iremos
-renderizar usando shaders, vamos precisar de uma matriz que
-representará o tamanho da nossa imagem na tela.
+(ou seja, temos |W_DEFAULT_SHADER|). E como iremos renderizar usando
+shaders, vamos precisar de uma matriz que representará o tamanho da
+nossa imagem na tela.
 
 @<Shaders: Declarações@>=
 extern char _vertex_interface_texture[];

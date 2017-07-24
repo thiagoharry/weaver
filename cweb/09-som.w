@@ -321,7 +321,7 @@ Criar um contexto é o que iremos fazer na inicialização por meio da
 função |alcCreateContext|:
 
 @<Som: Variáveis Estáticas@>=
-  static ALCcontext *default_context;
+  static ALCcontext *default_context = NULL;
 @
 
 @<Som: Inicialização@>=
@@ -1571,7 +1571,7 @@ para nós:
 @<API Weaver: Inicialização@>+=
 {
   int i;
-  for(i = 0; i < W_MAX_SUBLOOP;; i ++){
+  for(i = 0; i < W_MAX_SUBLOOP; i ++){
     _finalize_list[i] = NULL;
   }
 #ifdef W_MULTITHREAD
@@ -1770,4 +1770,4 @@ Toca um som representado por uma estrutura de som. Em seguida retorna
 se foi possível tocar o som com sucesso.
 
 \macrovalor|void W.destroy_sound(struct sound *snd)|:
-Desaloca um som alocado com |W.new_sound|.
+Desaloca a memória e os recursos alocados com  a função |W.new_sound|.

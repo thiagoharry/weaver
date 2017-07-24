@@ -2211,7 +2211,7 @@ necessário para inicializá-lo e defini-lo.
 globais da API Weaver, bem como as suas funções globais. Exceto as
 três outras funções definidas neste capítulo.
 
-\macrovalor|W.t|: O tempo em microsegundos que se passou
+\macrovalor|W.t\/|: O tempo em microsegundos que se passou
 desde que o programa se inicializou. Valor somente para leitura.
 
 \macrovalor|W.dt|: O intervalo de tempo que passa entre uma iteração e

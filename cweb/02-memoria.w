@@ -191,7 +191,7 @@ estados ``Tela Inicial'', ``Jogo'' e ``Combate''.
 
 Vamos agora definir os valores padrão para tais macros se elas não
  estiverem definidas. Vamos criar um valor padrão para
-|W_INTERNAL_MEMORY| como sendo 1/10000 de W_MAX_MEMORY, but not less
+|W_INTERNAL_MEMORY| como sendo 1/10000 de |W_MAX_MEMORY|, but not less
 than 16 KB:
 
 @(project/src/weaver/conf_end.h@>+=
@@ -1429,6 +1429,7 @@ _initialize_memory();
 @<API Weaver: Finalização@>+=
 // Primeiro a finalização das coisas antes de desalocar memória:
 @<API Weaver: Encerramento@>
+@<API Weaver: Som: Encerramento@>
 // Só então podemos finalizar o gerenciador de memória:
 
 _finalize_memory();
