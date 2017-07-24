@@ -32,9 +32,17 @@ threads, apenas criaremos uma nova thread sempre que precisarmos para
 carregar um arquivo e destruiremos a thread logo em seguida. Um valor
 positivo determina o número de threads da pool.
 
-A primeira coisa a fazer para usar a biblioteca é criar um cabeçalho e
-um arquivo de código C com funções específicas de som. Nestes arquivos
-iremos inserir também o cabeçalho OpenAL.
+Por fim, também escreveremos aqui o suporte para sermos capazes de
+desalocar estruturas de dados mais sofisticadas ao encerrarmos o loop
+atual em que estamos. Isso será importante porque o gerenciador de
+memória que usamos até então apenas desaloca a memória alocada em
+nossa arena. Mas ela não faz coisas como fechar arquivos abertos ou
+avisar alguma outra API que paramos de usar algum recurso.
+
+Mas para começar, a primeira coisa a fazer para usar a biblioteca é
+criar um cabeçalho e um arquivo de código C com funções específicas de
+som. Nestes arquivos iremos inserir também o cabeçalho OpenAL.
+
 @(project/src/weaver/sound.h@>=
 #ifndef _sound_h_
 #define _sound_h_
@@ -979,6 +987,10 @@ struct sound *_new_sound(char *filename){
         snd -> _data = extract_wave(complete_path, &(snd -> size),
                                    &(snd -> freq), &(snd -> channels),
                                    &(snd -> bitrate), &ret);
+        // Depois definimos a função abaixo. Ela diz apenas que depois
+        // temos que finalizar o recurso armazenado em snd -> _data,
+        // que no caso é o id de um som alocado no OpenAL:
+        _finalize_after(&(snd -> _data), _finalize_openal);
     }
     if(ret){ // ret é verdadeiro caso um erro tenha acontecido
         Wfree(complete_path);
@@ -1049,6 +1061,9 @@ static void onload_sound(unsigned undocumented, void *snd,
                                      &(my_sound -> freq),
                                      &(my_sound -> channels),
                                      &(my_sound -> bitrate), &ret);
+    // Depois definimos a função abaixo. Ela diz apenas que depois
+    // temos que finalizar o id de um som alocado no OpenAL:
+    _finalize_after(&(my_sound -> _data), _finalize_openal);
   }
   if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
     onerror_sound(0, snd, 1);
@@ -1154,6 +1169,11 @@ void _destroy_sound(struct sound *snd){
   }
   // Ok, podemos desalocar:
   alDeleteBuffers(1, &(snd -> _data));
+  // Se estamos em um loop principal, removemos o buffer OpenAL da
+  // lista de elementos que precisam ser desalocados depois. A função
+  // _finalize_this é vista logo mais neste capítulo
+  if(_running_loop)
+    _finalize_this(&(snd -> _data));
   Wfree(snd);
 }
 @
@@ -1467,6 +1487,9 @@ static void *process_sound(void *p){
                                      &(my_sound -> freq),
                                      &(my_sound -> channels),
                                      &(my_sound -> bitrate), &ret);
+    // Depois definimos a função abaixo. Ela diz apenas que depois
+    // temos que finalizar o id de um som alocado no OpenAL:
+    _finalize_after(&(my_sound -> _data), _finalize_openal);
   }
   if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
     file_info -> onerror(p);
@@ -1511,7 +1534,185 @@ static void *onerror_sound(void *p){
 #endif
 @
 
-E isso é tudo.
+@*1 Finalizando Recursos Complexos.
+
+Nós temso também que desalocar o buffer alocado pelo OpenAL para cada
+som que inicializamos. O nosso coletor de lixo não tem como fazer
+isso, pois isso é memória que pertence ao OpenAL, não à nossa API
+própria. Da mesma forma, caso tenhamos que fazer coisas como fechar
+arquivos abertos antes de sair do loop atual, o coletor de lixo também
+não poderá fazer isso automaticamente por nós. Teremos então que
+escrever código que nos ajude a gerenciar esses recursos mais
+complexos.
+
+A ideia é que possamos criar uma lista encadeada que armazena em cada
+elemento um ponteiro genérico para |void *| e uma função sem retorno
+que recebe um ponteiro deste tipo e que será responsável por finalizar
+o recurso no momento em que sairmos de nosso loop atual.
+
+Cada elemento desta lista terá então a forma:
+
+@<Cabeçalhos Weaver@>+=
+#ifdef W_MULTITHREAD
+pthread_mutex_t _finalizing_mutex;
+#endif
+struct _finalize_element{
+  void *data;
+  void (*finalize)(void *);
+  struct _finalize_element *prev, *next;
+};
+struct _finalize_element *_finalize_list[W_MAX_SUBLOOP];
+@
+
+A nossa lista no começo será inicializada como tendo valores iguais a
+|NULL| em todos os casos. O que representa uma lista encadeada vazia
+para nós:
+
+@<API Weaver: Inicialização@>+=
+{
+  int i;
+  for(i = 0; i < W_MAX_SUBLOOP;; i ++){
+    _finalize_list[i] = NULL;
+  }
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_init(&_finalizing_mutex, NULL) != 0){
+    fprintf(stderr, "ERROR (0): Can't initialize mutex.\n");
+    exit(1);
+  }
+#endif
+}
+@
+
+E no fim de nosso programa, só o que precisamos fazer é finalizar o
+mutex se for o caso:
+
+@<API Weaver: Finalização@>+=
+#ifdef W_MULTITHREAD
+  pthread_mutex_destroy(&_finalizing_mutex);
+#endif
+@
+
+Quando pedirmos para finalizar mais tarde algum recurso, nós
+chamaremos esta função que irá inserir na nossa lista encadeada um
+novo elemento:
+
+@<Cabeçalhos Weaver@>+=
+void _finalize_after(void *, void (*f)(void *));
+@
+
+@<API Weaver: Definições@>+=
+void _finalize_after(void *data, void (*finalizer)(void *)){
+  struct _finalize_element *el;
+  if(!_running_loop)
+    return;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_finalizing_mutex);
+#endif
+  el = (struct _finalize_element *) Walloc(sizeof(struct _finalize_element));
+  if(el == NULL){
+    fprintf(stderr, "WARNING (0): Not enough memory. Error in an internal "
+            "operation. Please, increase the value of W_MAX_MEMORY at "
+            "conf/conf.h. Currently we won't be able to finalize some "
+            "resource.\n");
+  }
+  else if(_finalize_list[_number_of_loops] == NULL){
+    el -> data = data;
+    el -> finalize = finalizer;
+    el -> prev = el -> next = NULL;
+    _finalize_list[_number_of_loops] = el;
+  }
+  else{
+    el -> data = data;
+    el -> finalize = finalizer;
+    el -> prev = NULL;
+    _finalize_list[_number_of_loops] -> prev = el;
+    el -> next = _finalize_list[_number_of_loops];
+    _finalize_list[_number_of_loops] = el;
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_finalizing_mutex);
+#endif
+}
+@
+
+No caso específico deste capítulo, onde o que queremos finalizar
+depois é um buffer OpenAL, o nosso segunfo argumento para
+|_finalize_after| será esta função:
+
+@<Som: Funções Estáticas@>+=
+static void _finalize_openal(void *data){
+  ALuint *p = (ALuint *) data;
+  alDeleteBuffers(1, p);
+}
+@
+
+Sempre que encerrarmos um loop teremos então que chamar a seguinte
+função:
+
+@<Cabeçalhos Weaver@>+=
+void _finalize_all(void);
+@
+
+@<API Weaver: Definições@>+=
+void _finalize_all(void){
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_finalizing_mutex);
+#endif
+  struct _finalize_element *p = _finalize_list[_number_of_loops];
+  while(p != NULL){
+    p -> finalize(p -> data);
+    p = p -> next;
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_finalizing_mutex);
+#endif
+}
+@
+
+Ela será chamada antes de entrarmos em um novo loop, mas não em
+subloop. E antes de sairmos de um subloop:
+
+@<Código antes de Loop, mas não de Subloop@>+=
+_finalize_all();
+@
+
+@<Código após sairmos de Subloop@>+=
+_finalize_all();
+@
+
+E por último forneceremos uma funçção que remove um elemento da lista
+de elementos a serem finalizados. Isso será útil quando, por exemplo,
+nós chamamos manualmente uma função para desalocar um som. Netse caso,
+podemos remover o seu buffer OpenAL da lista de coisas que precisam
+ser desalocadas depois:
+
+@<Cabeçalhos Weaver@>+=
+void _finalize_this(void *);
+@
+
+@<API Weaver: Definições@>+=
+void _finalize_this(void *data){
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_finalizing_mutex);
+#endif
+  {
+    struct _finalize_element *p = _finalize_list[_number_of_loops];
+    while(p != NULL){
+      if(p -> data == data){
+        if(p -> prev != NULL)
+          p -> prev -> next = p -> next;
+        if(p -> next != NULL)
+          p -> next -> prev = p -> prev;
+        return;
+      }
+      p = p -> next;
+    }
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_finalizing_mutex);
+#endif
+}
+@
 
 @*1 Sumário das variáveis e Funções de Som.
 
