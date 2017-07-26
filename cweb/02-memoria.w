@@ -1508,10 +1508,10 @@ resta declarar apenas o |Wbreakpoint| e |Wtrash|:
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
 int _Wbreakpoint(char *filename, unsigned long line);
-int _iWbreakpoint(char *filename, unsigned long line);
+int _iWbreakpoint_(char *filename, unsigned long line);
 #else
 int _Wbreakpoint(void);
-int _iWbreakpoint(void);
+int _iWbreakpoint_(void);
 #endif
 void _Wtrash(void);
 void _iWtrash(void);
@@ -1524,11 +1524,11 @@ A definição das funções segue abaixo:
 int _Wbreakpoint(char *filename, unsigned long line){
   return _new_breakpoint(_user_arena, filename, line);
 }
-int _iWbreakpoint(char *filename, unsigned long line){
+int _iWbreakpoint_(char *filename, unsigned long line){
   return _new_breakpoint(_internal_arena, filename, line);
 }
 #else
-int _Wbreakpoint(void){
+int _Wbreakpoint_(void){
   return _new_breakpoint(_user_arena);
 }
 int _iWbreakpoint(void){
@@ -1565,8 +1565,10 @@ E as macros que nos ajudam a cuidar do número de argumentos:
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
 #define Wbreakpoint() W.breakpoint(__FILE__, __LINE__)
+#define _iWbreakpoint() _iWbreakpoint_(__FILE__, __LINE__)
 #else
 #define Wbreakpoint() W.breakpoint()
+#define _iWbreakpoint() _iWbreakpoint_()
 #endif
 #define Wtrash() W.trash()
 @

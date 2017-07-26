@@ -76,7 +76,7 @@ char *_extract_gif(char *filename, unsigned long *width,
     FILE *fp = fopen(filename, "r");
     *error = false;
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
-    Wbreakpoint();
+    _iWbreakpoint();
 #endif
     if(fp == NULL)
       goto error_gif;
@@ -91,7 +91,7 @@ char *_extract_gif(char *filename, unsigned long *width,
     // Código de encerramento
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
     fclose(fp);
-    Wtrash();
+    _iWtrash();
 #else
     @<Encerrando Arquivo GIF@>
 #endif
