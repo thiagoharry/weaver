@@ -178,7 +178,7 @@ dado por $3\times2^{global\_color\_table\_size+1}$
 if(global_color_table_flag){
   printf("Lendo tabela de cores global.\n");
   unsigned long size = 3 * (1 << (global_color_table_size + 1));
-  global_color_table = (unsigned char *) Walloc(size);
+  global_color_table = (unsigned char *) _iWalloc(size);
   if(global_color_table == NULL){
     fprintf(stderr, "WARNING: Not enough memory to read image. Please, increase "
             "the value of W_MAX_MEMORY at conf/conf.h.\n");
@@ -481,7 +481,7 @@ de forma idêntica à tabela de cores global:
 {
   printf("(Tabela de cor local)\n");
   unsigned long size = 3 * (1 << (global_color_table_size + 1));
-  local_color_table = (unsigned char *) Walloc(size);
+  local_color_table = (unsigned char *) _iWalloc(size);
   if(local_color_table == NULL){
     fprintf(stderr, "WARNING: Not enough memory to read image. Please, increase "
             "the value of W_MAX_MEMORY at conf/conf.h.\n");
@@ -559,7 +559,7 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
 @<GIF: Inicializando Nova Imagem@>=
 {
   struct _image_list *new_image;
-  new_image = (struct _image_list *) Walloc(sizeof(struct _image_list));
+  new_image = (struct _image_list *) _iWalloc(sizeof(struct _image_list));
   if(new_image == NULL){
     fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
             "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
@@ -567,7 +567,7 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
     goto error_gif;
   }
   new_image -> prev = new_image -> next = NULL;
-  new_image -> rgba_image = (char *) Walloc((*width) * (*height) * 4);
+  new_image -> rgba_image = (char *) _iWalloc((*width) * (*height) * 4);
   if(new_image -> rgba_image == NULL){
     fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
             "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",

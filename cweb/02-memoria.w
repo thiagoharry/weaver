@@ -1508,10 +1508,13 @@ resta declarar apenas o |Wbreakpoint| e |Wtrash|:
 @<Declarações de Memória@>+=
 #if W_DEBUG_LEVEL >= 1
 int _Wbreakpoint(char *filename, unsigned long line);
+int _iWbreakpoint(char *filename, unsigned long line);
 #else
 int _Wbreakpoint(void);
+int _iWbreakpoint(void);
 #endif
 void _Wtrash(void);
+void _iWtrash(void);
 @
 
 A definição das funções segue abaixo:
@@ -1521,14 +1524,23 @@ A definição das funções segue abaixo:
 int _Wbreakpoint(char *filename, unsigned long line){
   return _new_breakpoint(_user_arena, filename, line);
 }
+int _iWbreakpoint(char *filename, unsigned long line){
+  return _new_breakpoint(_internal_arena, filename, line);
+}
 #else
 int _Wbreakpoint(void){
   return _new_breakpoint(_user_arena);
+}
+int _iWbreakpoint(void){
+  return _new_breakpoint(_internal_arena);
 }
 #endif
 void _Wtrash(void){
   Wtrash_arena(_user_arena);
 }
+void _iWtrash(void){
+  Wtrash_arena(_internal_arena);
+} 
 @
 
 E por fim as adicionamos à |W|:
