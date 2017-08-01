@@ -55,47 +55,56 @@ específico para o tratamento de GIFs:
 A função que fará todo o trabalho será:
 
 @<GIF: Declarações@>=
-  char *_extract_gif(char *filename, unsigned long *, unsigned long *, bool *);
+unsigned char *_extract_gif(char *filename, unsigned long *, unsigned long *,
+                   unsigned *, float *,
+                   bool *);
 @
 
 @<GIF: Definições@>=
-char *_extract_gif(char *filename, unsigned long *width,
-                   unsigned long *height, bool *error){
-    bool global_color_table_flag = false, transparent_color_flag = false;
-    int color_resolution, global_color_table_size;
-    unsigned img_offset_x = 0, img_offset_y = 0, img_width = 0, img_height = 0;
-    unsigned number_of_loops = 0;
-    void *returned_data  = NULL;
-    ALuint returned_buffer = 0;
-    unsigned background_color, delay_time = 0, transparency_index = 0;
-    unsigned char *global_color_table = NULL;
-    unsigned char *local_color_table = NULL;
-    int disposal_method = 0;
-    struct _image_list *img = NULL; // A lista de imagens será definida logo mais.
-    struct _image_list *last_img = NULL;
-    FILE *fp = fopen(filename, "r");
-    *error = false;
+unsigned char *_extract_gif(char *filename, unsigned long *width,
+                   unsigned long *height, unsigned *number_of_frames,
+                   float *times,
+                   bool *error){
+  bool global_color_table_flag = false, local_color_table_flag = false;
+  bool transparent_color_flag = false;
+  unsigned local_color_table_size = 0, global_color_table_size = 0;
+  int color_resolution;
+  unsigned long image_size;
+  unsigned img_offset_x = 0, img_offset_y = 0, img_width = 0, img_height = 0;
+  unsigned number_of_loops = 0;
+  unsigned char *returned_data  = NULL;
+  unsigned background_color, delay_time = 0, transparency_index = 0;
+  unsigned char *global_color_table = NULL;
+  unsigned char *local_color_table = NULL;
+  int disposal_method = 0;
+  struct _image_list *img = NULL; // A lista de imagens será definida logo mais.
+  struct _image_list *last_img = NULL;
+  *number_of_frames = 0;
+  times = NULL;
+  FILE *fp = fopen(filename, "r");
+  *error = false;
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
-    _iWbreakpoint();
+  _iWbreakpoint();
 #endif
-    if(fp == NULL)
-      goto error_gif;
-    @<Interpretando Arquivo GIF@>
-    // Se chegamos aqui, tudo correu bem. Só encerrarmos e retornarmos.
-    goto end_of_gif;
-  error_gif:
-    // Código executado apenas em caso de erro
-    *error = true;
-    returned_data = NULL;
-  end_of_gif:
-    // Código de encerramento
+  if(fp == NULL)
+    goto error_gif;
+  @<Interpretando Arquivo GIF@>
+  @<GIF: Gerando Imagem Final@>
+  // Se chegamos aqui, tudo correu bem. Só encerrarmos e retornarmos.
+  goto end_of_gif;
+error_gif:
+  // Código executado apenas em caso de erro
+  *error = true;
+  returned_data = NULL;
+end_of_gif:
+  // Código de encerramento
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
-    fclose(fp);
-    _iWtrash();
+  fclose(fp);
+  _iWtrash();
 #else
-    @<Encerrando Arquivo GIF@>
+  @<Encerrando Arquivo GIF@>
 #endif
-    return returned_data;
+  return returned_data;
 }
 @
 
@@ -154,6 +163,7 @@ informações adicionais.
   // Agora lemos a altura da imagem nos próximos 2 bytes
   fread(data, 1, 2, fp);
   *height = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
+  image_size = (*width) * (*height);
   // Lemos o próximo byte de onde extraímos informações sobre algumas
   // flags:
   fread(data, 1, 1, fp);
@@ -163,6 +173,7 @@ informações adicionais.
   color_resolution = (data[0] & 127) >> 4;
   // O tamanho da tabeela de cores caso ela exista:
   global_color_table_size = data[0] % 8;
+  global_color_table_size = 3 * (1 << (global_color_table_size + 1));
   // Lemos e ignoramos a cor de fundo de nosso GIF
   fread(&background_color, 1, 1, fp);
   // Lemos e ignoramos  a proporção de altura e largura de pixel
@@ -177,15 +188,14 @@ dado por $3\times2^{global\_color\_table\_size+1}$
 @<Interpretando Arquivo GIF@>+=
 if(global_color_table_flag){
   printf("Lendo tabela de cores global.\n");
-  unsigned long size = 3 * (1 << (global_color_table_size + 1));
-  global_color_table = (unsigned char *) _iWalloc(size);
+  global_color_table = (unsigned char *) _iWalloc(global_color_table_size);
   if(global_color_table == NULL){
     fprintf(stderr, "WARNING: Not enough memory to read image. Please, increase "
             "the value of W_MAX_MEMORY at conf/conf.h.\n");
     goto error_gif;
   }
   // E agora lemos a tabela global de cores:
-  fread(global_color_table, 1, size, fp);
+  fread(global_color_table, 1, global_color_table_size, fp);
 }
 @
 
@@ -212,6 +222,7 @@ fim dos dados:
   fread(data, 1, 1, fp);
   block_type = data[0];
   while(block_type != 59){
+    printf("Block %d: ", block_type);
     switch(block_type){
     case 33: // Bloco de extensão
       printf("Extensão\n");
@@ -444,11 +455,10 @@ a ler um descritor de imagem:
 
 @<GIF: Bloco Descritor de Imagem@>=
 {
-  bool local_color_table_flag = false, interlace_flag = false;
-  unsigned local_color_table_size;
+  bool interlace_flag = false;
   int lzw_minimum_code_size;
   // Lendo o offset horizontal da imagem:
-  unsigned char buffer[256];
+  unsigned char buffer[257];
   fread(buffer, 1, 2, fp);
   img_offset_x = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
   printf("(%d %d) -> img_offset_x: %d\n", buffer[0], buffer[1], img_offset_x);
@@ -467,6 +477,7 @@ a ler um descritor de imagem:
   local_color_table_flag = buffer[0] >> 7;
   interlace_flag = (buffer[0] >> 6) % 2;
   local_color_table_size = buffer[0] % 8;
+  local_color_table_size = 3 * (1 << (local_color_table_size + 1));
   if(local_color_table_flag){
     @<GIF: Tabela de Cor Local@>
   }
@@ -480,15 +491,14 @@ de forma idêntica à tabela de cores global:
 @<GIF: Tabela de Cor Local@>=
 {
   printf("(Tabela de cor local)\n");
-  unsigned long size = 3 * (1 << (global_color_table_size + 1));
-  local_color_table = (unsigned char *) _iWalloc(size);
+  local_color_table = (unsigned char *) _iWalloc(local_color_table_size);
   if(local_color_table == NULL){
     fprintf(stderr, "WARNING: Not enough memory to read image. Please, increase "
             "the value of W_MAX_MEMORY at conf/conf.h.\n");
     goto error_gif;
   }
   // E agora lemos a tabela local de cores:
-  fread(local_color_table, 1, size, fp);
+  fread(local_color_table, 1, local_color_table_size, fp);
 }
 @
 
@@ -497,6 +507,8 @@ os dados da imagem propriamente dita:
 
 @<GIF: Dados de Imagem@>=
 {
+  int buffer_size;
+  @<GIF: Variáveis Temporárias para Imagens Lidas@>
   printf("(Imagem)\n");
   fread(buffer, 1, 1, fp);
   lzw_minimum_code_size = buffer[0];
@@ -504,10 +516,13 @@ os dados da imagem propriamente dita:
   @<GIF: Inicializando Nova Imagem@>
   fread(buffer, 1, 1, fp);
   while(buffer[0] != 0){
-    //printf("Will read %d bytes.\n", buffer[0]);
+    buffer_size = buffer[0];
+    buffer[buffer_size] = '\0';
     fread(buffer, 1, buffer[0], fp);
+    @<GIF: Interpretando Imagem@>
     fread(buffer, 1, 1, fp);
   }
+  @<GIF: Finalizando Nova Imagem@>
   // Depois de lermos uma imagem, os valores ajustados pelo controle
   // de gráficos devem ser reinicializados novamente:
   disposal_method = 0;
@@ -532,7 +547,8 @@ encadeada de imagens:
 
 @<GIF: Declarações@>+=
 struct _image_list{
-  char *rgba_image;
+  unsigned char *rgba_image;
+  float delay_time; // Para imagens animadas
   struct _image_list *next, *prev;
 };
 @
@@ -541,6 +557,7 @@ Desalocar a lista de imagens, dado o seu último elemento pode ser
 feito com:
 
 @<GIF: Funções Estáticas@>=
+#if W_TARGET != W_ELF || defined(W_MULTITHREAD)
 static void free_img_list(struct _image_list *last){
   struct _image_list *p = last, *tmp;
   while(p != NULL){
@@ -550,6 +567,7 @@ static void free_img_list(struct _image_list *last){
     Wfree(tmp);
   }
 }
+#endif
 @
 
 E toda vez que formos ler uma nova imagem no nosso arquivo GIF,
@@ -559,6 +577,13 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
 @<GIF: Inicializando Nova Imagem@>=
 {
   struct _image_list *new_image;
+  *number_of_frames = (*number_of_frames ) + 1;
+  // Se nós não temos uma tabela de cores, isso é um erro. Vamos parar
+  // agora mesmo.
+  if(!local_color_table_flag && !global_color_table_flag){
+    fprintf(stderr, "WARNING: GIF image without a color table: %s\n", filename);
+    goto error_gif;
+  }
   new_image = (struct _image_list *) _iWalloc(sizeof(struct _image_list));
   if(new_image == NULL){
     fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
@@ -567,7 +592,7 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
     goto error_gif;
   }
   new_image -> prev = new_image -> next = NULL;
-  new_image -> rgba_image = (char *) _iWalloc((*width) * (*height) * 4);
+  new_image -> rgba_image = (unsigned char *) _iWalloc((*width) * (*height) * 4);
   if(new_image -> rgba_image == NULL){
     fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
             "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
@@ -577,42 +602,42 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
   if(img == NULL){
     img = new_image;
     last_img = img;
+    printf("img inicializado.\n");
   }
   else{
     last_img -> next = new_image;
     new_image -> prev = last_img;
     last_img = new_image;
   }
-  printf("inicializada imagem %d x %d.\n", *width, *height);
+  last_img -> delay_time = ((float) delay_time) / 100.0;
+  printf("inicializada imagem %lu x %lu.\n", *width, *height);
   // Se a nossa imagem não ocupa todo o canvas, vamos inicializar
   // todos os valores com a cor de fundo do canvas, já que há regiões
   // nas quais nossa imagem não irá estar. Mas também só podemos fazer
   // isso se temos uma tabela de cores.
   if(img_offset_x != 0 || img_offset_y != 0  || img_width != *width ||
      img_height != *height){
-    if(local_color_table_flag || global_color_table_flag){
-      printf("Preenchendo fundo da imagem. (%d %d %d %d)\n",
-             img_offset_x, img_offset_y, img_width, img_height);
-      unsigned long i;
-      unsigned long size = (*width) * (*height);
-      for(i = 0; i < size; i += 4){// Se temos uma tabela local, usamos ela
-        if(local_color_table_flag){
-          new_image -> rgba_image[4 * i] = local_color_table[3 * background_color];
-          new_image -> rgba_image[4 * i + 1] =
-            local_color_table[3 * background_color + 1];
-          new_image -> rgba_image[4 * i + 2] =
-            local_color_table[3 * background_color + 2];
-          new_image -> rgba_image[4 * i + 3] = 255;
-        }
-        else{// Senão, usamos a tabela de cores global
-          new_image -> rgba_image[4 * i] =
-            global_color_table[3 * background_color];
-          new_image -> rgba_image[4 * i + 1] =
-            global_color_table[3 * background_color + 1];
-          new_image -> rgba_image[4 * i + 2] =
-            global_color_table[3 * background_color + 2];
-          new_image -> rgba_image[4 * i + 3] = 255;
-        }
+    unsigned long i;
+    unsigned long size = (*width) * (*height);
+    // Se temos uma tabela local, usamos ela
+    for(i = 0; i < size; i += 4){
+      if(local_color_table_flag && background_color < local_color_table_size){
+        new_image -> rgba_image[4 * i] = local_color_table[3 * background_color];
+        new_image -> rgba_image[4 * i + 1] =
+          local_color_table[3 * background_color + 1];
+        new_image -> rgba_image[4 * i + 2] =
+          local_color_table[3 * background_color + 2];
+        new_image -> rgba_image[4 * i + 3] = 255;
+      }
+      // Se não, usamos a tabela de cores global.
+      else if(background_color < global_color_table_size){
+        new_image -> rgba_image[4 * i] =
+          global_color_table[3 * background_color];
+        new_image -> rgba_image[4 * i + 1] =
+          global_color_table[3 * background_color + 1];
+        new_image -> rgba_image[4 * i + 2] =
+          global_color_table[3 * background_color + 2];
+        new_image -> rgba_image[4 * i + 3] = 255;
       }
     }
   }
@@ -625,4 +650,314 @@ pela nossa lista de imagens:
 @<Encerrando Arquivo GIF@>=
   if(img != NULL)
     free_img_list(last_img);
+@
+
+Uma vez que estejamos lendo os dados no GIF, nós não encontraremos
+nele um valor de pixel, ou mesmo de posições na nossa tabela de
+cores. O que encontraremos serão códigos que geralmente são
+representados pelo seu valor numérico preficado por um ``\#''. Sendo
+assim, poderemos encontrar os códigos ``\#0'', ``\#1'', ``\#2'', até o
+``\#4095'' que é o maior código permitido dentro de um GIF. Cada um
+destes códigos precisa ser consultado em uma tabela de códigos e nela
+obteremos o valor de um ou mais índices em nossa tabela de cores. Cada
+código pode representar um índice ou então uma sequência de índices.
+
+Entretanto, nós começamos sem uma tabela de códigos e o interessante
+da compressão e descompressão de dados usando o algoritmo LZW é que
+não é preciso inserir tal tabela junto com os dados compactados. À
+medida que vamos lendo os dados compactados, somos também capazes de
+deduzir qual a tabela de código usado pelo programa que comprimiu os
+dados.
+
+Para começar a preencher a tabela de códigos, nós primeiro precisamos
+saber quantas posições tem a nossa tabela de cores. A primeira posição
+da tabela de códigos, representada pelo código \#0 representa a
+posição 0 na tabela de cores. A segunda posição, dada pelo código \#1
+é a segunda posição na tabela de cores. E assim por diante. Sabemos
+que a tabela de cores pode ter 2, 4, 8, 16, 32, 64, 128 ou 256
+posições diferentes. Estas posições iniciais, nós não precisamos nunca
+inicializar ou ler, já que seus valores nunca mudam.
+
+Nossa tabela de códigos é então esta:
+
+@<GIF: Variáveis Temporárias para Imagens Lidas@>=
+  char *code_table[4095];
+int last_value_in_code_table;
+@
+
+Mas o número de posições iniciais da nossa tabela que já começarão
+inicializadas na verdade não depende do tamanho de nossa tabela de
+cores, mas sim da variável |lzw_minimum_code_size|. Essa variável é
+lida no começo do bloco da imagem no arquivo GIF e pode legalmente ter
+7 valores diferentes: 2, 3, 4, 5, 6, 7 ou 8. Um valor diferente disso
+é inválido:
+
+@<GIF: Inicializando Nova Imagem@>+=
+{
+  if(lzw_minimum_code_size < 2 || lzw_minimum_code_size > 8){
+    fprintf(stderr, "WARNING (0): Invalid GIF file %s. Not allowed LZW Minimim "
+            " code size.\n", filename);
+    goto error_gif;
+  }
+}
+@
+
+O valor nesta variável nos diz quantos valores da nossa tabela de
+códigos deve já começar inicializada e sempre deve se manter
+inicializada:
+
+@<GIF: Inicializando Nova Imagem@>+=
+{
+  int i;
+  switch(lzw_minimum_code_size){
+  case 2:
+    last_value_in_code_table = 3;
+    break;
+  case 3:
+    last_value_in_code_table = 7;
+    break;
+  case 4:
+    last_value_in_code_table = 15;
+    break;
+  case 5:
+    last_value_in_code_table = 31;
+    break;
+  case 6:
+    last_value_in_code_table = 63;
+    break;
+  case 7:
+    last_value_in_code_table = 127;
+    break;
+  case 8:
+  default:
+    last_value_in_code_table = 255;
+    break;
+  }
+  for(i = 0; i <= last_value_in_code_table; i ++)
+    code_table[i] = NULL;
+}
+@
+
+Depois destes valores, sempre colocamos dois valores a mais na tabela
+de código. Um deles é o chamado ``clear code''. É um código que
+representa uma instrução de que devemos esvaziar a tabela deixando ela
+com o mínimo de valores possível (somente os valores iniciais que
+inicializamos acima mais os dois que estamos definindo agora). O
+pŕoximo é o ``end of information code'', que representa o fato de
+termos chegado ao fim da imagem (se encontramos este código ou não,
+iremos armazenar em uma variável booleana).
+
+@<GIF: Variáveis Temporárias para Imagens Lidas@>+=
+  unsigned clear_code, end_of_information_code;
+  bool end_of_image = false;
+@
+
+@<GIF: Inicializando Nova Imagem@>+=
+{
+  clear_code = last_value_in_code_table + 1;
+  end_of_information_code = last_value_in_code_table + 2;
+  last_value_in_code_table = end_of_information_code;
+  code_table[clear_code] = NULL;
+  code_table[end_of_information_code] = NULL;
+}
+@
+
+Agora vamos ter que ler os códigos que estão armazenados no GIF. Para
+cada código que lemos, pode ser que tenhamos que inserir mais coisas
+na tabela de códigos, ou mesmo pode ser que tenhamos que
+esvaziá-la. Nós também temos que ler sempre a menor quantidade de bits
+capaz de armazenar o maior número que pode ser lido. No começo, nós
+sempre lemos um número de bits igual a |lzw_minimum_code_size| mais
+1. Assim podemos encontrar qualquer código do #0 até o código de fim
+da imagem. À medida que nossa tabela ficar maior, o número de bits que
+lemos vai crescer, até o limite de 12 bits. O número de bits que
+devemos ler vai ser armazenado na seguinte variável:
+
+@<GIF: Variáveis Temporárias para Imagens Lidas@>+=
+int bits;
+@
+
+@<GIF: Inicializando Nova Imagem@>+=
+{
+  bits = lzw_minimum_code_size + 1;
+}
+@
+    
+O fato de não lermos bytes,mas uma quantidade variável de bits da
+entrada faz com que tenhamos que tomar cuidado na leitura dos
+dados. Nós sempre colocamos os dados a serem lidos em um buffer que é
+na verdade uma string. Então, ao lermos tal buffer, temos que manter
+duas variáveis. A primeira conta em qual byte devemos continuar a
+nossa leitura do buffer. E a segunda de qual bit dentro deste byte nós
+devemos continuar:
+
+@<GIF: Variáveis Temporárias para Imagens Lidas@>+=
+int byte_offset = 0, bit_offset = 0; 
+unsigned code = 0;
+// Essa variável vai nos ajudar caso uma parte dos bits de nosso
+// código esteja no buffer atual e a outra parte no buffer que ainda
+// está para ser lido:
+bool incomplete_code = false;
+// E isso nos diz qual pixel estamos lendo
+unsigned long pixel = 0;
+@
+
+E a leitura do buffer então funciona assim:
+
+@<GIF: Interpretando Imagem@>=
+byte_offset = 0;
+if(!incomplete_code)
+  bit_offset = 0;
+while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
+  if(incomplete_code){
+    // Temos que ler 'bits' bits, mas já lemos '-bit_offset'
+    code += (unsigned char) (buffer[byte_offset] << bit_offset);
+    incomplete_code = false;
+    bit_offset = bit_offset + bits - 8;
+  }
+  else{ // O caso típico
+    if(bit_offset + bits <= 8){
+      code = (unsigned char) (buffer[byte_offset] << (8 - bit_offset - bits));
+      code = code >> (8 - bits);
+    }
+    else{
+      if(byte_offset + 1 == buffer_size){
+        code = (unsigned char) (buffer[byte_offset] >> bit_offset);
+        incomplete_code = true;
+      }
+      else{
+        code = (unsigned char) (buffer[byte_offset] >> bit_offset);
+        code += (unsigned char) (buffer[byte_offset + 1] << bit_offset);
+        code = (unsigned char) (code << (16 - bits - bit_offset));
+        code = code >> (16 - bits - bit_offset);
+      }
+    }
+  }
+  if(!incomplete_code){
+    printf("[%d %d %d] #%d\n", byte_offset, bit_offset, bits, code);
+    bit_offset += bits;
+    if(bit_offset >= 8){
+      bit_offset = bit_offset % 8;
+      byte_offset += 1;
+    }
+    // Aqui já extraímos o nosso código :-D !
+    @<GIF: Interpreta Códigos Lidos@>
+  }
+  else break;
+}
+@
+
+Quando formos traduzir os códigos para uma posiçãoo na tabela de
+cores, é bom sabermos se devemos ler da tabela de cores local ou
+global:
+
+@<GIF: Variáveis Temporárias para Imagens Lidas@>+=
+unsigned char *color_table;
+@
+
+@<GIF: Inicializando Nova Imagem@>+=
+  if(local_color_table_flag)
+    color_table = local_color_table;
+  else
+    color_table = global_color_table;
+@
+
+E colocamos abaixo o código que nos permite traduzir os códigos que
+lemos para cores:
+
+@<GIF: Interpreta Códigos Lidos@>=
+{
+  if(pixel == 0){
+    // Se a imagem começa com um CLEAR CODE, só seguimos em frente:
+    if(code == clear_code)
+      continue;
+    // O primeiro pixel é traduzido diretamente para uma posição na
+    // tabela de cores:
+    last_img -> rgba_image[0] = color_table[3 * code];
+    last_img -> rgba_image[1] = color_table[3 * code + 1];
+    last_img -> rgba_image[2] = color_table[3 * code + 2];
+    if(transparent_color_flag && transparency_index == code)
+      last_img -> rgba_image[3] = 0;
+    else
+      last_img -> rgba_image[3] = 255;
+    printf("(%d %d %d %d)\n", last_img -> rgba_image[0], last_img -> rgba_image[1],
+           last_img -> rgba_image[2], last_img -> rgba_image[3]);
+    pixel ++;
+  }
+}
+@
+
+Depois que terminamos de extrair nossa imagem, temos que esvaziar a
+nossa tabela de códigos. Nós desalocamos todos o scódigos definidos e
+que não são os códigos iniciais cujo valor é |NULL| mesmo:
+
+@<GIF: Finalizando Nova Imagem@>=
+{
+  unsigned i;
+  for(i = last_value_in_code_table; i != end_of_information_code; i --)
+    Wfree(code_table[i]);
+}
+@
+
+E depois que percorremos todas as imagens presentes em nosso GIF,
+temos que montar a imagem que iremos retornar. A imagem final deve ter
+uma largunra igual ao tamanho da nossa tela de pintura lógica
+multiplicado pelo número de frames da imagem ou animação. A altura da
+imagem final deve ser a mesma altura da tela de pintura lógica. A
+ideia é que iremos representar todos os frames de uma animação em uma
+única imagem sequencial. Depois, Weaver fará com que eles apareçam na
+tela animados por meio de seu código e shaders.
+
+Além disso, caso a imagem tenha mais de um frame (seja uma animação),
+devemos retornar um vetor que floats que representam quanto tempo em
+segundo cada frame deve permanecer na animação até passar para o
+próximo frame.
+  
+@<GIF: Gerando Imagem Final@>=
+{
+  unsigned i, line, col;
+  unsigned long source_index, target_index;;
+  struct _image_list *p;
+  returned_data = (unsigned char *) Walloc(4 * (*width) * (*height) *
+                                           (*number_of_frames));
+  if(returned_data == NULL){
+    fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
+            "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+            filename);
+    goto error_gif;
+  }
+  if(*number_of_frames > 1){
+    times = (float *) Walloc(*number_of_frames * sizeof(float));
+    if(times == NULL){
+      fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
+              "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+              filename);
+      Wfree(returned_data);
+      returned_data = NULL;
+      goto error_gif;
+    }
+  }
+  p = img;
+  for(i = 0; i < *number_of_frames; i ++){
+    line = col = 0;
+    if(*number_of_frames > 1)
+      times[i] = p -> delay_time;
+    while(line < (*height)){
+      while(col < (*width)){
+        source_index = line * (*width) * 4 + col * 4;
+        target_index = 4 * (*width) * (*number_of_frames) * line + (*width) * i * 4
+          + col * 4; 
+        returned_data[target_index] = p -> rgba_image[source_index];
+        returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
+        returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
+        returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
+        col ++;
+      }
+      line ++;
+      col = 0;
+    }
+    p = p -> next;
+    line = col = 0;
+  }
+}
 @
