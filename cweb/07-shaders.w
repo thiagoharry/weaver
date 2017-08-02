@@ -82,6 +82,7 @@ struct interface {
   // desta matriz:
   pthread_mutex_t _interface_mutex;
 #endif
+  @<Interface: Atributos Adicionais@>
 @
 
 Notar que cada subloop do jogo tem as suas interfaces. E o número
@@ -305,6 +306,7 @@ struct interface *_new_interface(int type, int x, int y, int width,
       _interfaces[_number_of_loops][i].height = (float) height;
       // Modo padrão de desenho de interface:
       _interfaces[_number_of_loops][i]._mode = GL_TRIANGLE_FAN;
+      @<Interface: Inicialização Adicional@>
 #ifdef W_MULTITHREAD
       if(pthread_mutex_init(&(_interfaces[_number_of_loops][i]._mutex),
                             NULL) != 0){
@@ -325,8 +327,8 @@ struct interface *_new_interface(int type, int x, int y, int width,
           _interfaces[_number_of_loops][i].b = va_arg(valist, double);
           _interfaces[_number_of_loops][i].a = va_arg(valist, double);
           va_end(valist);
-          //@<Interface: Leitura de Argumentos e Inicialização@>
           break;
+          @<Interface: Leitura de Argumentos e Inicialização@>
         default:
           ;
         }

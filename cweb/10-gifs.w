@@ -961,3 +961,147 @@ próximo frame.
   }
 }
 @
+
+@*2 Integrando Imagens GIF às Interfaces.
+
+Usar a nossa função que definimos para carregar GIFs de modo a criar
+uma interface não é tão diferente do trabalho que tivemos para
+integrar os sons WAVE na nossa engine. É basicamente isso, mas com
+algumas modificações adicionais às Interfaces.
+
+Primeiro, de agora em diante será importante que toda interface tenha
+uma textura e também uma variável booleana para indicar se a textura
+já foi carregada. Também, caso a imagem seja uma animação, teremos que
+informar o número de frames dela e a quantos frames por segundo ela
+está rodando. Ela também irá armazenar um novo atributo |t|, que
+indica o tempo contado em segundos desde que ela foi criada e o
+|max_t| que é o valor máximo que |t| pode ter. Ambas as variáveis de
+tempo serão úteis para manipularmos o comportamento da animação no
+shader e poderão ser modificadas pelo usuário:
+
+@<Interface: Atributos Adicionais@>=
+// Isso fica dentro da definição de 'struct interface':
+GLuint _texture;
+bool _loaded_texture;
+unsigned number_of_frames, fps;
+float t, max_t;
+@
+
+Estes valores precisam ser inicializados. Inicializá-los é fácil, só a
+textura é que é um pouco diferente. Como estes são atributos que todas
+as imagens vão ter, vamos precisar criar uma textura padrão e
+transparente que será a usada nas interfaces que não possuem textura.
+
+Nossa tetura padrão e transparente será criada na inicialização e
+removida na finalização:
+
+@<Cabeçalhos Weaver@>+=
+GLuint _empty_texture;
+char _empty_image[4];
+@
+
+@<API Weaver: Inicialização@>+=
+{
+  _empty_image[0] = _empty_image[1] = _empty_image[2] = _empty_image[3] = '\0';
+  glGenTextures(1, &_empty_texture);
+  glBindTexture(GL_TEXTURE_2D, _empty_texture);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 64, 0, GL_RGBA,
+               GL_UNSIGNED_BYTE, &_empty_texture);
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
+@
+
+@<API Weaver: Finalização@>+=
+{
+  glDeleteTextures(1, &_empty_texture);
+}
+@
+
+E então, quando inicializamos uma interface, podemos inicializar
+também estes novos valores:
+
+@<Interface: Inicialização Adicional@>=
+{
+  _texture = _empty_texture;
+  // Por padrão, ainda nem sabemos se a interface terá uma
+  // textura. Assim que detectarmos que ela terá, mudamos isso para
+  // falso, e aí para verdadeiro de novo quando ela terminar de
+  // carregar a textura:
+  _loaded_texture = true;
+  t = 0.0;
+  max_t = INFINITY;
+  number_of_frames = 1;
+  fps = 0;
+}
+@
+
+Mas quando a interface vai usar uma textura diferente? As interfaces
+declaradas como |W_INTERFACE_PERIMETER| e |W_INTERFACE_SQUARE| não
+possuem texturas. Vamos criar então um novo tipo de interface:
+|W_INTERFACE_IMAGE|, que representa interfaces criadas à partir de
+arquivos de imagem.
+
+@<Interface: Declarações@>+=
+#define W_INTERFACE_IMAGE -3
+@
+
+E agora definimos o que acontece quando estamos inicializando uma nova
+interface, lendo seus argumentos e sabemos que estamos diante de uma
+destas intrfaces de imagens:
+
+@<Interface: Leitura de Argumentos e Inicialização@>=
+case W_INTERFACE_IMAGE:
+  _loaded_texture = false;
+{
+#if W_TARGET == W_WEB
+  char dir[] = "images/";
+#elif W_DEBUG_LEVEL >= 1
+  char dir[] = "./images/";
+#elif W_TARGET == W_ELF
+  char dir[] = W_INSTALL_DATA"/images/";
+#endif
+#if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
+  char *ext;
+  bool ret = true;
+#endif
+  char *filename, complete_path[256];
+  char *new_texture;
+  unsigned long texture_width, texture_height;
+  va_start(valist, height);
+  filename = va_arg(valist, char *);
+  va_end(valist);
+  // Obtendo o caminho do arquivo de áudio:
+  strncpy(complete_path, dir, 256);
+  complete_path[255] = '\0';
+  strncat(complete_path, filename, 256 - strlen(complete_path));
+#if W_TARGET == W_WEB || defined(W_MULTITHREAD)
+  // XXX
+#else
+  // Rodando sincronamente:
+  ext = strrchr(filename, '.');
+  if(! ext){
+    fprintf(stderr, "WARNING (0): No file extension in %s.\n",
+            filename);
+    _interfaces[_number_of_loops][i].type = W_NONE;
+    return NULL;
+  }
+  if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .wav
+    float *times;
+    new_texture = extract_gif(complete_path, &texture_width, &texture_height,
+                              &(_interfaces[_number_of_loops][i].number_of_frames),
+                              times, &ret);
+    // Depois temos que finalizar o nosso recurso quando ele for limpo
+    // pelo coletor de lixo. para ele, finalizar significa apagar a
+    // textura OpenGL:
+    _finalize_after(&(_interfaces[_number_of_loops][i]),
+                    _finalize_interface_texture);
+    // XXX: Criar a textura no OpenGL e preenchê-la
+  }
+  if(ret){ // Se algum erro aconteceu:
+
+  }
+#endif
+}
+  break;
+@
