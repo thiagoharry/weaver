@@ -56,15 +56,15 @@ A função que fará todo o trabalho será:
 
 @<GIF: Declarações@>=
 unsigned char *_extract_gif(char *filename, unsigned long *, unsigned long *,
-                   unsigned *, float *,
-                   bool *);
+                            unsigned *, float *, float *,
+                            bool *);
 @
 
 @<GIF: Definições@>=
 unsigned char *_extract_gif(char *filename, unsigned long *width,
-                   unsigned long *height, unsigned *number_of_frames,
-                   float *times,
-                   bool *error){
+                            unsigned long *height, unsigned *number_of_frames,
+                            float *times, float *max_t,
+                            bool *error){
   bool global_color_table_flag = false, local_color_table_flag = false;
   bool transparent_color_flag = false;
   unsigned local_color_table_size = 0, global_color_table_size = 0;
@@ -916,7 +916,8 @@ próximo frame.
 @<GIF: Gerando Imagem Final@>=
 {
   unsigned i, line, col;
-  unsigned long source_index, target_index;;
+  unsigned long source_index, target_index;
+  float total_time = INFINITY;
   struct _image_list *p;
   returned_data = (unsigned char *) Walloc(4 * (*width) * (*height) *
                                            (*number_of_frames));
@@ -927,6 +928,7 @@ próximo frame.
     goto error_gif;
   }
   if(*number_of_frames > 1){
+    total_time = 0.0;
     times = (float *) Walloc(*number_of_frames * sizeof(float));
     if(times == NULL){
       fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
@@ -940,8 +942,10 @@ próximo frame.
   p = img;
   for(i = 0; i < *number_of_frames; i ++){
     line = col = 0;
-    if(*number_of_frames > 1)
+    if(*number_of_frames > 1){
       times[i] = p -> delay_time;
+      total_time += times[i];
+    }
     while(line < (*height)){
       while(col < (*width)){
         source_index = line * (*width) * 4 + col * 4;
@@ -959,6 +963,10 @@ próximo frame.
     p = p -> next;
     line = col = 0;
   }
+  if(number_of_loops == 0)
+    *max_t = INFINITY;
+  else
+    *max_t = total_time * number_of_loops;
 }
 @
 
@@ -975,16 +983,16 @@ já foi carregada. Também, caso a imagem seja uma animação, teremos que
 informar o número de frames dela e a quantos frames por segundo ela
 está rodando. Ela também irá armazenar um novo atributo |t|, que
 indica o tempo contado em segundos desde que ela foi criada e o
-|max_t| que é o valor máximo que |t| pode ter. Ambas as variáveis de
-tempo serão úteis para manipularmos o comportamento da animação no
-shader e poderão ser modificadas pelo usuário:
+|max_t| que é o valor máximo que |t| pode ter. Tudo isso é útil para
+animações. Inclusive teremos a variável |dt| que armazenará quanto
+tempo em seundos deve durar cada quadro de animação:
 
 @<Interface: Atributos Adicionais@>=
 // Isso fica dentro da definição de 'struct interface':
 GLuint _texture;
 bool _loaded_texture;
-unsigned number_of_frames, fps;
-float t, max_t;
+unsigned number_of_frames;
+float t, max_t, dt;
 @
 
 Estes valores precisam ser inicializados. Inicializá-los é fácil, só a
@@ -1030,9 +1038,9 @@ também estes novos valores:
   // carregar a textura:
   _loaded_texture = true;
   t = 0.0;
+  dt = 0.0;
   max_t = INFINITY;
   number_of_frames = 1;
-  fps = 0;
 }
 @
 
@@ -1090,16 +1098,34 @@ case W_INTERFACE_IMAGE:
     float *times;
     new_texture = extract_gif(complete_path, &texture_width, &texture_height,
                               &(_interfaces[_number_of_loops][i].number_of_frames),
-                              times, &ret);
+                              times, &(_interfaces[_number_of_loops][i].max_t),
+                              &ret);
+    if(ret){ // Se algum erro aconteceu:
+      _interfaces[_number_of_loops][i].type = W_NONE;
+      return NULL;
+    }
     // Depois temos que finalizar o nosso recurso quando ele for limpo
     // pelo coletor de lixo. para ele, finalizar significa apagar a
     // textura OpenGL:
     _finalize_after(&(_interfaces[_number_of_loops][i]),
                     _finalize_interface_texture);
-    // XXX: Criar a textura no OpenGL e preenchê-la
-  }
-  if(ret){ // Se algum erro aconteceu:
-
+    // Preenchemos dt e ignoramos o tempo de duração de cada frame
+    // além do primeiro. Um GIF pode ter cada quadro com uma duração
+    // diferente. Mas para facilitar os nossos shaders, não
+    // suportaremos isso. Sempre asumiremos que cada frame tem a mesma
+    // duração e usamos a duração do primeiro como métrica. Se
+    // detectarmos que existem muitos GIFs com quadros de diferentes
+    // durações, aí é melhor rever isso:
+    if(_interfaces[_number_of_loops][i].number_of_frames > 1){
+      _interfaces[_number_of_loops][i].dt = times[0];
+      Wfree(times);
+    }
+    // Agora temos que criar a nossa textura e inicializá-la:
+    glGenTextures(1, &(_interfaces[_number_of_loops][i]._texture));
+    glBindTexture(GL_TEXTURE_2D, _interfaces[_number_of_loops][i]._texture);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
+                 GL_RGBA, GL_UNSIGNED_BYTE, new_texture);
+    glBindTexture(GL_TEXTURE_2D, 0);
   }
 #endif
 }
