@@ -43,6 +43,7 @@ Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
 @(project/src/weaver/interface.c@>=
 #include "interface.h"
 #include <stdarg.h> // Função com argumentos variáveis
+@<Interface: Funções Estáticas@>
 @<Interface: Definições@>
 @
 @<Cabeçalhos Weaver@>+=

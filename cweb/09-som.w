@@ -1090,7 +1090,7 @@ static void onload_sound(unsigned undocumented, void *snd,
 E uma função vazia que precisamos passar emostra o que o Emscripten
 tem que fazer à medida que carrega cada porcentagem relevante do
 arquivo:
-
+  
 @<Som: Funções Estáticas@>+=
 #if W_TARGET == W_WEB
 static void onprogress_sound(unsigned int undocumented, void *snd,

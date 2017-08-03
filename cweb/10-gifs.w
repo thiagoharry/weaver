@@ -1,5 +1,5 @@
-@* Suporte a Gifs Animados.
 
+@* Suporte a Gifs Animados.
 Um GIF é um formato de arquivos e uma abreviação para Graphics
 Interchange Format. É um formato bastante antigo criado em 1987 e que
 ainda hoje é bastante usado por sua capacidade de representar
@@ -993,6 +993,11 @@ GLuint _texture;
 bool _loaded_texture;
 unsigned number_of_frames;
 float t, max_t, dt;
+// Onde a textura será armazenada apenas temporariamente antes de
+// enviar para a plaa de vídeo. Precisamos que seja em uma variável
+// persistente, e não local, pois podemos precisar carregar a textura
+// assincronamente:
+char *_tmp_texture;
 @
 
 Estes valores precisam ser inicializados. Inicializá-los é fácil, só a
@@ -1074,7 +1079,6 @@ case W_INTERFACE_IMAGE:
   bool ret = true;
 #endif
   char *filename, complete_path[256];
-  char *new_texture;
   unsigned long texture_width, texture_height;
   va_start(valist, height);
   filename = va_arg(valist, char *);
@@ -1084,7 +1088,29 @@ case W_INTERFACE_IMAGE:
   complete_path[255] = '\0';
   strncat(complete_path, filename, 256 - strlen(complete_path));
 #if W_TARGET == W_WEB || defined(W_MULTITHREAD)
-  // XXX
+  // Rodando assincronamente
+#if W_TARGET == W_WEB
+  mkdir("images/", 0777); // Emscripten
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&(W._pending_files_mutex));
+#endif
+  W.pending_files ++;
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&(W._pending_files_mutex));
+#endif
+  // Obtendo arquivo via Emsripten
+  emscripten_async_wget2(complete_path, complete_path,
+                         "GET", "",
+                         (void *) &(_interfaces[_number_of_loops][i]),
+                         &onload_texture, &onerror_texture,
+                         &onprogress_texture);
+#else
+  // Obtendo arquivo via threads
+  _multithread_load_file(complete_path,
+                         (void *) &(_interfaces[_number_of_loops][i]),
+                         &process_texture,
+                         &onload_texture, &onerror_texture);  
+#endif
 #else
   // Rodando sincronamente:
   ext = strrchr(filename, '.');
@@ -1096,10 +1122,11 @@ case W_INTERFACE_IMAGE:
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .wav
     float *times;
-    new_texture = extract_gif(complete_path, &texture_width, &texture_height,
-                              &(_interfaces[_number_of_loops][i].number_of_frames),
-                              times, &(_interfaces[_number_of_loops][i].max_t),
-                              &ret);
+    _interfaces[_number_of_loops][i]._tmp_texture =
+      extract_gif(complete_path, &texture_width, &texture_height,
+                  &(_interfaces[_number_of_loops][i].number_of_frames),
+                  times, &(_interfaces[_number_of_loops][i].max_t),
+                  &ret);
     if(ret){ // Se algum erro aconteceu:
       _interfaces[_number_of_loops][i].type = W_NONE;
       return NULL;
@@ -1124,10 +1151,47 @@ case W_INTERFACE_IMAGE:
     glGenTextures(1, &(_interfaces[_number_of_loops][i]._texture));
     glBindTexture(GL_TEXTURE_2D, _interfaces[_number_of_loops][i]._texture);
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE, new_texture);
+                 GL_RGBA, GL_UNSIGNED_BYTE,
+                 _interfaces[_number_of_loops][i]._tmp_texture);
     glBindTexture(GL_TEXTURE_2D, 0);
+    // Não precisamos mais manter a textura localmente agora que já a
+    // enviamos para a placa de vídeo:
+    Wfree(_interfaces[_number_of_loops][i]._tmp_texture);
   }
 #endif
 }
   break;
+@
+
+E é isso que cria uma nova interface com textura. Mas nós agora
+precisamos criar uma série de funções auxiliares que invocamos
+acima. Elas são |onload_texture| (a ser executada em ambiente web após
+fazermos o download do arquivo GIF), |onerror_texture| (a ser
+executada se um erro ocorrer quando carregamos o arquivo
+assincronamente), |onprogress_texture| (uma função vazia quenão faz
+nada a ser invocada à medida que baixamos o arquivo),
+|process_texture| (uma função a ser executada caso estejamos
+carregando com threads e que irá funcionar em uma thread) e
+|_finalize_interface_texture| (função que irá pedir para que a textura
+seja removida da memória da placa de víde quando a interface for
+desalocada).
+
+Ao trabalho. Primeiro o |onload_texture|:
+
+@<Interface: Funções Estáticas@>=
+#if W_TARGET == W_ELF && defined(W_MULTITHREAD)
+// Recebe uma interface omo argumento e preenchemos sua textura:
+static void *onload_texture(void *p){
+  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
+  struct sound *my_sound = (struct sound *) (file_info -> target);
+  my_sound -> loaded = true;
+  return NULL;
+}
+static void *onerror_sound(void *p){
+  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
+  fprintf(stderr, "Warning (0): Failed to load sound file: %s\n",
+          file_info -> filename);
+  return NULL;
+}
+#endif
 @
