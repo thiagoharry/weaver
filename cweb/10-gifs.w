@@ -1176,7 +1176,56 @@ carregando com threads e que irá funcionar em uma thread) e
 seja removida da memória da placa de víde quando a interface for
 desalocada).
 
-Ao trabalho. Primeiro o |onload_texture|:
+Ao trabalho. Primeiro o |onload_texture| caso seja um programa web:
+
+@<Interface: Funções Estáticas@>=
+static void onload_texture(unsigned undocumented, void *inter,
+                           const char *filename){
+  char *ext;
+  bool ret = true;
+  struct interface *my_interface = (struct interface *) inter;
+  // Checando extensão
+  ext = strrchr(filename, '.');  
+  if(! ext){
+    onerror_texture(0, inter, 0);
+    return;
+  }
+  if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
+    float *times;
+    my_interface -> _tmp_texture =
+      extract_gif(complete_path, &texture_width,
+                  &texture_height,
+                  &(my_interface -> number_of_frames),
+                  times, &(my_interface -> max_t), &ret);
+  }
+  if(ret){ // Se algum erro aconteceu:
+    my_interface -> type = W_NONE;
+    return NULL;
+  }
+  _finalize_after(my_interface, _finalize_interface_texture);
+  if(my_interface -> number_of_frames > 1){
+    my_interface -> dt = times[0];
+    Wfree(times);
+  }
+  // Inicializando a tetura lida
+  glGenTextures(1, &(my_interface -> _texture));
+  glBindTexture(GL_TEXTURE_2D, my_interface -> _texture);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
+               GL_RGBA, GL_UNSIGNED_BYTE,
+               my_interface -> _tmp_texture);
+  glBindTexture(GL_TEXTURE_2D, 0);
+  // A mudança final de flag:
+  my_interface -> _loaded_texture = true;
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&(W._pending_files_mutex));
+#endif
+    W.pending_files --;
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(W._pending_files_mutex));
+#endif
+}
+#endif
+@
 
 @<Interface: Funções Estáticas@>=
 #if W_TARGET == W_ELF && defined(W_MULTITHREAD)
