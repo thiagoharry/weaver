@@ -11,7 +11,7 @@ outras empresas como a Apple.
 
 A vantagem da biblioteca é o suporte à efeitos sonoros
 tridimensionais. Ela ajusta a atenuação do som de acordo com a
-distância da fonte emissora do som e da posição da câmera em um
+distância da fonte emissora e da posição da câmera em um
 ambiente virtual em 3D. Além de suportar a simulação de efeitos
 físicos como o efeito Doppler.
 
@@ -20,7 +20,7 @@ carregamento de arquivos. No nosso caso, de carregamento de arquivos
 de áudio. Mas a mesma infra-esrutura depois poderá ser aproveitada
 para carregar outros tipos de arquivos, tais como texturas e fontes. É
 importante que se possível carreguemos os arquivos paralelamente por
-meio de threads para finsd e eficiência. Faremos isso se a macro
+meio de threads para fins de eficiência. Faremos isso se a macro
 |W_MULTITHREAD| estiver definida. Além disso, se ela estiver definida,
 checaremos o valor abaixo para saber se usaremos uma pool de threads e
 quantas threads terão a nossa pool:

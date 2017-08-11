@@ -73,6 +73,7 @@ struct interface {
     GLfloat _transform_matrix[16];
     // O modo com o qual a interface é desenhada ao invocar glDrawArrays:
     GLenum _mode;
+    @<Interface: Atributos Adicionais@>
     /* Mutex: */
 #ifdef W_MULTITHREAD
     pthread_mutex_t _mutex;
@@ -83,7 +84,6 @@ struct interface {
   // desta matriz:
   pthread_mutex_t _interface_mutex;
 #endif
-  @<Interface: Atributos Adicionais@>
 @
 
 Notar que cada subloop do jogo tem as suas interfaces. E o número
