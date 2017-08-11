@@ -1,4 +1,5 @@
 @* Suporte a Gifs Animados.
+
 Um GIF é um formato de arquivos e uma abreviação para Graphics
 Interchange Format. É um formato bastante antigo criado em 1987 e que
 ainda hoje é bastante usado por sua capacidade de representar
@@ -1365,3 +1366,122 @@ static void _finalize_interface_texture(void *data){
   struct interface *p = (struct interface *) data;
   glDeleteTextures(1, &(p -> _texture));
 }
+
+@*1 Shader e Renderização.
+
+Vamos agora criar o shader responsável por renderizar as imagens com
+textura na tela. O que ele terá de diferente é que terá uma textura
+que poderá acessar para preencher os seus pixels:
+
+@<Shader: Atributos@>+=
+uniform sampler2D texture1;
+@
+
+E usando esta textura, iremos poder renderizar a imagem extraída de
+arquivo. No shader de vértice o que isso terá de diferente de outras
+interfaces é só as coordenadas de textura que iremos passar:
+
+@(project/src/weaver/vertex_image_interface.glsl@>=
+// Usamos GLSLES 1.0 que é suportado por Emscripten
+#version 100
+// Declarando a precisão para ser compatível com GLSL 2.0 se possível
+#if GL_FRAGMENT_PRECISION_HIGH == 1
+precision highp float;
+precision highp int;
+#else
+precision mediump float;
+precision mediump int;
+#endif
+precision lowp sampler2D;
+precision lowp samplerCube;
+// Todos os atributos individuais de cada vértice
+@<Shader: Atributos@>
+// Atributos do objeto a ser renderizado (basicamente as coisas dentro
+// do struct que representam o objeto)
+@<Shader: Uniformes@>
+
+varying mediump vec2 coordinate;
+
+void main(){
+  gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
+  // Coordenada da textura:
+  coordinate = vec2(((vertex_position[0] + 0.5)),
+                    ((vertex_position[1] + 0.5)));
+}
+@
+
+E no shader de fragmento usaremos enfim esta textura e coordenadas:
+
+@(project/src/weaver/fragment_image_interface.glsl@>=
+// Usamos GLSLES 1.0 que é suportado por Emscripten
+#version 100
+// Declarando a precisão para ser compatível com GLSL 2.0 se possível
+#if GL_FRAGMENT_PRECISION_HIGH == 1
+  precision highp float;
+  precision highp int;
+#else
+  precision mediump float;
+  precision mediump int;
+#endif
+  precision lowp sampler2D;
+  precision lowp samplerCube;
+// Atributos do objeto a ser renderizado (basicamente as coisas dentro
+// do struct que representam o objeto)
+@<Shader: Uniformes@>
+
+varying mediump vec2 coordinate;
+
+void main(){
+    gl_FragData[0] = texture2D(texture1, coordinate);
+}
+@
+
+Este shader precisa ser inserido e usado na nossa engine:
+
+@<Shaders: Declarações@>=
+extern char _vertex_image_interface[];
+extern char _fragment_imageinterface[];
+struct _shader _image_interface_shader;
+@
+@<Shaders: Definições@>=
+char _vertex_interface[] = {
+#include "vertex_image_interface.data"
+        , 0x00};
+char _fragment_interface[] = {
+#include "fragment_image_interface.data"
+    , 0x00};
+@
+
+Compilamos ele na inicialização:
+
+@<API Weaver: Inicialização@>+=
+{
+  GLuint vertex, fragment;
+  vertex = _compile_vertex_shader(_vertex_image_interface_texture);
+  fragment = _compile_fragment_shader(_fragment_image_interface_texture);
+  // Preenchendo variáeis uniformes e atributos:
+  _image_interface_shader.program_shader =
+    _link_and_clean_shaders(vertex, fragment);
+  _image_interface_shader._uniform_texture1 =
+    glGetUniformLocation(_framebuffer_shader.program_shader,
+                         "texture1");
+  _image_interface_shader._uniform_object_color =
+    glGetUniformLocation(_framebuffer_shader.program_shader,
+                         "object_color");
+  _image_interface_shader._uniform_model_view =
+    glGetUniformLocation(_framebuffer_shader.program_shader,
+                         "model_view_matrix");
+  _image_interface_shader._uniform_object_size =
+    glGetUniformLocation(_framebuffer_shader.program_shader,
+                         "object_size");
+  _image_interface_shader._uniform_time =
+    glGetUniformLocation(_framebuffer_shader.program_shader,
+                         "time");
+  _image_interface_shader._uniform_integer =
+    glGetUniformLocation(_framebuffer_shader.program_shader,
+                           "integer");
+  _image_interface_shader._attribute_vertex_position =
+    glGetAttribLocation(_framebuffer_shader.program_shader,
+                        "vertex_position");
+}
+@

@@ -105,6 +105,10 @@ install: uninstall
 						${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/fragment_interface.glsl \
 	                                        ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/vertex_image_interface.glsl \
+						${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/fragment_image_interface.glsl \
+	                                        ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/vertex_interface_texture.glsl \
 		${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/fragment_interface_texture.glsl \

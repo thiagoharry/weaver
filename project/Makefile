@@ -38,6 +38,12 @@ src/weaver/vertex_interface.data: src/weaver/vertex_interface.glsl
 src/weaver/fragment_interface.data: src/weaver/fragment_interface.glsl
 	@cat src/weaver/fragment_interface.glsl | sed 's/^#line.*//' | \
 	xxd -i > src/weaver/fragment_interface.data
+src/weaver/vertex_image_interface.data: src/weaver/vertex_image_interface.glsl
+	@cat src/weaver/vertex_image_interface.glsl | sed 's/^#line.*//' | \
+	xxd -i > src/weaver/vertex_image_interface.data
+src/weaver/fragment_image_interface.data: src/weaver/fragment_image_interface.glsl
+	@cat src/weaver/fragment_image_interface.glsl | sed 's/^#line.*//' | \
+	xxd -i > src/weaver/fragment_image_interface.data
 src/weaver/fragment_interface_texture.data: src/weaver/fragment_interface_texture.glsl
 	@cat src/weaver/fragment_interface_texture.glsl | sed 's/^#line.*//' | \
 	xxd -i > src/weaver/fragment_interface_texture.data

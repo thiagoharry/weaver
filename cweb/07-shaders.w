@@ -1910,7 +1910,7 @@ de renderização, separada da engine de física e controle do jogo.
                 current_shader =
                     &(_shader_list[_interface_queue[_number_of_loops][i] ->
                                    type - 1]);
-            }
+            }//XXX Usar shaders alternativos aqui:
             else{
                 current_shader = &_default_interface_shader;
             }
