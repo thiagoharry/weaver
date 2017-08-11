@@ -85,8 +85,9 @@ unsigned char *_extract_gif(char *filename, unsigned long *width,
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
   _iWbreakpoint();
 #endif
-  if(fp == NULL)
+  if(fp == NULL){
     goto error_gif;
+  }
   @<Interpretando Arquivo GIF@>
   @<GIF: Gerando Imagem Final@>
   // Se chegamos aqui, tudo correu bem. Só encerrarmos e retornarmos.
@@ -1067,11 +1068,11 @@ case W_INTERFACE_IMAGE:
   _interfaces[_number_of_loops][i]._loaded_texture = false;
 {
 #if W_TARGET == W_WEB
-  char dir[] = "images/";
+  char dir[] = "image/";
 #elif W_DEBUG_LEVEL >= 1
-  char dir[] = "./images/";
+  char dir[] = "./image/";
 #elif W_TARGET == W_ELF
-  char dir[] = W_INSTALL_DATA"/images/";
+  char dir[] = W_INSTALL_DATA"/image/";
 #endif
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
   char *ext;
