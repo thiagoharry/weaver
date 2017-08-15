@@ -1910,7 +1910,8 @@ de renderização, separada da engine de física e controle do jogo.
                 current_shader =
                     &(_shader_list[_interface_queue[_number_of_loops][i] ->
                                    type - 1]);
-            }//XXX Usar shaders alternativos aqui:
+            }// Usar shaders alternativos aqui:
+            @<Interface: Renderizar com Shaders Alternativos@>
             else{
                 current_shader = &_default_interface_shader;
             }
@@ -1934,6 +1935,7 @@ de renderização, separada da engine de física e controle do jogo.
         glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, false,
                            _interface_queue[_number_of_loops][i] ->
                            _transform_matrix);
+        @<Passando Uniformes Adicionais para Shader de Interface@>
         // Ajustando as configurações de como os vértices são armazenados:
         glEnableVertexAttribArray(current_shader -> _attribute_vertex_position);
         glVertexAttribPointer(current_shader -> _attribute_vertex_position,

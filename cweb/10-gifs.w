@@ -1370,16 +1370,9 @@ static void _finalize_interface_texture(void *data){
 @*1 Shader e Renderização.
 
 Vamos agora criar o shader responsável por renderizar as imagens com
-textura na tela. O que ele terá de diferente é que terá uma textura
-que poderá acessar para preencher os seus pixels:
-
-@<Shader: Atributos@>+=
-uniform sampler2D texture1;
-@
-
-E usando esta textura, iremos poder renderizar a imagem extraída de
-arquivo. No shader de vértice o que isso terá de diferente de outras
-interfaces é só as coordenadas de textura que iremos passar:
+textura na tela. O que ele terá de diferente é que ele usará a sua
+textura para definir os pixels que serão colocados no shader de
+fragmento.
 
 @(project/src/weaver/vertex_image_interface.glsl@>=
 // Usamos GLSLES 1.0 que é suportado por Emscripten
@@ -1440,14 +1433,14 @@ Este shader precisa ser inserido e usado na nossa engine:
 
 @<Shaders: Declarações@>=
 extern char _vertex_image_interface[];
-extern char _fragment_imageinterface[];
+extern char _fragment_image_interface[];
 struct _shader _image_interface_shader;
 @
-@<Shaders: Definições@>=
-char _vertex_interface[] = {
+@<Shaders: Definições@>+=
+char _vertex_image_interface[] = {
 #include "vertex_image_interface.data"
         , 0x00};
-char _fragment_interface[] = {
+char _fragment_image_interface[] = {
 #include "fragment_image_interface.data"
     , 0x00};
 @
@@ -1457,8 +1450,8 @@ Compilamos ele na inicialização:
 @<API Weaver: Inicialização@>+=
 {
   GLuint vertex, fragment;
-  vertex = _compile_vertex_shader(_vertex_image_interface_texture);
-  fragment = _compile_fragment_shader(_fragment_image_interface_texture);
+  vertex = _compile_vertex_shader(_vertex_image_interface);
+  fragment = _compile_fragment_shader(_fragment_image_interface);
   // Preenchendo variáeis uniformes e atributos:
   _image_interface_shader.program_shader =
     _link_and_clean_shaders(vertex, fragment);
@@ -1484,4 +1477,20 @@ Compilamos ele na inicialização:
     glGetAttribLocation(_framebuffer_shader.program_shader,
                         "vertex_position");
 }
+@
+
+E na hora da renderização, apenas usamos o shader que definimos e
+compilamos:
+
+@<Interface: Renderizar com Shaders Alternativos@>=
+else if(_interface_queue[_number_of_loops][i] -> type == W_INTERFACE_IMAGE){
+  current_shader = &_image_interface_shader;
+}
+@
+
+E temos que fazer o shader de interface receber alguns uniformes
+adicionais:
+
+@<Passando Uniformes Adicionais para Shader de Interface@>=
+glBindTexture(GL_TEXTURE_2D, _interface_queue[_number_of_loops][i] -> _texture);
 @
