@@ -126,7 +126,6 @@ extensão do formato anterior.
 @<Interpretando Arquivo GIF@>=
 {
   char data[4];
-  printf("Cabeçalho.\n");
   fread(data, 1, 3, fp);
   data[3] = '\0';
   if(strcmp(data, "GIF")){
@@ -158,7 +157,6 @@ informações adicionais.
   // Primeiro lemos a largura da imagem, a informação está presente nos
   // próximos 2 bytes (largura máxima: 65535 pixels)
   unsigned char data[2];
-  printf("Descritor de tela lógica\n");
   fread(data, 1, 2, fp);
   *width = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
   // Agora lemos a altura da imagem nos próximos 2 bytes
@@ -188,7 +186,6 @@ dado por $3\times2^{global\_color\_table\_size+1}$
 
 @<Interpretando Arquivo GIF@>+=
 if(global_color_table_flag){
-  printf("Lendo tabela de cores global.\n");
   global_color_table = (unsigned char *) _iWalloc(global_color_table_size);
   if(global_color_table == NULL){
     fprintf(stderr, "WARNING: Not enough memory to read image. Please, increase "
@@ -223,14 +220,11 @@ fim dos dados:
   fread(data, 1, 1, fp);
   block_type = data[0];
   while(block_type != 59){
-    printf("Block %d: ", block_type);
     switch(block_type){
     case 33: // Bloco de extensão
-      printf("Extensão\n");
       @<GIF: Bloco de Extensão@>
       break;
     case 44: // Bloco de descritor de imagem
-      printf("Descritor de Imagem\n");
       @<GIF: Bloco Descritor de Imagem@>
       break;
     default: // Erro: Lemos um tipo desconhecido de bloco
@@ -263,19 +257,15 @@ animados:
   extension_type = ((unsigned) data[1]) * 256 + ((unsigned) data[0]);
   switch(extension_type){
   case 1: // Texto puro
-    printf("(Texto Puro)\n");
     @<GIF: Extensão de Texto Puro@>
     break;
   case 249: // Controle de gráficos
-    printf("(Controle de Gráficos)\n");
     @<GIF: Extensão de Controle de Gráficos@>
     break;
   case 254: // Comentário
-    printf("(Comentário)\n");
     @<GIF: Extensão de Comentário@>
     break;
   case 255: // Aplicação
-    printf("(Aplicação)\n");
     @<GIF: Extensão de Aplicação@>
     break;
   default:
@@ -462,7 +452,6 @@ a ler um descritor de imagem:
   unsigned char buffer[257];
   fread(buffer, 1, 2, fp);
   img_offset_x = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
-  printf("(%d %d) -> img_offset_x: %d\n", buffer[0], buffer[1], img_offset_x);
   // Offset vertical da imagem:
   fread(buffer, 1, 2, fp);
   img_offset_y = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
@@ -491,7 +480,6 @@ de forma idêntica à tabela de cores global:
 
 @<GIF: Tabela de Cor Local@>=
 {
-  printf("(Tabela de cor local)\n");
   local_color_table = (unsigned char *) _iWalloc(local_color_table_size);
   if(local_color_table == NULL){
     fprintf(stderr, "WARNING: Not enough memory to read image. Please, increase "
@@ -510,10 +498,8 @@ os dados da imagem propriamente dita:
 {
   int buffer_size;
   @<GIF: Variáveis Temporárias para Imagens Lidas@>
-  printf("(Imagem)\n");
   fread(buffer, 1, 1, fp);
   lzw_minimum_code_size = buffer[0];
-  printf("LZW Minimum Code Size: %d\n", lzw_minimum_code_size);
   @<GIF: Inicializando Nova Imagem@>
   fread(buffer, 1, 1, fp);
   while(buffer[0] != 0){
@@ -603,7 +589,6 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
   if(img == NULL){
     img = new_image;
     last_img = img;
-    printf("img inicializado.\n");
   }
   else{
     last_img -> next = new_image;
@@ -611,7 +596,6 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
     last_img = new_image;
   }
   last_img -> delay_time = ((float) delay_time) / 100.0;
-  printf("inicializada imagem %lu x %lu.\n", *width, *height);
   // Se a nossa imagem não ocupa todo o canvas, vamos inicializar
   // todos os valores com a cor de fundo do canvas, já que há regiões
   // nas quais nossa imagem não irá estar. Mas também só podemos fazer
@@ -835,7 +819,6 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
     }
   }
   if(!incomplete_code){
-    printf("[%d %d %d] #%d\n", byte_offset, bit_offset, bits, code);
     bit_offset += bits;
     if(bit_offset >= 8){
       bit_offset = bit_offset % 8;
@@ -881,8 +864,18 @@ lemos para cores:
       last_img -> rgba_image[3] = 0;
     else
       last_img -> rgba_image[3] = 255;
-    printf("(%d %d %d %d)\n", last_img -> rgba_image[0], last_img -> rgba_image[1],
-           last_img -> rgba_image[2], last_img -> rgba_image[3]);
+    pixel ++;
+  }
+  else{
+    // Por hora ainda tratamos todos os outros da mesma forma,
+    // ignorando a compactação:
+    last_img -> rgba_image[4 * pixel] = color_table[3 * code];
+    last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
+    last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
+    if(transparent_color_flag && transparency_index == code)
+      last_img -> rgba_image[4 * pixel + 3] = 0;
+    else
+      last_img -> rgba_image[4 * pixel + 3] = 255;
     pixel ++;
   }
 }
@@ -956,6 +949,9 @@ próximo frame.
         returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
         returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
         returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
+        printf("Returned data: (%d %d %d %d)\n", returned_data[target_index],
+               returned_data[target_index + 1], returned_data[target_index + 2],
+               returned_data[target_index + 3]);               
         col ++;
       }
       line ++;
