@@ -1159,6 +1159,10 @@ case W_INTERFACE_IMAGE:
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE,
                  _interfaces[_number_of_loops][i]._tmp_texture);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
     _interfaces[_number_of_loops][i]._loaded_texture = true;
     // Não precisamos mais manter a textura localmente agora que já a
@@ -1340,6 +1344,7 @@ static void *process_texture(void *p){
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
                GL_RGBA, GL_UNSIGNED_BYTE,
                my_interface -> _tmp_texture);
+  
   glBindTexture(GL_TEXTURE_2D, 0);
   if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
     file_info -> onerror(p);
