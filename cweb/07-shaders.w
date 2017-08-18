@@ -1943,6 +1943,7 @@ de renderização, separada da engine de física e controle do jogo.
         glDrawArrays(_interface_queue[_number_of_loops][i] -> _mode, 0, 4);
         glDisableVertexAttribArray(current_shader ->
                                    _attribute_vertex_position);
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
     // Parando de usar o VAO com as configurações de renderização de
     // interface:

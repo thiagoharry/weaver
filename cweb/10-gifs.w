@@ -949,7 +949,8 @@ próximo frame.
         returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
         returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
         returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
-        printf("Returned data: (%d %d %d %d)\n", returned_data[target_index],
+        printf("Returned data <%d>: (%d %d %d %d)\n", target_index,
+               returned_data[target_index],
                returned_data[target_index + 1], returned_data[target_index + 2],
                returned_data[target_index + 3]);               
         col ++;
@@ -1118,12 +1119,20 @@ case W_INTERFACE_IMAGE:
     return NULL;
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .wav
+    int v;
     float *times = NULL;
     _interfaces[_number_of_loops][i]._tmp_texture =
       _extract_gif(complete_path, &texture_width, &texture_height,
                   &(_interfaces[_number_of_loops][i].number_of_frames),
                   times, &(_interfaces[_number_of_loops][i].max_t),
                   &ret);
+    for(v = 0; v < texture_width * texture_height; v++){
+      printf("(%d %d %d %d)\n",
+             _interfaces[_number_of_loops][i]._tmp_texture[4 * v],
+             _interfaces[_number_of_loops][i]._tmp_texture[4 * v + 1],
+             _interfaces[_number_of_loops][i]._tmp_texture[4 * v + 2],
+             _interfaces[_number_of_loops][i]._tmp_texture[4 * v + 3]);
+    }
     if(ret){ // Se algum erro aconteceu:
       _interfaces[_number_of_loops][i].type = W_NONE;
       return NULL;
@@ -1151,9 +1160,11 @@ case W_INTERFACE_IMAGE:
                  GL_RGBA, GL_UNSIGNED_BYTE,
                  _interfaces[_number_of_loops][i]._tmp_texture);
     glBindTexture(GL_TEXTURE_2D, 0);
+    _interfaces[_number_of_loops][i]._loaded_texture = true;
     // Não precisamos mais manter a textura localmente agora que já a
     // enviamos para a placa de vídeo:
     Wfree(_interfaces[_number_of_loops][i]._tmp_texture);
+    printf("Texture: %d\n", _interfaces[_number_of_loops][i]._texture);
   }
 #endif
 }
@@ -1394,8 +1405,8 @@ varying mediump vec2 coordinate;
 void main(){
   gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
   // Coordenada da textura:
-  coordinate = vec2(((vertex_position[0] + 0.5)),
-                    ((vertex_position[1] + 0.5)));
+  coordinate = vec2(vertex_position[0] + 0.5,
+                    vertex_position[1] + 0.5);
 }
 @
 
@@ -1421,7 +1432,7 @@ E no shader de fragmento usaremos enfim esta textura e coordenadas:
 varying mediump vec2 coordinate;
 
 void main(){
-    gl_FragData[0] = texture2D(texture1, coordinate);
+  gl_FragData[0] = texture2D(texture1, coordinate);
 }
 @
 
