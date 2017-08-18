@@ -942,9 +942,9 @@ próximo frame.
     }
     while(line < (*height)){
       while(col < (*width)){
-        source_index = line * (*width) * 4 + col * 4;
-        target_index = 4 * (*width) * (*number_of_frames) * line + (*width) * i * 4
-          + col * 4; 
+        source_index = (*height - line - 1) * (*width) * 4 + col * 4;
+        target_index = 4 * (*width) * (*number_of_frames) * line + (*width) *
+          i * 4 + col * 4; 
         returned_data[target_index] = p -> rgba_image[source_index];
         returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
         returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
@@ -1159,10 +1159,10 @@ case W_INTERFACE_IMAGE:
     glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE,
                  _interfaces[_number_of_loops][i]._tmp_texture);
-      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
     _interfaces[_number_of_loops][i]._loaded_texture = true;
     // Não precisamos mais manter a textura localmente agora que já a
