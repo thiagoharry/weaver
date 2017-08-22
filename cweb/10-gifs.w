@@ -640,7 +640,7 @@ pela nossa lista de imagens:
 Uma vez que estejamos lendo os dados no GIF, nós não encontraremos
 nele um valor de pixel, ou mesmo de posições na nossa tabela de
 cores. O que encontraremos serão códigos que geralmente são
-representados pelo seu valor numérico preficado por um ``\#''. Sendo
+representados pelo seu valor numérico prefixado por um ``\#''. Sendo
 assim, poderemos encontrar os códigos ``\#0'', ``\#1'', ``\#2'', até o
 ``\#4095'' que é o maior código permitido dentro de um GIF. Cada um
 destes códigos precisa ser consultado em uma tabela de códigos e nela
@@ -666,7 +666,8 @@ inicializar ou ler, já que seus valores nunca mudam.
 Nossa tabela de códigos é então esta:
 
 @<GIF: Variáveis Temporárias para Imagens Lidas@>=
-  char *code_table[4095];
+char *code_table[4095];
+int code_table_size[4095]; // O tamanho de cada valor armazenado em cada código
 int last_value_in_code_table;
 @
 
@@ -718,8 +719,10 @@ inicializada:
     last_value_in_code_table = 255;
     break;
   }
-  for(i = 0; i <= last_value_in_code_table; i ++)
+  for(i = 0; i <= last_value_in_code_table; i ++){
     code_table[i] = NULL;
+    code_table_size[i] = 0;
+  }
 }
 @
 
@@ -743,7 +746,9 @@ iremos armazenar em uma variável booleana).
   end_of_information_code = last_value_in_code_table + 2;
   last_value_in_code_table = end_of_information_code;
   code_table[clear_code] = NULL;
+  code_table_size[clear_code] = 0;
   code_table[end_of_information_code] = NULL;
+  code_table_size[end_of_information_code] = 0;
 }
 @
 
@@ -778,7 +783,7 @@ devemos continuar:
 
 @<GIF: Variáveis Temporárias para Imagens Lidas@>+=
 int byte_offset = 0, bit_offset = 0; 
-unsigned code = 0;
+unsigned code = 0, previous_code;
 // Essa variável vai nos ajudar caso uma parte dos bits de nosso
 // código esteja no buffer atual e a outra parte no buffer que ainda
 // está para ser lido:
@@ -851,8 +856,10 @@ lemos para cores:
 
 @<GIF: Interpreta Códigos Lidos@>=
 {
+  printf("COD: %d/%d\n", code, last_value_in_code_table);
   if(pixel == 0){
     // Se a imagem começa com um CLEAR CODE, só seguimos em frente:
+    previous_code = code;
     if(code == clear_code)
       continue;
     // O primeiro pixel é traduzido diretamente para uma posição na
@@ -867,17 +874,105 @@ lemos para cores:
     pixel ++;
   }
   else{
-    // Por hora ainda tratamos todos os outros da mesma forma,
-    // ignorando a compactação:
-    last_img -> rgba_image[4 * pixel] = color_table[3 * code];
-    last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
-    last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
-    if(transparent_color_flag && transparency_index == code)
-      last_img -> rgba_image[4 * pixel + 3] = 0;
-    else
-      last_img -> rgba_image[4 * pixel + 3] = 255;
-    pixel ++;
+    // Primeiro temos que checar se o código que lemos está ou não na
+    // tabela de códigos:
+    if(code > last_value_in_code_table){
+      printf("Novo código: %d\n", code);
+      // O código está na nossa tabela de códigos
+      // Preenchemos o pixel na imagem de acordo com a tabela de códigos:
+      preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                     code_table, code, color_table, code_table_size[code],
+                     transparent_color_flag, transparency_index);
+      pixel += code_table_size[code];
+      // Adiciona novo valor na tabela de códigos:
+      code_table[last_value_in_code_table + 1] = 
+        produz_codigo(code_table[previous_code], code_table_size[previous_code],
+                      code_table[code][0]);
+      last_value_in_code_table ++;
+      code_table_size[last_value_in_code_table] =
+        code_table_size[previous_code] + 1;
+      previous_code = code;
+    }
+    else{
+      printf("Código conhecido: %d\n", code);
+      // O código não está na nossa tabela de códigos, vamos
+      // adicioná-lo e em seguida usá-lo
+      if(code < end_of_information_code){ // Um dos códigos primitivos
+        printf("Código primitivo.\n");
+        code_table[last_value_in_code_table + 1] =
+          produz_codigo((char *) &code, 1, code);
+        last_value_in_code_table ++;
+        code_table_size[last_value_in_code_table] = 2;
+        last_img -> rgba_image[4 * pixel] = color_table[3 * code];
+        last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
+        last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
+        if(transparent_color_flag && transparency_index == code)
+          last_img -> rgba_image[4 * pixel + 3] = 0;
+        else
+          last_img -> rgba_image[4 * pixel + 3] = 255;
+        pixel ++;
+        previous_code = code;
+      }
+      else{
+        code_table[last_value_in_code_table + 1] =
+          produz_codigo(code_table[previous_code],
+                        code_table_size[previous_code],
+                        code_table[previous_code][0]);
+        last_value_in_code_table ++;
+        code_table_size[last_value_in_code_table] =
+          code_table_size[previous_code] + 1;
+        preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                       code_table, code, color_table, code_table_size[code],
+                       transparent_color_flag, transparency_index);
+        pixel += code_table_size[code];
+        previous_code = code;
+      }
+    }
   }
+}
+@
+
+No código acima usamos funções que ainda não estão definidas. A
+primeira delas é para preencher um pixel na nossa imagem dada a tabela
+de códigos, um código e a tabela de cores. O código é usado para
+consultarmos a tabela de códigos e assim obtemos uma lista de
+cores. Com a lista de cores, consultamos a tabela de cores e
+conseguimos obter o valor correto pára cada pixel:
+
+@<GIF: Funções Estáticas@>+=
+void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
+                    unsigned char *color_table, int size,
+                    bool transparent_color_flag, unsigned transparency_index){
+  int i;
+  for(i = 0; i < size; i ++){
+    img[4 * i] = color_table[3 * code_table[code][i]];
+    img[4 * i + 1] = color_table[3 * code_table[code][i] + 1];
+    img[4 * i + 2] = color_table[3 * code_table[code][i] + 2];
+    if(transparent_color_flag && transparency_index == code)
+      img[4 * i + 2] = 0;
+    else
+      img[4 * i + 2] = 255;
+  }  
+}
+@
+
+Já a função para produzir um novo código nada mais é do que uma função
+que contatena um caractere no fim de uma string:
+
+@<GIF: Funções Estáticas@>+=
+char *produz_codigo(char *codigo, int size, char adicao){
+  int i;
+  char *ret = (char *) Walloc(size + 1);
+  if(ret == NULL){
+    fprintf(stderr, "WARNING (0): No memory to parse image. Please, increase "
+            "the value of W_MAX_MEMORY at conf/conf.h.\n");
+    return NULL;
+  }
+  for(i = 0; i < size; i ++)
+    ret[i] = codigo[i];
+  strncpy(ret, codigo, size);
+  ret[size + 1] = adicao;
+  return ret;
 }
 @
 
@@ -1126,6 +1221,7 @@ case W_INTERFACE_IMAGE:
                   &(_interfaces[_number_of_loops][i].number_of_frames),
                   times, &(_interfaces[_number_of_loops][i].max_t),
                   &ret);
+    printf("Leu imagem %dx%d\n", texture_width, texture_height);
     for(v = 0; v < texture_width * texture_height; v++){
       printf("(%d %d %d %d)\n",
              _interfaces[_number_of_loops][i]._tmp_texture[4 * v],
