@@ -856,7 +856,10 @@ lemos para cores:
 
 @<GIF: Interpreta Códigos Lidos@>=
 {
-  printf("COD: %d/%d\n", code, last_value_in_code_table);
+  if(code <= end_of_information_code)
+    printf("COD: %d/%d *\n", code, last_value_in_code_table);
+  else
+    printf("COD: %d/%d\n", code, last_value_in_code_table);
   if(pixel == 0){
     // Se a imagem começa com um CLEAR CODE, só seguimos em frente:
     previous_code = code;
@@ -877,7 +880,6 @@ lemos para cores:
     // Primeiro temos que checar se o código que lemos está ou não na
     // tabela de códigos:
     if(code > last_value_in_code_table){
-      printf("Novo código: %d\n", code);
       // O código está na nossa tabela de códigos
       // Preenchemos o pixel na imagem de acordo com a tabela de códigos:
       preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
@@ -894,11 +896,9 @@ lemos para cores:
       previous_code = code;
     }
     else{
-      printf("Código conhecido: %d\n", code);
       // O código não está na nossa tabela de códigos, vamos
       // adicioná-lo e em seguida usá-lo
       if(code < end_of_information_code){ // Um dos códigos primitivos
-        printf("Código primitivo.\n");
         code_table[last_value_in_code_table + 1] =
           produz_codigo((char *) &code, 1, code);
         last_value_in_code_table ++;
@@ -914,18 +914,31 @@ lemos para cores:
         previous_code = code;
       }
       else{
-        code_table[last_value_in_code_table + 1] =
-          produz_codigo(code_table[previous_code],
-                        code_table_size[previous_code],
-                        code_table[previous_code][0]);
-        last_value_in_code_table ++;
-        code_table_size[last_value_in_code_table] =
-          code_table_size[previous_code] + 1;
-        preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
-                       code_table, code, color_table, code_table_size[code],
-                       transparent_color_flag, transparency_index);
-        pixel += code_table_size[code];
-        previous_code = code;
+        if(previous_code < end_of_information_code){
+          code_table[last_value_in_code_table + 1] =
+            produz_codigo((char *) &previous_code, 1, previous_code);
+          last_value_in_code_table ++;
+          code_table_size[last_value_in_code_table] = 2;
+          preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                         code_table, code, color_table, code_table_size[code],
+                         transparent_color_flag, transparency_index);
+          pixel += code_table_size[code];
+          previous_code = code;
+        }
+        else{
+          code_table[last_value_in_code_table + 1] =
+            produz_codigo(code_table[previous_code],
+                          code_table_size[previous_code],
+                          code_table[previous_code][0]);
+          last_value_in_code_table ++;
+          code_table_size[last_value_in_code_table] =
+            code_table_size[previous_code] + 1;
+          preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                         code_table, code, color_table, code_table_size[code],
+                         transparent_color_flag, transparency_index);
+          pixel += code_table_size[code];
+          previous_code = code;
+        }
       }
     }
   }
