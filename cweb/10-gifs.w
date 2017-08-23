@@ -856,6 +856,10 @@ lemos para cores:
 
 @<GIF: Interpreta Códigos Lidos@>=
 {
+  if(code == end_of_information_code){
+    end_of_image = true;
+    continue;
+  }
   if(code <= end_of_information_code)
     printf("COD: %d/%d *\n", code, last_value_in_code_table);
   else
