@@ -816,10 +816,11 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
         incomplete_code = true;
       }
       else{
+        // bit offset: quantos bits já foram lidos neste byte
         code = (unsigned char) (buffer[byte_offset] >> bit_offset);
-        code += (unsigned char) (buffer[byte_offset + 1] << bit_offset);
-        code = (unsigned char) (code << (16 - bits - bit_offset));
-        code = code >> (16 - bits - bit_offset);
+        code += (unsigned char) (buffer[byte_offset + 1] << (8 - bit_offset));
+        code = (unsigned char) (code << (8 - bits));
+        code = code >> (8 - bits);
       }
     }
   }
@@ -856,14 +857,14 @@ lemos para cores:
 
 @<GIF: Interpreta Códigos Lidos@>=
 {
+  if(code <= end_of_information_code)
+    printf("COD (%d bits): %d/%d *\n", bits, code, last_value_in_code_table);
+  else
+    printf("COD (%d bits): %d/%d\n", bits, code, last_value_in_code_table);
   if(code == end_of_information_code){
     end_of_image = true;
     continue;
   }
-  if(code <= end_of_information_code)
-    printf("COD: %d/%d *\n", code, last_value_in_code_table);
-  else
-    printf("COD: %d/%d\n", code, last_value_in_code_table);
   if(pixel == 0){
     // Se a imagem começa com um CLEAR CODE, só seguimos em frente:
     previous_code = code;
@@ -884,6 +885,7 @@ lemos para cores:
     // Primeiro temos que checar se o código que lemos está ou não na
     // tabela de códigos:
     if(code > last_value_in_code_table){
+      printf("new\n");
       // O código está na nossa tabela de códigos
       // Preenchemos o pixel na imagem de acordo com a tabela de códigos:
       preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
@@ -946,6 +948,8 @@ lemos para cores:
       }
     }
   }
+  if(last_value_in_code_table >= ((1 << bits) - 2))
+    bits ++;
 }
 @
 
