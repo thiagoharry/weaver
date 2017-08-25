@@ -798,6 +798,13 @@ E a leitura do buffer então funciona assim:
 byte_offset = 0;
 if(!incomplete_code)
   bit_offset = 0;
+{
+  int j;
+  for(j = 0; j < buffer_size; j ++){
+    printf("[%d]", buffer[j]);
+  }
+  printf("\n");
+}
 while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
   if(incomplete_code){
     // Temos que ler 'bits' bits, mas já lemos '-bit_offset'
@@ -885,26 +892,36 @@ lemos para cores:
     // Primeiro temos que checar se o código que lemos está ou não na
     // tabela de códigos:
     if(code > last_value_in_code_table){
-      printf("new\n");
-      // O código está na nossa tabela de códigos
-      // Preenchemos o pixel na imagem de acordo com a tabela de códigos:
-      preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
-                     code_table, code, color_table, code_table_size[code],
-                     transparent_color_flag, transparency_index);
-      pixel += code_table_size[code];
-      // Adiciona novo valor na tabela de códigos:
-      code_table[last_value_in_code_table + 1] = 
-        produz_codigo(code_table[previous_code], code_table_size[previous_code],
-                      code_table[code][0]);
-      last_value_in_code_table ++;
-      code_table_size[last_value_in_code_table] =
-        code_table_size[previous_code] + 1;
-      previous_code = code;
+      // O código não está na nossa tabela de códigos e deve ser deduzido
+      if(previous_code < end_of_information_code){
+        code_table[last_value_in_code_table + 1] =
+          produz_codigo((char *) &previous_code, 1, previous_code);
+        last_value_in_code_table ++;
+        code_table_size[last_value_in_code_table] = 2;
+        preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                       code_table, code, color_table, code_table_size[code],
+                       transparent_color_flag, transparency_index);
+        pixel += code_table_size[code];
+        previous_code = code;
+      }
+      else{
+        code_table[last_value_in_code_table + 1] =
+          produz_codigo(code_table[previous_code],
+                        code_table_size[previous_code],
+                        code_table[previous_code][0]);
+        last_value_in_code_table ++;
+        code_table_size[last_value_in_code_table] =
+          code_table_size[previous_code] + 1;
+        preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                       code_table, code, color_table, code_table_size[code],
+                       transparent_color_flag, transparency_index);
+        pixel += code_table_size[code];
+        previous_code = code;
+      }
     }
     else{
-      // O código não está na nossa tabela de códigos, vamos
-      // adicioná-lo e em seguida usá-lo
-      if(code < end_of_information_code){ // Um dos códigos primitivos
+      // O código está na nossa tabela de códigos
+      if(code < end_of_information_code){ // É um dos códigos primitivos
         code_table[last_value_in_code_table + 1] =
           produz_codigo((char *) &code, 1, code);
         last_value_in_code_table ++;
@@ -948,7 +965,7 @@ lemos para cores:
       }
     }
   }
-  if(last_value_in_code_table >= ((1 << bits) - 2))
+  if(last_value_in_code_table >= ((1 << bits) - 1))
     bits ++;
 }
 @
