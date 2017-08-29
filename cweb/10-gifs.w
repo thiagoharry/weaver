@@ -894,6 +894,7 @@ lemos para cores:
     if(code > last_value_in_code_table){
       // O código não está na nossa tabela de códigos e deve ser deduzido
       if(previous_code < end_of_information_code){
+        // Se estamos aqui, o último código era um primitivo
         code_table[last_value_in_code_table + 1] =
           produz_codigo((char *) &previous_code, 1, previous_code);
         last_value_in_code_table ++;
@@ -923,7 +924,7 @@ lemos para cores:
       // O código está na nossa tabela de códigos
       if(code < end_of_information_code){ // É um dos códigos primitivos
         code_table[last_value_in_code_table + 1] =
-          produz_codigo((char *) &code, 1, code);
+          produz_codigo((char *) &code, 1, code); // XXX
         last_value_in_code_table ++;
         code_table_size[last_value_in_code_table] = 2;
         last_img -> rgba_image[4 * pixel] = color_table[3 * code];
@@ -987,9 +988,9 @@ void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
     img[4 * i + 1] = color_table[3 * code_table[code][i] + 1];
     img[4 * i + 2] = color_table[3 * code_table[code][i] + 2];
     if(transparent_color_flag && transparency_index == code)
-      img[4 * i + 2] = 0;
+      img[4 * i + 3] = 0;
     else
-      img[4 * i + 2] = 255;
+      img[4 * i + 3] = 255;
   }  
 }
 @
@@ -1082,10 +1083,6 @@ próximo frame.
         returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
         returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
         returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
-        printf("Returned data <%d>: (%d %d %d %d)\n", target_index,
-               returned_data[target_index],
-               returned_data[target_index + 1], returned_data[target_index + 2],
-               returned_data[target_index + 3]);               
         col ++;
       }
       line ++;
