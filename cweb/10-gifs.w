@@ -865,9 +865,11 @@ lemos para cores:
 @<GIF: Interpreta Códigos Lidos@>=
 {
   if(code <= end_of_information_code)
-    printf("COD (%d bits): %d/%d *\n", bits, code, last_value_in_code_table);
+    printf("COD (%d bits, previous %d): %d/%d *\n", bits, previous_code, code,
+           last_value_in_code_table);
   else
-    printf("COD (%d bits): %d/%d\n", bits, code, last_value_in_code_table);
+    printf("COD (%d bits, previous %d): %d/%d\n", bits, previous_code, code,
+           last_value_in_code_table);
   if(code == end_of_information_code){
     end_of_image = true;
     continue;
@@ -897,6 +899,7 @@ lemos para cores:
         // Se estamos aqui, o último código era um primitivo
         code_table[last_value_in_code_table + 1] =
           produz_codigo((char *) &previous_code, 1, previous_code);
+        printf("{%d %d}\n", code_table[code][0], code_table[code][1]);
         last_value_in_code_table ++;
         code_table_size[last_value_in_code_table] = 2;
         preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
@@ -991,6 +994,9 @@ void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
       img[4 * i + 3] = 0;
     else
       img[4 * i + 3] = 255;
+    printf("Preencheu código %d - %d: %d %d %d %d\n", code, code_table[code][i],
+           img[4 * i], img[4 * i + 1],
+           img[4 * i + 2], img[4 * i + 3]);
   }  
 }
 @
@@ -1009,8 +1015,8 @@ char *produz_codigo(char *codigo, int size, char adicao){
   }
   for(i = 0; i < size; i ++)
     ret[i] = codigo[i];
-  strncpy(ret, codigo, size);
-  ret[size + 1] = adicao;
+  //strncpy(ret, codigo, size);
+  ret[size] = adicao;
   return ret;
 }
 @
