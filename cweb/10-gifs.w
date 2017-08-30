@@ -899,7 +899,6 @@ lemos para cores:
         // Se estamos aqui, o último código era um primitivo
         code_table[last_value_in_code_table + 1] =
           produz_codigo((char *) &previous_code, 1, previous_code);
-        printf("{%d %d}\n", code_table[code][0], code_table[code][1]);
         last_value_in_code_table ++;
         code_table_size[last_value_in_code_table] = 2;
         preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
@@ -926,10 +925,19 @@ lemos para cores:
     else{
       // O código está na nossa tabela de códigos
       if(code < end_of_information_code){ // É um dos códigos primitivos
-        code_table[last_value_in_code_table + 1] =
-          produz_codigo((char *) &code, 1, code); // XXX
+        if(previous_code < end_of_information_code){
+          code_table[last_value_in_code_table + 1] =
+            produz_codigo((char *) &previous_code, 1, code);
+          code_table_size[last_value_in_code_table + 1] = 2;
+        }
+        else{
+          code_table[last_value_in_code_table + 1] =
+            produz_codigo(code_table[previous_code],
+                          code_table_size[previous_code], code);
+          code_table_size[last_value_in_code_table + 1] =
+            code_table_size[previous_code] + 1;
+        }
         last_value_in_code_table ++;
-        code_table_size[last_value_in_code_table] = 2;
         last_img -> rgba_image[4 * pixel] = color_table[3 * code];
         last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
         last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
@@ -943,7 +951,7 @@ lemos para cores:
       else{
         if(previous_code < end_of_information_code){
           code_table[last_value_in_code_table + 1] =
-            produz_codigo((char *) &previous_code, 1, previous_code);
+            produz_codigo((char *) &previous_code, 1, code_table[code][0]);
           last_value_in_code_table ++;
           code_table_size[last_value_in_code_table] = 2;
           preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
@@ -956,7 +964,7 @@ lemos para cores:
           code_table[last_value_in_code_table + 1] =
             produz_codigo(code_table[previous_code],
                           code_table_size[previous_code],
-                          code_table[previous_code][0]);
+                          code_table[code][0]);
           last_value_in_code_table ++;
           code_table_size[last_value_in_code_table] =
             code_table_size[previous_code] + 1;
@@ -1015,7 +1023,6 @@ char *produz_codigo(char *codigo, int size, char adicao){
   }
   for(i = 0; i < size; i ++)
     ret[i] = codigo[i];
-  //strncpy(ret, codigo, size);
   ret[size] = adicao;
   return ret;
 }
