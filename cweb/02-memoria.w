@@ -1402,7 +1402,17 @@ Que são definidas como:
 @(project/src/weaver/memory.c@>+=
 void _initialize_memory(void){
   _user_arena = Wcreate_arena(W_MAX_MEMORY);
+  if(_user_arena == NULL){
+    fprintf(stderr, "ERROR: This system have no enough memory to "
+            "run this program.\n");
+    exit(1);
+  }
   _internal_arena = Wcreate_arena(W_INTERNAL_MEMORY);
+  if(_internal_arena == NULL){
+    fprintf(stderr, "ERROR: This system have no enough memory to "
+            "run this program.\n");
+    exit(1);
+  }
 }
 void _finalize_memory(){
   Wdestroy_arena(_user_arena);
