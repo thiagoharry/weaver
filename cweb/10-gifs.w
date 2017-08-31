@@ -68,7 +68,6 @@ unsigned char *_extract_gif(char *filename, unsigned long *width,
   bool global_color_table_flag = false, local_color_table_flag = false;
   bool transparent_color_flag = false;
   unsigned local_color_table_size = 0, global_color_table_size = 0;
-  int color_resolution;
   unsigned long image_size;
   unsigned img_offset_x = 0, img_offset_y = 0, img_width = 0, img_height = 0;
   unsigned number_of_loops = 0;
@@ -168,11 +167,10 @@ informações adicionais.
   fread(data, 1, 1, fp);
   // Temos uma tabela de cores global?
   global_color_table_flag = (data[0] & 128);
-  // O número de bits para cada cor primária menos um:
-  color_resolution = (data[0] & 127) >> 4;
-  // O tamanho da tabeela de cores caso ela exista:
+  // O tamanho da tabela de cores caso ela exista:
   global_color_table_size = data[0] % 8;
   global_color_table_size = 3 * (1 << (global_color_table_size + 1));
+  printf("Color table size: %d\n", global_color_table_size);
   // Lemos e ignoramos a cor de fundo de nosso GIF
   fread(&background_color, 1, 1, fp);
   // Lemos e ignoramos  a proporção de altura e largura de pixel
@@ -582,7 +580,7 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
   new_image -> rgba_image = (unsigned char *) _iWalloc((*width) * (*height) * 4);
   if(new_image -> rgba_image == NULL){
     fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
-            "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+            "Please, increase the value of W_INTERNAL_MEMORY at conf/conf.h.\n",
             filename);
     goto error_gif;
   }
@@ -668,7 +666,7 @@ Nossa tabela de códigos é então esta:
 @<GIF: Variáveis Temporárias para Imagens Lidas@>=
 char *code_table[4095];
 int code_table_size[4095]; // O tamanho de cada valor armazenado em cada código
-int last_value_in_code_table;
+unsigned last_value_in_code_table;
 @
 
 Mas o número de posições iniciais da nossa tabela que já começarão
@@ -694,7 +692,7 @@ inicializada:
 
 @<GIF: Inicializando Nova Imagem@>+=
 {
-  int i;
+  unsigned i;
   switch(lzw_minimum_code_size){
   case 2:
     last_value_in_code_table = 3;
@@ -719,7 +717,7 @@ inicializada:
     last_value_in_code_table = 255;
     break;
   }
-  for(i = 0; i <= last_value_in_code_table; i ++){
+  for(i = 0;  i <= last_value_in_code_table; i ++){
     code_table[i] = NULL;
     code_table_size[i] = 0;
   }
@@ -798,13 +796,6 @@ E a leitura do buffer então funciona assim:
 byte_offset = 0;
 if(!incomplete_code)
   bit_offset = 0;
-{
-  int j;
-  for(j = 0; j < buffer_size; j ++){
-    printf("[%d]", buffer[j]);
-  }
-  printf("\n");
-}
 while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
   if(incomplete_code){
     // Temos que ler 'bits' bits, mas já lemos '-bit_offset'
@@ -842,6 +833,7 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
   }
   else break;
 }
+@<GIF: Limpa a Tabela de Códigos@>
 @
 
 Quando formos traduzir os códigos para uma posiçãoo na tabela de
@@ -864,21 +856,20 @@ lemos para cores:
 
 @<GIF: Interpreta Códigos Lidos@>=
 {
-  if(code <= end_of_information_code)
-    printf("COD (%d bits, previous %d): %d/%d *\n", bits, previous_code, code,
-           last_value_in_code_table);
-  else
-    printf("COD (%d bits, previous %d): %d/%d\n", bits, previous_code, code,
-           last_value_in_code_table);
   if(code == end_of_information_code){
     end_of_image = true;
     continue;
   }
-  if(pixel == 0){
+  // Se recebemos um <CLEAR CODE>, devemos limpara a tabela de códigos:
+  if(code == clear_code){
+    @<GIF: Limpa a Tabela de Códigos@>
+    continue;
+  }
+  // Se estamos lendo o primeiro pixel, não precisamos inserir nada na
+  // tabela de códigos
+  else if(pixel == 0){
     // Se a imagem começa com um CLEAR CODE, só seguimos em frente:
     previous_code = code;
-    if(code == clear_code)
-      continue;
     // O primeiro pixel é traduzido diretamente para uma posição na
     // tabela de cores:
     last_img -> rgba_image[0] = color_table[3 * code];
@@ -890,95 +881,94 @@ lemos para cores:
       last_img -> rgba_image[3] = 255;
     pixel ++;
   }
+  // Se lemos um código que não está na tabela, devemos deduzi-lo:
+  else if(code > last_value_in_code_table){
+    if(previous_code < end_of_information_code){
+      code_table[last_value_in_code_table + 1] =
+        produz_codigo((char *) &previous_code, 1, previous_code);
+      code_table_size[last_value_in_code_table + 1] = 2;
+    }
+    else{
+      code_table[last_value_in_code_table + 1] =
+        produz_codigo(code_table[previous_code],
+                      code_table_size[previous_code],
+                      code_table[previous_code][0]);
+      code_table_size[last_value_in_code_table + 1] =
+        code_table_size[previous_code] + 1;
+    }
+    last_value_in_code_table ++;
+    preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                   code_table, code, color_table, code_table_size[code],
+                   transparent_color_flag, transparency_index);
+    pixel += code_table_size[code];
+    previous_code = code;
+  }
+  // O caso mais comum: lemos um código novo que já conhecemos e
+  // podemos consultar na tabela de codigos:
   else{
-    // Primeiro temos que checar se o código que lemos está ou não na
-    // tabela de códigos:
-    if(code > last_value_in_code_table){
-      // O código não está na nossa tabela de códigos e deve ser deduzido
+    // O código está na nossa tabela de códigos
+    if(code < end_of_information_code){ // É um dos códigos primitivos
       if(previous_code < end_of_information_code){
-        // Se estamos aqui, o último código era um primitivo
         code_table[last_value_in_code_table + 1] =
-          produz_codigo((char *) &previous_code, 1, previous_code);
-        last_value_in_code_table ++;
-        code_table_size[last_value_in_code_table] = 2;
-        preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
-                       code_table, code, color_table, code_table_size[code],
-                       transparent_color_flag, transparency_index);
-        pixel += code_table_size[code];
-        previous_code = code;
+          produz_codigo((char *) &previous_code, 1, code);
+        code_table_size[last_value_in_code_table + 1] = 2;
+      }
+      else{
+        code_table[last_value_in_code_table + 1] =
+          produz_codigo(code_table[previous_code],
+                        code_table_size[previous_code], code);
+        code_table_size[last_value_in_code_table + 1] =
+          code_table_size[previous_code] + 1;
+      }
+      last_value_in_code_table ++;
+      last_img -> rgba_image[4 * pixel] = color_table[3 * code];
+      last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
+      last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
+      if(transparent_color_flag && transparency_index == code)
+        last_img -> rgba_image[4 * pixel + 3] = 0;
+      else
+        last_img -> rgba_image[4 * pixel + 3] = 255;
+      pixel ++;
+      previous_code = code;
+    }
+    else{
+      if(previous_code < end_of_information_code){
+        code_table[last_value_in_code_table + 1] =
+          produz_codigo((char *) &previous_code, 1, code_table[code][0]);
+        code_table_size[last_value_in_code_table + 1] = 2;
       }
       else{
         code_table[last_value_in_code_table + 1] =
           produz_codigo(code_table[previous_code],
                         code_table_size[previous_code],
-                        code_table[previous_code][0]);
-        last_value_in_code_table ++;
-        code_table_size[last_value_in_code_table] =
+                        code_table[code][0]);
+        code_table_size[last_value_in_code_table + 1] =
           code_table_size[previous_code] + 1;
-        preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
-                       code_table, code, color_table, code_table_size[code],
-                       transparent_color_flag, transparency_index);
-        pixel += code_table_size[code];
-        previous_code = code;
       }
-    }
-    else{
-      // O código está na nossa tabela de códigos
-      if(code < end_of_information_code){ // É um dos códigos primitivos
-        if(previous_code < end_of_information_code){
-          code_table[last_value_in_code_table + 1] =
-            produz_codigo((char *) &previous_code, 1, code);
-          code_table_size[last_value_in_code_table + 1] = 2;
-        }
-        else{
-          code_table[last_value_in_code_table + 1] =
-            produz_codigo(code_table[previous_code],
-                          code_table_size[previous_code], code);
-          code_table_size[last_value_in_code_table + 1] =
-            code_table_size[previous_code] + 1;
-        }
-        last_value_in_code_table ++;
-        last_img -> rgba_image[4 * pixel] = color_table[3 * code];
-        last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
-        last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
-        if(transparent_color_flag && transparency_index == code)
-          last_img -> rgba_image[4 * pixel + 3] = 0;
-        else
-          last_img -> rgba_image[4 * pixel + 3] = 255;
-        pixel ++;
-        previous_code = code;
-      }
-      else{
-        if(previous_code < end_of_information_code){
-          code_table[last_value_in_code_table + 1] =
-            produz_codigo((char *) &previous_code, 1, code_table[code][0]);
-          last_value_in_code_table ++;
-          code_table_size[last_value_in_code_table] = 2;
-          preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
-                         code_table, code, color_table, code_table_size[code],
-                         transparent_color_flag, transparency_index);
-          pixel += code_table_size[code];
-          previous_code = code;
-        }
-        else{
-          code_table[last_value_in_code_table + 1] =
-            produz_codigo(code_table[previous_code],
-                          code_table_size[previous_code],
-                          code_table[code][0]);
-          last_value_in_code_table ++;
-          code_table_size[last_value_in_code_table] =
-            code_table_size[previous_code] + 1;
-          preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
-                         code_table, code, color_table, code_table_size[code],
-                         transparent_color_flag, transparency_index);
-          pixel += code_table_size[code];
-          previous_code = code;
-        }
-      }
+      last_value_in_code_table ++;
+      preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                     code_table, code, color_table, code_table_size[code],
+                     transparent_color_flag, transparency_index);
+      pixel += code_table_size[code];
+      previous_code = code;
     }
   }
-  if(last_value_in_code_table >= ((1 << bits) - 1))
+  if(last_value_in_code_table >= (unsigned) ((1 << bits) - 1))
     bits ++;
+}
+@
+
+No caso, limpar a abela de códigos é feito toda vez que lemos um
+código de ``clear code'' e também após terminarmos de ler o nosso
+GIF. Limpar a tabela é desalocar todos os códigos armazenados e
+reiniciar a posição do último código armazenado para a menor possível:
+
+@<GIF: Limpa a Tabela de Códigos@>=
+{
+  for(; last_value_in_code_table > end_of_information_code;
+      last_value_in_code_table --){
+    Wfree(code_table[last_value_in_code_table]);
+  }
 }
 @
 
@@ -1002,9 +992,6 @@ void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
       img[4 * i + 3] = 0;
     else
       img[4 * i + 3] = 255;
-    printf("Preencheu código %d - %d: %d %d %d %d\n", code, code_table[code][i],
-           img[4 * i], img[4 * i + 1],
-           img[4 * i + 2], img[4 * i + 3]);
   }  
 }
 @
@@ -1262,30 +1249,16 @@ case W_INTERFACE_IMAGE:
     return NULL;
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .wav
-    int v;
     float *times = NULL;
     _interfaces[_number_of_loops][i]._tmp_texture =
       _extract_gif(complete_path, &texture_width, &texture_height,
                   &(_interfaces[_number_of_loops][i].number_of_frames),
                   times, &(_interfaces[_number_of_loops][i].max_t),
                   &ret);
-    printf("Leu imagem %dx%d\n", texture_width, texture_height);
-    for(v = 0; v < texture_width * texture_height; v++){
-      printf("(%d %d %d %d)\n",
-             _interfaces[_number_of_loops][i]._tmp_texture[4 * v],
-             _interfaces[_number_of_loops][i]._tmp_texture[4 * v + 1],
-             _interfaces[_number_of_loops][i]._tmp_texture[4 * v + 2],
-             _interfaces[_number_of_loops][i]._tmp_texture[4 * v + 3]);
-    }
     if(ret){ // Se algum erro aconteceu:
       _interfaces[_number_of_loops][i].type = W_NONE;
       return NULL;
     }
-    // Depois temos que finalizar o nosso recurso quando ele for limpo
-    // pelo coletor de lixo. para ele, finalizar significa apagar a
-    // textura OpenGL:
-    _finalize_after(&(_interfaces[_number_of_loops][i]),
-                    _finalize_interface_texture);
     // Preenchemos dt e ignoramos o tempo de duração de cada frame
     // além do primeiro. Um GIF pode ter cada quadro com uma duração
     // diferente. Mas para facilitar os nossos shaders, não
@@ -1312,7 +1285,11 @@ case W_INTERFACE_IMAGE:
     // Não precisamos mais manter a textura localmente agora que já a
     // enviamos para a placa de vídeo:
     Wfree(_interfaces[_number_of_loops][i]._tmp_texture);
-    printf("Texture: %d\n", _interfaces[_number_of_loops][i]._texture);
+    // Depois temos que finalizar o nosso recurso quando ele for limpo
+    // pelo coletor de lixo. para ele, finalizar significa apagar a
+    // textura OpenGL:
+    _finalize_after(&(_interfaces[_number_of_loops][i]),
+                    _finalize_interface_texture);
   }
 #endif
 }
