@@ -170,7 +170,6 @@ informações adicionais.
   // O tamanho da tabela de cores caso ela exista:
   global_color_table_size = data[0] % 8;
   global_color_table_size = 3 * (1 << (global_color_table_size + 1));
-  printf("Color table size: %d\n", global_color_table_size);
   // Lemos e ignoramos a cor de fundo de nosso GIF
   fread(&background_color, 1, 1, fp);
   // Lemos e ignoramos  a proporção de altura e largura de pixel
@@ -501,6 +500,7 @@ os dados da imagem propriamente dita:
   @<GIF: Inicializando Nova Imagem@>
   fread(buffer, 1, 1, fp);
   while(buffer[0] != 0){
+    printf("Novo buffer: %d\n", buffer[0]);
     buffer_size = buffer[0];
     buffer[buffer_size] = '\0';
     fread(buffer, 1, buffer[0], fp);
@@ -794,46 +794,71 @@ E a leitura do buffer então funciona assim:
 
 @<GIF: Interpretando Imagem@>=
 byte_offset = 0;
-if(!incomplete_code)
-  bit_offset = 0;
+bit_offset = 0;
 while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
-  if(incomplete_code){
-    // Temos que ler 'bits' bits, mas já lemos '-bit_offset'
-    code += (unsigned char) (buffer[byte_offset] << bit_offset);
-    incomplete_code = false;
-    bit_offset = bit_offset + bits - 8;
-  }
-  else{ // O caso típico
+  // A condição abaixo é para que sejamos capazes de fazer a leitura
+  // completa neste buffer. Se ela não estiver presente, então temos
+  // que fazer uma leitura cujo começo está neste buffer e o restante
+  // no próximo:
+  if(bit_offset + bits <= 8 * (buffer_size - byte_offset)){
+    // O que temos que ler está tudo no mesmo byte. O caso mais fácil.
     if(bit_offset + bits <= 8){
-      code = (unsigned char) (buffer[byte_offset] << (8 - bit_offset - bits));
+      // Jogamos fora o que já foi lido:
+      code = (buffer[byte_offset] >> bit_offset);
+      // Jogamos fora o que não precisamos ler ainda:
+      code = (unsigned) ((unsigned char) (code << (8 - bits)));
+      // E corrigimos a posição dos bits:
       code = code >> (8 - bits);
+      printf("fácil %d (a ler %d bits) -> %d\n", buffer[byte_offset], bits,
+             code);
     }
+    // Agora a condição no que o que temos para ler está nos próximos
+    // 2 bytes:
+    else if(bit_offset + bits <= 16){
+      unsigned tmp;
+      // Aproveitamos tudo do primeiro byte, menos o que já foi lido
+      code = (buffer[byte_offset] >> bit_offset);
+      // Aproveitamos tudo do segundo, menos o que não precisamos ler
+      // ainda:
+      tmp = (unsigned char)
+        (buffer[byte_offset + 1] << (16 - bit_offset - bits));
+      // Correção da posição dos bits
+      tmp = (tmp >> (16 - bit_offset - bits));
+      // Terminar de montar o código colocando os bits do segundo byte
+      // após os bits do primeiro byte:
+      code += (tmp << (8 - bit_offset));
+      printf("médio %d %d (a ler %d bits, já leu %d) -> %d\n",
+             buffer[byte_offset],
+             buffer[byte_offset + 1], bits, bit_offset,
+             code);
+    }
+    // E por fim a condição na qual os valores que precisamos ler
+    // estão espalhados em 3 bytes:
     else{
-      if(byte_offset + 1 == buffer_size){
-        code = (unsigned char) (buffer[byte_offset] >> bit_offset);
-        incomplete_code = true;
-      }
-      else{
-        // bit offset: quantos bits já foram lidos neste byte
-        code = (unsigned char) (buffer[byte_offset] >> bit_offset);
-        code += (unsigned char) (buffer[byte_offset + 1] << (8 - bit_offset));
-        code = (unsigned char) (code << (8 - bits));
-        code = code >> (8 - bits);
-      }
+      unsigned tmp;
+      // Aproveitamos tudo do primeiro byte, menos o que já foi lido
+      code = (buffer[byte_offset] >> bit_offset);
+      // Aproveitamos tudo do segundo byte:
+      code += buffer[byte_offset] << (8 - bit_offset);
+      // Jogamos fora do terceiro byte o que só vamos ler no futuro:
+      tmp = buffer[byte_offset + 1] << (24 - bit_offset - bits);
+      // Correção da posição dos bits
+      tmp = tmp >> (24 - bit_offset - bits);
+      // Terminar de montar o código colocando os bits do terceiro
+      // byte por último:
+      code += (tmp << (16 - bit_offset));
     }
-  }
-  if(!incomplete_code){
     bit_offset += bits;
     if(bit_offset >= 8){
       bit_offset = bit_offset % 8;
       byte_offset += 1;
     }
-    // Aqui já extraímos o nosso código :-D !
-    @<GIF: Interpreta Códigos Lidos@>
+    printf("[%d/%d]\n", code, last_value_in_code_table);
   }
-  else break;
+  else
+    continue;
+  @<GIF: Interpreta Códigos Lidos@>
 }
-@<GIF: Limpa a Tabela de Códigos@>
 @
 
 Quando formos traduzir os códigos para uma posiçãoo na tabela de
@@ -969,6 +994,7 @@ reiniciar a posição do último código armazenado para a menor possível:
       last_value_in_code_table --){
     Wfree(code_table[last_value_in_code_table]);
   }
+  bits = lzw_minimum_code_size + 1;
 }
 @
 
