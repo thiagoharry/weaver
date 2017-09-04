@@ -794,13 +794,47 @@ E a leitura do buffer então funciona assim:
 
 @<GIF: Interpretando Imagem@>=
 byte_offset = 0;
-bit_offset = 0;
+// A condição abaixo só é verdadeira se acabamos de terminar de ler um
+// buffer, mas a última leitura está incompleta e deve continuar no
+// próximo. Neste caso, armazenamos no 'bit_offset' um indicador de
+// quanto do valor já lemos, e por isso não devemos mudar o seu valor
+// atual:
+if(!incomplete_code){
+  bit_offset = 0;
+}
+printf("Novo Buffer: %d, clear: %d\n", buffer_size, clear_code);
 while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
+  // Primeiro cuidamos do caso problemático de quando começamos agora
+  // a ler um buffer, mas não terminamos de ler o valor do buffer
+  // anterior:
+  if(incomplete_code){
+    incomplete_code = false;
+    int still_need_to_read = bits + bit_offset;
+    unsigned tmp;
+    // Sabemos que já lemos -(bit_offset) bits quando
+    // temos que ler 'bits'.
+    if(still_need_to_read <= 8){
+      // Temos só mais um byte pra ler, primeiro jogamos fora os bits
+      // que vão ser lidos só depois:
+      tmp = ((unsigned char) (buffer[byte_offset] << (8 - still_need_to_read)));
+      code += tmp >> (8 - still_need_to_read + bit_offset);
+    }
+    else{
+      // Temos que ler mais de um byte. Começamos lendo o primeiro
+      // byte inteiro:
+      code += buffer[byte_offset] << (-bit_offset);
+      // E agora no próximo começamos removendo as partes que não
+      // precisamos ainda:
+      tmp = ((unsigned char) (buffer[byte_offset] << (16 - still_need_to_read)));
+      // E adicionamos ao código:
+      code += tmp >> (16 - still_need_to_read + bit_offset);
+    }
+  }
   // A condição abaixo é para que sejamos capazes de fazer a leitura
   // completa neste buffer. Se ela não estiver presente, então temos
   // que fazer uma leitura cujo começo está neste buffer e o restante
   // no próximo:
-  if(bit_offset + bits <= 8 * (buffer_size - byte_offset)){
+  else if(bit_offset + bits <= 8 * (buffer_size - byte_offset)){
     // O que temos que ler está tudo no mesmo byte. O caso mais fácil.
     if(bit_offset + bits <= 8){
       // Jogamos fora o que já foi lido:
@@ -809,8 +843,6 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
       code = (unsigned) ((unsigned char) (code << (8 - bits)));
       // E corrigimos a posição dos bits:
       code = code >> (8 - bits);
-      printf("fácil %d (a ler %d bits) -> %d\n", buffer[byte_offset], bits,
-             code);
     }
     // Agora a condição no que o que temos para ler está nos próximos
     // 2 bytes:
@@ -827,10 +859,6 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
       // Terminar de montar o código colocando os bits do segundo byte
       // após os bits do primeiro byte:
       code += (tmp << (8 - bit_offset));
-      printf("médio %d %d (a ler %d bits, já leu %d) -> %d\n",
-             buffer[byte_offset],
-             buffer[byte_offset + 1], bits, bit_offset,
-             code);
     }
     // E por fim a condição na qual os valores que precisamos ler
     // estão espalhados em 3 bytes:
@@ -850,13 +878,39 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
     }
     bit_offset += bits;
     if(bit_offset >= 8){
+      byte_offset += bit_offset / 8;
       bit_offset = bit_offset % 8;
-      byte_offset += 1;
     }
-    printf("[%d/%d]\n", code, last_value_in_code_table);
+    printf("[%d/%d], %d pixels, position in buffer: %d\n",
+           code, last_value_in_code_table, pixel, byte_offset);
   }
-  else
+  else{
+    // Se estamos aqui, uma parte do nosso código está aqui e a
+    // próxima está no próximo buffer a ser lido. Pode ser que
+    // tenhamos 1 ou 2 bytes a ler agora.
+    if(byte_offset == buffer_size - 1){
+      // Se estamos aqui, temos 1 byte a ler no buffer atual
+      code = (buffer[byte_offset] >> bit_offset);
+      // O resto temos que ler no próximo buffer. Vamos indicar o
+      // quanto temos que ler ajustando o 'bit_offset' para um valor
+      // negativo:
+      bit_offset = - (8 - bit_offset);
+      byte_offset ++;
+    }
+    else{
+      // Se estamos aqui, temos 2 bytes a ler no buffer atual. Lemos o
+      // primeiro:
+      code = (buffer[byte_offset] >> bit_offset);
+      // Lemos o segundo byte inteiro
+      code += buffer[byte_offset] << (8 - bit_offset);
+      // Indicamos no valor de bit_offset o quanto já lemos e
+      // esperamos o próximo buffer:
+      bit_offset = - (16 - bit_offset);
+      byte_offset += 2;
+    }
+    incomplete_code = true;
     continue;
+  }
   @<GIF: Interpreta Códigos Lidos@>
 }
 @
@@ -882,11 +936,13 @@ lemos para cores:
 @<GIF: Interpreta Códigos Lidos@>=
 {
   if(code == end_of_information_code){
+    printf("<EOI>\n");
     end_of_image = true;
     continue;
   }
   // Se recebemos um <CLEAR CODE>, devemos limpara a tabela de códigos:
   if(code == clear_code){
+    printf("<CLEAR>\n");
     @<GIF: Limpa a Tabela de Códigos@>
     continue;
   }
@@ -978,7 +1034,7 @@ lemos para cores:
       previous_code = code;
     }
   }
-  if(last_value_in_code_table >= (unsigned) ((1 << bits) - 1))
+  if(last_value_in_code_table >= ((1 << bits) - 1))
     bits ++;
 }
 @
