@@ -500,7 +500,6 @@ os dados da imagem propriamente dita:
   @<GIF: Inicializando Nova Imagem@>
   fread(buffer, 1, 1, fp);
   while(buffer[0] != 0){
-    printf("Novo buffer: %d\n", buffer[0]);
     buffer_size = buffer[0];
     buffer[buffer_size] = '\0';
     fread(buffer, 1, buffer[0], fp);
@@ -802,7 +801,6 @@ byte_offset = 0;
 if(!incomplete_code){
   bit_offset = 0;
 }
-printf("Novo Buffer: %d, clear: %d\n", buffer_size, clear_code);
 while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
   // Primeiro cuidamos do caso problemático de quando começamos agora
   // a ler um buffer, mas não terminamos de ler o valor do buffer
@@ -814,13 +812,16 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
     // Sabemos que já lemos -(bit_offset) bits quando
     // temos que ler 'bits'.
     if(still_need_to_read <= 8){
+      printf("incompleto: %d\n", code);
       // Temos só mais um byte pra ler, primeiro jogamos fora os bits
       // que vão ser lidos só depois:
-      tmp = ((unsigned char) (buffer[byte_offset] << (8 - still_need_to_read)));
+      tmp = ((unsigned char) (buffer[0] << (8 - still_need_to_read)));
       if(still_need_to_read - bit_offset <= 8)
         code += (tmp >> (8 - still_need_to_read + bit_offset));
       else
         code += (tmp << (still_need_to_read - bit_offset - 8));
+      printf("leu %d, precisa %d (%d) -> %d\n", -bit_offset, bits, buffer[0],
+             code);
       byte_offset += (bits + bit_offset) / 8;
       bit_offset = (bits + bit_offset) % 8;
     }
@@ -830,9 +831,13 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
       code += buffer[byte_offset] << (-bit_offset);
       // E agora no próximo começamos removendo as partes que não
       // precisamos ainda:
-      tmp = ((unsigned char) (buffer[byte_offset] << (16 - still_need_to_read)));
+      tmp = ((unsigned char) (buffer[byte_offset + 1] <<
+                              (16 - still_need_to_read)));
+      tmp = tmp >> (16 - still_need_to_read);
       // E adicionamos ao código:
-      code += tmp >> (16 - still_need_to_read + bit_offset);
+      code += tmp << (8 - bit_offset);
+      byte_offset += (bits + bit_offset) / 8;
+      bit_offset = (bits + bit_offset) % 8;
     }
   }
   // A condição abaixo é para que sejamos capazes de fazer a leitura
@@ -872,9 +877,10 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
       // Aproveitamos tudo do primeiro byte, menos o que já foi lido
       code = (buffer[byte_offset] >> bit_offset);
       // Aproveitamos tudo do segundo byte:
-      code += buffer[byte_offset] << (8 - bit_offset);
+      code += buffer[byte_offset + 1] << (8 - bit_offset);
       // Jogamos fora do terceiro byte o que só vamos ler no futuro:
-      tmp = buffer[byte_offset + 1] << (24 - bit_offset - bits);
+      tmp = (unsigned char) (buffer[byte_offset + 2] <<
+                             (24 - bit_offset - bits));
       // Correção da posição dos bits
       tmp = tmp >> (24 - bit_offset - bits);
       // Terminar de montar o código colocando os bits do terceiro
@@ -905,21 +911,21 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
       // primeiro:
       code = (buffer[byte_offset] >> bit_offset);
       // Lemos o segundo byte inteiro
-      code += buffer[byte_offset] << (8 - bit_offset);
+      code += buffer[byte_offset + 1] << (8 - bit_offset);
       // Indicamos no valor de bit_offset o quanto já lemos e
       // esperamos o próximo buffer:
       bit_offset = - (16 - bit_offset);
       byte_offset += 2;
     }
     incomplete_code = true;
-    printf("Incomplete code: %d\n", code);
     continue;
   }
-  printf("[%d/%d], %d pixels, position in buffer: %d\n",
-         code, last_value_in_code_table, pixel, byte_offset);
+  //printf("[%d/%d], %d pixels, position in buffer: %d\n",
+  //      code, last_value_in_code_table, pixel, byte_offset);
   // O teste abaixo previne buffer overflow em imagens corrompidas:
-  if(code > last_value_in_code_table + 1)
-    code = 0;
+  if(code > last_value_in_code_table + 1){
+    code = end_of_information_code;
+  }
   @<GIF: Interpreta Códigos Lidos@>
 }
 @
