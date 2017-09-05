@@ -817,7 +817,12 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
       // Temos só mais um byte pra ler, primeiro jogamos fora os bits
       // que vão ser lidos só depois:
       tmp = ((unsigned char) (buffer[byte_offset] << (8 - still_need_to_read)));
-      code += tmp >> (8 - still_need_to_read + bit_offset);
+      if(still_need_to_read - bit_offset <= 8)
+        code += (tmp >> (8 - still_need_to_read + bit_offset));
+      else
+        code += (tmp << (still_need_to_read - bit_offset - 8));
+      byte_offset += (bits + bit_offset) / 8;
+      bit_offset = (bits + bit_offset) % 8;
     }
     else{
       // Temos que ler mais de um byte. Começamos lendo o primeiro
@@ -881,8 +886,6 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
       byte_offset += bit_offset / 8;
       bit_offset = bit_offset % 8;
     }
-    printf("[%d/%d], %d pixels, position in buffer: %d\n",
-           code, last_value_in_code_table, pixel, byte_offset);
   }
   else{
     // Se estamos aqui, uma parte do nosso código está aqui e a
@@ -909,8 +912,14 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
       byte_offset += 2;
     }
     incomplete_code = true;
+    printf("Incomplete code: %d\n", code);
     continue;
   }
+  printf("[%d/%d], %d pixels, position in buffer: %d\n",
+         code, last_value_in_code_table, pixel, byte_offset);
+  // O teste abaixo previne buffer overflow em imagens corrompidas:
+  if(code > last_value_in_code_table + 1)
+    code = 0;
   @<GIF: Interpreta Códigos Lidos@>
 }
 @
