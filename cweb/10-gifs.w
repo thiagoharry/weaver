@@ -963,13 +963,13 @@ lemos para cores:
     previous_code = code;
     // O primeiro pixel é traduzido diretamente para uma posição na
     // tabela de cores:
-    last_img -> rgba_image[0] = color_table[3 * code];
-    last_img -> rgba_image[1] = color_table[3 * code + 1];
-    last_img -> rgba_image[2] = color_table[3 * code + 2];
+    last_img -> rgba_image[4 * pixel] = color_table[3 * code];
+    last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
+    last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
     if(transparent_color_flag && transparency_index == code)
-      last_img -> rgba_image[3] = 0;
+      last_img -> rgba_image[4 * pixel + 3] = 0;
     else
-      last_img -> rgba_image[3] = 255;
+      last_img -> rgba_image[4 * pixel + 3] = 255;
     pixel ++;
   }
   // Se lemos um código que não está na tabela, devemos deduzi-lo:
