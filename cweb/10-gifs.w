@@ -787,6 +787,7 @@ unsigned code = 0, previous_code;
 bool incomplete_code = false;
 // E isso nos diz qual pixel estamos lendo
 unsigned long pixel = 0;
+bool first_pixel = true;
 @
 
 E a leitura do buffer então funciona assim:
@@ -812,7 +813,6 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
     // Sabemos que já lemos -(bit_offset) bits quando
     // temos que ler 'bits'.
     if(still_need_to_read <= 8){
-      printf("incompleto: %d\n", code);
       // Temos só mais um byte pra ler, primeiro jogamos fora os bits
       // que vão ser lidos só depois:
       tmp = ((unsigned char) (buffer[0] << (8 - still_need_to_read)));
@@ -820,8 +820,6 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
         code += (tmp >> (8 - still_need_to_read + bit_offset));
       else
         code += (tmp << (still_need_to_read - bit_offset - 8));
-      printf("leu %d, precisa %d (%d) -> %d\n", -bit_offset, bits, buffer[0],
-             code);
       byte_offset += (bits + bit_offset) / 8;
       bit_offset = (bits + bit_offset) % 8;
     }
@@ -920,8 +918,6 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
     incomplete_code = true;
     continue;
   }
-  //printf("[%d/%d], %d pixels, position in buffer: %d\n",
-  //      code, last_value_in_code_table, pixel, byte_offset);
   // O teste abaixo previne buffer overflow em imagens corrompidas:
   if(code > last_value_in_code_table + 1){
     code = end_of_information_code;
@@ -951,19 +947,18 @@ lemos para cores:
 @<GIF: Interpreta Códigos Lidos@>=
 {
   if(code == end_of_information_code){
-    printf("<EOI>\n");
     end_of_image = true;
     continue;
   }
   // Se recebemos um <CLEAR CODE>, devemos limpara a tabela de códigos:
   if(code == clear_code){
-    printf("<CLEAR>\n");
     @<GIF: Limpa a Tabela de Códigos@>
     continue;
   }
   // Se estamos lendo o primeiro pixel, não precisamos inserir nada na
   // tabela de códigos
-  else if(pixel == 0){
+  else if(first_pixel){
+    first_pixel = false;
     // Se a imagem começa com um CLEAR CODE, só seguimos em frente:
     previous_code = code;
     // O primeiro pixel é traduzido diretamente para uma posição na
@@ -1066,6 +1061,7 @@ reiniciar a posição do último código armazenado para a menor possível:
     Wfree(code_table[last_value_in_code_table]);
   }
   bits = lzw_minimum_code_size + 1;
+  first_pixel = true;
 }
 @
 
