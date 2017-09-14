@@ -66,6 +66,7 @@ unsigned char *_extract_gif(char *filename, unsigned long *width,
                             float *times, float *max_t,
                             bool *error){
   bool global_color_table_flag = false, local_color_table_flag = false;
+  bool interlace_flag = false;
   bool transparent_color_flag = false;
   unsigned local_color_table_size = 0, global_color_table_size = 0;
   unsigned long image_size;
@@ -443,7 +444,6 @@ a ler um descritor de imagem:
 
 @<GIF: Bloco Descritor de Imagem@>=
 {
-  bool interlace_flag = false;
   int lzw_minimum_code_size;
   // Lendo o offset horizontal da imagem:
   unsigned char buffer[257];
@@ -963,7 +963,6 @@ lemos para cores:
     previous_code = code;
     // O primeiro pixel é traduzido diretamente para uma posição na
     // tabela de cores:
-    // XXX: Mudou
     preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
                    code_table, code, color_table, 1,
                    transparent_color_flag, transparency_index);
@@ -1137,10 +1136,15 @@ próximo frame.
   
 @<GIF: Gerando Imagem Final@>=
 {
-  unsigned i, line, col;
+  unsigned i, line_source, line_destiny, col;
   unsigned long source_index, target_index;
   float total_time = INFINITY;
   struct _image_list *p;
+  int line_increment;
+  if(interlace_flag)
+    line_increment = 8;
+  else
+    line_increment = 1;
   returned_data = (unsigned char *) Walloc(4 * (*width) * (*height) *
                                            (*number_of_frames));
   if(returned_data == NULL){
@@ -1163,27 +1167,45 @@ próximo frame.
   }
   p = img;
   for(i = 0; i < *number_of_frames; i ++){
-    line = col = 0;
+    line_source = col = line_destiny = 0;
     if(*number_of_frames > 1){
       times[i] = p -> delay_time;
       total_time += times[i];
     }
-    while(line < (*height)){
+    while(line_source < (*height)){
+      printf("Linha %d -> Linha %d\n", line_source, line_destiny);
       while(col < (*width)){
-        source_index = (*height - line - 1) * (*width) * 4 + col * 4;
-        target_index = 4 * (*width) * (*number_of_frames) * line + (*width) *
-          i * 4 + col * 4; 
+        if(!interlace_flag)
+          source_index = (*height - line_source - 1) * (*width) * 4 +
+            col * 4;
+        else
+          source_index = (line_source) * (*width) * 4 +
+            col * 4;
+        target_index = 4 * (*width) * (*number_of_frames) * line_destiny +
+          (*width) * i * 4 + col * 4; 
         returned_data[target_index] = p -> rgba_image[source_index];
         returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
         returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
         returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
         col ++;
       }
-      line ++;
+      line_destiny = line_destiny + line_increment;
+      line_source ++;
+      if(line_destiny >= (*height) && interlace_flag){
+        if(line_source  > (*height) / 4){
+          printf("*");
+          line_increment /= 2;
+          line_destiny = line_increment / 2;
+        }
+        else{
+          printf("$");
+          line_destiny = line_increment / 2;
+        }
+      }
       col = 0;
     }
     p = p -> next;
-    line = col = 0;
+    line_source = col = line_destiny = 0;
   }
   if(number_of_loops == 0)
     *max_t = INFINITY;
