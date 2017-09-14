@@ -718,7 +718,7 @@ inicializada:
   }
   for(i = 0;  i <= last_value_in_code_table; i ++){
     code_table[i] = NULL;
-    code_table_size[i] = 0;
+    code_table_size[i] = 1;
   }
 }
 @
@@ -963,13 +963,10 @@ lemos para cores:
     previous_code = code;
     // O primeiro pixel é traduzido diretamente para uma posição na
     // tabela de cores:
-    last_img -> rgba_image[4 * pixel] = color_table[3 * code];
-    last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
-    last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
-    if(transparent_color_flag && transparency_index == code)
-      last_img -> rgba_image[4 * pixel + 3] = 0;
-    else
-      last_img -> rgba_image[4 * pixel + 3] = 255;
+    // XXX: Mudou
+    preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                   code_table, code, color_table, 1,
+                   transparent_color_flag, transparency_index);
     pixel ++;
   }
   // Se lemos um código que não está na tabela, devemos deduzi-lo:
@@ -1012,13 +1009,10 @@ lemos para cores:
           code_table_size[previous_code] + 1;
       }
       last_value_in_code_table ++;
-      last_img -> rgba_image[4 * pixel] = color_table[3 * code];
-      last_img -> rgba_image[4 * pixel + 1] = color_table[3 * code + 1];
-      last_img -> rgba_image[4 * pixel + 2] = color_table[3 * code + 2];
-      if(transparent_color_flag && transparency_index == code)
-        last_img -> rgba_image[4 * pixel + 3] = 0;
-      else
-        last_img -> rgba_image[4 * pixel + 3] = 255;
+      // Mudou
+      preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
+                     code_table, code, color_table, 1,
+                     transparent_color_flag, transparency_index);
       pixel ++;
       previous_code = code;
     }
@@ -1044,7 +1038,7 @@ lemos para cores:
       previous_code = code;
     }
   }
-  if(last_value_in_code_table >= ((1 << bits) - 1))
+  if(last_value_in_code_table >= (unsigned) ((1 << bits) - 1))
     bits ++;
 }
 @
@@ -1076,16 +1070,23 @@ conseguimos obter o valor correto pára cada pixel:
 void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
                     unsigned char *color_table, int size,
                     bool transparent_color_flag, unsigned transparency_index){
-  int i;
+  int i = 0; // o size tá errado em alguns
   for(i = 0; i < size; i ++){
-    img[4 * i] = color_table[3 * code_table[code][i]];
-    img[4 * i + 1] = color_table[3 * code_table[code][i] + 1];
-    img[4 * i + 2] = color_table[3 * code_table[code][i] + 2];
+    if(code_table[code] == NULL){
+      img[4 * i] = color_table[3 * code];
+      img[4 * i + 1] = color_table[3 * code + 1];
+      img[4 * i + 2] = color_table[3 * code + 2];
+    }
+    else{
+      img[4 * i] = color_table[3 * code_table[code][i]];
+      img[4 * i + 1] = color_table[3 * code_table[code][i] + 1];
+      img[4 * i + 2] = color_table[3 * code_table[code][i] + 2];
+    }
     if(transparent_color_flag && transparency_index == code)
       img[4 * i + 3] = 0;
     else
-      img[4 * i + 3] = 255;
-  }  
+      img[4 * i + 3] = 255; 
+  }
 }
 @
 
