@@ -920,6 +920,7 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
   }
   // O teste abaixo previne buffer overflow em imagens corrompidas:
   if(code > last_value_in_code_table + 1){
+    printf("ERROR: Code: %d, Last: %d\n", code, last_value_in_code_table);
     code = end_of_information_code;
   }
   @<GIF: Interpreta Códigos Lidos@>
@@ -1084,7 +1085,9 @@ void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
     if(transparent_color_flag && transparency_index == code)
       img[4 * i + 3] = 0;
     else
-      img[4 * i + 3] = 255; 
+      img[4 * i + 3] = 255;
+    //printf("(%d %d %d %d)", img[4 * i], img[4 * i + 1], img[4 * i + 2],
+    //       img[4 * i + 3]);
   }
 }
 @
@@ -1141,6 +1144,7 @@ próximo frame.
   float total_time = INFINITY;
   struct _image_list *p;
   int line_increment;
+  interlace_flag = false;
   if(interlace_flag)
     line_increment = 8;
   else
@@ -1172,17 +1176,15 @@ próximo frame.
       times[i] = p -> delay_time;
       total_time += times[i];
     }
+    printf("4 * %d * %d * (%d - L - 1) +  %d * %d * 4 + %d * 4\n",
+           *width, *number_of_frames, *height, *width, i, col);
     while(line_source < (*height)){
       printf("Linha %d -> Linha %d\n", line_source, line_destiny);
       while(col < (*width)){
-        if(!interlace_flag)
-          source_index = (*height - line_source - 1) * (*width) * 4 +
-            col * 4;
-        else
-          source_index = (line_source) * (*width) * 4 +
-            col * 4;
-        target_index = 4 * (*width) * (*number_of_frames) * line_destiny +
-          (*width) * i * 4 + col * 4; 
+        source_index = (line_source) * (*width) * 4 +
+          col * 4;
+        target_index = 4 * (*width) * (*number_of_frames) *
+          (*height - line_destiny - 1) + (*width) * i * 4 + col * 4;
         returned_data[target_index] = p -> rgba_image[source_index];
         returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
         returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
@@ -1192,13 +1194,11 @@ próximo frame.
       line_destiny = line_destiny + line_increment;
       line_source ++;
       if(line_destiny >= (*height) && interlace_flag){
-        if(line_source  > (*height) / 4){
-          printf("*");
-          line_increment /= 2;
+        if(line_source < (*height) / 4){
           line_destiny = line_increment / 2;
         }
         else{
-          printf("$");
+          line_increment /= 2;
           line_destiny = line_increment / 2;
         }
       }
