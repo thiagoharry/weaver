@@ -73,7 +73,8 @@ unsigned char *_extract_gif(char *filename, unsigned long *width,
   unsigned img_offset_x = 0, img_offset_y = 0, img_width = 0, img_height = 0;
   unsigned number_of_loops = 0;
   unsigned char *returned_data  = NULL;
-  unsigned background_color, delay_time = 0, transparency_index = 0;
+  unsigned background_color, delay_time = 0;
+  unsigned char transparency_index = 0;
   unsigned char *global_color_table = NULL;
   unsigned char *local_color_table = NULL;
   int disposal_method = 0;
@@ -409,6 +410,7 @@ tais recursos:
   // seguida é o índice da cor que devemos considerar transparente:
   fread(buffer, 1, 1, fp);
   transparency_index = buffer[0];
+  printf("T? %d : [%d]\n", transparent_color_flag, transparency_index);
   // Este bloco nunca tem mais nenhum dado. Fazemos mais uma leitura
   // adicional só para ler o último byte com valor zero e que encerra
   // o bloco:
@@ -1093,17 +1095,23 @@ void preenche_pixel(unsigned char *img, unsigned char **code_table,
       img[4 * i] = color_table[3 * code];
       img[4 * i + 1] = color_table[3 * code + 1];
       img[4 * i + 2] = color_table[3 * code + 2];
+      if(transparent_color_flag && transparency_index == code){
+        img[4 * i + 3] = 0;
+      }
+      else{
+        img[4 * i + 3] = 255;
+      }
     }
     else{
       img[4 * i] = color_table[3 * code_table[code][i]];
       img[4 * i + 1] = color_table[3 * code_table[code][i] + 1];
       img[4 * i + 2] = color_table[3 * code_table[code][i] + 2];
-    }
-    if(transparent_color_flag && transparency_index == code){
-      img[4 * i + 3] = 0;
-    }
-    else{
-      img[4 * i + 3] = 255;
+      if(transparent_color_flag && transparency_index == code_table[code][i]){
+        img[4 * i + 3] = 0;
+      }
+      else{
+        img[4 * i + 3] = 255;
+      }
     }
   }
 }
@@ -1202,6 +1210,7 @@ próximo frame.
         returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
         returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
         returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
+        //printf("(%d)", returned_data[target_index + 3]);
         col ++;
       }
       line_destiny = line_destiny + line_increment;
