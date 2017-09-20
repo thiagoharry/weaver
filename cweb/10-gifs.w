@@ -663,8 +663,8 @@ inicializar ou ler, já que seus valores nunca mudam.
 Nossa tabela de códigos é então esta:
 
 @<GIF: Variáveis Temporárias para Imagens Lidas@>=
-char *code_table[4095];
-int code_table_size[4095]; // O tamanho de cada valor armazenado em cada código
+char *code_table[4096];
+int code_table_size[4096]; // O tamanho de cada valor armazenado em cada código
 unsigned last_value_in_code_table;
 @
 
@@ -920,7 +920,6 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
   }
   // O teste abaixo previne buffer overflow em imagens corrompidas:
   if(code > last_value_in_code_table + 1){
-    printf("ERROR: Code: %d, Last: %d\n", code, last_value_in_code_table);
     code = end_of_information_code;
   }
   @<GIF: Interpreta Códigos Lidos@>
@@ -972,19 +971,24 @@ lemos para cores:
   // Se lemos um código que não está na tabela, devemos deduzi-lo:
   else if(code > last_value_in_code_table){
     if(previous_code < end_of_information_code){
-      code_table[last_value_in_code_table + 1] =
-        produz_codigo((char *) &previous_code, 1, previous_code);
-      code_table_size[last_value_in_code_table + 1] = 2;
+      if(last_value_in_code_table < 4095){
+        code_table[last_value_in_code_table + 1] =
+          produz_codigo((char *) &previous_code, 1, previous_code);
+        code_table_size[last_value_in_code_table + 1] = 2;
+        last_value_in_code_table ++;
+      }
     }
     else{
-      code_table[last_value_in_code_table + 1] =
-        produz_codigo(code_table[previous_code],
-                      code_table_size[previous_code],
-                      code_table[previous_code][0]);
-      code_table_size[last_value_in_code_table + 1] =
-        code_table_size[previous_code] + 1;
+      if(last_value_in_code_table < 4095){
+        code_table[last_value_in_code_table + 1] =
+          produz_codigo(code_table[previous_code],
+                        code_table_size[previous_code],
+                        code_table[previous_code][0]);
+        code_table_size[last_value_in_code_table + 1] =
+          code_table_size[previous_code] + 1;
+        last_value_in_code_table ++;
+      }
     }
-    last_value_in_code_table ++;
     preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
                    code_table, code, color_table, code_table_size[code],
                    transparent_color_flag, transparency_index);
@@ -997,18 +1001,23 @@ lemos para cores:
     // O código está na nossa tabela de códigos
     if(code < end_of_information_code){ // É um dos códigos primitivos
       if(previous_code < end_of_information_code){
-        code_table[last_value_in_code_table + 1] =
-          produz_codigo((char *) &previous_code, 1, code);
-        code_table_size[last_value_in_code_table + 1] = 2;
+        if(last_value_in_code_table < 4095){
+          code_table[last_value_in_code_table + 1] =
+            produz_codigo((char *) &previous_code, 1, code);
+          code_table_size[last_value_in_code_table + 1] = 2;
+          last_value_in_code_table ++;
+        }
       }
       else{
-        code_table[last_value_in_code_table + 1] =
-          produz_codigo(code_table[previous_code],
-                        code_table_size[previous_code], code);
-        code_table_size[last_value_in_code_table + 1] =
-          code_table_size[previous_code] + 1;
+        if(last_value_in_code_table < 4095){
+          code_table[last_value_in_code_table + 1] =
+            produz_codigo(code_table[previous_code],
+                          code_table_size[previous_code], code);
+          code_table_size[last_value_in_code_table + 1] =
+            code_table_size[previous_code] + 1;
+          last_value_in_code_table ++;
+        }
       }
-      last_value_in_code_table ++;
       // Mudou
       preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
                      code_table, code, color_table, 1,
@@ -1018,19 +1027,24 @@ lemos para cores:
     }
     else{
       if(previous_code < end_of_information_code){
-        code_table[last_value_in_code_table + 1] =
-          produz_codigo((char *) &previous_code, 1, code_table[code][0]);
-        code_table_size[last_value_in_code_table + 1] = 2;
+        if(last_value_in_code_table < 4095){
+          code_table[last_value_in_code_table + 1] =
+            produz_codigo((char *) &previous_code, 1, code_table[code][0]);
+          code_table_size[last_value_in_code_table + 1] = 2;
+          last_value_in_code_table ++;
+        }
       }
       else{
-        code_table[last_value_in_code_table + 1] =
-          produz_codigo(code_table[previous_code],
-                        code_table_size[previous_code],
-                        code_table[code][0]);
-        code_table_size[last_value_in_code_table + 1] =
-          code_table_size[previous_code] + 1;
+        if(last_value_in_code_table < 4095){
+          code_table[last_value_in_code_table + 1] =
+            produz_codigo(code_table[previous_code],
+                          code_table_size[previous_code],
+                          code_table[code][0]);
+          code_table_size[last_value_in_code_table + 1] =
+            code_table_size[previous_code] + 1;
+          last_value_in_code_table ++;
+        }
       }
-      last_value_in_code_table ++;
       preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
                      code_table, code, color_table, code_table_size[code],
                      transparent_color_flag, transparency_index);
@@ -1038,7 +1052,7 @@ lemos para cores:
       previous_code = code;
     }
   }
-  if(last_value_in_code_table >= (unsigned) ((1 << bits) - 1))
+  if(last_value_in_code_table >= (unsigned) ((1 << bits) - 1) && bits < 12)
     bits ++;
 }
 @
@@ -1054,6 +1068,7 @@ reiniciar a posição do último código armazenado para a menor possível:
       last_value_in_code_table --){
     Wfree(code_table[last_value_in_code_table]);
   }
+  last_value_in_code_table = end_of_information_code;
   bits = lzw_minimum_code_size + 1;
   first_pixel = true;
 }
@@ -1070,7 +1085,7 @@ conseguimos obter o valor correto pára cada pixel:
 void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
                     unsigned char *color_table, int size,
                     bool transparent_color_flag, unsigned transparency_index){
-  int i = 0; // o size tá errado em alguns
+  int i = 0;
   for(i = 0; i < size; i ++){
     if(code_table[code] == NULL){
       img[4 * i] = color_table[3 * code];
@@ -1086,8 +1101,6 @@ void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
       img[4 * i + 3] = 0;
     else
       img[4 * i + 3] = 255;
-    //printf("(%d %d %d %d)", img[4 * i], img[4 * i + 1], img[4 * i + 2],
-    //       img[4 * i + 3]);
   }
 }
 @
@@ -1144,7 +1157,6 @@ próximo frame.
   float total_time = INFINITY;
   struct _image_list *p;
   int line_increment;
-  interlace_flag = false;
   if(interlace_flag)
     line_increment = 8;
   else
@@ -1176,10 +1188,7 @@ próximo frame.
       times[i] = p -> delay_time;
       total_time += times[i];
     }
-    printf("4 * %d * %d * (%d - L - 1) +  %d * %d * 4 + %d * 4\n",
-           *width, *number_of_frames, *height, *width, i, col);
     while(line_source < (*height)){
-      printf("Linha %d -> Linha %d\n", line_source, line_destiny);
       while(col < (*width)){
         source_index = (line_source) * (*width) * 4 +
           col * 4;
