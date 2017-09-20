@@ -171,7 +171,7 @@ informações adicionais.
   // O tamanho da tabela de cores caso ela exista:
   global_color_table_size = data[0] % 8;
   global_color_table_size = 3 * (1 << (global_color_table_size + 1));
-  // Lemos e ignoramos a cor de fundo de nosso GIF
+  // Lemos a cor de fundo de nosso GIF
   fread(&background_color, 1, 1, fp);
   // Lemos e ignoramos  a proporção de altura e largura de pixel
   fread(data, 1, 1, fp);
@@ -663,7 +663,7 @@ inicializar ou ler, já que seus valores nunca mudam.
 Nossa tabela de códigos é então esta:
 
 @<GIF: Variáveis Temporárias para Imagens Lidas@>=
-char *code_table[4096];
+unsigned char *code_table[4096];
 int code_table_size[4096]; // O tamanho de cada valor armazenado em cada código
 unsigned last_value_in_code_table;
 @
@@ -973,7 +973,7 @@ lemos para cores:
     if(previous_code < end_of_information_code){
       if(last_value_in_code_table < 4095){
         code_table[last_value_in_code_table + 1] =
-          produz_codigo((char *) &previous_code, 1, previous_code);
+          produz_codigo((unsigned char *) &previous_code, 1, previous_code);
         code_table_size[last_value_in_code_table + 1] = 2;
         last_value_in_code_table ++;
       }
@@ -1003,7 +1003,7 @@ lemos para cores:
       if(previous_code < end_of_information_code){
         if(last_value_in_code_table < 4095){
           code_table[last_value_in_code_table + 1] =
-            produz_codigo((char *) &previous_code, 1, code);
+            produz_codigo((unsigned char *) &previous_code, 1, code);
           code_table_size[last_value_in_code_table + 1] = 2;
           last_value_in_code_table ++;
         }
@@ -1029,7 +1029,8 @@ lemos para cores:
       if(previous_code < end_of_information_code){
         if(last_value_in_code_table < 4095){
           code_table[last_value_in_code_table + 1] =
-            produz_codigo((char *) &previous_code, 1, code_table[code][0]);
+            produz_codigo((unsigned char *) &previous_code, 1,
+                          code_table[code][0]);
           code_table_size[last_value_in_code_table + 1] = 2;
           last_value_in_code_table ++;
         }
@@ -1082,7 +1083,8 @@ cores. Com a lista de cores, consultamos a tabela de cores e
 conseguimos obter o valor correto pára cada pixel:
 
 @<GIF: Funções Estáticas@>+=
-void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
+void preenche_pixel(unsigned char *img, unsigned char **code_table,
+                    unsigned code,
                     unsigned char *color_table, int size,
                     bool transparent_color_flag, unsigned transparency_index){
   int i = 0;
@@ -1097,10 +1099,12 @@ void preenche_pixel(unsigned char *img, char **code_table, unsigned code,
       img[4 * i + 1] = color_table[3 * code_table[code][i] + 1];
       img[4 * i + 2] = color_table[3 * code_table[code][i] + 2];
     }
-    if(transparent_color_flag && transparency_index == code)
+    if(transparent_color_flag && transparency_index == code){
       img[4 * i + 3] = 0;
-    else
+    }
+    else{
       img[4 * i + 3] = 255;
+    }
   }
 }
 @
@@ -1109,9 +1113,9 @@ Já a função para produzir um novo código nada mais é do que uma função
 que contatena um caractere no fim de uma string:
 
 @<GIF: Funções Estáticas@>+=
-char *produz_codigo(char *codigo, int size, char adicao){
+unsigned char *produz_codigo(unsigned char *codigo, int size, char adicao){
   int i;
-  char *ret = (char *) Walloc(size + 1);
+  unsigned char *ret = (unsigned char *) Walloc(size + 1);
   if(ret == NULL){
     fprintf(stderr, "WARNING (0): No memory to parse image. Please, increase "
             "the value of W_MAX_MEMORY at conf/conf.h.\n");
