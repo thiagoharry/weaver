@@ -55,16 +55,16 @@ específico para o tratamento de GIFs:
 A função que fará todo o trabalho será:
 
 @<GIF: Declarações@>=
-unsigned char *_extract_gif(char *filename, unsigned long *, unsigned long *,
-                            unsigned *, float *, float *,
+unsigned char *_extract_gif(char *, unsigned long *, unsigned long *,
+                            unsigned *, unsigned  **, int *,
                             bool *);
 @
 
 @<GIF: Definições@>=
 unsigned char *_extract_gif(char *filename, unsigned long *width,
                             unsigned long *height, unsigned *number_of_frames,
-                            float *times, float *max_t,
-                            bool *error){
+                            unsigned  **frame_duration,
+                            int *max_repetition, bool *error){
   bool global_color_table_flag = false, local_color_table_flag = false;
   bool interlace_flag = false;
   bool transparent_color_flag = false;
@@ -81,7 +81,6 @@ unsigned char *_extract_gif(char *filename, unsigned long *width,
   struct _image_list *img = NULL; // A lista de imagens será definida logo mais.
   struct _image_list *last_img = NULL;
   *number_of_frames = 0;
-  times = NULL;
   FILE *fp = fopen(filename, "r");
   *error = false;
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
@@ -410,7 +409,6 @@ tais recursos:
   // seguida é o índice da cor que devemos considerar transparente:
   fread(buffer, 1, 1, fp);
   transparency_index = buffer[0];
-  printf("T? %d : [%d]\n", transparent_color_flag, transparency_index);
   // Este bloco nunca tem mais nenhum dado. Fazemos mais uma leitura
   // adicional só para ler o último byte com valor zero e que encerra
   // o bloco:
@@ -534,7 +532,7 @@ encadeada de imagens:
 @<GIF: Declarações@>+=
 struct _image_list{
   unsigned char *rgba_image;
-  float delay_time; // Para imagens animadas
+  unsigned delay_time; // Para imagens animadas
   struct _image_list *next, *prev;
 };
 @
@@ -594,7 +592,7 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
     new_image -> prev = last_img;
     last_img = new_image;
   }
-  last_img -> delay_time = ((float) delay_time) / 100.0;
+  last_img -> delay_time = delay_time * 10000;
   // Se a nossa imagem não ocupa todo o canvas, vamos inicializar
   // todos os valores com a cor de fundo do canvas, já que há regiões
   // nas quais nossa imagem não irá estar. Mas também só podemos fazer
@@ -1166,25 +1164,16 @@ próximo frame.
 {
   unsigned i, line_source, line_destiny, col;
   unsigned long source_index, target_index;
-  float total_time = INFINITY;
   struct _image_list *p;
   int line_increment;
   if(interlace_flag)
     line_increment = 8;
   else
     line_increment = 1;
-  returned_data = (unsigned char *) Walloc(4 * (*width) * (*height) *
-                                           (*number_of_frames));
-  if(returned_data == NULL){
-    fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
-            "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
-            filename);
-    goto error_gif;
-  }
   if(*number_of_frames > 1){
-    total_time = 0.0;
-    times = (float *) Walloc(*number_of_frames * sizeof(float));
-    if(times == NULL){
+    *frame_duration = (unsigned *) Walloc(*number_of_frames *
+                                          sizeof(unsigned));
+    if(*frame_duration == NULL){
       fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
               "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
               filename);
@@ -1193,12 +1182,19 @@ próximo frame.
       goto error_gif;
     }
   }
+  returned_data = (unsigned char *) Walloc(4 * (*width) * (*height) *
+                                           (*number_of_frames));
+  if(returned_data == NULL){
+    fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
+            "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+            filename);
+    goto error_gif;
+  }
   p = img;
   for(i = 0; i < *number_of_frames; i ++){
     line_source = col = line_destiny = 0;
     if(*number_of_frames > 1){
-      times[i] = p -> delay_time;
-      total_time += times[i];
+      (*frame_duration)[i] = p -> delay_time;
     }
     while(line_source < (*height)){
       while(col < (*width)){
@@ -1210,7 +1206,6 @@ próximo frame.
         returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
         returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
         returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
-        //printf("(%d)", returned_data[target_index + 3]);
         col ++;
       }
       line_destiny = line_destiny + line_increment;
@@ -1230,9 +1225,9 @@ próximo frame.
     line_source = col = line_destiny = 0;
   }
   if(number_of_loops == 0)
-    *max_t = INFINITY;
+    *max_repetition = -1;
   else
-    *max_t = total_time * number_of_loops;
+    *max_repetition = number_of_loops;
 }
 @
 
@@ -1246,19 +1241,20 @@ algumas modificações adicionais às Interfaces.
 Primeiro, de agora em diante será importante que toda interface tenha
 uma textura e também uma variável booleana para indicar se a textura
 já foi carregada. Também, caso a imagem seja uma animação, teremos que
-informar o número de frames dela e a quantos frames por segundo ela
-está rodando. Ela também irá armazenar um novo atributo |t|, que
-indica o tempo contado em segundos desde que ela foi criada e o
-|max_t| que é o valor máximo que |t| pode ter. Tudo isso é útil para
-animações. Inclusive teremos a variável |dt| que armazenará quanto
-tempo em seundos deve durar cada quadro de animação:
+informar o número de frames dela e qual o tempo de duração de cada
+um. Ela também irá armazenar um novo atributo |_t|, que indica o tempo
+desde que ela passou a ter o número de frame atual em microssegundos e
+|max_iterations|, que é o número de vezes que devemos repetir a
+animação.
 
 @<Interface: Atributos Adicionais@>=
 // Isso fica dentro da definição de 'struct interface':
-GLuint _texture;
-bool _loaded_texture;
-unsigned number_of_frames;
-float t, max_t, dt;
+GLuint _texture; 
+bool _loaded_texture; // A textura acima foi carregada? 
+unsigned number_of_frames; // Quantos frames a imagem tem?
+unsigned *frame_duration; // Vetor com a duração de cada frame
+unsigned long _t;
+int max_repetition;
 // Onde a textura será armazenada apenas temporariamente antes de
 // enviar para a plaa de vídeo. Precisamos que seja em uma variável
 // persistente, e não local, pois podemos precisar carregar a textura
@@ -1308,10 +1304,10 @@ também estes novos valores:
   // falso, e aí para verdadeiro de novo quando ela terminar de
   // carregar a textura:
   _interfaces[_number_of_loops][i]._loaded_texture = true;
-  _interfaces[_number_of_loops][i].t = 0.0;
-  _interfaces[_number_of_loops][i].dt = 0.0;
-  _interfaces[_number_of_loops][i].max_t = INFINITY;
   _interfaces[_number_of_loops][i].number_of_frames = 1;
+  _interfaces[_number_of_loops][i].frame_duration = NULL;
+  _interfaces[_number_of_loops][i]._t = 0;
+  _interfaces[_number_of_loops][i].max_repetition = -1;
 }
 @
 
@@ -1387,31 +1383,23 @@ case W_INTERFACE_IMAGE:
     return NULL;
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .wav
-    float *times = NULL;
     _interfaces[_number_of_loops][i]._tmp_texture =
       _extract_gif(complete_path, &texture_width, &texture_height,
-                  &(_interfaces[_number_of_loops][i].number_of_frames),
-                  times, &(_interfaces[_number_of_loops][i].max_t),
-                  &ret);
+                   &(_interfaces[_number_of_loops][i].number_of_frames),
+                   &(_interfaces[_number_of_loops][i].frame_duration),
+                   &(_interfaces[_number_of_loops][i].max_repetition),
+                   &ret);
     if(ret){ // Se algum erro aconteceu:
       _interfaces[_number_of_loops][i].type = W_NONE;
       return NULL;
     }
-    // Preenchemos dt e ignoramos o tempo de duração de cada frame
-    // além do primeiro. Um GIF pode ter cada quadro com uma duração
-    // diferente. Mas para facilitar os nossos shaders, não
-    // suportaremos isso. Sempre asumiremos que cada frame tem a mesma
-    // duração e usamos a duração do primeiro como métrica. Se
-    // detectarmos que existem muitos GIFs com quadros de diferentes
-    // durações, aí é melhor rever isso:
-    if(_interfaces[_number_of_loops][i].number_of_frames > 1){
-      _interfaces[_number_of_loops][i].dt = times[0];
-      Wfree(times);
-    }
     // Agora temos que criar a nossa textura e inicializá-la:
     glGenTextures(1, &(_interfaces[_number_of_loops][i]._texture));
     glBindTexture(GL_TEXTURE_2D, _interfaces[_number_of_loops][i]._texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
+                 texture_width *
+                 _interfaces[_number_of_loops][i].number_of_frames,
+                 texture_height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE,
                  _interfaces[_number_of_loops][i]._tmp_texture);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -1463,22 +1451,18 @@ static void onload_texture(unsigned undocumented, void *inter,
     return;
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
-    float *times = NULL;
     my_interface -> _tmp_texture =
       _extract_gif(complete_path, &texture_width,
-                  &texture_height,
-                  &(my_interface -> number_of_frames),
-                  times, &(my_interface -> max_t), &ret);
+                   &texture_height,
+                   &(my_interface -> number_of_frames),
+                   &(my_interface -> frame_duration),
+                   &(my_interface -> max_repetition), &ret);
   }
   if(ret){ // Se algum erro aconteceu:
     my_interface -> type = W_NONE;
     return NULL;
   }
   _finalize_after(my_interface, _finalize_interface_texture);
-  if(my_interface -> number_of_frames > 1){
-    my_interface -> dt = times[0];
-    Wfree(times);
-  }
   // Inicializando a tetura lida
   glGenTextures(1, &(my_interface -> _texture));
   glBindTexture(GL_TEXTURE_2D, my_interface -> _texture);
@@ -1586,7 +1570,7 @@ static void *process_texture(void *p){
       _extract_gif(complete_path, &texture_width,
                   &texture_height,
                   &(my_interface -> number_of_frames),
-                  times, &(my_interface -> max_t), &ret);
+                  &times, &(my_interface -> max_repetition), &ret);
   }
   if(ret){ // Se algum erro aconteceu:
     my_interface -> type = W_NONE;
