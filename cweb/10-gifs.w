@@ -1242,8 +1242,8 @@ Primeiro, de agora em diante será importante que toda interface tenha
 uma textura e também uma variável booleana para indicar se a textura
 já foi carregada. Também, caso a imagem seja uma animação, teremos que
 informar o número de frames dela e qual o tempo de duração de cada
-um. Ela também irá armazenar um novo atributo |_t|, que indica o tempo
-desde que ela passou a ter o número de frame atual em microssegundos e
+um. Ela também irá armazenar um novo atributo |_t|, que indica quando
+ela passou a ter o número de frame atual em microssegundos e
 |max_iterations|, que é o número de vezes que devemos repetir a
 animação.
 
@@ -1308,7 +1308,7 @@ também estes novos valores:
   _interfaces[_number_of_loops][i].number_of_frames = 1;
   _interfaces[_number_of_loops][i].current_frame = 0;
   _interfaces[_number_of_loops][i].frame_duration = NULL;
-  _interfaces[_number_of_loops][i]._t = 0;
+  _interfaces[_number_of_loops][i]._t = W.t;
   _interfaces[_number_of_loops][i].max_repetition = -1;
 }
 @
@@ -1583,7 +1583,7 @@ static void *process_texture(void *p){
     my_interface -> dt = times[0];
     Wfree(times);
   }
-  // Inicializando a tetura lida
+  // Inicializando a textura lida
   glGenTextures(1, &(my_interface -> _texture));
   glBindTexture(GL_TEXTURE_2D, my_interface -> _texture);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
@@ -1716,7 +1716,6 @@ Compilamos ele na inicialização:
   _image_interface_shader._uniform_texture1 =
     glGetUniformLocation(_image_interface_shader.program_shader,
                          "texture1");
-  printf("%d\n", _image_interface_shader._uniform_texture1);
   _image_interface_shader._uniform_object_color =
     glGetUniformLocation(_image_interface_shader.program_shader,
                          "object_color");
@@ -1738,12 +1737,9 @@ Compilamos ele na inicialização:
   _image_interface_shader._uniform_number_of_frames =
     glGetUniformLocation(_image_interface_shader.program_shader,
                            "number_of_frames");
-  printf("%d\n", _image_interface_shader._uniform_number_of_frames);
   _image_interface_shader._uniform_current_frame =
     glGetUniformLocation(_image_interface_shader.program_shader,
                          "current_frame");
-  printf("%d\n", _image_interface_shader._uniform_current_frame);
-
 }
 @
 
@@ -1761,6 +1757,31 @@ adicionais:
 
 @<Passando Uniformes Adicionais para Shader de Interface@>=
 glBindTexture(GL_TEXTURE_2D, _interface_queue[_number_of_loops][i] -> _texture);
+  /* Vamos também ver se precisamos mudar o frame atual: */
+if(_interface_queue[_number_of_loops][i] -> number_of_frames > 1 &&
+   _interface_queue[_number_of_loops][i] -> max_repetition != 0){
+  if(W.t - _interface_queue[_number_of_loops][i] -> _t >
+     _interface_queue[_number_of_loops][i] ->
+     frame_duration[_interface_queue[_number_of_loops][i] -> current_frame]){
+    if(_interface_queue[_number_of_loops][i] -> current_frame + 1 ==
+       _interface_queue[_number_of_loops][i] -> number_of_frames){
+      // Termina um ciclo de repetição da animação
+      if(_interface_queue[_number_of_loops][i] -> max_repetition > 0){
+        _interface_queue[_number_of_loops][i] -> max_repetition --;
+      }
+      if(_interface_queue[_number_of_loops][i] -> max_repetition != 0){
+        _interface_queue[_number_of_loops][i] -> current_frame = 0;
+        _interface_queue[_number_of_loops][i] -> _t = W.t;
+      }
+    }
+    else{
+      // Passa para o próximo frame de animação
+      _interface_queue[_number_of_loops][i] -> current_frame ++;
+      _interface_queue[_number_of_loops][i] -> _t = W.t;
+    }
+  }
+}
+  // Depois disso, passamos o frame atual
 glUniform1i(current_shader -> _uniform_number_of_frames,
             _interface_queue[_number_of_loops][i] -> number_of_frames);
 glUniform1i(current_shader -> _uniform_current_frame,
