@@ -1252,6 +1252,7 @@ animação.
 GLuint _texture; 
 bool _loaded_texture; // A textura acima foi carregada? 
 unsigned number_of_frames; // Quantos frames a imagem tem?
+unsigned current_frame;
 unsigned *frame_duration; // Vetor com a duração de cada frame
 unsigned long _t;
 int max_repetition;
@@ -1305,6 +1306,7 @@ também estes novos valores:
   // carregar a textura:
   _interfaces[_number_of_loops][i]._loaded_texture = true;
   _interfaces[_number_of_loops][i].number_of_frames = 1;
+  _interfaces[_number_of_loops][i].current_frame = 0;
   _interfaces[_number_of_loops][i].frame_duration = NULL;
   _interfaces[_number_of_loops][i]._t = 0;
   _interfaces[_number_of_loops][i].max_repetition = -1;
@@ -1323,7 +1325,7 @@ arquivos de imagem.
 
 E agora definimos o que acontece quando estamos inicializando uma nova
 interface, lendo seus argumentos e sabemos que estamos diante de uma
-destas intrfaces de imagens:
+destas interfaces de imagens:
 
 @<Interface: Leitura de Argumentos e Inicialização@>=
 case W_INTERFACE_IMAGE:
@@ -1463,7 +1465,7 @@ static void onload_texture(unsigned undocumented, void *inter,
     return NULL;
   }
   _finalize_after(my_interface, _finalize_interface_texture);
-  // Inicializando a tetura lida
+  // Inicializando a textura lida
   glGenTextures(1, &(my_interface -> _texture));
   glBindTexture(GL_TEXTURE_2D, my_interface -> _texture);
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
@@ -1653,7 +1655,8 @@ varying mediump vec2 coordinate;
 void main(){
   gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
   // Coordenada da textura:
-  coordinate = vec2(vertex_position[0] + 0.5,
+  coordinate = vec2((vertex_position[0] + 0.5 + float(current_frame)) *
+                    1.0/float(number_of_frames),
                     vertex_position[1] + 0.5);
 }
 @
@@ -1711,26 +1714,36 @@ Compilamos ele na inicialização:
   _image_interface_shader.program_shader =
     _link_and_clean_shaders(vertex, fragment);
   _image_interface_shader._uniform_texture1 =
-    glGetUniformLocation(_framebuffer_shader.program_shader,
+    glGetUniformLocation(_image_interface_shader.program_shader,
                          "texture1");
+  printf("%d\n", _image_interface_shader._uniform_texture1);
   _image_interface_shader._uniform_object_color =
-    glGetUniformLocation(_framebuffer_shader.program_shader,
+    glGetUniformLocation(_image_interface_shader.program_shader,
                          "object_color");
   _image_interface_shader._uniform_model_view =
-    glGetUniformLocation(_framebuffer_shader.program_shader,
+    glGetUniformLocation(_image_interface_shader.program_shader,
                          "model_view_matrix");
   _image_interface_shader._uniform_object_size =
-    glGetUniformLocation(_framebuffer_shader.program_shader,
+    glGetUniformLocation(_image_interface_shader.program_shader,
                          "object_size");
   _image_interface_shader._uniform_time =
-    glGetUniformLocation(_framebuffer_shader.program_shader,
+    glGetUniformLocation(_image_interface_shader.program_shader,
                          "time");
   _image_interface_shader._uniform_integer =
-    glGetUniformLocation(_framebuffer_shader.program_shader,
+    glGetUniformLocation(_image_interface_shader.program_shader,
                            "integer");
   _image_interface_shader._attribute_vertex_position =
-    glGetAttribLocation(_framebuffer_shader.program_shader,
+    glGetAttribLocation(_image_interface_shader.program_shader,
                         "vertex_position");
+  _image_interface_shader._uniform_number_of_frames =
+    glGetUniformLocation(_image_interface_shader.program_shader,
+                           "number_of_frames");
+  printf("%d\n", _image_interface_shader._uniform_number_of_frames);
+  _image_interface_shader._uniform_current_frame =
+    glGetUniformLocation(_image_interface_shader.program_shader,
+                         "current_frame");
+  printf("%d\n", _image_interface_shader._uniform_current_frame);
+
 }
 @
 
@@ -1748,4 +1761,8 @@ adicionais:
 
 @<Passando Uniformes Adicionais para Shader de Interface@>=
 glBindTexture(GL_TEXTURE_2D, _interface_queue[_number_of_loops][i] -> _texture);
+glUniform1i(current_shader -> _uniform_number_of_frames,
+            _interface_queue[_number_of_loops][i] -> number_of_frames);
+glUniform1i(current_shader -> _uniform_current_frame,
+            _interface_queue[_number_of_loops][i] -> current_frame);
 @
