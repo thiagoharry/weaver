@@ -533,6 +533,8 @@ encadeada de imagens:
 struct _image_list{
   unsigned char *rgba_image;
   unsigned delay_time; // Para imagens animadas
+  unsigned x_offset, y_offset, width, height;
+  int disposal_method;
   struct _image_list *next, *prev;
 };
 @
@@ -576,7 +578,13 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
     goto error_gif;
   }
   new_image -> prev = new_image -> next = NULL;
-  new_image -> rgba_image = (unsigned char *) _iWalloc((*width) * (*height) * 4);
+  new_image -> x_offset = img_offset_x;
+  new_image -> y_offset = img_offset_y;
+  new_image -> width = img_width;
+  new_image -> height = img_height;
+  new_image -> disposal_method = disposal_method;
+  new_image -> rgba_image = (unsigned char *) _iWalloc(img_width *
+                                                       img_height * 4);
   if(new_image -> rgba_image == NULL){
     fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
             "Please, increase the value of W_INTERNAL_MEMORY at conf/conf.h.\n",
@@ -1018,7 +1026,6 @@ lemos para cores:
           last_value_in_code_table ++;
         }
       }
-      // Mudou
       preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
                      code_table, code, color_table, 1,
                      transparent_color_flag, transparency_index);
@@ -1166,8 +1173,10 @@ próximo frame.
   unsigned long source_index, target_index;
   struct _image_list *p;
   int line_increment;
-  if(interlace_flag)
+  if(interlace_flag){
+    printf("INTERLACE\n");
     line_increment = 8;
+  }
   else
     line_increment = 1;
   if(*number_of_frames > 1){
@@ -1196,16 +1205,52 @@ próximo frame.
     if(*number_of_frames > 1){
       (*frame_duration)[i] = p -> delay_time;
     }
-    while(line_source < (*height)){
+    //printf("%d\n", p -> disposal_method);
+    printf("%ux%u+%u+%u\n", p -> width, p -> height, p -> x_offset,
+           p -> y_offset);
+    while(line_destiny < (*height)){
       while(col < (*width)){
-        source_index = (line_source) * (*width) * 4 +
-          col * 4;
         target_index = 4 * (*width) * (*number_of_frames) *
           (*height - line_destiny - 1) + (*width) * i * 4 + col * 4;
-        returned_data[target_index] = p -> rgba_image[source_index];
-        returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
-        returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
-        returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
+        if(col < p -> x_offset || line_destiny < p -> y_offset ||
+           col >= p -> x_offset + p -> width ||
+           line_destiny >= p -> y_offset + p -> height){
+          if(p -> disposal_method != 1 || i == 0){
+            // Preenche com cor de fundo
+            returned_data[target_index] =
+              global_color_table[background_color * 3];
+            returned_data[target_index + 1] =
+              global_color_table[background_color * 3 + 1];
+            returned_data[target_index + 2] =
+              global_color_table[background_color * 3 + 2];
+              returned_data[target_index + 3] = 255;
+            //printf("(%d %d %d)\n", global_color_table[background_color * 3],
+            //       global_color_table[background_color * 3 + 1],
+            //       global_color_table[background_color * 3 + 2]);
+          }
+          else{
+            // Repete imagem anterior
+            returned_data[target_index] =
+              returned_data[target_index - (*width)];
+            returned_data[target_index + 1] =
+              returned_data[target_index + 1 - (*width)];
+            returned_data[target_index + 2] =
+              returned_data[target_index + 2 - (*width)];
+            returned_data[target_index + 3] =
+            returned_data[target_index + 3 - (*width)];
+            //printf("%u -> %u\n", target_index, target_index - (*width));
+          }
+        }
+        else{
+          // Preenche pixels de imagem nova
+          source_index = (line_source - p -> y_offset) * (p -> width) * 4 +
+            (col - p -> x_offset) * 4;
+          //printf("[%d -> %d]", source_index, target_index);
+          returned_data[target_index] = p -> rgba_image[source_index];
+          returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
+          returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
+          returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
+        }
         col ++;
       }
       line_destiny = line_destiny + line_increment;
