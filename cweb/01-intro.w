@@ -2102,7 +2102,7 @@ variável \monoespaco{W.t} será inicializada como zero. Depois, em cada
 iteração de loop principal, será atualizada para o valor que
 corresponde quantos microsegundos se passaram desde o começo do
 programa. Sendo assim, precisamos saber também o tempo do sistema de
-cada última iteração (que deve icar em uma variável interna, que
+cada última iteração (que deve ficar em uma variável interna, que
 portanto não irá para dentro de |W|) e cuidar com
 \italico{overflows}. É preciso que \monoespaco{W.t} tenha pelo menos
 32 bits e seja sem sinal para garantir que ele nunca irá sofrer
@@ -2110,7 +2110,7 @@ portanto não irá para dentro de |W|) e cuidar com
 em execução sem ser fechado por mais de dois anos.
 
 Por fim, iremos armazenar também uma variável $dt$, a qual mede a
-diferença de tempo entre uma iteraçã e outra do loop principal (do
+diferença de tempo entre uma iteração e outra do loop principal (do
 ponto de vista da engine de física).
 
 O nosso valor de tempo e o tempo de sistema medido ficarão nestas
