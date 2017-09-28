@@ -1231,13 +1231,13 @@ próximo frame.
           else{
             // Repete imagem anterior
             returned_data[target_index] =
-              returned_data[target_index - (*width)];
+              returned_data[target_index - (*width) * 4];
             returned_data[target_index + 1] =
-              returned_data[target_index + 1 - (*width)];
+              returned_data[target_index + 1 - (*width) * 4];
             returned_data[target_index + 2] =
-              returned_data[target_index + 2 - (*width)];
+              returned_data[target_index + 2 - (*width) * 4];
             returned_data[target_index + 3] =
-            returned_data[target_index + 3 - (*width)];
+            returned_data[target_index + 3 - (*width) * 4];
             //printf("%u -> %u\n", target_index, target_index - (*width));
           }
         }
