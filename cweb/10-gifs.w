@@ -1119,6 +1119,7 @@ void preenche_pixel(unsigned char *img, unsigned char **code_table,
       }
     }
   }
+  //printf("(%d %d %d)\n", img[4 * i], img[4 * i + 1], img[4 * i + 2]);
 }
 @
 
@@ -1205,17 +1206,26 @@ próximo frame.
     if(*number_of_frames > 1){
       (*frame_duration)[i] = p -> delay_time;
     }
-    //printf("%d\n", p -> disposal_method);
-    printf("%ux%u+%u+%u\n", p -> width, p -> height, p -> x_offset,
-           p -> y_offset);
+    //printf("%ux%u+%u+%u\n", p -> width, p -> height, p -> x_offset,
+    //       p -> y_offset);
     while(line_destiny < (*height)){
       while(col < (*width)){
         target_index = 4 * (*width) * (*number_of_frames) *
           (*height - line_destiny - 1) + (*width) * i * 4 + col * 4;
+        source_index = (line_source - p -> y_offset) * (p -> width) * 4 +
+          (col - p -> x_offset) * 4;
         if(col < p -> x_offset || line_destiny < p -> y_offset ||
            col >= p -> x_offset + p -> width ||
-           line_destiny >= p -> y_offset + p -> height){
-          if(p -> disposal_method != 1 || i == 0){
+           line_destiny >= p -> y_offset + p -> height ||
+           p -> rgba_image[source_index + 3] == 0){
+          if(p -> disposal_method == 3 || i == 0){
+            // Deixa transparente
+            returned_data[target_index] = p -> rgba_image[source_index];
+            returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
+            returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
+            returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
+          }
+          if(p -> disposal_method == 2){
             // Preenche com cor de fundo
             returned_data[target_index] =
               global_color_table[background_color * 3];
@@ -1237,14 +1247,12 @@ próximo frame.
             returned_data[target_index + 2] =
               returned_data[target_index + 2 - (*width) * 4];
             returned_data[target_index + 3] =
-            returned_data[target_index + 3 - (*width) * 4];
+              returned_data[target_index + 3 - (*width) * 4];
             //printf("%u -> %u\n", target_index, target_index - (*width));
           }
         }
         else{
           // Preenche pixels de imagem nova
-          source_index = (line_source - p -> y_offset) * (p -> width) * 4 +
-            (col - p -> x_offset) * 4;
           //printf("[%d -> %d]", source_index, target_index);
           returned_data[target_index] = p -> rgba_image[source_index];
           returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
@@ -1729,6 +1737,9 @@ varying mediump vec2 coordinate;
 
 void main(){
   gl_FragData[0] = texture2D(texture1, coordinate);
+  //gl_FragData[0] = vec4(coordinate.x,
+  //                      coordinate.x,
+  //                      coordinate.x, 1.0);
 }
 @
 
