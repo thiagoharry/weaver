@@ -1457,6 +1457,16 @@ case W_INTERFACE_IMAGE:
                  texture_height, 0,
                  GL_RGBA, GL_UNSIGNED_BYTE,
                  _interfaces[_number_of_loops][i]._tmp_texture);
+    {
+      GLenum err;
+      while((err = glGetError()) != GL_NO_ERROR){
+        if(err == GL_INVALID_VALUE){
+          fprintf(stderr, "ERROR(0): Image %s is too big or have too many"
+                  " frames. Please, lower it's resolution or animation "
+                  "detail.", complete_path);
+        }
+      }
+    }
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
@@ -1524,6 +1534,16 @@ static void onload_texture(unsigned undocumented, void *inter,
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
                GL_RGBA, GL_UNSIGNED_BYTE,
                my_interface -> _tmp_texture);
+  {
+    GLenum err;
+    while((err = glGetError()) != GL_NO_ERROR){
+      if(err == GL_INVALID_VALUE){
+        fprintf(stderr, "ERROR(0): Image %s is too big or have too many"
+                " frames. Please, lower it's resolution or animation "
+                "detail.", complete_path);
+      }
+    }
+  }
   glBindTexture(GL_TEXTURE_2D, 0);
   // A mudança final de flag:
   my_interface -> _loaded_texture = true;
@@ -1642,7 +1662,16 @@ static void *process_texture(void *p){
   glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
                GL_RGBA, GL_UNSIGNED_BYTE,
                my_interface -> _tmp_texture);
-  
+  {
+    GLenum err;
+    while((err = glGetError()) != GL_NO_ERROR){
+      if(err == GL_INVALID_VALUE){
+        fprintf(stderr, "ERROR(0): Image %s is too big or have too many"
+                " frames. Please, lower it's resolution or animation "
+                "detail.", complete_path);
+      }
+    }
+  }
   glBindTexture(GL_TEXTURE_2D, 0);
   if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
     file_info -> onerror(p);
@@ -1708,8 +1737,8 @@ varying mediump vec2 coordinate;
 void main(){
   gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
   // Coordenada da textura:
-  coordinate = vec2((vertex_position[0] + 0.5 + float(current_frame)) *
-                    1.0/float(number_of_frames),
+  coordinate = vec2((vertex_position[0] + 0.5 + float(current_frame)) /
+                    float(number_of_frames),
                     vertex_position[1] + 0.5);
 }
 @
