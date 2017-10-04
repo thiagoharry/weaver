@@ -457,7 +457,8 @@ uma extensão de controle de gráficos (e talvez sem a presença de um
 controle de gráficos) é um descritor de imagem. Um arquivo GIF pode
 ter várias imagens e cada uma delas terá o seu descritor. Geralmente
 em um GIF animado cada frame da animação é uma imagem. Assim começamos
-a ler um descritor de imagem:
+a ler um descritor de imagem (que talvez devesse ser chamada de
+descritor de um frame da imagem):
 
 @<GIF: Bloco Descritor de Imagem@>=
 {
@@ -482,6 +483,7 @@ a ler um descritor de imagem:
   // exibidas mais rapidamente ao serem transmitidas por conexões
   // lentas):
   interlace_flag = (buffer[0] >> 6) % 2;
+  // O tamanho da tabela de cores local (se existir):
   local_color_table_size = buffer[0] % 8;
   local_color_table_size = 3 * (1 << (local_color_table_size + 1));
   // Se temos uma tabela de cores local ou devemos usar a global:
@@ -495,7 +497,8 @@ a ler um descritor de imagem:
 @
 
 No caso da imagem possuir uma tabela de cores local, ela é armazenada
-de forma idêntica à tabela de cores global:
+de forma idêntica à tabela de cores global. Como já sabemos o amanho
+dela, basta lermos ela diretamente:
 
 @<GIF: Tabela de Cor Local@>=
 {
@@ -511,20 +514,31 @@ de forma idêntica à tabela de cores global:
 @
 
 E por fim chegamos ao trecho principal: o bloco onde estão armazenados
-os dados da imagem propriamente dita:
+os dados da imagem propriamente dita (ou do frame de uma animação):
 
 @<GIF: Dados de Imagem@>=
 {
   int buffer_size;
   @<GIF: Variáveis Temporárias para Imagens Lidas@>
+  // Lemos quantos bits cada código do algoritmo LZW tem. Cada código
+  // representa uma sequência de 1 a 4091 cores e eles são como as
+  // informações de cada pixel está armazenado no arquivo GIF. O
+  // tamanho mínimo varia entre 2 bits e 8 bits. Se nossa tabela de
+  // cores for muito pequena, dá para representar com menos bits suas
+  // entradas, então o valor de bits será menor. Já se ela tiver 256
+  // cores, aí precisaremos de 8 bits:
   fread(buffer, 1, 1, fp);
   lzw_minimum_code_size = buffer[0];
   @<GIF: Inicializando Nova Imagem@>
+  // Leitura típica de dados em um GIF. Lemos uma série de dados onde
+  // o primeiro byte representa a sequência de dados e um 0 significa
+  // o fim dos dados:
   fread(buffer, 1, 1, fp);
   while(buffer[0] != 0){
     buffer_size = buffer[0];
     buffer[buffer_size] = '\0';
     fread(buffer, 1, buffer[0], fp);
+    // E aqui lemos os códigos segundo o algoritmo LZW:
     @<GIF: Interpretando Imagem@>
     fread(buffer, 1, 1, fp);
   }
@@ -539,7 +553,7 @@ os dados da imagem propriamente dita:
 @
 
 E agora chegamos ao momento em que teremos que implementar o algoritmo
-de descompactação Lempel–Ziv–Welch. O malfadado algoritmo que apesar
+de descompactação Lempel–Ziv–Welch (LZW). O malfadado algoritmo que apesar
 de ser interessante, no passado era patenteado e isso fez com que ele
 não pudesse ser livremente usado em vários países. Atualmente suas
 patentes já expiraram, então podemos usá-lo sem medo das polêmicas.
@@ -549,15 +563,16 @@ vez que já sabemos o tamanho dela. Vamos fazer isso na inicialização
 da imagem. Mas é importante lembrar que talvez não tenhamos apenas uma
 imagem. Um GIF animado pode ter várias delas. Sendo assim, vamos
 definir uma estrutura de dados que será basicamente uma lista
-encadeada de imagens:
+  encadeada de imagens. Nos GIFs animados, haverá uma para cada frame:
 
 @<GIF: Declarações@>+=
 struct _image_list{
-  unsigned char *rgba_image;
-  unsigned delay_time; // Para imagens animadas
-  unsigned x_offset, y_offset, width, height;
-  int disposal_method;
-  struct _image_list *next, *prev;
+  unsigned char *rgba_image; // Os pixels
+  unsigned delay_time; // Em imagens animadas a duração do frame
+  unsigned x_offset, y_offset, width, height; // Tamanho e offset
+  int disposal_method; // Como devemos tratar pixels transparentes no
+                       // próximo frame
+  struct _image_list *next, *prev; // Lista duplamente encadeada
 };
 @
 
@@ -585,6 +600,7 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
 @<GIF: Inicializando Nova Imagem@>=
 {
   struct _image_list *new_image;
+  // Cada nova imagem será tratada como um novo frame:
   *number_of_frames = (*number_of_frames ) + 1;
   // Se nós não temos uma tabela de cores, isso é um erro. Vamos parar
   // agora mesmo.
@@ -592,6 +608,7 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
     fprintf(stderr, "WARNING: GIF image without a color table: %s\n", filename);
     goto error_gif;
   }
+  // Alocamos e inicializamos a imagem na nossa lista de imagem:
   new_image = (struct _image_list *) _iWalloc(sizeof(struct _image_list));
   if(new_image == NULL){
     fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
@@ -625,13 +642,14 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
   last_img -> delay_time = delay_time * 10000;
   // Se a nossa imagem não ocupa todo o canvas, vamos inicializar
   // todos os valores com a cor de fundo do canvas, já que há regiões
-  // nas quais nossa imagem não irá estar. Mas também só podemos fazer
-  // isso se temos uma tabela de cores.
+  // nas quais nossa imagem não irá estar.
   if(img_offset_x != 0 || img_offset_y != 0  || img_width != *width ||
      img_height != *height){
     unsigned long i;
     unsigned long size = (*width) * (*height);
-    // Se temos uma tabela local, usamos ela
+    // Se temos uma tabela local, usamos ela, mas tomamos o cuidado
+    // para não ler fora da tabela de cores mesmo que a imagem tenha
+    // um valor inválido de cor de fundo
     for(i = 0; i < size; i += 4){
       if(local_color_table_flag && background_color < local_color_table_size){
         new_image -> rgba_image[4 * i] = local_color_table[3 * background_color];
@@ -651,6 +669,16 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
           global_color_table[3 * background_color + 2];
         new_image -> rgba_image[4 * i + 3] = 255;
       }
+#if W_DEBUG_LEVEL >= 1
+      // Em modo de depuração, nós avisamos quando a imagem tem um
+      // valor inválido. Pode ser bom avisar, pois softwares menos
+      // robustos podem ser vítimas de um buffer overflow ou falha de
+      // segmentação com a imagem:
+      else{
+        fprintf(stderr, "WARNING: Image has invalid background color: %s.\n",
+                filename);
+      }
+#endif
     }
   }
 }
@@ -664,15 +692,20 @@ pela nossa lista de imagens:
     free_img_list(last_img);
 @
 
-Uma vez que estejamos lendo os dados no GIF, nós não encontraremos
-nele um valor de pixel, ou mesmo de posições na nossa tabela de
-cores. O que encontraremos serão códigos que geralmente são
-representados pelo seu valor numérico prefixado por um ``\#''. Sendo
-assim, poderemos encontrar os códigos ``\#0'', ``\#1'', ``\#2'', até o
+Vamos agora ler os códigos LZW da imagem. Iremos representá-los neste
+texto pelo seu valor numérico prefixado por um ``\#''. Sendo assim,
+poderemos encontrar os códigos ``\#0'', ``\#1'', ``\#2'', até o
 ``\#4095'' que é o maior código permitido dentro de um GIF. Cada um
 destes códigos precisa ser consultado em uma tabela de códigos e nela
 obteremos o valor de um ou mais índices em nossa tabela de cores. Cada
 código pode representar um índice ou então uma sequência de índices.
+
+Então para interpretarmos uma imagem, fazemos a seguinte
+transformação:
+
+\alinhaverbatim\
+Código LZW -> Sequência de Índices na Tabela de Cores -> Sequência de Cores
+\alinhanormal
 
 Entretanto, nós começamos sem uma tabela de códigos e o interessante
 da compressão e descompressão de dados usando o algoritmo LZW é que
@@ -722,30 +755,7 @@ inicializada:
 @<GIF: Inicializando Nova Imagem@>+=
 {
   unsigned i;
-  switch(lzw_minimum_code_size){
-  case 2:
-    last_value_in_code_table = 3;
-    break;
-  case 3:
-    last_value_in_code_table = 7;
-    break;
-  case 4:
-    last_value_in_code_table = 15;
-    break;
-  case 5:
-    last_value_in_code_table = 31;
-    break;
-  case 6:
-    last_value_in_code_table = 63;
-    break;
-  case 7:
-    last_value_in_code_table = 127;
-    break;
-  case 8:
-  default:
-    last_value_in_code_table = 255;
-    break;
-  }
+  last_value_in_code_table = (1 << lzw_minimum_code_size) - 1;
   for(i = 0;  i <= last_value_in_code_table; i ++){
     code_table[i] = NULL;
     code_table_size[i] = 1;
@@ -785,7 +795,7 @@ na tabela de códigos, ou mesmo pode ser que tenhamos que
 esvaziá-la. Nós também temos que ler sempre a menor quantidade de bits
 capaz de armazenar o maior número que pode ser lido. No começo, nós
 sempre lemos um número de bits igual a |lzw_minimum_code_size| mais
-1. Assim podemos encontrar qualquer código do #0 até o código de fim
+1. Assim podemos encontrar qualquer código do \#0 até o código de fim
 da imagem. À medida que nossa tabela ficar maior, o número de bits que
 lemos vai crescer, até o limite de 12 bits. O número de bits que
 devemos ler vai ser armazenado na seguinte variável:
@@ -815,37 +825,44 @@ unsigned code = 0, previous_code;
 // código esteja no buffer atual e a outra parte no buffer que ainda
 // está para ser lido:
 bool incomplete_code = false;
-// E isso nos diz qual pixel estamos lendo
+// E isso nos quantos pixels já foram lidos:
 unsigned long pixel = 0;
+// Se estamos no primeiro pixel de um bufer:
 bool first_pixel = true;
 @
 
-E a leitura do buffer então funciona assim:
+E a leitura do buffer para obter a cada iteração um código LZW
+funciona assim:
 
 @<GIF: Interpretando Imagem@>=
 byte_offset = 0;
-// A condição abaixo só é verdadeira se acabamos de terminar de ler um
-// buffer, mas a última leitura está incompleta e deve continuar no
-// próximo. Neste caso, armazenamos no 'bit_offset' um indicador de
-// quanto do valor já lemos, e por isso não devemos mudar o seu valor
-// atual:
+// Ao começar a ler um novo buffer, o offset de bits do primeiro pixel
+// será zero. A menos que temos um valor que foi lido no buffer
+// anterior, mas não foiterminado porque o seu fim está neste
+// buffer. Para sinalizar isso, ajustamos o offseet para um valor
+// negativo e por isso não devemos apagar esta informação
+// reinicializando o offset de bits para zero:
 if(!incomplete_code){
   bit_offset = 0;
 }
+// O loop que lê o buffer atual extraindo dele os códigos LZW:
 while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
   // Primeiro cuidamos do caso problemático de quando começamos agora
   // a ler um buffer, mas não terminamos de ler o valor do buffer
   // anterior:
   if(incomplete_code){
     incomplete_code = false;
+    // Quantos bits ainda precisam ser lidos para terminar a leitura:
     int still_need_to_read = bits + bit_offset;
     unsigned tmp;
     // Sabemos que já lemos -(bit_offset) bits quando
     // temos que ler 'bits'.
     if(still_need_to_read <= 8){
-      // Temos só mais um byte pra ler, primeiro jogamos fora os bits
-      // que vão ser lidos só depois:
+      // Temos só mais um byte pra ler e terminar a leitura. Primeiro
+      // jogamos fora os bits que fazem parte do próximo código, não
+      // do atual:
       tmp = ((unsigned char) (buffer[0] << (8 - still_need_to_read)));
+      // A juntamos o que restou com o que já foi lido:
       if(still_need_to_read - bit_offset <= 8)
         code += (tmp >> (8 - still_need_to_read + bit_offset));
       else
@@ -956,9 +973,10 @@ while(byte_offset < buffer_size && !end_of_image && pixel < image_size){
 }
 @
 
-Quando formos traduzir os códigos para uma posiçãoo na tabela de
+Quando formos traduzir os códigos para uma posição na tabela de
 cores, é bom sabermos se devemos ler da tabela de cores local ou
-global:
+global. Para que no nosso código não tenha que testarqual a tabela de
+cores certa, armazenao essa inforação neste ponteiro:
 
 @<GIF: Variáveis Temporárias para Imagens Lidas@>+=
 unsigned char *color_table;
@@ -971,11 +989,14 @@ unsigned char *color_table;
     color_table = global_color_table;
 @
 
-E colocamos abaixo o código que nos permite traduzir os códigos que
-lemos para cores:
+Com o código que foi escrito até agora já estamos extraindo códigos
+LZW. Agora vamos ao código que transforma cada código em ua sequência
+de cores:
 
 @<GIF: Interpreta Códigos Lidos@>=
 {
+  // Se chegamos ao fim, vaos apenas voltar ao teste da nossa iteração
+  // e de lá nós sairemos do loop
   if(code == end_of_information_code){
     end_of_image = true;
     continue;
@@ -989,13 +1010,18 @@ lemos para cores:
   // tabela de códigos
   else if(first_pixel){
     first_pixel = false;
-    // Se a imagem começa com um CLEAR CODE, só seguimos em frente:
     previous_code = code;
-    // O primeiro pixel é traduzido diretamente para uma posição na
-    // tabela de cores:
+    // A função que preenche um pixel na imagem passada como primeiro
+    // argumento dada a nossa tabela de códigos, o código lido, a
+    // tabela de cores, o número de cores associada ao código lido, a
+    // informação de usarmos ou não transparência e qual o valor que
+    // representa transparência:
     preenche_pixel(&(last_img -> rgba_image[4 * pixel]),
                    code_table, code, color_table, 1,
                    transparent_color_flag, transparency_index);
+    // O primeiro código representa apenas 1 pixel, pois é apenas 1
+    // índie na tabela de cores. Ainda não povoamos a tabela de
+    // códigos para que haja mais de um pixel por código:
     pixel ++;
   }
   // Se lemos um código que não está na tabela, devemos deduzi-lo:
@@ -1087,10 +1113,8 @@ lemos para cores:
 }
 @
 
-No caso, limpar a abela de códigos é feito toda vez que lemos um
-código de ``clear code'' e também após terminarmos de ler o nosso
-GIF. Limpar a tabela é desalocar todos os códigos armazenados e
-reiniciar a posição do último código armazenado para a menor possível:
+Vamos definir agora o que signifia limpar a tabela de códigos, que é
+algo que temos que fazer toda vez que lermos o código CLEAR CODE:
 
 @<GIF: Limpa a Tabela de Códigos@>=
 {
@@ -1118,6 +1142,8 @@ void preenche_pixel(unsigned char *img, unsigned char **code_table,
                     bool transparent_color_flag, unsigned transparency_index){
   int i = 0;
   for(i = 0; i < size; i ++){
+    // Se estamos diante de um código inicial que representa
+    // diretamente 1 só cor da tabela de cores:
     if(code_table[code] == NULL){
       img[4 * i] = color_table[3 * code];
       img[4 * i + 1] = color_table[3 * code + 1];
@@ -1129,6 +1155,8 @@ void preenche_pixel(unsigned char *img, unsigned char **code_table,
         img[4 * i + 3] = 255;
       }
     }
+    // Se estamos diante de um código criado depois que representa
+    // mais de uma cor:
     else{
       img[4 * i] = color_table[3 * code_table[code][i]];
       img[4 * i + 1] = color_table[3 * code_table[code][i] + 1];
@@ -1141,12 +1169,14 @@ void preenche_pixel(unsigned char *img, unsigned char **code_table,
       }
     }
   }
-  //printf("(%d %d %d)\n", img[4 * i], img[4 * i + 1], img[4 * i + 2]);
 }
 @
 
 Já a função para produzir um novo código nada mais é do que uma função
-que contatena um caractere no fim de uma string:
+que aloca espaço para ele e o gera contatenando um caractere no fim de
+uma string. Nessa string, cada caractere é um índice na tabela de
+cores, e portanto vale de 0 a 255. O valor de 0 não representa o fim
+da string, mas a primeira cor da tabela de cores:
 
 @<GIF: Funções Estáticas@>+=
 unsigned char *produz_codigo(unsigned char *codigo, int size, char adicao){
@@ -1165,7 +1195,7 @@ unsigned char *produz_codigo(unsigned char *codigo, int size, char adicao){
 @
 
 Depois que terminamos de extrair nossa imagem, temos que esvaziar a
-nossa tabela de códigos. Nós desalocamos todos o scódigos definidos e
+nossa tabela de códigos. Nós desalocamos todos os códigos definidos e
 que não são os códigos iniciais cujo valor é |NULL| mesmo:
 
 @<GIF: Finalizando Nova Imagem@>=
@@ -1177,18 +1207,15 @@ que não são os códigos iniciais cujo valor é |NULL| mesmo:
 @
 
 E depois que percorremos todas as imagens presentes em nosso GIF,
-temos que montar a imagem que iremos retornar. A imagem final deve ter
-uma largunra igual ao tamanho da nossa tela de pintura lógica
-multiplicado pelo número de frames da imagem ou animação. A altura da
-imagem final deve ser a mesma altura da tela de pintura lógica. A
-ideia é que iremos representar todos os frames de uma animação em uma
-única imagem sequencial. Depois, Weaver fará com que eles apareçam na
-tela animados por meio de seu código e shaders.
+temos que montar a(s) imagem(s) que iremos retornar. Pode haver mais
+de uma no caso de animações. Cada uma delas terá o tamanho da ``área
+de pintura lógica'' lida no cabeçalho do arquivo GIF. Caso um frame
+lido seja menor ou tenha cores transparentes, devemos levar em conta o
+valor da variável |disposal_method| para ver como preencher aquele
+pixel.
 
-Além disso, caso a imagem tenha mais de um frame (seja uma animação),
-devemos retornar um vetor que floats que representam quanto tempo em
-segundo cada frame deve permanecer na animação até passar para o
-próximo frame.
+Ao fim, devemos produzir um array com 1 ou mais valores |GLuint| que
+representam texturas enviadas para a placa de vídeo:
   
 @<GIF: Gerando Imagem Final@>=
 {
