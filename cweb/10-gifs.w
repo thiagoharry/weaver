@@ -1174,6 +1174,7 @@ próximo frame.
   unsigned long source_index, target_index;
   struct _image_list *p;
   int line_increment;
+  int current_disposal_method = 0;
   if(interlace_flag){
     printf("INTERLACE\n");
     line_increment = 8;
@@ -1218,27 +1219,14 @@ próximo frame.
            col >= p -> x_offset + p -> width ||
            line_destiny >= p -> y_offset + p -> height ||
            p -> rgba_image[source_index + 3] == 0){
-          if(p -> disposal_method == 3 || i == 0){
+          if(i == 0 || current_disposal_method == 3){
             // Deixa transparente
             returned_data[target_index] = p -> rgba_image[source_index];
             returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
             returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
             returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
           }
-          if(p -> disposal_method == 2){
-            // Preenche com cor de fundo
-            returned_data[target_index] =
-              global_color_table[background_color * 3];
-            returned_data[target_index + 1] =
-              global_color_table[background_color * 3 + 1];
-            returned_data[target_index + 2] =
-              global_color_table[background_color * 3 + 2];
-              returned_data[target_index + 3] = 255;
-            //printf("(%d %d %d)\n", global_color_table[background_color * 3],
-            //       global_color_table[background_color * 3 + 1],
-            //       global_color_table[background_color * 3 + 2]);
-          }
-          else{
+          else if(current_disposal_method == 1){
             // Repete imagem anterior
             returned_data[target_index] =
               returned_data[target_index - (*width) * 4];
@@ -1248,7 +1236,16 @@ próximo frame.
               returned_data[target_index + 2 - (*width) * 4];
             returned_data[target_index + 3] =
               returned_data[target_index + 3 - (*width) * 4];
-            //printf("%u -> %u\n", target_index, target_index - (*width));
+          }
+          else{
+            // Preenche com cor de fundo
+            returned_data[target_index] =
+              global_color_table[background_color * 3];
+            returned_data[target_index + 1] =
+              global_color_table[background_color * 3 + 1];
+            returned_data[target_index + 2] =
+              global_color_table[background_color * 3 + 2];
+              returned_data[target_index + 3] = 255;
           }
         }
         else{
@@ -1274,6 +1271,7 @@ próximo frame.
       }
       col = 0;
     }
+    current_disposal_method = p -> disposal_method;
     p = p -> next;
     line_source = col = line_destiny = 0;
   }
