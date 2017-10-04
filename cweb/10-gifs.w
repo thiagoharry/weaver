@@ -6,9 +6,11 @@ ainda hoje é bastante usado por sua capacidade de representar
 animações e de seu amplo suporte em navegadores de Internet.
 
 O formato possui as suas limitações, pois o número máximo de cores que
-cada imagem pode ter é restrita a 256 cores. Cada cor pode ter até 24
-bits diferentes e não é possível representar graus intermediários
-entre uma cor totalmente transparente e totalmente opaca.
+cada imagem pode ter é restrita a 256 cores (dependendo da imagem isso
+pode ser superando por meio de tabelas de cores locais). Cada cor pode
+ter até 24 bits diferentes e não é possível representar graus
+intermediários entre uma cor totalmente transparente e totalmente
+opaca.
 
 Devido ao amplo uso de GIFs para representar animações, Weaver usará
 este formato como uma das formas possíveis de se representar
@@ -17,7 +19,7 @@ suas patentes que restringiam a implementação de softwares capazes de
 lidar com GIFs em certos países. Entretanto, atualmente todas as
 patentes relevantes do formato já expiraram.
 
-a especificação mais recente do formato GIF é a 89a, criada em 1989 e
+A especificação mais recente do formato GIF é a 89a, criada em 1989 e
 que trouxe suporte à animações, embora elas originalmente não pudessem
 rodar para sempre em um loop. Em 1995, o Netscape criou uma pequena
 extensão que passou a permitir isso e essa extensão passou a ser
@@ -55,37 +57,50 @@ específico para o tratamento de GIFs:
 A função que fará todo o trabalho será:
 
 @<GIF: Declarações@>=
-unsigned char *_extract_gif(char *, unsigned long *, unsigned long *,
+GLuint *_extract_gif(char *, unsigned long *, unsigned long *,
                             unsigned *, unsigned  **, int *,
                             bool *);
 @
 
+Esta função irá retornar um array com identificadores de texturas
+OpenGL. Cada textura representa um frame da animação. Os argumentos
+que iremos passar para a função são: o nome do arquivo que contém a
+imagem GIF, e um monte de ponteiros para locais onde a função deverá
+escrever informações sobre a imagem lida. Estas informações serão a
+largura, altura, oo número de frames da animação, um array com a
+duração de cada frame em microssegundos, o número máximo de vezes que
+a animação deve ser repetida (-1 se ela deve se repetir infinitamente)
+e se ocorreu algum erro que impossibilitou carregar a imagem:
+
 @<GIF: Definições@>=
-unsigned char *_extract_gif(char *filename, unsigned long *width,
+GLuint *_extract_gif(char *filename, unsigned long *width,
                             unsigned long *height, unsigned *number_of_frames,
                             unsigned  **frame_duration,
                             int *max_repetition, bool *error){
-  bool global_color_table_flag = false, local_color_table_flag = false;
-  bool interlace_flag = false;
-  bool transparent_color_flag = false;
-  unsigned local_color_table_size = 0, global_color_table_size = 0;
-  unsigned long image_size;
-  unsigned img_offset_x = 0, img_offset_y = 0, img_width = 0, img_height = 0;
-  unsigned number_of_loops = 0;
-  unsigned char *returned_data  = NULL;
-  unsigned background_color, delay_time = 0;
-  unsigned char transparency_index = 0;
-  unsigned char *global_color_table = NULL;
-  unsigned char *local_color_table = NULL;
-  int disposal_method = 0;
-  struct _image_list *img = NULL; // A lista de imagens será definida logo mais.
-  struct _image_list *last_img = NULL;
-  *number_of_frames = 0;
-  FILE *fp = fopen(filename, "r");
-  *error = false;
+    // Inicializando variáveis da função de extração
+    bool global_color_table_flag = false, local_color_table_flag = false;
+    bool interlace_flag = false;
+    bool transparent_color_flag = false;
+    unsigned local_color_table_size = 0, global_color_table_size = 0;
+    unsigned long image_size;
+    unsigned img_offset_x = 0, img_offset_y = 0, img_width = 0, img_height = 0;
+    unsigned number_of_loops = 0;
+    unsigned char *returned_data  = NULL;
+    unsigned background_color, delay_time = 0;
+    unsigned char transparency_index = 0;
+    unsigned char *global_color_table = NULL;
+    unsigned char *local_color_table = NULL;
+    int disposal_method = 0;
+    struct _image_list *img = NULL;
+    struct _image_list *last_img = NULL;
+    *number_of_frames = 0;
+    // Abrindo o arquivo da imagem
+    FILE *fp = fopen(filename, "r");
+    *error = false;
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
   _iWbreakpoint();
 #endif
+  // Como trataremos erros:
   if(fp == NULL){
     goto error_gif;
   }
@@ -118,10 +133,10 @@ if(fp != NULL) fclose(fp);
 
 A primeira coisa que estará presente em um arquivo GIF será o seu
 cabeçalho. Que nada mais é do que três bytes com a string ``GIF'' mais
-três bytes com a versão do formato usada. A mais antiga e já quase
-nunca mais usada é a versão ``87a'', que foi a especificação
-original. Mas na prática o que se vê mais é a ``89a'', que é uma
-extensão do formato anterior.
+três bytes com a versão do formato usada. Existem duas versões
+existentes. A mais antiga ``87a'', que foi a especificação
+original que não suportava animações e transparência e a ``89a'' que
+passou a suportar estas coisas.
 
 @<Interpretando Arquivo GIF@>=
 {
@@ -145,12 +160,11 @@ Depois do bloco de cabeçalho, vem o chamado ``descritor de tela
 lógica''. Isso porque uma imagem GIF foi feita para representar uma
 área de pintura na qual pode-se colocar várias imagens presentes em um
 mesmo arquivo. A tela lógica é essa tela de pintura. Neste bloco
-encontraremos informações sobre o tamanho da tela lógica (informação
-ignorada na maioria dos visualizadores), a cor de fundo desta tela
-lógica (isso também é ignorado nos softwares atuais) e a proporção
-entre altura e largura dos pixels que formam a imagem (adivinhe só,
-também é ignorado pelos softwares atuais). Além de algumas flags com
-informações adicionais.
+encontraremos informações sobre o tamanho da tela lógica (basicamente
+o tamanho final da nossa imagem), a cor de fundo desta tela lógica
+(que cor usar em regiões não-desenhadas) e a proporção entre altura e
+largura dos pixels que formam a imagem (ignorado pelos softwares
+atuais). Por fim, também há algumas flags com informações adicionais.
 
 @<Interpretando Arquivo GIF@>+=
 {
@@ -159,7 +173,8 @@ informações adicionais.
   unsigned char data[2];
   fread(data, 1, 2, fp);
   *width = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
-  // Agora lemos a altura da imagem nos próximos 2 bytes
+  // Agora lemos a altura da imagem nos próximos 2 bytes (tamanho
+  // máximo: 65535 pixels)
   fread(data, 1, 2, fp);
   *height = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
   image_size = (*width) * (*height);
@@ -168,7 +183,8 @@ informações adicionais.
   fread(data, 1, 1, fp);
   // Temos uma tabela de cores global?
   global_color_table_flag = (data[0] & 128);
-  // O tamanho da tabela de cores caso ela exista:
+  // O tamanho da tabela de cores caso ela exista é definido por este
+  // procedimento:
   global_color_table_size = data[0] % 8;
   global_color_table_size = 3 * (1 << (global_color_table_size + 1));
   // Lemos a cor de fundo de nosso GIF
@@ -179,8 +195,7 @@ informações adicionais.
 @
 
 Agora o próximo passo é que se a imagem possui uma tabela de cores
-global, nós devemos lê-la agora. O seu tamanho em bytes sempre será
-dado por $3\times2^{global\_color\_table\_size+1}$
+global, nós devemos lê-la agora.
 
 @<Interpretando Arquivo GIF@>+=
 if(global_color_table_flag){
@@ -196,7 +211,7 @@ if(global_color_table_flag){
 @
 
 Além de uma tabela de cores global, podemos estar também com uma
-local, de qualquer forma, no fim da função teremos que desalocar
+local. De qualquer forma, no fim da função teremos que desalocar
 ambas:
 
 @<Encerrando Arquivo GIF@>=
@@ -207,9 +222,8 @@ if(global_color_table != NULL) Wfree(global_color_table);
 Agora a ideia é que sigamos lendo os próximos blocos. Os tipos de
 blocos que poderemos encontrar são: descritores de imagem (o próximo
 byte é 44), extensões (o próximo byte é 33) ou um marcador de fim dos
-dados (o próximo byte é 59). Basicamente iremos ler agora vários
-blocos até que enfim terminemos o arquivo lendo o bloco que marca o
-fim dos dados:
+dados (o próximo byte é 59). Vamos agora ler vários blocos em
+sequência, até que cheguemos no bloco que marca ofim de dados:
 
 @<Interpretando Arquivo GIF@>+=
 {
@@ -230,6 +244,7 @@ fim dos dados:
               "%u.\n", filename, block_type);
       goto error_gif;
     }
+    // Terminamos este bloco, lendo o próximo:
     fread(data, 1, 1, fp);
     block_type = data[0];
   }
@@ -243,10 +258,12 @@ partir de 1989.
 
 Existem ao todo 4 tipos diferentes de extensão. Sabemos qual tipo
 temos após ler o próximo byte do nosso GIF. Elas são: extensão de
-controle de gráficos (byte 249), extensão de comentário (byte 254),
-extensão de texto puro (byte 1) e extensão de aplicação (byte 255). A
-última é que representa uma extensão onde há informações para GIFs
-animados:
+controle de gráficos (byte 249, informação sobre transparência e
+animação), extensão de comentário (byte 254, serve para inserir na
+imagem comentários que podem conter coisas que ignoraremos como a
+autoria da imagem, copyright, etc), extensão de texto puro (byte 1,
+hoje em dia é obsoleta) e extensão de aplicação (byte 255, GIFs
+animados usam isso para definir quantas iterações terá a animação):
 
 @<GIF: Bloco de Extensão@>=
 {
@@ -309,8 +326,8 @@ recomendação e ignorá-la:
 @
 
 A Extensão de Aplicação é usada para armazenar informações específicas
-a determinada aplicação. Geralmente seriaa algo a ser
-ignorado. Entretanto, o Netscape 2.0 acabou usando ccerta vez este
+a determinada aplicação. Geralmente seria algo a ser
+ignorado. Entretanto, o Netscape 2.0 acabou usando certa vez este
 bloco para armazenar quantas vezes um GIF animado deveria repetir a
 sua animação, com um valor de 0 significando que o GIF deveria repetir
 para sempre a animação.
@@ -357,7 +374,8 @@ A terceira extensão que vamos suportar agora é a extensão de
 comentários. Esta extensão não altera em nada a exibição de uma imagem
 GIF. É apenas uma extensão reservada para armazenar informações sobre
 autoria, descrição e licenciamento de imagens. Portanto, será um campo
-que iremos simplesmente ignorar:
+que iremos simplesmente ignorar da mesma forma que ignoramos a
+extensão de texto puro:
 
 @<GIF: Extensão de Comentário@>=
 {
@@ -390,16 +408,15 @@ tais recursos:
   // dois valores que nos interessam e que devemos extrair:
   fread(buffer, 1, 1, fp);
   // Primeiro é o "método de disposição", que é o que deve acontecer
-  // com cada pixel da imagem quando alternamos de um quadro da
-  // animação para outro. Um valor de 0 é não especificado, e
-  // geralmente é usado quando a imagem não é animada. O 1 pede para
-  // que nada seja apagado e apenas desenhe a nova imagem por cima do
-  // anterior. O 2 serve para preencher tudo com o valor da cor de
-  // fundo do gif. O 3 serve para preencher com a imagem que havia
-  // antes da imagem ser desenhada, e é algo que na prática não
-  // costuma ser suportado:
+  // nas animações quando um frame mostra um pixel que seria
+  // transparente ou deixa de preencher uma região. O valor de 0 e não
+  // especificado e geralmente é encontrado em gifs não-animados. O
+  // valor de 1 diz que deve-se repetir nestas regiões o que havia no
+  // frame anterior. Um valor de 2 significa que deve-se preencher o
+  // pixel com a cor de fundo do GIF. E um 3 deixa o pixel
+  // verdadeiramente transparente.
   disposal_method = (buffer[0] >> 2) % 8;
-  // E segundo, se vamos suportar transparência:
+  // Agora descobrimos se iremos suportar transparência
   transparent_color_flag = buffer[0] % 2;
   // Agora lemos quantos centesimos de segundo devemos esperar em cada
   // mudança do frame de uma animação:
@@ -461,10 +478,15 @@ a ler um descritor de imagem:
   // E agora preenchemos as informações sobre a imagem obtidas no
   // próximo byte:
   fread(buffer, 1, 1, fp);
-  local_color_table_flag = buffer[0] >> 7;
+  // Se as linhas estão armazenadas 'entrelaçadas' (para serem
+  // exibidas mais rapidamente ao serem transmitidas por conexões
+  // lentas):
   interlace_flag = (buffer[0] >> 6) % 2;
   local_color_table_size = buffer[0] % 8;
   local_color_table_size = 3 * (1 << (local_color_table_size + 1));
+  // Se temos uma tabela de cores local ou devemos usar a global:
+  local_color_table_flag = buffer[0] >> 7;
+  // Se temos tabela de cores local, lemos ela:
   if(local_color_table_flag){
     @<GIF: Tabela de Cor Local@>
   }
