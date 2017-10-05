@@ -1226,7 +1226,6 @@ correspondente a um frame da animação.
   int line_increment;
   int current_disposal_method = 0;
   unsigned char *current_image = NULL, *previous_image = NULL;
-  printf("Gerando imagem final.\n");
   // Se a imagem não está entrelaçada, suas linhas são armazenadas
   // sequencialmente (0, 1, 2, 3, ...). Se ela está entrelaçada, suas
   // linhas são armazenadas na sequência (0, 8, 16, 24, ..., 4, 12,
@@ -1285,9 +1284,7 @@ correspondente a um frame da animação.
   // E já pedimos identificadores OpenGL para cada textura:
   glGenTextures(*number_of_frames, returned_data);
   p = img;
-  printf("Começa loop\n");
   for(i = 0; i < *number_of_frames; i ++){
-    printf("%d\n", i);
     line_source = col = line_destiny = 0;
     if(*number_of_frames > 1){
       (*frame_duration)[i] = p -> delay_time;
@@ -1295,7 +1292,7 @@ correspondente a um frame da animação.
     while(line_destiny < (*height)){
       while(col < (*width)){
         target_index = 4 * (*width) * (*height - line_destiny - 1) +
-          (*width) * i * 4 + col * 4;
+          col * 4;
         source_index = (line_source - p -> y_offset) * (p -> width) * 4 +
           (col - p -> x_offset) * 4;
         if(col < p -> x_offset || line_destiny < p -> y_offset ||
@@ -1318,7 +1315,8 @@ correspondente a um frame da animação.
           }
           else{
             // Preenche com cor de fundo
-            current_image[target_index] = global_color_table[background_color * 3];
+            current_image[target_index] =
+              global_color_table[background_color * 3];
             current_image[target_index + 1] =
               global_color_table[background_color * 3 + 1];
             current_image[target_index + 2] =
@@ -1351,7 +1349,6 @@ correspondente a um frame da animação.
     current_disposal_method = p -> disposal_method;
     p = p -> next;
     line_source = col = line_destiny = 0;
-    printf("Textura pra placa.\n");
     // Enviando a textura para a placa de vídeo:
     glBindTexture(GL_TEXTURE_2D, returned_data[i]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
@@ -1362,7 +1359,6 @@ correspondente a um frame da animação.
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
     glBindTexture(GL_TEXTURE_2D, 0);
-    printf("mudando imagens\n");
     { // Trocando os valores da imagem atual e da anterior:
       unsigned char *tmp = previous_image;
       previous_image = current_image;
@@ -1371,24 +1367,19 @@ correspondente a um frame da animação.
   }
   // Ajustando os valores do número de repetições caso seja uma
   // animação:
-  printf("Fim do loop\n");
   if(number_of_loops == 0)
     *max_repetition = -1;
   else
     *max_repetition = number_of_loops;
   // Desalocando as imagens na ordem certa:
-  printf("Desaloca.\n");
   if(*number_of_frames % 2){
-    printf("Caso 1\n");
-    Wfree(current_image);
-    if(previous_image != NULL) Wfree(previous_image);
+    if(current_image != NULL) Wfree(current_image);
+    Wfree(previous_image);
   }
   else{
-    printf("Caso 2 %p %p\n", previous_image, current_image);
     if(previous_image != NULL) Wfree(previous_image);
-    if(current_image != NULL) Wfree(current_image);
+    Wfree(current_image);
   }
-  printf("Desalocou\n");
 }
 @
 
