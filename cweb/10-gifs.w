@@ -102,6 +102,7 @@ GLuint *_extract_gif(char *filename, unsigned long *width,
 #endif
   // Como trataremos erros:
   if(fp == NULL){
+    fprintf(stderr, "ERROR: Can't open file %s.\n", filename);
     goto error_gif;
   }
   @<Interpretando Arquivo GIF@>
@@ -1402,7 +1403,8 @@ animação.
 @<Interface: Atributos Adicionais@>=
 // Isso fica dentro da definição de 'struct interface':
 GLuint *_texture; 
-bool _loaded_texture; // A(s) textura(s) acima foi(ram) carregada(s)? 
+bool _loaded_texture; // A(s) textura(s) acima foi(ram) carregada(s)?
+bool animate; // A interface é animada?
 unsigned number_of_frames; // Quantos frames a imagem tem?
 unsigned current_frame;
 unsigned *frame_duration; // Vetor com a duração de cada frame
@@ -1452,6 +1454,7 @@ também estes novos valores:
   // '_loaded_texture' para falso, e aí para verdadeiro de novo quando
   // ela terminar de carregar a textura:
   _interfaces[_number_of_loops][i]._loaded_texture = true;
+  _interfaces[_number_of_loops][i].animate = false;
   _interfaces[_number_of_loops][i].number_of_frames = 1;
   _interfaces[_number_of_loops][i].current_frame = 0;
   _interfaces[_number_of_loops][i].frame_duration = NULL;
@@ -1542,6 +1545,9 @@ case W_INTERFACE_IMAGE:
       _interfaces[_number_of_loops][i].type = W_NONE;
       return NULL;
     }
+    // Ativa animação se for o caso
+    if(_interfaces[_number_of_loops][i].number_of_frames > 1)
+      _interfaces[_number_of_loops][i].animate = true;
     _interfaces[_number_of_loops][i]._loaded_texture = true;
     // Depois temos que finalizar o nosso recurso quando ele for limpo
     // pelo coletor de lixo. Neste caso finalizar significa apagar a
@@ -1594,6 +1600,9 @@ static void onload_texture(unsigned undocumented, void *inter,
     my_interface -> type = W_NONE;
     return NULL;
   }
+  // Ativa animação se for o caso:
+  if(my_interface -> number_of_frames > 1)
+    my_interface -> animate = true;
   _finalize_after(my_interface, _finalize_interface_texture);
   // A mudança final de flag:
   my_interface -> _loaded_texture = true;
@@ -1694,6 +1703,8 @@ static void *process_texture(void *p){
     my_interface -> type = W_NONE;
     return NULL;
   }
+  if(my_interface -> number_of_frames > 1)
+    my_interface -> animate = true;
   _finalize_after(my_interface, _finalize_interface_texture);
   if(my_interface -> number_of_frames > 1){
     my_interface -> dt = times[0];
@@ -1857,7 +1868,8 @@ adicionais:
 
 @<Passando Uniformes Adicionais para Shader de Interface@>=
 // Primeiro vemos se temos que mudar a textura devido à animação:
-if(_interface_queue[_number_of_loops][i] -> number_of_frames > 1 &&
+if(_interface_queue[_number_of_loops][i] -> animate &&
+   _interface_queue[_number_of_loops][i] -> number_of_frames > 1 &&
    _interface_queue[_number_of_loops][i] -> max_repetition != 0){
   if(W.t - _interface_queue[_number_of_loops][i] -> _t >
      _interface_queue[_number_of_loops][i] ->
