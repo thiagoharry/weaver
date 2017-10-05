@@ -85,7 +85,7 @@ GLuint *_extract_gif(char *filename, unsigned long *width,
     unsigned long image_size;
     unsigned img_offset_x = 0, img_offset_y = 0, img_width = 0, img_height = 0;
     unsigned number_of_loops = 0;
-    unsigned char *returned_data  = NULL;
+    GLuint *returned_data  = NULL;
     unsigned background_color, delay_time = 0;
     unsigned char transparency_index = 0;
     unsigned char *global_color_table = NULL;
@@ -1215,7 +1215,8 @@ valor da variável |disposal_method| para ver como preencher aquele
 pixel.
 
 Ao fim, devemos produzir um array com 1 ou mais valores |GLuint| que
-representam texturas enviadas para a placa de vídeo:
+representam texturas enviadas para a placa de vídeo, cada uma delas
+correspondente a um frame da animação.
   
 @<GIF: Gerando Imagem Final@>=
 {
@@ -1224,12 +1225,30 @@ representam texturas enviadas para a placa de vídeo:
   struct _image_list *p;
   int line_increment;
   int current_disposal_method = 0;
+  unsigned char *current_image = NULL, *previous_image = NULL;
+  printf("Gerando imagem final.\n");
+  // Se a imagem não está entrelaçada, suas linhas são armazenadas
+  // sequencialmente (0, 1, 2, 3, ...). Se ela está entrelaçada, suas
+  // linhas são armazenadas na sequência (0, 8, 16, 24, ..., 4, 12,
+  // 20, 28, ..., 2, 6, 10, 14, ..., 1, 3, 5, 7, ...).
   if(interlace_flag){
-    printf("INTERLACE\n");
     line_increment = 8;
   }
   else
     line_increment = 1;
+  // Alocamos onde iremos armazenar os pixels da imagem antes de
+  // enviar para a placa de vídeo:
+  current_image = (unsigned char *) _iWalloc(4 * (*width) * (*height));
+  if(current_image == NULL){
+      fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
+              "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+              filename);
+      returned_data = NULL;
+      goto error_gif;
+  }
+  // Se há mais de um frame, temos que armazenar a duração de cada um
+  // e temos que armazenar os pixels do frame anterior, já que podemos
+  // precisar.
   if(*number_of_frames > 1){
     *frame_duration = (unsigned *) Walloc(*number_of_frames *
                                           sizeof(unsigned));
@@ -1237,31 +1256,46 @@ representam texturas enviadas para a placa de vídeo:
       fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
               "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
               filename);
-      Wfree(returned_data);
+      Wfree(current_image);
       returned_data = NULL;
       goto error_gif;
     }
+    previous_image = (unsigned char *) _iWalloc(4 * (*width) * (*height));
+    if(previous_image == NULL){
+      fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
+              "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+              filename);
+      Wfree(current_image);
+      Wfree(frame_duration);
+      returned_data = NULL;
+      goto error_gif;
+  } 
   }
-  returned_data = (unsigned char *) Walloc(4 * (*width) * (*height) *
-                                           (*number_of_frames));
+  // A identificação das texturas que vão para a placa de vídeo:
+  returned_data = (GLuint *) Walloc((*number_of_frames) * sizeof(GLuint));
   if(returned_data == NULL){
     fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
             "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
             filename);
+    Wfree(current_image);
+    Wfree(frame_duration);
+    Wfree(previous_image);
     goto error_gif;
   }
+  // E já pedimos identificadores OpenGL para cada textura:
+  glGenTextures(*number_of_frames, returned_data);
   p = img;
+  printf("Começa loop\n");
   for(i = 0; i < *number_of_frames; i ++){
+    printf("%d\n", i);
     line_source = col = line_destiny = 0;
     if(*number_of_frames > 1){
       (*frame_duration)[i] = p -> delay_time;
     }
-    //printf("%ux%u+%u+%u\n", p -> width, p -> height, p -> x_offset,
-    //       p -> y_offset);
     while(line_destiny < (*height)){
       while(col < (*width)){
-        target_index = 4 * (*width) * (*number_of_frames) *
-          (*height - line_destiny - 1) + (*width) * i * 4 + col * 4;
+        target_index = 4 * (*width) * (*height - line_destiny - 1) +
+          (*width) * i * 4 + col * 4;
         source_index = (line_source - p -> y_offset) * (p -> width) * 4 +
           (col - p -> x_offset) * 4;
         if(col < p -> x_offset || line_destiny < p -> y_offset ||
@@ -1270,40 +1304,34 @@ representam texturas enviadas para a placa de vídeo:
            p -> rgba_image[source_index + 3] == 0){
           if(i == 0 || current_disposal_method == 3){
             // Deixa transparente
-            returned_data[target_index] = p -> rgba_image[source_index];
-            returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
-            returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
-            returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
+            current_image[target_index] = p -> rgba_image[source_index];
+            current_image[target_index + 1] = p -> rgba_image[source_index + 1];
+            current_image[target_index + 2] = p -> rgba_image[source_index + 2];
+            current_image[target_index + 3] = p -> rgba_image[source_index + 3];
           }
           else if(current_disposal_method == 1){
             // Repete imagem anterior
-            returned_data[target_index] =
-              returned_data[target_index - (*width) * 4];
-            returned_data[target_index + 1] =
-              returned_data[target_index + 1 - (*width) * 4];
-            returned_data[target_index + 2] =
-              returned_data[target_index + 2 - (*width) * 4];
-            returned_data[target_index + 3] =
-              returned_data[target_index + 3 - (*width) * 4];
+            current_image[target_index] = previous_image[target_index];
+            current_image[target_index + 1] = previous_image[target_index + 1];
+            current_image[target_index + 2] = previous_image[target_index + 2];
+            current_image[target_index + 3] = previous_image[target_index + 3];
           }
           else{
             // Preenche com cor de fundo
-            returned_data[target_index] =
-              global_color_table[background_color * 3];
-            returned_data[target_index + 1] =
+            current_image[target_index] = global_color_table[background_color * 3];
+            current_image[target_index + 1] =
               global_color_table[background_color * 3 + 1];
-            returned_data[target_index + 2] =
+            current_image[target_index + 2] =
               global_color_table[background_color * 3 + 2];
-              returned_data[target_index + 3] = 255;
+            current_image[target_index + 3] = 255;
           }
         }
         else{
           // Preenche pixels de imagem nova
-          //printf("[%d -> %d]", source_index, target_index);
-          returned_data[target_index] = p -> rgba_image[source_index];
-          returned_data[target_index + 1] = p -> rgba_image[source_index + 1];
-          returned_data[target_index + 2] = p -> rgba_image[source_index + 2];
-          returned_data[target_index + 3] = p -> rgba_image[source_index + 3];
+          current_image[target_index] = p -> rgba_image[source_index];
+          current_image[target_index + 1] = p -> rgba_image[source_index + 1];
+          current_image[target_index + 2] = p -> rgba_image[source_index + 2];
+          current_image[target_index + 3] = p -> rgba_image[source_index + 3];
         }
         col ++;
       }
@@ -1323,11 +1351,44 @@ representam texturas enviadas para a placa de vídeo:
     current_disposal_method = p -> disposal_method;
     p = p -> next;
     line_source = col = line_destiny = 0;
+    printf("Textura pra placa.\n");
+    // Enviando a textura para a placa de vídeo:
+    glBindTexture(GL_TEXTURE_2D, returned_data[i]);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, *width, *height, 0, GL_RGBA,
+                 GL_UNSIGNED_BYTE, current_image);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
+    printf("mudando imagens\n");
+    { // Trocando os valores da imagem atual e da anterior:
+      unsigned char *tmp = previous_image;
+      previous_image = current_image;
+      current_image = tmp;
+    }
   }
+  // Ajustando os valores do número de repetições caso seja uma
+  // animação:
+  printf("Fim do loop\n");
   if(number_of_loops == 0)
     *max_repetition = -1;
   else
     *max_repetition = number_of_loops;
+  // Desalocando as imagens na ordem certa:
+  printf("Desaloca.\n");
+  if(*number_of_frames % 2){
+    printf("Caso 1\n");
+    Wfree(current_image);
+    if(previous_image != NULL) Wfree(previous_image);
+  }
+  else{
+    printf("Caso 2 %p %p\n", previous_image, current_image);
+    if(previous_image != NULL) Wfree(previous_image);
+    if(current_image != NULL) Wfree(current_image);
+  }
+  printf("Desalocou\n");
 }
 @
 
@@ -1349,18 +1410,13 @@ animação.
 
 @<Interface: Atributos Adicionais@>=
 // Isso fica dentro da definição de 'struct interface':
-GLuint _texture; 
-bool _loaded_texture; // A textura acima foi carregada? 
+GLuint *_texture; 
+bool _loaded_texture; // A(s) textura(s) acima foi(ram) carregada(s)? 
 unsigned number_of_frames; // Quantos frames a imagem tem?
 unsigned current_frame;
 unsigned *frame_duration; // Vetor com a duração de cada frame
-unsigned long _t;
+unsigned long _t; // Em que tempo W.t mudamos o frame da última vez?
 int max_repetition;
-// Onde a textura será armazenada apenas temporariamente antes de
-// enviar para a plaa de vídeo. Precisamos que seja em uma variável
-// persistente, e não local, pois podemos precisar carregar a textura
-// assincronamente:
-unsigned char *_tmp_texture;
 @
 
 Estes valores precisam ser inicializados. Inicializá-los é fácil, só a
@@ -1368,7 +1424,7 @@ textura é que é um pouco diferente. Como estes são atributos que todas
 as imagens vão ter, vamos precisar criar uma textura padrão e
 transparente que será a usada nas interfaces que não possuem textura.
 
-Nossa tetura padrão e transparente será criada na inicialização e
+Nossa textura padrão e transparente será criada na inicialização e
 removida na finalização:
 
 @<Cabeçalhos Weaver@>+=
@@ -1382,7 +1438,7 @@ char _empty_image[4];
   glGenTextures(1, &_empty_texture);
   glBindTexture(GL_TEXTURE_2D, _empty_texture);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 256, 64, 0, GL_RGBA,
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, 1, 1, 0, GL_RGBA,
                GL_UNSIGNED_BYTE, &_empty_texture);
   glBindTexture(GL_TEXTURE_2D, 0);
 }
@@ -1399,11 +1455,11 @@ também estes novos valores:
 
 @<Interface: Inicialização Adicional@>=
 {
-  _texture = _empty_texture;
+  _interfaces[_number_of_loops][i]._texture = &_empty_texture;
   // Por padrão, ainda nem sabemos se a interface terá uma
-  // textura. Assim que detectarmos que ela terá, mudamos isso para
-  // falso, e aí para verdadeiro de novo quando ela terminar de
-  // carregar a textura:
+  // textura. Assim que detectarmos que ela terá, mudamos
+  // '_loaded_texture' para falso, e aí para verdadeiro de novo quando
+  // ela terminar de carregar a textura:
   _interfaces[_number_of_loops][i]._loaded_texture = true;
   _interfaces[_number_of_loops][i].number_of_frames = 1;
   _interfaces[_number_of_loops][i].current_frame = 0;
@@ -1484,8 +1540,8 @@ case W_INTERFACE_IMAGE:
     _interfaces[_number_of_loops][i].type = W_NONE;
     return NULL;
   }
-  if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .wav
-    _interfaces[_number_of_loops][i]._tmp_texture =
+  if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
+    _interfaces[_number_of_loops][i]._texture =
       _extract_gif(complete_path, &texture_width, &texture_height,
                    &(_interfaces[_number_of_loops][i].number_of_frames),
                    &(_interfaces[_number_of_loops][i].frame_duration),
@@ -1495,36 +1551,9 @@ case W_INTERFACE_IMAGE:
       _interfaces[_number_of_loops][i].type = W_NONE;
       return NULL;
     }
-    // Agora temos que criar a nossa textura e inicializá-la:
-    glGenTextures(1, &(_interfaces[_number_of_loops][i]._texture));
-    glBindTexture(GL_TEXTURE_2D, _interfaces[_number_of_loops][i]._texture);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA,
-                 texture_width *
-                 _interfaces[_number_of_loops][i].number_of_frames,
-                 texture_height, 0,
-                 GL_RGBA, GL_UNSIGNED_BYTE,
-                 _interfaces[_number_of_loops][i]._tmp_texture);
-    {
-      GLenum err;
-      while((err = glGetError()) != GL_NO_ERROR){
-        if(err == GL_INVALID_VALUE){
-          fprintf(stderr, "ERROR(0): Image %s is too big or have too many"
-                  " frames. Please, lower it's resolution or animation "
-                  "detail.", complete_path);
-        }
-      }
-    }
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
-    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
-    glBindTexture(GL_TEXTURE_2D, 0);
     _interfaces[_number_of_loops][i]._loaded_texture = true;
-    // Não precisamos mais manter a textura localmente agora que já a
-    // enviamos para a placa de vídeo:
-    Wfree(_interfaces[_number_of_loops][i]._tmp_texture);
     // Depois temos que finalizar o nosso recurso quando ele for limpo
-    // pelo coletor de lixo. para ele, finalizar significa apagar a
+    // pelo coletor de lixo. Neste caso finalizar significa apagar a
     // textura OpenGL:
     _finalize_after(&(_interfaces[_number_of_loops][i]),
                     _finalize_interface_texture);
@@ -1563,7 +1592,7 @@ static void onload_texture(unsigned undocumented, void *inter,
     return;
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
-    my_interface -> _tmp_texture =
+    my_interface -> _texture =
       _extract_gif(complete_path, &texture_width,
                    &texture_height,
                    &(my_interface -> number_of_frames),
@@ -1575,28 +1604,8 @@ static void onload_texture(unsigned undocumented, void *inter,
     return NULL;
   }
   _finalize_after(my_interface, _finalize_interface_texture);
-  // Inicializando a textura lida
-  glGenTextures(1, &(my_interface -> _texture));
-  glBindTexture(GL_TEXTURE_2D, my_interface -> _texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
-               GL_RGBA, GL_UNSIGNED_BYTE,
-               my_interface -> _tmp_texture);
-  {
-    GLenum err;
-    while((err = glGetError()) != GL_NO_ERROR){
-      if(err == GL_INVALID_VALUE){
-        fprintf(stderr, "ERROR(0): Image %s is too big or have too many"
-                " frames. Please, lower it's resolution or animation "
-                "detail.", complete_path);
-      }
-    }
-  }
-  glBindTexture(GL_TEXTURE_2D, 0);
   // A mudança final de flag:
   my_interface -> _loaded_texture = true;
-  // Não precisamos mais manter a textura localmente agora que já a
-  // enviamos para a placa de vídeo:
-  Wfree(my_interface -> _tmp_texture);
 #ifdef W_MULTITHREAD
     pthread_mutex_lock(&(W._pending_files_mutex));
 #endif
@@ -1618,12 +1627,8 @@ static void *onload_texture(void *p){
   struct _thread_file_info *file_info = (struct _thread_file_info *) p;
   struct interface * my_interface = (struct interface *) (file_info -> target);
   my_interface -> loaded = true;
-  // Não precisamos mais manter a textura localmente agora que já a
-  // enviamos para a placa de vídeo:
-    Wfree(my_interface -> _tmp_texture);
   return NULL;
 }
-
 #endif
 @
 
@@ -1688,7 +1693,7 @@ static void *process_texture(void *p){
   }
   else if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
     float *times = NULL;
-    my_interface -> _tmp_texture =
+    my_interface -> _texture =
       _extract_gif(complete_path, &texture_width,
                   &texture_height,
                   &(my_interface -> number_of_frames),
@@ -1703,23 +1708,6 @@ static void *process_texture(void *p){
     my_interface -> dt = times[0];
     Wfree(times);
   }
-  // Inicializando a textura lida
-  glGenTextures(1, &(my_interface -> _texture));
-  glBindTexture(GL_TEXTURE_2D, my_interface -> _texture);
-  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, texture_width, texture_height, 0,
-               GL_RGBA, GL_UNSIGNED_BYTE,
-               my_interface -> _tmp_texture);
-  {
-    GLenum err;
-    while((err = glGetError()) != GL_NO_ERROR){
-      if(err == GL_INVALID_VALUE){
-        fprintf(stderr, "ERROR(0): Image %s is too big or have too many"
-                " frames. Please, lower it's resolution or animation "
-                "detail.", complete_path);
-      }
-    }
-  }
-  glBindTexture(GL_TEXTURE_2D, 0);
   if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
     file_info -> onerror(p);
   }
@@ -1750,7 +1738,7 @@ E por fim a função para desalocar texturas na placa de vídeo:
 // usar abaixo:
 static void _finalize_interface_texture(void *data){
   struct interface *p = (struct interface *) data;
-  glDeleteTextures(1, &(p -> _texture));
+  glDeleteTextures(p -> number_of_frames, p -> _texture);
 }
 
 @*1 Shader e Renderização.
@@ -1784,9 +1772,7 @@ varying mediump vec2 coordinate;
 void main(){
   gl_Position = model_view_matrix * vec4(vertex_position, 1.0);
   // Coordenada da textura:
-  coordinate = vec2((vertex_position[0] + 0.5 + float(current_frame)) /
-                    float(number_of_frames),
-                    vertex_position[1] + 0.5);
+  coordinate = vec2(vertex_position[0] + 0.5, vertex_position[1] + 0.5);
 }
 @
 
@@ -1813,9 +1799,6 @@ varying mediump vec2 coordinate;
 
 void main(){
   gl_FragData[0] = texture2D(texture1, coordinate);
-  //gl_FragData[0] = vec4(coordinate.x,
-  //                      coordinate.x,
-  //                      coordinate.x, 1.0);
 }
 @
 
@@ -1866,12 +1849,6 @@ Compilamos ele na inicialização:
   _image_interface_shader._attribute_vertex_position =
     glGetAttribLocation(_image_interface_shader.program_shader,
                         "vertex_position");
-  _image_interface_shader._uniform_number_of_frames =
-    glGetUniformLocation(_image_interface_shader.program_shader,
-                           "number_of_frames");
-  _image_interface_shader._uniform_current_frame =
-    glGetUniformLocation(_image_interface_shader.program_shader,
-                         "current_frame");
 }
 @
 
@@ -1888,8 +1865,7 @@ E temos que fazer o shader de interface receber alguns uniformes
 adicionais:
 
 @<Passando Uniformes Adicionais para Shader de Interface@>=
-glBindTexture(GL_TEXTURE_2D, _interface_queue[_number_of_loops][i] -> _texture);
-  /* Vamos também ver se precisamos mudar o frame atual: */
+// Primeiro vemos se temos que mudar a textura devido à animação:
 if(_interface_queue[_number_of_loops][i] -> number_of_frames > 1 &&
    _interface_queue[_number_of_loops][i] -> max_repetition != 0){
   if(W.t - _interface_queue[_number_of_loops][i] -> _t >
@@ -1913,9 +1889,8 @@ if(_interface_queue[_number_of_loops][i] -> number_of_frames > 1 &&
     }
   }
 }
-  // Depois disso, passamos o frame atual
-glUniform1i(current_shader -> _uniform_number_of_frames,
-            _interface_queue[_number_of_loops][i] -> number_of_frames);
-glUniform1i(current_shader -> _uniform_current_frame,
-            _interface_queue[_number_of_loops][i] -> current_frame);
+// Em seguida, usamos a textura adequada
+glBindTexture(GL_TEXTURE_2D,
+              _interface_queue[_number_of_loops][i] ->
+              _texture[_interface_queue[_number_of_loops][i] -> current_frame]);
 @

@@ -1055,7 +1055,6 @@ uniform mat4 model_view_matrix; // Transformações de posição do objeto
 uniform vec2 object_size; // Largura e altura do objeto
 uniform float time; // Tempo de jogo em segundos
 uniform sampler2D texture1; // Textura
-uniform int number_of_frames, current_frame; // Para imagens animadas
 uniform int integer; // Um inteiro para passar informações
 @
 
@@ -1251,7 +1250,6 @@ struct _shader{
   // Os uniformes do shader:
   GLint _uniform_object_color, _uniform_model_view, _uniform_object_size;
   GLint _uniform_time, _uniform_texture1, _uniform_integer;
-  GLint _uniform_number_of_frames, _uniform_current_frame;
     // Os atributos do shader:
     GLint _attribute_vertex_position;
     char *vertex_source, *fragment_source; // Arquivo do código-fonte
@@ -1674,13 +1672,6 @@ void _compile_and_insert_new_shader(char *dir, int position){
     _shader_list[position]._uniform_model_view =
         glGetUniformLocation(_shader_list[position].program_shader,
                              "model_view_matrix");
-
-    _shader_list[position]._uniform_number_of_frames =
-      glGetUniformLocation(_shader_list[position].program_shader,
-                           "number_of_frames");
-    _shader_list[position]._uniform_current_frame =
-      glGetUniformLocation(_shader_list[position].program_shader,
-                           "current_frame");
     // Inicializando os atributos:
     _shader_list[position]._attribute_vertex_position =
         glGetAttribLocation(_shader_list[position].program_shader,
