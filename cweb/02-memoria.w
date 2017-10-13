@@ -2151,11 +2151,10 @@ seguintes definições de macro:
 #define LOOP_INIT if(!_running_loop) _exit_loop(); if(!_running_loop)\
    goto _LOOP_FINALIZATION; if(!_loop_begin) goto _END_LOOP_INITIALIZATION;\
    _BEGIN_LOOP_INITIALIZATION
-#define LOOP_BODY _loop_begin = false; if(_loop_begin)\
+#define LOOP_BODY _loop_begin =  false; if(_loop_begin)\
    goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION:\
-   W.t += _update_time(); _lag += W.t; while(_lag >= 40000){ \
-   _update(); _LABEL_0
-#define LOOP_END _lag -= 40000; } \
+   _lag +=  _update_time(); while(_lag >= 40000){ _update(); _LABEL_0
+#define LOOP_END _lag -=  40000; W.t +=  40000; } \
    _render(); if(_running_loop) return; if(W.t == 0) goto _LABEL_0;\
    _LOOP_FINALIZATION
 @
@@ -2174,12 +2173,12 @@ MAIN_LOOP main_loop(void){
   }
   initializing = false;
   // Código executado toda iteração:
-  W.t += _update_time();
-  _lag += W.t;
+  _lag += _update_time();
   while(_lag >= 40000){
     _update();
     /* Código do usuário executado toda iteração */
     _lag -= 40000;
+    W.t += 40000;
   }
   _render();
   if(!running_loop){

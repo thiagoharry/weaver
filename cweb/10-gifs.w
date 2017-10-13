@@ -1871,7 +1871,7 @@ adicionais:
 if(_interface_queue[_number_of_loops][i] -> animate &&
    _interface_queue[_number_of_loops][i] -> number_of_frames > 1 &&
    _interface_queue[_number_of_loops][i] -> max_repetition != 0){
-  if(W.t - _interface_queue[_number_of_loops][i] -> _t >
+  if(W.t + _lag - _interface_queue[_number_of_loops][i] -> _t >
      _interface_queue[_number_of_loops][i] ->
      frame_duration[_interface_queue[_number_of_loops][i] -> current_frame]){
     if(_interface_queue[_number_of_loops][i] -> current_frame + 1 ==
@@ -1882,13 +1882,13 @@ if(_interface_queue[_number_of_loops][i] -> animate &&
       }
       if(_interface_queue[_number_of_loops][i] -> max_repetition != 0){
         _interface_queue[_number_of_loops][i] -> current_frame = 0;
-        _interface_queue[_number_of_loops][i] -> _t = W.t;
+        _interface_queue[_number_of_loops][i] -> _t = W.t + _lag;
       }
     }
     else{
       // Passa para o próximo frame de animação
       _interface_queue[_number_of_loops][i] -> current_frame ++;
-      _interface_queue[_number_of_loops][i] -> _t = W.t;
+      _interface_queue[_number_of_loops][i] -> _t = W.t + _lag;
     }
   }
 }
