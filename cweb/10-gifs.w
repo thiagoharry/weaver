@@ -1897,3 +1897,96 @@ glBindTexture(GL_TEXTURE_2D,
               _interface_queue[_number_of_loops][i] ->
               _texture[_interface_queue[_number_of_loops][i] -> current_frame]);
 @
+
+Agora nós podemos criar uma nova interface que é um GIF animado por
+meio do |W.new_interface(W_INTERFACE_IMAGE, ...)|. Mas seria bom
+podermos usar GIFs animados em interfaces cujo shader é definido pelo
+usuário. Para isso, teremos que ler um argumento adicional quando
+geramos uma nova interface personalizada. Esse argumento pode ser
+|NULL| ou uma string vazia para indicar que não queremos usar uma
+imagem como textura. Ou pode ser o nome do arquivo de imagem onde está
+a nossa textura. Para isso lemos um argumento a mais ao lermos
+interfaces personalizadas:
+
+@<Interface: Lê Argumentos de Interfaces Personalizadas@>=
+{
+#if W_TARGET == W_WEB
+  char dir[] = "image/";
+#elif W_DEBUG_LEVEL >= 1
+  char dir[] = "./image/";
+#elif W_TARGET == W_ELF
+  char dir[] = W_INSTALL_DATA"/image/";
+#endif
+#if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
+  char *ext;
+  bool ret = true;
+#endif
+  char *filename, complete_path[256];
+  unsigned long texture_width, texture_height;
+  va_start(valist, height);
+  filename = va_arg(valist, char *);
+  if(filename != NULL && filename[0] != '\0'){
+    _interfaces[_number_of_loops][i]._loaded_texture = false;
+    // Gerando nome do arquivo
+    strncpy(complete_path, dir, 256);
+    complete_path[255] = '\0';
+    strncat(complete_path, filename, 256 - strlen(complete_path));
+    #if W_TARGET == W_WEB || defined(W_MULTITHREAD)
+  // Rodando assincronamente
+#if W_TARGET == W_WEB
+    mkdir("images/", 0777); // Emscripten
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&(W._pending_files_mutex));
+#endif
+    W.pending_files ++;
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(W._pending_files_mutex));
+#endif
+    // Obtendo arquivo via Emsripten
+    emscripten_async_wget2(complete_path, complete_path,
+                           "GET", "",
+                           (void *) &(_interfaces[_number_of_loops][i]),
+                           &onload_texture, &onerror_texture,
+                           &onprogress_texture);
+#else
+    // Obtendo arquivo via threads
+    _multithread_load_file(complete_path,
+                           (void *) &(_interfaces[_number_of_loops][i]),
+                           &process_texture,
+                           &onload_texture, &onerror_texture);  
+#endif
+#else
+    // Rodando sincronamente:
+    ext = strrchr(filename, '.');
+    if(! ext){
+      fprintf(stderr, "WARNING (0): No file extension in %s.\n",
+              filename);
+      _interfaces[_number_of_loops][i].type = W_NONE;
+      return NULL;
+    }
+    if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
+      _interfaces[_number_of_loops][i]._texture =
+        _extract_gif(complete_path, &texture_width, &texture_height,
+                     &(_interfaces[_number_of_loops][i].number_of_frames),
+                     &(_interfaces[_number_of_loops][i].frame_duration),
+                     &(_interfaces[_number_of_loops][i].max_repetition),
+                     &ret);
+      if(ret){ // Se algum erro aconteceu:
+        _interfaces[_number_of_loops][i].type = W_NONE;
+        return NULL;
+      }
+      // Ativa animação se for o caso
+      if(_interfaces[_number_of_loops][i].number_of_frames > 1)
+        _interfaces[_number_of_loops][i].animate = true;
+      _interfaces[_number_of_loops][i]._loaded_texture = true;
+      // Depois temos que finalizar o nosso recurso quando ele for limpo
+      // pelo coletor de lixo. Neste caso finalizar significa apagar a
+      // textura OpenGL:
+      _finalize_after(&(_interfaces[_number_of_loops][i]),
+                      _finalize_interface_texture);
+    }
+#endif
+  }
+  va_end(valist);
+}
+@

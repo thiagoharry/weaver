@@ -331,6 +331,7 @@ struct interface *_new_interface(int type, int x, int y, int width,
           break;
           @<Interface: Leitura de Argumentos e Inicialização@>
         default:
+          @<Interface: Lê Argumentos de Interfaces Personalizadas@>
           ;
         }
         @<Preenche Matriz de Transformação de Interface na Inicialização@>
