@@ -57,9 +57,7 @@ específico para o tratamento de GIFs:
 A função que fará todo o trabalho será:
 
 @<GIF: Declarações@>=
-GLuint *_extract_gif(char *, unsigned long *, unsigned long *,
-                            unsigned *, unsigned  **, int *,
-                            bool *);
+GLuint *_extract_gif(char *, unsigned *, unsigned  **, int *, bool *);
 @
 
 Esta função irá retornar um array com identificadores de texturas
@@ -67,14 +65,13 @@ OpenGL. Cada textura representa um frame da animação. Os argumentos
 que iremos passar para a função são: o nome do arquivo que contém a
 imagem GIF, e um monte de ponteiros para locais onde a função deverá
 escrever informações sobre a imagem lida. Estas informações serão a
-largura, altura, oo número de frames da animação, um array com a
+o número de frames da animação, um array com a
 duração de cada frame em microssegundos, o número máximo de vezes que
 a animação deve ser repetida (-1 se ela deve se repetir infinitamente)
 e se ocorreu algum erro que impossibilitou carregar a imagem:
 
 @<GIF: Definições@>=
-GLuint *_extract_gif(char *filename, unsigned long *width,
-                            unsigned long *height, unsigned *number_of_frames,
+GLuint *_extract_gif(char *filename, unsigned *number_of_frames,
                             unsigned  **frame_duration,
                             int *max_repetition, bool *error){
     // Inicializando variáveis da função de extração
@@ -90,6 +87,7 @@ GLuint *_extract_gif(char *filename, unsigned long *width,
     unsigned char transparency_index = 0;
     unsigned char *global_color_table = NULL;
     unsigned char *local_color_table = NULL;
+    unsigned long width, height;
     int disposal_method = 0;
     struct _image_list *img = NULL;
     struct _image_list *last_img = NULL;
@@ -173,12 +171,12 @@ atuais). Por fim, também há algumas flags com informações adicionais.
   // próximos 2 bytes (largura máxima: 65535 pixels)
   unsigned char data[2];
   fread(data, 1, 2, fp);
-  *width = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
+  width = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
   // Agora lemos a altura da imagem nos próximos 2 bytes (tamanho
   // máximo: 65535 pixels)
   fread(data, 1, 2, fp);
-  *height = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
-  image_size = (*width) * (*height);
+  height = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
+  image_size = (width) * (height);
   // Lemos o próximo byte de onde extraímos informações sobre algumas
   // flags:
   fread(data, 1, 1, fp);
@@ -644,10 +642,10 @@ aumentamos o tamanho de nossa lista e atualizamos os ponteiros para a
   // Se a nossa imagem não ocupa todo o canvas, vamos inicializar
   // todos os valores com a cor de fundo do canvas, já que há regiões
   // nas quais nossa imagem não irá estar.
-  if(img_offset_x != 0 || img_offset_y != 0  || img_width != *width ||
-     img_height != *height){
+  if(img_offset_x != 0 || img_offset_y != 0  || img_width != width ||
+     img_height != height){
     unsigned long i;
-    unsigned long size = (*width) * (*height);
+    unsigned long size = width * height;
     // Se temos uma tabela local, usamos ela, mas tomamos o cuidado
     // para não ler fora da tabela de cores mesmo que a imagem tenha
     // um valor inválido de cor de fundo
@@ -1238,7 +1236,7 @@ correspondente a um frame da animação.
     line_increment = 1;
   // Alocamos onde iremos armazenar os pixels da imagem antes de
   // enviar para a placa de vídeo:
-  current_image = (unsigned char *) _iWalloc(4 * (*width) * (*height));
+  current_image = (unsigned char *) _iWalloc(4 * width * height);
   if(current_image == NULL){
       fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
               "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
@@ -1260,7 +1258,7 @@ correspondente a um frame da animação.
       returned_data = NULL;
       goto error_gif;
     }
-    previous_image = (unsigned char *) _iWalloc(4 * (*width) * (*height));
+    previous_image = (unsigned char *) _iWalloc(4 * width * height);
     if(previous_image == NULL){
       fprintf(stderr, "WARNING (0): Not enough memory to read GIF file %s. "
               "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n",
@@ -1290,9 +1288,9 @@ correspondente a um frame da animação.
     if(*number_of_frames > 1){
       (*frame_duration)[i] = p -> delay_time;
     }
-    while(line_destiny < (*height)){
-      while(col < (*width)){
-        target_index = 4 * (*width) * (*height - line_destiny - 1) +
+    while(line_destiny < height){
+      while(col < width){
+        target_index = 4 * width * (height - line_destiny - 1) +
           col * 4;
         source_index = (line_source - p -> y_offset) * (p -> width) * 4 +
           (col - p -> x_offset) * 4;
@@ -1336,8 +1334,8 @@ correspondente a um frame da animação.
       }
       line_destiny = line_destiny + line_increment;
       line_source ++;
-      if(line_destiny >= (*height) && interlace_flag){
-        if(line_source < (*height) / 4){
+      if(line_destiny >= height && interlace_flag){
+        if(line_source < height / 4){
           line_destiny = line_increment / 2;
         }
         else{
@@ -1353,7 +1351,7 @@ correspondente a um frame da animação.
     // Enviando a textura para a placa de vídeo:
     glBindTexture(GL_TEXTURE_2D, returned_data[i]);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, *width, *height, 0, GL_RGBA,
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
                  GL_UNSIGNED_BYTE, current_image);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
@@ -1492,8 +1490,7 @@ case W_INTERFACE_IMAGE:
   char *ext;
   bool ret = true;
 #endif
-  char *filename, complete_path[256];
-  unsigned long texture_width, texture_height;
+  char *filename, complete_path[256]; 
   va_start(valist, height);
   filename = va_arg(valist, char *);
   va_end(valist);
@@ -1536,7 +1533,7 @@ case W_INTERFACE_IMAGE:
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
     _interfaces[_number_of_loops][i]._texture =
-      _extract_gif(complete_path, &texture_width, &texture_height,
+      _extract_gif(complete_path,
                    &(_interfaces[_number_of_loops][i].number_of_frames),
                    &(_interfaces[_number_of_loops][i].frame_duration),
                    &(_interfaces[_number_of_loops][i].max_repetition),
@@ -1590,8 +1587,7 @@ static void onload_texture(unsigned undocumented, void *inter,
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
     my_interface -> _texture =
-      _extract_gif(complete_path, &texture_width,
-                   &texture_height,
+      _extract_gif(complete_path,
                    &(my_interface -> number_of_frames),
                    &(my_interface -> frame_duration),
                    &(my_interface -> max_repetition), &ret);
@@ -1626,7 +1622,7 @@ usando threads:
 static void *onload_texture(void *p){
   struct _thread_file_info *file_info = (struct _thread_file_info *) p;
   struct interface * my_interface = (struct interface *) (file_info -> target);
-  my_interface -> loaded = true;
+  my_interface -> _loaded_texture = true;
   return NULL;
 }
 #endif
@@ -1686,18 +1682,17 @@ static void *process_texture(void *p){
   char *ext;
   bool ret = true;
   struct _thread_file_info *file_info = (struct _thread_file_info *) p;
-  struct sound *my_interface = (struct interface *) (file_info -> target);
+  struct interface *my_interface = (struct interface *) (file_info -> target);
   ext = strrchr(file_info -> filename, '.');  
   if(! ext){
     file_info -> onerror(p);
   }
   else if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
-    float *times = NULL;
     my_interface -> _texture =
-      _extract_gif(complete_path, &texture_width,
-                  &texture_height,
+      _extract_gif(file_info -> filename,
                   &(my_interface -> number_of_frames),
-                  &times, &(my_interface -> max_repetition), &ret);
+                   &(my_interface -> frame_duration),
+                  &(my_interface -> max_repetition), &ret);
   }
   if(ret){ // Se algum erro aconteceu:
     my_interface -> type = W_NONE;
@@ -1706,10 +1701,6 @@ static void *process_texture(void *p){
   if(my_interface -> number_of_frames > 1)
     my_interface -> animate = true;
   _finalize_after(my_interface, _finalize_interface_texture);
-  if(my_interface -> number_of_frames > 1){
-    my_interface -> dt = times[0];
-    Wfree(times);
-  }
   if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
     file_info -> onerror(p);
   }
@@ -1735,10 +1726,14 @@ static void *process_texture(void *p){
 
 E por fim a função para desalocar texturas na placa de vídeo:
 
-@<Interface: Funções Estáticas@>+=
+@<Interface: Declarações@>+=
+  void _finalize_interface_texture(void *);
+@
+
+@<Interface: Definições@>+=
 // Uma função rápida para desalocar buffers do OpenAL e que podemos
 // usar abaixo:
-static void _finalize_interface_texture(void *data){
+void _finalize_interface_texture(void *data){
   struct interface *p = (struct interface *) data;
   glDeleteTextures(p -> number_of_frames, p -> _texture);
 }
@@ -1922,7 +1917,6 @@ interfaces personalizadas:
   bool ret = true;
 #endif
   char *filename, complete_path[256];
-  unsigned long texture_width, texture_height;
   va_start(valist, height);
   filename = va_arg(valist, char *);
   if(filename != NULL && filename[0] != '\0'){
@@ -1966,7 +1960,7 @@ interfaces personalizadas:
     }
     if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
       _interfaces[_number_of_loops][i]._texture =
-        _extract_gif(complete_path, &texture_width, &texture_height,
+        _extract_gif(complete_path,
                      &(_interfaces[_number_of_loops][i].number_of_frames),
                      &(_interfaces[_number_of_loops][i].frame_duration),
                      &(_interfaces[_number_of_loops][i].max_repetition),
