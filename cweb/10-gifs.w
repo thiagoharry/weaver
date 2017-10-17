@@ -1570,7 +1570,29 @@ carregando com threads e que irá funcionar em uma thread) e
 seja removida da memória da placa de vídeo quando a interface for
 desalocada).
 
-Ao trabalho. Primeiro o |onload_texture| caso seja um programa web:
+Ao trabalho. Primeiro o |onerror_texture| caso seja um programa web. Em
+caso de erro, tudo o que fazemos é imprimir uma mensagem na tela
+para avisar no caso de execução via web:
+
+@<Interface: Funções Estáticas@>+=
+#if W_TARGET == W_WEB
+static void onerror_texture(unsigned undocumented, void *interface,
+                          int error_code){
+  fprintf(stderr, "WARNING (0): Couldn't load a texture file. Code %d.\n",
+          error_code);
+#ifdef W_MULTITHREAD
+    pthread_mutex_lock(&(W._pending_files_mutex));
+#endif
+    W.pending_files --;
+#ifdef W_MULTITHREAD
+    pthread_mutex_unlock(&(W._pending_files_mutex));
+#endif
+}
+#endif
+@
+
+Tendo essa função de erros podemos definir o que fazer quando
+carregamos a textura em ambiente web e algo dá errado.
 
 @<Interface: Funções Estáticas@>=
 #if W_TARGET == W_WEB
@@ -1587,14 +1609,14 @@ static void onload_texture(unsigned undocumented, void *inter,
   }
   if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
     my_interface -> _texture =
-      _extract_gif(complete_path,
+      _extract_gif((char *) filename,
                    &(my_interface -> number_of_frames),
                    &(my_interface -> frame_duration),
                    &(my_interface -> max_repetition), &ret);
   }
   if(ret){ // Se algum erro aconteceu:
     my_interface -> type = W_NONE;
-    return NULL;
+    return;
   }
   // Ativa animação se for o caso:
   if(my_interface -> number_of_frames > 1)
@@ -1624,26 +1646,6 @@ static void *onload_texture(void *p){
   struct interface * my_interface = (struct interface *) (file_info -> target);
   my_interface -> _loaded_texture = true;
   return NULL;
-}
-#endif
-@
-
-Em caso de erro, tudo o que fazemos é imprimir uma mensagem na tela
-para avisar no caso de execução via web:
-
-@<Interface: Funções Estáticas@>+=
-#if W_TARGET == W_WEB
-static void onerror_texture(unsigned undocumented, void *interface,
-                          int error_code){
-  fprintf(stderr, "WARNING (0): Couldn't load a texture file. Code %d.\n",
-          error_code);
-#ifdef W_MULTITHREAD
-    pthread_mutex_lock(&(W._pending_files_mutex));
-#endif
-    W.pending_files --;
-#ifdef W_MULTITHREAD
-    pthread_mutex_unlock(&(W._pending_files_mutex));
-#endif
 }
 #endif
 @
@@ -1731,7 +1733,7 @@ E por fim a função para desalocar texturas na placa de vídeo:
 @
 
 @<Interface: Definições@>+=
-// Uma função rápida para desalocar buffers do OpenAL e que podemos
+// Uma função rápida para desalocar texturas OpenGL e que podemos
 // usar abaixo:
 void _finalize_interface_texture(void *data){
   struct interface *p = (struct interface *) data;

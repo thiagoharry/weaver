@@ -43,6 +43,10 @@ Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
 @(project/src/weaver/interface.c@>=
 #include "interface.h"
 #include <stdarg.h> // Função com argumentos variáveis
+#if W_TARGET == W_WEB
+#include <sys/stat.h> // mkdir
+#include <sys/types.h> // mkdir
+#endif
 @<Interface: Funções Estáticas@>
 @<Interface: Definições@>
 @

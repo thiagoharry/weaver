@@ -1010,6 +1010,21 @@ struct sound *_new_sound(char *filename){
 }
 @
 
+Usamos acima uma função que pede para que depois executemos a função
+|_finalize_openal| quando chegar a hora de desalocarmos o som. O que a
+função de finalização do OpenAL faz é desalocar os buffer que ela
+alucou, algo não tratado automaticamente pelo nosso gerenciador de
+memória:
+
+@<Som: Funções Estáticas@>+=
+// Uma função rápida para desalocar buffers do OpenAL e que podemos
+// usar abaixo:
+static void _finalize_openal(void *data){
+  ALuint *p = (ALuint *) data;
+  alDeleteBuffers(1, p);
+}
+@
+
 Se estamos executando o programa nativamente sem threads, após a
 função terminar, a estrutura de som já está pronta. Caso estejamos
 rodando no Emscripten, o trabalho é feito dentro das funções que
@@ -1472,18 +1487,10 @@ void _multithread_load_file(const char *filename, void *snd,
 
 Terminamos agora de fazer todas as funções genéricas responsáveis por
 invocar threads para processar arquivos. Mas agora precisamos das
-funções específicas para processar os arquivos de áudio. Para isso
-vamos enfim definir as três funções que temos que passar para a função
-acima como argumentos. A primeira é a responsável por ler e processar
-o arquivo de áudio:
+funções específicas para processar os arquivos de áudio. A função que
+finaliza o OpenAL já fizemos. Resta agora as duas seguintes:
 
 @<Som: Funções Estáticas@>+=
-// Uma função rápida para desalocar buffers do OpenAL e que podemos
-// usar abaixo:
-static void _finalize_openal(void *data){
-  ALuint *p = (ALuint *) data;
-  alDeleteBuffers(1, p);
-}
 // A função para processar o som em si.
 #if defined(W_MULTITHREAD) && W_TARGET == W_ELF
 static void *process_sound(void *p){
