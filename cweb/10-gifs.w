@@ -268,7 +268,7 @@ animados usam isso para definir quantas iterações terá a animação):
 {
   unsigned extension_type;
   fread(data, 1, 1, fp);
-  extension_type = ((unsigned) data[1]) * 256 + ((unsigned) data[0]);
+  extension_type = (unsigned) data[0];
   switch(extension_type){
   case 1: // Texto puro
     @<GIF: Extensão de Texto Puro@>
@@ -1386,8 +1386,7 @@ correspondente a um frame da animação.
 
 Usar a nossa função que definimos para carregar GIFs de modo a criar
 uma interface não é tão diferente do trabalho que tivemos para
-integrar os sons WAVE na nossa engine. É basicamente isso, mas com
-algumas modificações adicionais às Interfaces.
+integrar os sons WAVE na nossa engine.
 
 Primeiro, de agora em diante será importante que toda interface tenha
 uma textura e também uma variável booleana para indicar se a textura
@@ -1501,7 +1500,8 @@ case W_INTERFACE_IMAGE:
 #if W_TARGET == W_WEB || defined(W_MULTITHREAD)
   // Rodando assincronamente
 #if W_TARGET == W_WEB
-  mkdir("images/", 0777); // Emscripten
+  if(mkdir("image/", 0777) == -1) // Emscripten
+    perror(NULL);
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(W._pending_files_mutex));
 #endif
