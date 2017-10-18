@@ -1229,6 +1229,7 @@ principal. Para gerar um novo contexto, fazemos:
 @<GIF: Gerando Imagem Final@>=
 #ifdef W_MULTITHREAD
 {
+  GLXFBConfig *fbConfigs;
   int context_attribs[] =
     { //  Iremos usar e exigir OpenGL 3.3
       GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
