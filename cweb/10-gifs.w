@@ -91,6 +91,9 @@ GLuint *_extract_gif(char *filename, unsigned *number_of_frames,
     int disposal_method = 0;
     struct _image_list *img = NULL;
     struct _image_list *last_img = NULL;
+#ifdef W_MULTITHREAD
+    GLXContext thread_context;
+#endif
     *number_of_frames = 0;
     // Abrindo o arquivo da imagem
     FILE *fp = fopen(filename, "r");
@@ -1216,8 +1219,51 @@ pixel.
 Ao fim, devemos produzir um array com 1 ou mais valores |GLuint| que
 representam texturas enviadas para a placa de vídeo, cada uma delas
 correspondente a um frame da animação.
-  
+
+Mas aí temos uma complicação adicional: se estivermos rodando nosso
+programa em threads fora da web, então estaremos gerando texturas em
+uma thread. Precisamos de um contexto OpenGL nessa thread para isso, e
+esse contexto deve poder compartilhar recursos com a thread
+principal. Para gerar um novo contexto, fazemos:
+
 @<GIF: Gerando Imagem Final@>=
+#ifdef W_MULTITHREAD
+{
+  int context_attribs[] =
+    { //  Iremos usar e exigir OpenGL 3.3
+      GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
+      GLX_CONTEXT_MINOR_VERSION_ARB, 3,
+      None
+    };
+  glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
+  int return_value;
+  int doubleBufferAttributes[] = {
+    GLX_DRAWABLE_TYPE, GLX_WINDOW_BIT, // Desenharemos na tela, não em 'pixmap'
+    GLX_RENDER_TYPE,   GLX_RGBA_BIT, // Definimos as cores via RGBA, não paleta
+    GLX_DOUBLEBUFFER,  True, // Usamos buffers duplos para evitar 'flickering'
+    GLX_RED_SIZE,      1, // Devemos ter ao menso 1 bit de vermelho
+    GLX_GREEN_SIZE,    1, // Ao menos 1 bit de verde
+    GLX_BLUE_SIZE,     1, // Ao menos 1 bit de azul
+    GLX_ALPHA_SIZE,    1, // Ao menos 1 bit para o canal alfa
+    GLX_DEPTH_SIZE,    1, // E ao menos 1 bit de profundidade
+    None
+  };
+  fbConfigs = glXChooseFBConfig(_dpy, _screen, doubleBufferAttributes,
+                                &return_value);
+  glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
+    glXGetProcAddressARB( (const GLubyte *) "glXCreateContextAttribsARB" );
+  // TODO: _screen e _context precisa ser global, não mais estático
+  thread_context = glXCreateContextAttribsARB(_dpy, *fbConfigs, _context,
+                                              GL_TRUE, context_attribs);
+  glXMakeCurrent(_dpy, _window, thread_context);
+}
+#endif
+@
+
+E sabendo que podemos gerar texturas OpenGL, enfim geramos nossas
+imagens finais:
+  
+@<GIF: Gerando Imagem Final@>+=
 {
   unsigned i, line_source, line_destiny, col;
   unsigned long source_index, target_index;
@@ -1364,6 +1410,11 @@ correspondente a um frame da animação.
       current_image = tmp;
     }
   }
+// Se usamos threads, não precisamos mais de contexto OpenGL:
+#ifdef W_MULTITHREAD
+  glXDestroyContext(_dpy, thread_context);
+    glXMakeCurrent(_dpy, _window, _context);
+#endif
   // Ajustando os valores do número de repetições caso seja uma
   // animação:
   if(number_of_loops == 0)

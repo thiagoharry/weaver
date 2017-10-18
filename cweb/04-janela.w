@@ -248,15 +248,22 @@ Xinerama, que faz com que suas duas telas sejam tratadas como uma só
 ID desta tela será importante para obtermos alguns dados como a
 resolução máxima e quantidade de bits usado em cores.
 
-@<Variáveis de Janela@>+=
-static int screen;
+@<Variáveis de Janela@>=
+int _screen;
 @
+
+@<Cabeçalhos Weaver@>+=
+#if W_TARGET == W_ELF
+  extern int _screen;
+#endif
+@
+
 
 Para inicializar o valor, usamos a seguinte macro, a qual nunca
 falhará:
 
 @<Janela: Inicialização@>=
-  screen = DefaultScreen(_dpy);
+  _screen = DefaultScreen(_dpy);
 @
 
 Como a tela é um inteiro, não há nada que precisemos desalocar
@@ -274,7 +281,7 @@ com 8 bits (totalizando 24) e 8 bits restantes ficam representando um
 valor alpha que armazena informação de transparência.
 
 @<Janela: Inicialização@>+=
-  depth = DisplayPlanes(_dpy, screen);
+  depth = DisplayPlanes(_dpy, _screen);
   #if W_DEBUG_LEVEL >= 3
   printf("WARNING (3): Color depth: %d\n", depth);
   #endif
@@ -298,8 +305,8 @@ E é inicializada com os seguintes dados:
 
 @<Janela: Inicialização@>+=
   // Obtemos a resolução da tela
-  W.resolution_x = DisplayWidth(_dpy, screen);
-  W.resolution_y = DisplayHeight(_dpy, screen);
+  W.resolution_x = DisplayWidth(_dpy, _screen);
+  W.resolution_y = DisplayHeight(_dpy, _screen);
 #if W_WIDTH > 0
   W.width = W_WIDTH; // Obtendo largura da janela
 #else
@@ -463,7 +470,14 @@ contexto OpenGL e associá-lo à nossa recém-criada janela para que possamos
 usar OpenGL nela:
 
 @<Variáveis de Janela@>=
-  static GLXContext context;
+GLXContext _context;
+@
+
+@<Cabeçalhos Weaver@>+=
+#if W_TARGET == W_ELF
+#include <GL/glx.h>
+  extern GLXContext _context;
+#endif
 @
 
 Também vamos precisar de configurações válidas para o nosso contexto:
@@ -489,7 +503,7 @@ que pode ser desenhada e com buffer duplo.
     GLX_DEPTH_SIZE,    1, // E ao menos 1 bit de profundidade
     None
   };
-  fbConfigs = glXChooseFBConfig(_dpy, screen, doubleBufferAttributes,
+  fbConfigs = glXChooseFBConfig(_dpy, _screen, doubleBufferAttributes,
                                 &return_value);
   if (fbConfigs == NULL){
     fprintf(stderr,
@@ -527,7 +541,7 @@ criar o contexto:.
   glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
   { // Verificando se a 'glXCreateContextAttribsARB' existe:
     // Usamox 'glXQueryExtensionsString' para obter lista de extensões
-    const char *glxExts = glXQueryExtensionsString(_dpy, screen);
+    const char *glxExts = glXQueryExtensionsString(_dpy, _screen);
     if(strstr(glxExts, "GLX_ARB_create_context") == NULL){
       fprintf(stderr, "ERROR: Can't create an OpenGL 3.0 context.\n");
       exit(1);
@@ -537,9 +551,9 @@ criar o contexto:.
   // para criar o contexto OpenGL.
   glXCreateContextAttribsARB = (glXCreateContextAttribsARBProc)
     glXGetProcAddressARB( (const GLubyte *) "glXCreateContextAttribsARB" );
-  context = glXCreateContextAttribsARB(_dpy, *fbConfigs, NULL, GL_TRUE,
+  _context = glXCreateContextAttribsARB(_dpy, *fbConfigs, NULL, GL_TRUE,
                                        context_attribs);
-  if(context == NULL){
+  if(_context == NULL){
     fprintf(stderr, "ERROR: Couldn't create an OpenGL 3.0 context.\n");
     exit(1);
   }
@@ -548,7 +562,7 @@ criar o contexto:.
   // compatível. para mim ele imprime dentro desta função: "Gen6+
   // requires Kernel 3.6 or later." e uma falha de segmentação ocorre
   // aqui.
-  glXMakeCurrent(_dpy, _window, context);
+  glXMakeCurrent(_dpy, _window, _context);
 }
 @
 
@@ -561,7 +575,7 @@ nesta ordem:
 
 @<Janela: Finalização@>+=
   glXMakeCurrent(_dpy, None, NULL);
-  glXDestroyContext(_dpy, context);
+  glXDestroyContext(_dpy, _context);
   XDestroyWindow(_dpy, _window);
   XCloseDisplay(_dpy);
 @
