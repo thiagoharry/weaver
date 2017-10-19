@@ -5,7 +5,7 @@ PROJECT_SHARE=${INSTALL_SHARE_DIR}/project
 W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w cweb/03-numeros.w\
         cweb/04-janela.w cweb/05-entrada.w cweb/06-plugins.w\
 	cweb/07-shaders.w cweb/08-resolucao.w cweb/09-som.w cweb/10-gifs.w \
-        cweb/99-fim.w
+        cweb/11-imagens.w cweb/12-arquivos.w cweb/99-fim.w
 CORES=$(shell grep -c ^processor /proc/cpuinfo)
 
 main: program
@@ -84,6 +84,8 @@ install: uninstall
 	install -d ${PROJECT_SHARE}
 	install -d ${PROJECT_SHARE}/conf
 	install -d ${PROJECT_SHARE}/src/weaver
+	install -d ${PROJECT_SHARE}/src/misc
+	install -d ${PROJECT_SHARE}/src/misc/sqlite
 	install -c project/Makefile ${PROJECT_SHARE}
 	install -c project/prog.Makefile ${PROJECT_SHARE}
 	install -c project/web.Makefile ${PROJECT_SHARE}
@@ -91,6 +93,10 @@ install: uninstall
 	install -c project/basefile.h ${INSTALL_SHARE_DIR}
 	install -c project/COPYING ${PROJECT_SHARE}
 	install -c project/conf/conf.h ${PROJECT_SHARE}/conf
+	install -c project/src/misc/sqlite/sqlite3.h \
+                             ${PROJECT_SHARE}/src/misc/sqlite/
+	install -c project/src/misc/sqlite/sqlite3.c \
+                             ${PROJECT_SHARE}/src/misc/sqlite/
 	install -c project/src/weaver/weaver.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/weaver.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/conf_begin.h ${PROJECT_SHARE}/src/weaver

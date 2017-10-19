@@ -1505,7 +1505,8 @@ if(! inside_weaver_directory && have_arg){
     mkdir(".weaver", 0755); mkdir("conf", 0755); mkdir("tex", 0755);
     mkdir("src", 0755); mkdir("src/weaver", 0755); mkdir ("fonts", 0755);
     mkdir("image", 0755); mkdir("sound", 0755); mkdir ("models", 0755);
-    mkdir("music", 0755); mkdir("plugins", 0755);
+    mkdir("music", 0755); mkdir("plugins", 0755); mkdir("src/misc/", 0755);
+    mkdir("src/misc/sqlite", 0755); mkdir(".misc", 0755);
     mkdir("compiled_plugins", 0755);
     mkdir("shaders", 0755);
     dir_name = concatenate(shared_dir, "project", "");
