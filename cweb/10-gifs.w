@@ -2038,3 +2038,76 @@ interfaces personalizadas:
   va_end(valist);
 }
 @
+
+@*1 Sumário das Modificações do Capítulo.
+
+Este capítulo não adicionou nenhuma nova função, mas modificou
+estruturas de dados e funções já existentes. A seguinte estrutura de
+dados foi atualizada:
+
+\noindent|struct interface {
+  // (...)
+  bool animate;
+  unsigned number_of_frames;
+  unsigned current_frame;
+  unsigned frame_duration[];
+  int max_repetition;    
+}|
+
+\macrovalor|animate|: Nos diz se esta interface é animada ou não. Ou
+  seja, se ela foi criada à partir de uma imagem GIF. Esta variável
+  pode ter seu valor modificado para assim pausar e continuar uma
+  animação.
+
+\macrovalor|number_of_frames|: Variável somente leitura. Nos diz o
+  número de frames da imagem da nossa interface. Só terá um valor
+  diferente de 1 caso estejamos diante de uma interface animada.
+
+\macrovalor|current_frame|: Variável cujo valor pode variar entre 0 e
+  o valor do número de frames menos 1. Diz qual o frame da imagem está
+  sendo mostrado na animação neste momento. O valor pode ser
+  modificado.
+
+\macrovalor|frame_duration[]|: Um vetor que só pode ser consultado em
+  interfaces animadas. Nelas, haverá uma posição para cada frame da
+  imagem e nelas você encontra quantos microssegundos deve durar cada
+  frame de animação. Este valor pode ser modificado em interfaces
+  animadas.
+
+\macrovalor|max_repetition|: Quantas vezes devemos repetir a
+  animação. Um valor de -1 representa que a animação irá se repetir
+  infinitamente. Um valor de 0 mantém a animação parada em seu último
+  frame. Em valores maiores que 0, a animação fica rodando, mas cada
+  vez que passamos pelo último frame, o valor é decrementado. Você
+  pode modificar este valor.
+
+Além disso, a seguinte função teve o seu comportamento modificado:
+
+\macrovalor|struct interface *W.new_interface(int type, int x, int y, ...)|:
+Agora você pode passar a macro |W_INTERFACE_IMAGE| para mostrar a
+interface como uma imagem (ou animação de um GIF animado) de algum dos
+formatos de arquivo suportados. No momento só o formato GIF é
+suportado, mas isso pode mudar nos próximos capítulos. Um exemplo de
+uso:
+
+\alinhacodigo
+interface = W.new_interface(W_INTERFACE_IMAGE, W.width/2, W.height/2,
+                            10, 10, "minha_imagem.gif");
+\alinhanormal
+
+Essecódigo gera uma nova interface no loop principal atual e retorna
+seu ponteiro. Essa interface deve estar centralizada na tela e medir 10
+pixels por 10 pixels. A aparência dela deve ser lida do arquivo
+indicado pelo último argumento. O arquivo pode conter um GIF animado.
+
+Além disso, o uso desta função em shaders personalizados mudou e agora
+precisamos usar um argumento adicional:
+
+\alinhacodigo
+interface = W.new_interface(1, W.width/2, W.height/2, 10, 10, NULL);
+\alinhanormal
+
+O último argumento pode ser NULL, uma string vazia ou o nome de um
+arquivo que contém uma imagem. Se for o nome de um arquivo com imagem,
+a imagem é passada como textura para o shader, que pode lê-la por meio
+da variável |texture1|.

@@ -1735,8 +1735,11 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     fprintf(fp, "uniform vec4 object_color;\nuniform mat4 model_view_matrix;");
     fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n");
     fprintf(fp, "uniform int integer;\n\n");
+    fprintf(fp, "varying mediump vec2 texture_coordinate;\n\n");
     fprintf(fp, "void main(){\n  gl_Position = model_view_matrix * ");
-    fprintf(fp, "vec4(vertex_position, 1.0);\n}\n");
+    fprintf(fp, "vec4(vertex_position, 1.0);\n");
+    fprintf(fp, "texture_coordinate = vec2(vertex_position[0] + 0.5, "
+            "vertex_position[1] + 0.5);\n}\n");
     free(buffer2);
     fclose(fp);
     // Escrevendo o shader de fragmento:
@@ -1758,8 +1761,17 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     fprintf(fp, "\nuniform vec4 object_color;\n");
     fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n");
     fprintf(fp, "uniform int integer;\n");
-    fprintf(fp, "\nuniform sampler2D texture1;\n\n");
-    fprintf(fp, "void main(){\n  gl_FragData[0] = object_color;\n}\n ");
+    fprintf(fp, "\nuniform sampler2D texture1;\n");
+    fprintf(fp, "varying mediump vec2 texture_coordinate;\n\n");
+    fprintf(fp, "void main(){\n  ");
+    fprintf(fp, "vec4 texture = texture2D(texture1, texture_coordinate);\n");
+    fprintf(fp, "  float final_alpha = texture.a + object_color.a * "
+            "(1.0 - texture.a);\n");
+    fprintf(fp, "  gl_FragData[0] = vec4((texture.a * texture.rgb +\n");
+    fprintf(fp, "                         object_color.rgb * object_color.a *"
+            "\n");
+    fprintf(fp, "                         (1.0 - texture.a)) /");
+    fprintf(fp, "                        final_alpha, final_alpha);\n}\n");
     // Finalizando
     free(buffer);
     free(buffer2);
