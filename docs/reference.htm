@@ -867,11 +867,15 @@
 <span class="word">struct</span> <span class="tipo">interface</span>{
   <span class="tipo">int</span> type;
   <span class="tipo">int</span> integer;
+  <span class="tipo">int</span> number_of_frames;
+  <span class="tipo">int</span> current_frame;
+  <span class="tipo">int</span> max_repetition;
   <span class="tipo">float</span> x,y;
   <span class="tipo">float</span> rotation;
   <span class="tipo">float</span> r, g, b, a;
   <span class="tipo">float</span> width, height;
   <span class="tipo">bool</span> visible;
+  <span class="tipo">bool</span> animate;
 }</pre>
       <p>
         An interface record is created with the function
@@ -899,6 +903,31 @@
         shaders. Weaver sets this variable as 0 in the initialization
         and never changes it again. The built-in shaders never uses
         this variable.
+      </p>
+      <h6>int number_of_frames<img class="icon" src="images/read_only.png"
+                 width="25px" height="25px" title="Read-only"></h6>
+      <p>
+        If this interface was created from an animated GIF, this
+        stores asn integer greater than 1 which orresponds to the
+        number of frames in the animation. Otherwise, the value is 1.
+      </p>
+      <h6>int current_frame</h6>
+      <p>
+        If this is an animated interface read from an animated GIF
+        file, then his variable have a value between 0 and
+        (number_of_frames-1). It stores which frame should appear in
+        the screen. In not animated interfaces, the value is always
+        0. Never put in this variable (number_of_frames) or greater.
+      </p>
+      <h6>int max_repetition</h6>
+      <p>
+        How many times should we repeat the animation if this is an
+        animated interface. A value of -1 means that the animation
+        will repeat forever. A 0 means that the animation is frozen in
+        the last frame. Avalue greater than 0 means that the animation
+        is running, but the value will decrement each time the
+        animation shows its last frame. In a not animated interface,
+        the value is ignored. 
       </p>
       <h6>float x, y <img class="icon" src="images/read_only.png"
                  width="25px" height="25px" title="Read-only"></h6>
@@ -959,6 +988,12 @@
       <p>
         This variable sets if the interface is visible and should be
         rendered or if it's invisible. This is set as true by default.
+      </p>
+      <h6>bool animate</h6>
+      <p>
+        This variable enables and disables the interface animation if
+        the interface was created from an animated GIF. Enabling
+        animation in other kind of interfaces has no effect.
       </p>
       <h4 id="interface_functions">Interface Functions</h4>
       <h5 id="copy_interface">struct interface
@@ -1025,8 +1060,11 @@
       </p>
       <p>
         If type is a positive integer, then the interface will be
-        rendered using a custom shader created by you and idetified by
-        that number. No more arguments should be passed.
+        rendered using a custom shader created by you and identified
+        by that number. You should pass than an argument with the
+        filename of the texture that should be sent as "texture1" for
+        your shader or NULL or an empty string if no texture should be
+        passed.
       </p>
       <p>
         If type is <tt>W_INTERFACE_SQUARE</tt>

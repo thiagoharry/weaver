@@ -54,6 +54,10 @@
             <li><a href="#texture1">texture1</a></li>
           </ul>
         </ul>
+        <li><a href="#shared">Shared Shader Variables</a></li>
+        <ul>
+          <li><a href="#texture_coordinate">texture_coordinate</a></li>
+        </ul>
         <li><a href="#2pass">Using 2-Pass Rendering</a></li>
       </ul>
       <h3 id="creating">Creating a New Shader</h3>
@@ -83,12 +87,13 @@ weaver --shader SHADER_NAME</pre>
         example:
       </p>
       <pre class="codigo">
-W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height);</pre>        
+W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height, NULL);</pre>
       <p>
         This creates a new interface as big as your game window which
-        will render using your brand new shader. If you want to make
-        an existing interface render in the screen with the new
-        shader, just change it's <tt>type</tt> variable/attribute.
+        will render using your brand new shader. As the last variable
+        is NULL not an image filename (the name of a file
+        in <tt>image</tt> folder), you won't sent a texture for your
+        shader as "texture1".
       </p>
       <p>
         If you look inside the
@@ -173,6 +178,16 @@ W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height);</pre>
         The object texture. If you are rendering the screen in a
         2-pass rendering, this texture was the image rendered in the
         first pass.
+      </p>
+      <h3 id="shared">Shared Shader Variables</h3>
+      <p>
+        These variables are set in the verte shader and then can be
+        used in the fragment shader.
+      </p>
+      <h4 id="texture_coordinate">varying vec2 texture_coordinate;</h4>
+      <p>
+        Which coordinate you should read
+        from <a href="#texture1">texture1</a>.
       </p>
       <h3 id="2pass">Using 2-Pass Rendering</h3>
       <p>
