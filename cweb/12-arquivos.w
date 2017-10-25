@@ -97,7 +97,9 @@ Precisamos de um ponteiro que irá representar nossa conexão com o
 banco de dados:
 
 @<Banco de Dados: Variáveis Estáticas@>=
+#if W_TARGET == W_ELF
 static sqlite3 *database;
+#endif
 @
 
 Agora vamos à questão de onde devemos armazenar o banco de dados de um
@@ -119,7 +121,7 @@ void _initialize_database(void);
 void _initialize_database(void){
   char path[256];
   int ret, size;
-  char *p;
+  char *p, *zErrMsg = NULL;
   // Temos que obter o diretório home do usuário. Primeiro tentamos
   // ler a variável de ambiente HOME:
   p = getenv("HOME");
@@ -174,6 +176,37 @@ void _initialize_database(void){
             path,
             sqlite3_errmsg(database));
   }
+  // Criando tabelas se elas não existirem. Tabela de inteiros:
+  ret = sqlite3_exec(database,
+                     "CREATE TABLE IF NOT EXISTS "
+                     "int_data(name TEXT PRIMARY KEY, value INT);",
+                     NULL, NULL, &zErrMsg);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): SQL error: %s\n ", zErrMsg);
+    sqlite3_free(zErrMsg);
+  }
+  // Tabela de floats:
+  if(ret == SQLITE_OK){
+    ret = sqlite3_exec(database,
+                       "CREATE TABLE IF NOT EXISTS "
+                       "float_data(name TEXT PRIMARY KEY, value REAL);",
+                       NULL, NULL, &zErrMsg);
+    if(ret != SQLITE_OK){
+      fprintf(stderr, "WARNING (0): SQL error: %s\n ", zErrMsg);
+      sqlite3_free(zErrMsg);
+    }
+  }
+  // Tabela de strings:
+  if(ret == SQLITE_OK){
+    ret = sqlite3_exec(database,
+                       "CREATE TABLE IF NOT EXISTS "
+                       "string_data(name TEXT PRIMARY KEY, value TEXT);",
+                       NULL, NULL, &zErrMsg);
+    if(ret != SQLITE_OK){
+      fprintf(stderr, "WARNING (0): SQL error: %s\n ", zErrMsg);
+      sqlite3_free(zErrMsg);
+    }
+  }
 }
 #endif
 @
@@ -212,6 +245,68 @@ finalização:
 #if W_TARGET == W_ELF
 {
   _finalize_database();
+}
+#endif
+@
+
+@*1 Gravando Dados no Banco de Dados.
+
+Salvar os dados será diferente se estamos executando via web ou
+nativamente. Via web, só o que emos que fazer será criar
+cookies. Nativamente, usaremos o Sqlite3 para armazenar os dados na
+tabela. Os dados que salvamos podem ser inteiros, números em ponto
+flutuante e strings.
+
+No caso de inteiros, a função que usaremos será declarada como:
+
+@<Banco de Dados: Declarações@>=
+void _write_integer(char *name, int value);
+@
+
+Esta função será uma das funções |W| a ser tornada pública:
+
+@<Funções Weaver@>+=
+  void (*write_integer)(char*, int);
+@
+@<API Weaver: Inicialização@>+=
+  W.write_integer = &_write_integer;
+@
+
+A definição, caso estejamos rodando nativamente com Sqlite é:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_ELF
+void _write_integer(char *name, int value){
+  int ret;
+  sqlite3_stmt *stmt;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "INSERT INTO int_data VALUES (?, ?);",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Inserindo o valor da variável na expressão:
+  ret = sqlite3_bind_int(stmt, 2, value);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  if(ret != SQLITE_DONE){
+    fprintf(stderr, "WARNING (0): Possible problem saving data.\n");
+    return;
+  }
+  // Encerrando
+  sqlite3_finalize(stmt);
 }
 #endif
 @

@@ -1648,8 +1648,7 @@ carregamos a textura em ambiente web e algo dá errado.
 
 @<Interface: Funções Estáticas@>=
 #if W_TARGET == W_WEB
-static void onload_texture(unsigned undocumented, void *inter,
-                           const char *filename){
+static void onload_texture(void *inter, const char *filename){
   char *ext;
   bool ret = true;
   struct interface *my_interface = (struct interface *) inter;
