@@ -85,8 +85,10 @@ nativamente. Se estivermos rodando na web, usaremos outra solução
 @<Banco de Dados: Inclui Cabeçalhos@>=
 #if W_TARGET == W_ELF
 #include <sys/stat.h>  // mkdir
-#include <sys/types.h> // mkdir
+#include <sys/types.h> // mkdir, getpwuid, getuid
+#include <unistd.h> // getuid
 #include <stdlib.h> // getenv
+#include <pwd.h> // getpwuid
 #include "../misc/sqlite/sqlite3.h"
 #endif
 @
@@ -107,62 +109,109 @@ nos assegurar de que o banco de dados existe, e se não existir iremos
 criá-lo:
 
 @<Banco de Dados: Declarações@>=
+#if W_TARGET == W_ELF
 void _initialize_database(void);
+#endif
 @
 
 @<Banco de Dados: Definições@>=
+#if W_TARGET == W_ELF
 void _initialize_database(void){
   char path[256];
-  int ret;
+  int ret, size;
   char *p;
-  // Temos que obter o diretório home do usuário
+  // Temos que obter o diretório home do usuário. Primeiro tentamos
+  // ler a variável de ambiente HOME:
   p = getenv("HOME");
   if(p != NULL){
+    size = strlen(p);
     strncpy(path, p, 255);
     path[255] = '\0';
-  }
+  } 
   else{
-
+    // Se não conseguimos obter a variável HOME, usamos getpwuid para
+    // obter o diretório configurado no /etc/passwd:
+    struct passwd *pw = getpwuid(getuid());
+    if(pw != NULL){
+      size = strlen(pw -> pw_dir);
+      strncpy(path, pw -> pw_dir, 255);
+      path[255] = '\0';
+    }
+    else{
+      // Se tudo falhar, tentamos usar o /tmp/ e avisamos o usuário:
+      fprintf(stderr,
+              "WARNING (0): Couldn't get home directory. Saving data in /tmp."
+              "\n");
+      size = 4;
+      strncpy(path, "/tmp", 255);
+    }
   }
-  // Primeiro nos asseguramos de que o diretório do banco de dados existe:
-  mkdir("~/.weaver", 0755);
-  mkdir("~/.weaver/" W_PROG, 0755);
+  // Criando o endereço do diretório cuidando com buffer overflows:
+  if(size + 9 < 256){
+    size += 9;
+    strcat(path, "/.weaver/");
+    mkdir(path, 0755);
+  }
+  // Criando o .weaver/W_PROG:
+  size += strlen(W_PROG) + 1;
+  if(size < 256){
+    strcat(path, W_PROG);
+    strcat(path, "/");
+    mkdir(path, 0755);
+  }
+  // Adicionando o nome do arquivo:
+  size += strlen(W_PROG) + 3;
+  if(size < 256){
+    strcat(path, W_PROG);
+    strcat(path, ".db");
+  }
   // Se o banco de dados não existir, ele será criado:
-  ret = sqlite3_open("~/.weaver/" W_PROG "/" W_PROG ".db", &database);
+  ret = sqlite3_open(path, &database);
   if(ret != SQLITE_OK){
     fprintf(stderr,
-            "WARNING (0): Can't create database. Data won't be saved: %s\n",
+            "WARNING (0): Can't create or read database %s. "
+            "Data won't be saved: %s\n",
+            path,
             sqlite3_errmsg(database));
   }
 }
+#endif
 @
 
 Para que essa função seja executada na inicialização, adicionamos ela
 na lista de funções a serem usadas na inicialização:
 
 @<API Weaver: Inicialização@>+=
+#if W_TARGET == W_ELF
 {
   _initialize_database();
 }
+#endif
 @
 
 Precisamos também finalizar a conexão quando o programa for encerrado:
 
 @<Banco de Dados: Declarações@>=
+#if W_TARGET == W_ELF
 void _finalize_database(void);
+#endif
 @
 
 @<Banco de Dados: Definições@>=
+#if W_TARGET == W_ELF
 void _finalize_database(void){
   sqlite3_close(database);
 }
+#endif
 @
 
 E ambém edicionamos a função de finalização para ser executada na
 finalização:
 
 @<API Weaver: Finalização@>+=
+#if W_TARGET == W_ELF
 {
   _finalize_database();
 }
+#endif
 @
