@@ -281,7 +281,7 @@ void _write_integer(char *name, int value){
   sqlite3_stmt *stmt;
   // Primeiro preparamos a expressão:
   ret = sqlite3_prepare_v2(database,
-                           "INSERT INTO int_data VALUES (?, ?);",
+                           "INSERT OR REPLACE INTO int_data VALUES (?, ?);",
                            -1, &stmt, 0);
   if(ret != SQLITE_OK){
     fprintf(stderr, "WARNING (0): Can't save data.\n");
@@ -307,6 +307,159 @@ void _write_integer(char *name, int value){
   }
   // Encerrando
   sqlite3_finalize(stmt);
+}
+#endif
+@
+
+Já se estivermos executando na web, a definição passa a ser:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_WEB
+void _write_integer(char *name, int value){
+  EM_ASM_({
+      document.cookie = "int_" + Pointer_stringify($0) + "=" + $1 +
+        "; expires=Fri, 31 Dec 9999 23:59:59 GMT";
+    }, name, value);
+}
+#endif
+@
+
+E assim estamos armazenando números inteiros. Exceto na web, em que
+todos os números são tratados como ponto-flutuante (mas de qualquer
+forma, o compilador garante que somente inteiros são passados).
+
+Vamos agora ao armazenamento de números em ponto-flutuante. A função é
+declarada como:
+
+@<Banco de Dados: Declarações@>+=
+void _write_float(char *name, float value);
+@
+
+Tornando a função pública em |W|:
+
+@<Funções Weaver@>+=
+  void (*write_float)(char*, float);
+@
+@<API Weaver: Inicialização@>+=
+  W.write_float = &_write_float;
+@
+
+Definindo a função com Sqlite:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_ELF
+void _write_float(char *name, float value){
+  int ret;
+  sqlite3_stmt *stmt;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "INSERT OR REPLACE INTO float_data VALUES (?, ?);",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Inserindo o valor da variável na expressão:
+  ret = sqlite3_bind_double(stmt, 2, value);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  if(ret != SQLITE_DONE){
+    fprintf(stderr, "WARNING (0): Possible problem saving data.\n");
+    return;
+  }
+  // Encerrando
+  sqlite3_finalize(stmt);
+}
+#endif
+@
+
+Definindo a mesma função para funcionar usando cookies:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_WEB
+void _write_float(char *name, float value){
+  EM_ASM_({
+      document.cookie = "float_" + Pointer_stringify($0) + "=" + $1 +
+        "; expires=Fri, 31 Dec 9999 23:59:59 GMT";
+    }, name, value);
+}
+#endif
+@
+
+E agora a última função de escrita. A função para escrever uma
+string. Primeiro sua declaração e preparação:
+
+@<Banco de Dados: Declarações@>+=
+void _write_string(char *name, char *value);
+@
+
+Tornando a função pública em |W|:
+
+@<Funções Weaver@>+=
+  void (*write_string)(char *, char *);
+@
+@<API Weaver: Inicialização@>+=
+  W.write_string = &_write_string;
+@
+
+A implementação com Sqlite:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_ELF
+void _write_string(char *name, char *value){
+  int ret;
+  sqlite3_stmt *stmt;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "INSERT OR REPLACE INTO string_data VALUES (?, ?);",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Inserindo o valor da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 2, value, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    fprintf(stderr, "WARNING (0): Can't save data.\n");
+    return;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  if(ret != SQLITE_DONE){
+    fprintf(stderr, "WARNING (0): Possible problem saving data.\n");
+    return;
+  }
+  // Encerrando
+  sqlite3_finalize(stmt);
+}
+#endif
+@
+
+E a implementação usando cookies:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_WEB
+void _write_string(char *name, char *value){
+  EM_ASM_({
+      document.cookie = "string_" + Pointer_stringify($0) + "=" +
+        Pointer_stringify($1) + "; expires=Fri, 31 Dec 9999 23:59:59 GMT";
+    }, name, value);
 }
 #endif
 @
