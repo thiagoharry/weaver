@@ -20,7 +20,7 @@ THREAD_FLAG=
 else
 THREAD_FLAG=-s USE_PTHREADS=2
 endif
-FINAL_FLAGS=-s ASYNCIFY=1 -s TOTAL_MEMORY=$$((${MAX_MEMORY}+${WEB_MEMORY})) ${THREAD_FLAG}
+FINAL_FLAGS=-s ASYNCIFY=1 -s TOTAL_MEMORY=$$((${MAX_MEMORY}+${WEB_MEMORY}-(${MAX_MEMORY}+${WEB_MEMORY})%16777216)) ${THREAD_FLAG}
 
 SOURCE_TEST=$(shell grep "^\#define[ \t]\+W_SOURCE[ \t]\+W_" conf/conf.h | grep -o "\(W_C\|W_CPP\)")
 ifeq ($(strip $(SOURCE_TEST)),W_C)
