@@ -479,7 +479,7 @@ E elas serão colocadas em |W|:
 
 @<Funções Weaver@>+=
   bool (*read_integer)(char *, int *);
-//bool (*read_float)(char *, float *);
+  bool (*read_float)(char *, float *);
 // bool (*read_string)(char *, char *, int);
 @
 @<API Weaver: Inicialização@>+=
@@ -516,6 +516,40 @@ bool _read_integer(char *name, int *value){
   ret = sqlite3_step(stmt);
   if(ret == SQLITE_ROW){
     *value = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+    return true;
+  }
+  else{
+    sqlite3_finalize(stmt);
+    return false;
+  }
+}
+#endif
+@
+
+Ler um número em ponto-flutuante do Sqlite segue a mesma lógica:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_ELF
+bool _read_float(char *name, float *value){
+  int ret;
+  sqlite3_stmt *stmt;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "SELECT value FROM float_data WHERE name = ?;",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    return false;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    return false;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  if(ret == SQLITE_ROW){
+    *value = sqlite3_column_double(stmt, 0);
     sqlite3_finalize(stmt);
     return true;
   }
