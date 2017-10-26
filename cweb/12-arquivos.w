@@ -463,3 +463,66 @@ void _write_string(char *name, char *value){
 }
 #endif
 @
+
+@*1 Lendo do Banco de Dados.
+
+Para ler as informações armazenadas, vamos precisar de funções com a
+seguinte assinatura:
+
+@<Banco de Dados: Declarações@>+=
+bool _read_integer(char *name, int *value);
+//bool _read_float(char *name, float *value);
+//bool _read_string(char *name, char *value, int n);
+@
+
+E elas serão colocadas em |W|:
+
+@<Funções Weaver@>+=
+  bool (*read_integer)(char *, int *);
+//bool (*read_float)(char *, float *);
+// bool (*read_string)(char *, char *, int);
+@
+@<API Weaver: Inicialização@>+=
+  W.read_integer = &_read_integer;
+//W.read_float = &_read_float;
+//W.read_string = &_read_string;
+@
+
+A função que lê um inteiro checa o primeiro argumento para sabver o
+nome da variável que deve ser lida. O segundo argumento é um ponteiro
+para inteiro que indica onde ela deve olocar o resultado se conseguir
+encontrá-lo. E a função deve retornar um booleano que indica se ela
+conseguiu encontrar a variável pedida ou não. Usando Sqlite, fazemos
+assim:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_ELF
+bool _read_integer(char *name, int *value){
+  int ret;
+  sqlite3_stmt *stmt;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "SELECT value FROM int_data WHERE name = ?;",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    return false;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    return false;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  if(ret == SQLITE_ROW){
+    *value = sqlite3_column_int(stmt, 0);
+    sqlite3_finalize(stmt);
+    return true;
+  }
+  else{
+    sqlite3_finalize(stmt);
+    return false;
+  }
+}
+#endif
+@
