@@ -173,6 +173,22 @@
             <li><a href="#select_sound_device">W.select_sound_device</a></li>
           </ol>
         </ol>
+        <li><a href="#data">Data</a></li>
+        <ol>
+          <li><a href="#data_functions">Data Functions</a></li>
+          <ol>
+            <li><a href="#delete_all">W.delete_all</a></li>
+            <li><a href="#delete_float">W.delete_float</a></li>
+            <li><a href="#delete_integer">W.delete_integer</a></li>
+            <li><a href="#delete_string">W.delete_string</a></li>
+            <li><a href="#read_float">W.read_float</a></li>
+            <li><a href="#read_integer">W.read_float</a></li>
+            <li><a href="#read_string">W.read_string</a></li>
+            <li><a href="#write_float">W.write_float</a></li>
+            <li><a href="#write_integer">W.write_integer</a></li>
+            <li><a href="#write_string">W.write_string</a></li>
+          </ol>
+        </ol>
       </ol>
       <h3 id="#basic">Basic Functions and Variables</h3>
       <h4 id="basic_variable">Variables</h4>
@@ -1277,6 +1293,105 @@
       <p>
         If you pass an invalid number or this function fails for some
         other reason, it returns false.
+      </p>
+      <h3 id="data">Data</h3>
+      <p>
+        Here you will find functions created to store, read and delete
+        data which should be preserved, even after your program
+        ends. If the game is running natively, the data is stored
+        using Sqlite3. If the game is running in a web browser with
+        Web Assembly, the data is stored in cookies with a very long
+        expiration date.
+      </p>
+      <h4 id="data_functions">Data Functions</h4>
+      <h5 id="delete_all">void W.delete_all(void)</h5>
+      <p>
+        This function erases all saved data in your game. Anything
+        stored with <a href="#write_float">W.write_float</a>,
+        <a href="#write_integer">W.write_integer</a> or
+        <a href="#write_string">W.write_string</a> will be erased.
+      </p>
+      <h5 id="delete_float">void W.delete_float(char *name)</h5>
+      <p>
+        This function erases the saved data stored as a floating point
+        number with <a href="#write_float">W.write_float</a> and
+        identified by the name passed as argument. If the data doesn't
+        exist, this function doesn't nothing.
+      </p>
+      <h5 id="delete_integer">void W.delete_integer(char *name)</h5>
+      <p>
+        This function erases the saved data stored as an integer
+        number with <a href="#write_integer">W.write_integer</a> and
+        identified by the name passed as argument. If the data doesn't
+        exist, this function doesn't nothing.
+      </p>
+      <h5 id="delete_string">void W.delete_string(char *name)</h5>
+      <p>
+        This function erases the saved data stored as a string
+        with <a href="#write_string">W.write_string</a> and identified
+        by the name passed as argument. If the data doesn't exist,
+        this function doesn't nothing.
+      </p>
+      <h5 id="read_float">bool W.read_float(char *name, float
+        *value)</h5>
+      <p>
+        This functions reads a floating point number stored in the
+        past with <a href="#write_float">W.write_float</a> function
+        and identified with the name passed as the first argument. If
+        the number is found, it's stored in the pointer passed as
+        second argument and the function returns true. Otherwise, the
+        second argument is ignored and the function returns false.
+      </p>
+      <h5 id="read_integer">bool W.read_integer(char *name, int
+        *value)</h5>
+      <p>
+        This functions reads an integer number stored in the past
+        with <a href="#write_integer">W.write_integer</a> function and
+        identified with the name passed as the first argument. If the
+        number is found, it's stored in the pointer passed as second
+        argument and the function returns true. Otherwise, the second
+        argument is ignored and the function returns false.
+      </p>
+      <h5 id="read_string">bool W.read_string(char *name, char
+        *value, int n)</h5>
+      <p>
+        This functions reads the string stored in the past
+        with <a href="#write_integer">W.write_string</a> function and
+        identified with the name passed as the first argument. If the
+        string is found, it's copied in the array passed as second
+        argument, but not more than <tt>n</tt> bytes are copied and
+        the function returns true. Otherwise, the second argument is
+        ignored and the function returns false.
+      </p>
+      <h5 id="write_float">void W.write_float(char *name, float
+        value)</h5>
+      <p>
+        This function stores a floating point number and identifies it
+        with the name passed as argument. The value is preserved even
+        after the program exits. The value can be overwritten calling
+        this function again passing the same name as argument. If you
+        want to delete the number and it's identifier,
+        call <a href="#delete_float">W.delete_float</a>.
+      </p>
+      <h5 id="write_integer">void W.write_integer(char *name, int
+        value)</h5>
+      <p>
+        This function stores an integer number and identifies it with
+        the name passed as argument. The value is preserved even after
+        the program exits. The value can be overwritten calling this
+        function again passing the same name as argument. If you want
+        to delete the number and it's identifier,
+        call <a href="#delete_integer">W.delete_integer</a>.
+      </p>
+      <h5 id="write_string">void W.write_string(char *name, char
+        *value)</h5>
+      <p>
+        This function stores a string and identifies it with the name
+        passed as argument. The value is preserved even after the
+        program exits. The value can be overwritten calling this
+        function again passing the same name as argument. If you want
+        to delete the string and it's identifier,
+        call <a href="#delete_string">W.delete_string</a>.
       </p>
     </div>
   </body>
