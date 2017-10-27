@@ -471,8 +471,8 @@ seguinte assinatura:
 
 @<Banco de Dados: Declarações@>+=
 bool _read_integer(char *name, int *value);
-//bool _read_float(char *name, float *value);
-//bool _read_string(char *name, char *value, int n);
+bool _read_float(char *name, float *value);
+bool _read_string(char *name, char *value, int n);
 @
 
 E elas serão colocadas em |W|:
@@ -480,12 +480,12 @@ E elas serão colocadas em |W|:
 @<Funções Weaver@>+=
   bool (*read_integer)(char *, int *);
   bool (*read_float)(char *, float *);
-// bool (*read_string)(char *, char *, int);
+  bool (*read_string)(char *, char *, int);
 @
 @<API Weaver: Inicialização@>+=
   W.read_integer = &_read_integer;
-//W.read_float = &_read_float;
-//W.read_string = &_read_string;
+  W.read_float = &_read_float;
+  W.read_string = &_read_string;
 @
 
 A função que lê um inteiro checa o primeiro argumento para sabver o
@@ -560,3 +560,369 @@ bool _read_float(char *name, float *value){
 }
 #endif
 @
+
+E ler uma string tem apenas a diferença de que temos que copiar a
+string preenchida pela função |sqlite3_column_text| antes de infocarmos
+outras funções que tem o potencial de desalocá-la, e devemos copiar
+no máximo o número de bytes passado como tereiro argumento:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_ELF
+bool _read_string(char *name, char *value, int size){
+  int ret;
+  sqlite3_stmt *stmt;
+  const unsigned char *p;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "SELECT value FROM string_data WHERE name = ?;",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    return false;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    return false;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  if(ret == SQLITE_ROW){
+    p = sqlite3_column_text(stmt, 0);
+    strncpy(value, (const char *) p, size);
+    sqlite3_finalize(stmt);
+    return true;
+  }
+  else{
+    sqlite3_finalize(stmt);
+    return false;
+  }
+}
+#endif
+@
+
+Já para lermos um inteiro quando executamos na web via cookies:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_WEB
+bool _read_integer(char *name, int *value){
+  // Primeiro checamos se o cookie existe:
+  int exists = EM_ASM_INT({
+      var nameEQ = $0 + "=";
+      var ca = document.cookie.split(';');
+      for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0)
+          return 1;
+      }
+      return 0;
+    }, name);
+  if(!exists)
+    return false;
+  // Se não encerramos, o valor existe. Vamos obtê-lo:
+  *value = EM_ASM_INT({
+      var nameEQ = $0 + "=";
+      var ca = document.cookie.split(';');
+      for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0)
+          return parseInt(c.substring(nameEQ.length,c.length), 10);
+      }
+    }, name);
+  return true;
+}
+#endif
+@
+
+Ler um número em ponto fluuante do Javascript é exatamente a mesma
+coisa, já que lá é tudo número em ponto flutuante mesmo. Só precisamos
+converter para float usando |EM_ASM_DOUBLE|:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_WEB
+bool _read_float(char *name, float *value){
+  // Primeiro checamos se o cookie existe:
+  int exists = EM_ASM_INT({
+      var nameEQ = $0 + "=";
+      var ca = document.cookie.split(';');
+      for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0)
+          return 1;
+      }
+      return 0;
+    }, name);
+  if(!exists)
+    return false;
+  // Se não encerramos, o valor existe. Vamos obtê-lo:
+  *value = EM_ASM_DOUBLE({
+      var nameEQ = $0 + "=";
+      var ca = document.cookie.split(';');
+      for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0)
+          return parseInt(c.substring(nameEQ.length,c.length), 10);
+      }
+    }, name);
+  return true;
+}
+#endif
+@
+
+Agora ler uma string é um pouco mais complexo, pois precisamos invocar
+algumas funções especiais do Emscripten dentro do código Javascript
+para podermos copiar uma string Javascript para C:
+
+@<Banco de Dados: Definições@>=
+#if W_TARGET == W_WEB
+bool _read_string(char *name, char *value, int size){
+  // Primeiro checamos se o cookie existe:
+  int exists = EM_ASM_INT({
+      var nameEQ = $0 + "=";
+      var ca = document.cookie.split(';');
+      for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0)
+          return 1;
+      }
+      return 0;
+    }, name);
+  if(!exists)
+    return false;
+  // Se não encerramos, o valor existe. Vamos obtê-lo:
+  EM_ASM_({
+      var nameEQ = $0 + "=";
+      var ca = document.cookie.split(';');
+      for(var i=0;i < ca.length;i++) {
+        var c = ca[i];
+        while (c.charAt(0)==' ') c = c.substring(1,c.length);
+        if (c.indexOf(nameEQ) == 0){
+          stringToUTF8(c.substring(nameEQ.length,c.length), $1, $2);
+        }
+      }
+    }, name, value, size);
+  return true;
+}
+#endif
+@
+
+@*1 Removendo do Banco de Dados.
+
+Uma vez que podemos guardar coisas, será importante tambem poder jogar
+fora o que armazenamos, sem substituir por outra coisa. Enfim, devemos
+ser capazes de remover entradas do banco de dados recebendo o seu nome
+omo argumento. As funções que farão isso serão:
+
+@<Banco de Dados: Declarações@>+=
+void _delete_integer(char *name);
+void _delete_float(char *name);
+void _delete_string(char *name);
+void _delete_all(void);
+@
+
+E elas serão colocadas em |W|:
+
+@<Funções Weaver@>+=
+  void (*delete_integer)(char *);
+  void (*delete_float)(char *);
+  void (*delete_string)(char *);
+  void (*delete_all)(void);
+@
+@<API Weaver: Inicialização@>+=
+  W.delete_integer = &_delete_integer;
+  W.delete_float = &_delete_float;
+  W.delete_string = &_delete_string;
+  W.delete_all = &_delete_all;
+@
+
+Apagando um inteiro via Sqlite:
+
+@<Banco de Dados: Definições@>+=
+#if W_TARGET == W_ELF
+void _delete_integer(char *name){
+  int ret;
+  sqlite3_stmt *stmt;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "DELETE FROM int_data WHERE name = ?;",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    return;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    sqlite3_finalize(stmt);
+    return;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+}
+#endif
+@
+
+Apagando um número em ponto-flutuante via Sqlite:
+
+@<Banco de Dados: Definições@>+=
+#if W_TARGET == W_ELF
+void _delete_float(char *name){
+  int ret;
+  sqlite3_stmt *stmt;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "DELETE FROM float_data WHERE name = ?;",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    return;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    sqlite3_finalize(stmt);
+    return;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+}
+#endif
+@
+
+Apagando uma string via Sqlite:
+
+@<Banco de Dados: Definições@>+=
+#if W_TARGET == W_ELF
+void _delete_string(char *name){
+  int ret;
+  sqlite3_stmt *stmt;
+  // Primeiro preparamos a expressão:
+  ret = sqlite3_prepare_v2(database,
+                           "DELETE FROM string_data WHERE name = ?;",
+                           -1, &stmt, 0);
+  if(ret != SQLITE_OK){
+    return;
+  }
+  // Inserindo o nome da variável na expressão:
+  ret = sqlite3_bind_text(stmt, 1, name, -1, SQLITE_STATIC);
+  if(ret != SQLITE_OK){
+    sqlite3_finalize(stmt);
+    return;
+  }
+  // Executando a expressão SQL:
+  ret = sqlite3_step(stmt);
+  sqlite3_finalize(stmt);
+}
+#endif
+@
+
+Apagando tudo via Sqlite:
+
+@<Banco de Dados: Definições@>+=
+#if W_TARGET == W_ELF
+void _delete_all(void){
+  sqlite3_exec(database, "DELETE * FROM int_data; ", NULL, NULL, NULL);
+  sqlite3_exec(database, "DELETE * FROM float_data; ", NULL, NULL, NULL);
+  sqlite3_exec(database, "DELETE * FROM string_data; ", NULL, NULL, NULL);
+}
+#endif
+@
+
+Apagar qualquer valor via cookies é simplesmente colocar qualquer valor nele
+e colocar uma data de valdade no passado:
+
+@<Banco de Dados: Definições@>+=
+#if W_TARGET == W_WEB
+void _delete_integer(char *name){
+  EM_ASM_({
+      document.cookie = "int_" + Pointer_stringify($0) + "=0" +
+        ";expires=Thu, 01 Jan 1970 00:00:01 GMT";
+    }, name);
+}
+void _delete_float(char *name){
+  EM_ASM_({
+      document.cookie = "float_" + Pointer_stringify($0) + "=0" +
+        ";expires=Thu, 01 Jan 1970 00:00:01 GMT";
+    }, name);
+}
+void _delete_string(char *name){
+  EM_ASM_({
+      document.cookie = "string_" + Pointer_stringify($0) + "=0" +
+        ";expires=Thu, 01 Jan 1970 00:00:01 GMT";
+    }, name);
+}
+#endif
+@
+
+Já apagar todos os cookies requer que iteremos sobre todos eles para
+colocar no passado a data de validade:
+
+@<Banco de Dados: Definições@>+=
+#if W_TARGET == W_WEB
+void _delete_all(void){
+  EM_ASM({
+      var cookies = document.cookie.split(";");
+      for (var i = 0; i < cookies.length; i++) {
+        var cookie = cookies[i];
+        var eqPos = cookie.indexOf("=");
+        var name = eqPos > -1 ? cookie.substr(0, eqPos) : cookie;
+        document.cookie = name + "=;expires=Thu, 01 Jan 1970 00:00:00 GMT";
+      }
+    });
+}
+#endif
+@
+
+@*1 Sumário das variáveis e Funções de Leitura e Escrita de Dados.
+
+\macronome As seguintes 10 novas funções foram definidas:
+
+\macrovalor|void W.delete_all(void)|: Apaga do banco de dados todos os
+valores armazenados pelo programa.
+
+\macrovalor|void W.delete_float(char *name)|: Apaga do banco de dados
+o número em ponto-flutuante identificado pela string passada como
+argumento. Ignora valores não-encontrados.
+
+\macrovalor|void W.delete_integer(char *name)|: Apaga do banco de dados
+o número inteiro identificado pela string passada como
+argumento. Ignora valores não-encontrados.
+
+\macrovalor|void W.delete_string(char *name)|: Apaga do banco de dados
+a string identificada pelo argumento. Ignora valores não-encontrados.
+
+\macrovalor|bool W.read_float(char *name, float *value)|: Lê um valor
+identificado pelo primeiro argumento que é um número em ponto
+flutuante do banco de dados e armazena no local apontado pelo segundo
+argumento caso ele seja encontrado. Retorna se a operação foi
+bem-sucedida ou não.
+
+\macrovalor|bool W.read_integer(char *name, int *value)|: Lê um valor
+identificado pelo primeiro argumento que é um número inteiro do banco
+de dados e armazena no local apontado pelo segundo argumento caso ele
+seja encontrado. Retorna se a operação foi bem-sucedida ou não.
+
+\macrovalor|bool W.read_string(char *name, char *value, int n)|: Lê um valor
+identificado pelo primeiro argumento que é uma string do banco de
+dados e armazena no local apontado pelo segundo argumento, copiando no
+máximo o número de bytes passado como terceiro argumento. Retorna se a
+operação foi bem-sucedida ou não.
+
+\macrovalor|void W.write_float(char *name, float value)|: Armazena no
+banco de dados um valor em ponto flutuante identificado pelo nome
+passado como primeiro argumento que deverá ser igual ao segundo
+argumento. O valor será preservado mesmo após o programa se encerrar.
+
+\macrovalor|void W.write_integer(char *name, int value)|: Armazena no
+banco de dados um valor inteiro identificado pelo nome passado como
+primeiro argumento que deverá ser igual ao segundo argumento. O valor
+será preservado mesmo após o programa se encerrar.
+
+\macrovalor|void W.write_string(char *name, char *value)|: Armazena no
+banco de dados uma string identificada pelo nome passado como primeiro
+argumento que deverá ser igual ao segundo argumento. O valor será
+preservado mesmo após o programa se encerrar.
