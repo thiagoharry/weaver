@@ -64,9 +64,9 @@ som. Nestes arquivos iremos inserir também o cabeçalho OpenAL.
 #include <sys/stat.h> //mkdir
 #include <sys/types.h> //mkdir
 #include <time.h> // nanosleep
+#include <pthread.h>
 #ifdef W_MULTITHREAD
 #include <sched.h>
-#include <pthread.h>
 #endif
 #include "sound.h"
 #include "weaver.h"
