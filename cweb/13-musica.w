@@ -95,7 +95,7 @@ E declaramos o nosso array dessas estruturas:
 static struct _music_data _music[W_MAX_MUSIC];
 @
 
-Para preenchermos a variável |status|, vamos definir as seugintes
+Para preenchermos a variável |status|, vamos definir as seguintes
 macros:
 
 @<Som: Variáveis Estáticas@>+=
@@ -113,7 +113,7 @@ E inicializamos a estrutura:
   for(i = 0; i < W_MAX_MUSIC i ++){
     for(j = 0 j < W_MAX_SUBLOOP; j ++){
       _music[i].volume[j] = 0.5;
-      _music[i].status[j] = not_loaded;
+      _music[i].status[j] = NOT_LOADED;
       _music[i].filename[j][0] = '\0';
     }
   }
@@ -121,4 +121,15 @@ E inicializamos a estrutura:
   mpg123_init();
 #endif
 }
+@
+
+Vamos começar a programar as funções que irão controlar a música do
+jogo. Tais funções funcionarão apenas ajustando variáveis. Quem irá
+efetivamente fazer o trabalho são as threads que programaremos depois
+e que terão a responsabilidade de checar as variáveis. A primeira será
+a função que passa a tocar uma música. Ela deve ser invocada como
+|W.play_music("o_fortuna.mp3")|. Então ela terá a assinatura:
+
+@<Som: Declarações@>+=
+  bool _play_music(char *);
 @
