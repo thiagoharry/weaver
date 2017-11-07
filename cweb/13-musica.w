@@ -93,6 +93,11 @@ E declaramos o nosso array dessas estruturas:
 
 @<Som: Variáveis Estáticas@>+=
 static struct _music_data _music[W_MAX_MUSIC];
+#ifdef W_MULTITHREAD
+  // Mutex para quando formos mudar as variáveis que mudam o
+  // comportamento das threads responsáveis pela música:
+  pthread_mutex_t _music_mutex;
+#endif
 @
 
 Para preenchermos a variável |status|, vamos definir as seguintes
@@ -100,9 +105,8 @@ macros:
 
 @<Som: Variáveis Estáticas@>+=
 #define NOT_LOADED 0
-#define STOPPED    1
-#define PLAYING    2
-#define PAUSED     3  
+#define PLAYING    1
+#define PAUSED     2  
 @
 
 E inicializamos a estrutura:
@@ -120,7 +124,22 @@ E inicializamos a estrutura:
 #if W_TARGET = W_ELF
   mpg123_init();
 #endif
+#ifdef W_MULTITHREAD
+  if(pthread_mutex_init(&_music_mutex, NULL) != 0){
+    perror("Initializing music mutex:");
+    exit(1);
+  }
+#endif
 }
+@
+
+Não esqueçamos a finalização. Por hora isso significa apenas finalizar
+o mutex que podemos ou não estar usando:
+
+@<Som: Finalização@>+=
+#ifdef W_MULTITHREAD
+  pthread_mutex_destroy(&_music_mutex);
+#endif
 @
 
 Vamos começar a programar as funções que irão controlar a música do
@@ -132,4 +151,146 @@ a função que passa a tocar uma música. Ela deve ser invocada como
 
 @<Som: Declarações@>+=
   bool _play_music(char *);
+@
+
+A função funcionará achando uma thread disponível que não está tocando
+nada e colocando a música passada como argumento para tocar:
+
+@<Som: Definições@>+=
+bool _play_music(char *name){
+  int i;
+  bool success = false;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_music_mutex);
+#endif
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    if(_music[i].status[_number_of_loops] == NOT_LOADED){
+#if W_TARGET == W_WEB
+      // Se rodando na web, não há threads, apenas tocamos a música.
+      EM_ASM_({
+          document["music" + $0] = new Audio(Pointer_stringify($1));
+          document["music" + $0].play();
+        }, i, name);
+#endif
+      strncpy(_music[i].filename[_number_of_loops], name, 256);
+      _music[i].status[_number_of_loops] = PLAYING;
+      success = true;
+      break;
+    }
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_music_mutex);
+#endif
+  return success;
+}
+@
+
+E adicionando à estrutura |W|:
+
+@<Funções Weaver@>+=
+  bool (*play_music)(char *);
+@
+@<API Weaver: Inicialização@>+=
+  W.play_music = &_play_music;
+@
+
+Uma vez que podemos tocar uma música, podemos querer também pausar
+ela. Para isso, a assinatura da função para pausar será:
+
+@<Som: Declarações@>+=
+  bool _pause_music(char *);
+@
+
+Note que da mesma forma, tudo oque a função de pausar fará será
+ajustar variáveis que depois serão consultadas pelas threads. As
+threads terão a responsabilidade de checar quando essas variáveis são
+modificadas:
+
+@<Som: Definições@>+=
+bool _pause_music(char *name){
+  int i;
+  bool success = false;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_music_mutex);
+#endif
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    if(!strcmp(name, _music[i].filename[_number_of_loops]) &&
+       _music[i].status[_number_of_loops] == PLAYING){
+#if W_TARGET == W_WEB
+      // Se rodando na web, não há threads, apenas pausamos a música.
+      EM_ASM_({
+          if(document["music" + $0] !== undefined){
+            document["music" + $0].pause();
+          }
+        }, i);
+#endif
+      _music[i].status[_number_of_loops] = PAUSED;
+      success = true;
+      break;
+    }
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_music_mutex);
+#endif
+  return success;
+}
+@
+
+E adicionamos à estrutura |W|:
+
+@<Funções Weaver@>+=
+  bool (*pause_music)(char *);
+@
+@<API Weaver: Inicialização@>+=
+  W.pause_music = &_pause_music;
+@
+
+Também pediremos para parar de tocar a música. Isso será equivalente a
+liberar a faixa de música para que ela possa tocar outras coisas:
+
+@<Som: Declarações@>+=
+  bool _stop_music(char *);
+@
+
+E a definição:
+
+@<Som: Definições@>+=
+bool _stop_music(char *name){
+  int i;
+  bool success = false;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_music_mutex);
+#endif
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    if(!strcmp(name, _music[i].filename[_number_of_loops])){
+#if W_TARGET == W_WEB
+      // Se rodando na web, não há threads, apenas pausamos e
+      // removemos a música.
+      EM_ASM_({
+          if(document["music" + $0] !== undefined){
+            document["music" + $0].pause();
+            document["music" + $0] = undefined;
+          }
+        }, i);
+#endif
+      _music[i].filename[_number_of_loops][0] = '\0';
+      _music[i].status[_number_of_loops] = NOT_LOADED;
+      success = true;
+      break;
+    }
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_music_mutex);
+#endif
+  return success;
+}
+@
+
+Adicionando à |W|:
+
+@<Funções Weaver@>+=
+  bool (*stop_music)(char *);
+@
+@<API Weaver: Inicialização@>+=
+  W.stop_music = &_stop_music;
 @
