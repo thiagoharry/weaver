@@ -169,9 +169,11 @@ bool _play_music(char *name){
       // Se rodando na web, não há threads, apenas tocamos a música.
       EM_ASM_({
           document["music" + $0] = new Audio(Pointer_stringify($1));
+          document["music" + $0].volume = 0.5;
           document["music" + $0].play();
         }, i, name);
 #endif
+      _music[i].volume[_number_of_loops] = 0.5; 
       strncpy(_music[i].filename[_number_of_loops], name, 256);
       _music[i].status[_number_of_loops] = PLAYING;
       success = true;
@@ -293,4 +295,35 @@ Adicionando à |W|:
 @
 @<API Weaver: Inicialização@>+=
   W.stop_music = &_stop_music;
+@
+
+Outra coisa importante será obter informações sobre o volume:
+
+@<Som: Declarações@>+=
+float _get_volume(char *);
+@
+
+Se obtivermos um valor negativo, significa que a música indicada não
+existe. Já um valor entre 0 e 1 representa o volume atual daquela
+música:
+
+@<Som: Definições@>+=
+float _get_volume(char *name){
+  int i;
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    if(!strcmp(name, _music[i].filename[_number_of_loops])){
+      return _music[i].volume[_number_of_loops];
+    }
+  }
+  return -1.0;
+}
+@
+
+E adicionamos à estrutura |W|:
+
+@<Funções Weaver@>+=
+  float (*get_volume)(char *);
+@
+@<API Weaver: Inicialização@>+=
+  W.get_volume = &_get_volume;
 @
