@@ -327,3 +327,55 @@ E adicionamos à estrutura |W|:
 @<API Weaver: Inicialização@>+=
   W.get_volume = &_get_volume;
 @
+
+E forneceremos também a API para incrementar o volume a quantidade
+passada como argumento (até o máximo de 1). Para decrementar, pode-se
+passar um número negativo (mas o mínimo será 0):
+
+@<Som: Declarações@>+=
+bool _increase_volume(char *, float);
+@
+
+A função funciona apenas mudando a variável, confiando que a thread
+notará que o valor do volume foi modificado. Ou, se estivermos rodando
+na web, o valor é modificado na hora:
+
+@<Som: Definições@>+=
+  bool _increase_volume(char *name, float increment){
+  int i;
+  bool success = false;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_music_mutex);
+#endif
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    if(!strcmp(name, _music[i].filename[_number_of_loops])){
+      _music[i].volume[_number_of_loops] += increment;
+      if(_music[i].volume[_number_of_loops] > 1.0)
+        _music[i].volume[_number_of_loops] = 1.0;
+      else if(_music[i].volume[_number_of_loops] < 0.0)
+        _music[i].volume[_number_of_loops] = 0.0;
+#if W_TARGET == W_WEB
+      // Se rodando na web, não há threads, apenas atualizamos o
+      // volume:
+      EM_ASM_({
+          if(document["music" + $0] !== undefined){
+            document["music" + $0].volume = $0;
+          }
+        }, _music[i].volume[_number_of_loops]);
+#endif      
+    }
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_music_mutex);
+#endif
+}
+@
+
+E adicionando a estrutura |W|:
+
+@<Funções Weaver@>+=
+  bool (*increase_volume)(char *, float);
+@
+@<API Weaver: Inicialização@>+=
+  W.increase_volume = &_increase_volume;
+@
