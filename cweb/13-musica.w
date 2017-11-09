@@ -362,7 +362,7 @@ na web, o valor é modificado na hora:
             document["music" + $0].volume = $0;
           }
         }, _music[i].volume[_number_of_loops]);
-#endif      
+#endif
     }
   }
 #ifdef W_MULTITHREAD
@@ -379,3 +379,112 @@ E adicionando a estrutura |W|:
 @<API Weaver: Inicialização@>+=
   W.increase_volume = &_increase_volume;
 @
+
+Terminamos de criar nossa API de controle de música. Como já
+escrevemos a sua inicialização, sabemos que nosso programa irá começar
+em um estado correto e inicializado. Ao entrarmos em um novo loop,
+receberemos um estado limpo na estrutura de dados de nossa música. Mas
+temos que garantir que ao sair de um loop ou ao mudar o nosso loop
+atual, faremos nossa parte limpando e deixando as informações de
+música inicializadas como antes.
+
+Isso é o que faremos após um subloop encerrar e retornar o controle
+para o seu loop pai:
+
+@<Código após sairmos de Subloop@>+=
+{
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_music_mutex);
+#endif
+  int i;
+  for(i = 0; i < W_MAX_MUSIC i ++){
+    _music[i].volume[_number_of_loops] = 0.5;
+    _music[i].status[_number_of_loops] = NOT_LOADED;
+    _music[i].filename[_number_of_loops][0] = '\0';
+#if W_TARGET == W_WEB
+    // Se rodando na web, não há threads, paramos imediatamente as
+    // músicas atuais:
+    EM_ASM_({
+        if(document["music" + $0] !== undefined){
+          document["music" + $0].pause();
+          document["music" + $0] = undefined;
+        }
+      }, i);
+#endif
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_music_mutex);
+#endif
+}
+@
+
+E temos a mesma coisa a fazer não só quando retornamos de um subloop,
+as também quando estamos prestes a substituir o loop atual por outro:
+
+@<Código antes de Loop, mas não de Subloop@>+=
+{
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_music_mutex);
+#endif
+  int i;
+  for(i = 0; i < W_MAX_MUSIC i ++){
+    _music[i].volume[_number_of_loops] = 0.5;
+    _music[i].status[_number_of_loops] = NOT_LOADED;
+    _music[i].filename[_number_of_loops][0] = '\0';
+#if W_TARGET == W_WEB
+    // Se rodando na web, não há threads, paramos imediatamente as
+    // músicas atuais:
+    EM_ASM_({
+        if(document["music" + $0] !== undefined){
+          document["music" + $0].pause();
+          document["music" + $0] = undefined;
+        }
+      }, i);
+#endif
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_music_mutex);
+#endif
+}
+@
+
+Mas também temos que nos atentar ao entrar em um novo subloop. Nesses
+casos, se rodamos nativamente, as nossas threads de música devem ser
+capazes de perceber a mudana e se comportar de acordo. Mas se estamos
+executando na web, temos que parar as músicas atuais explicitamente:
+
+@<Código antes de Subloop@>+=
+#if W_TARGET == W_WEB
+{
+  int i;
+  for(i = 0; i < W_MAX_MUSIC i ++){
+    EM_ASM_({
+        if(document["music" + $0] !== undefined){
+          document["music" + $0].pause();
+          document["music" + $0] = undefined;
+        }
+      }, i);
+  }
+}
+#endif
+@
+
+Ainda no caso de música no caso da web, como não temos threads, ao
+sair de um subloop, antes de começar a executar o mesmo loop, temos
+que continuar a tocar as músicas que tocavam nele antes:
+
+@<Código Imediatamente antes de Loop Principal@>+=
+#if W_TARGET == W_WEB
+{
+  int i;
+  for(i = 0; i < W_MAX_MUSIC i ++){
+    EM_ASM_({
+        if(document["music" + $0] !== undefined){
+          document["music" + $0].play();
+        }
+      }, i);
+  }
+}
+#endif
+@
+
