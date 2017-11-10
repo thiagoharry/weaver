@@ -93,6 +93,7 @@ struct _music_data{
   unsigned char output_buffer[W_AUDIO_OUTPUT_BUFFER];
   // Para as threads:
   pthread_t thread;
+  sem_t semaphore;
 #endif
 };
 @
@@ -508,29 +509,82 @@ estejamos rodando nativamente:
 #if W_TARGET == W_ELF
 {
   int i;
-  //int ret;
+  int ret;
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    /*ret = pthread_create(&(_music[i].thread), NULL, &_music_thread,
+    // Criamos um semáforo que começa bloqueado:
+    ret = sem_init(&(_music[i].semaphore), 0, 0);
+    if(ret == -1){
+      perror("sem_init");
+    }
+    ret = pthread_create(&(_music[i].thread), NULL, &_music_thread,
                          &(_music[i]));
     if(ret != 0){
       fprintf(stderr, "WARNING (0): Can't create music threads. "
               "Music may fail to play.");
       break;
-      }*/
+    }
   }
 }
 #endif
 @
 
-E durante o endcerramento, enviamos um sinal para cancelar cada uma
-das threads de música:
+E durante o encerramento, enviamos um sinal para cancelar cada uma
+das threads de música e destruir seus semáforos:
 
 @<Som: Finalização@>+=
 #if W_TARGET == W_ELF
 {
   int i;
-  for(i = 0; i < W_MAX_MUSIC; i ++)
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    sem_destroy(&(_music[i].semaphore));
     pthread_cancel(_music[i].thread);
+  }
 }
 #endif
+@
+
+Vamos ao trabalho da thread de música. Essa thread deve passar por um
+semáforo que só estará livre quando houver uma música para ser tocada
+e ela não estiver pausada. O código para ele será:
+
+@<Som: Declarações@>+=
+  void *_music_thread(void *);
+@
+@<Som: Definições@>+=
+void *_music_thread(void *arg){
+  struct _music_data *music_data = (struct _music_data *) arg;
+  int last_status = music_data -> status[_number_of_loops];
+  int last_loop = _number_of_loops;
+  for(;;){
+    // Ficamos aqui até ter alguma música para tocar:
+    while(music_data -> status != _PLAYING)
+      sem_wait(&(music_data -> semaphore));
+    if(last_loop != _number_of_loops){
+      // Se o loop em que estamos mudou, atualizaremos o status e só
+      // faremos algo na próxima iteração:
+      last_loop = _number_of_loops;
+      last_status = music_data -> status[last_loop];
+    }
+    else{
+      // Se não mudamos o loop em que estamos, primeiro checamos se há
+      // mudança no status:
+      if(last_status != music_data -> status[_number_of_loops]){
+        last_status = music_data -> status[_number_of_loops];
+        // Se o novo status é tocar música, temos que fechar o último
+        // arquivo de áudio aberto e abrir o novo que devemos ler:
+        if(last_status == _PLAYING){
+          // XXX
+        }
+      }
+      else{
+        // Se nada udou e estamos aqui, apenas continuamos a tocar a
+        // música:
+        // XXX
+      }
+    }
+    // No final liberamos o semáforo para que ele tenha a chance de
+    // ser bloqueado pelo programa principal e assim podermos sair:
+    sem_post(&(music_data -> semaphore));
+  }
+}
 @
