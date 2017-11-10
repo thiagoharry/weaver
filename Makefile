@@ -5,7 +5,7 @@ PROJECT_SHARE=${INSTALL_SHARE_DIR}/project
 W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w cweb/03-numeros.w\
         cweb/04-janela.w cweb/05-entrada.w cweb/06-plugins.w\
 	cweb/07-shaders.w cweb/08-resolucao.w cweb/09-som.w cweb/10-gifs.w \
-        cweb/11-imagens.w cweb/12-arquivos.w cweb/99-fim.w
+        cweb/11-imagens.w cweb/12-arquivos.w cweb/13-musica.w cweb/99-fim.w
 CORES=$(shell grep -c ^processor /proc/cpuinfo)
 
 main: program

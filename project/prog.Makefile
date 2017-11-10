@@ -10,7 +10,7 @@ MISC_OBJ=.misc/sqlite3.o
 HEADERS=$(shell echo src/*.h src/weaver/*.h)
 DEFINES=-DW_PROG=\"${PROG}\"
 FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=gnu11
-LIB=-lm -pthread -lX11 -lGL -lXrandr -lGLEW -ldl -lopenal
+LIB=-lm -pthread -lX11 -lGL -lXrandr -lGLEW -ldl -lopenal -lmpg123
 
 SOURCE_TEST=$(shell grep "^\#define[ \t]\+W_SOURCE[ \t]\+W_" conf/conf.h | grep -o "\(W_C\|W_CPP\)")
 ifeq ($(strip $(SOURCE_TEST)),W_C)

@@ -27,7 +27,7 @@ combinar diferentes efeitos sonoros, cada um com suas próprias
 informações de volume para obter efeitos como o de sites como o
 \monoespaco{https://mynoise.net}.
 
-Músicas e efeitos deste ipo devem rodar em threads no caso de
+Músicas e efeitos deste tipo devem rodar em threads no caso de
 programas nativos. Mesmo que nas configurações o projeto Weaver esteja
 configurado para não usar threads. Tais threads não precisam de mutex,
 pois cada uma delas irá interagir apenas lendo e escrevendo em
@@ -74,6 +74,12 @@ valores padrão caso elas não sejam definidas:
 #endif
 @
 
+Como usamos o libmpg123:
+
+@<Som: Declarações@>+=
+#include <mpg123.h>
+@
+  
 A estrutura de dados que armazenará as informações para cada faixa de
 música será:
 
@@ -82,17 +88,22 @@ struct _music_data{
   char filename[W_MAX_SUBLOOP][256];
   int status[W_MAX_SUBLOOP];
   float volume[W_MAX_SUBLOOP];
-#if W_TARGET = W_ELF
+#if W_TARGET == W_ELF
   unsigned char input_buffer[W_AUDIO_INPUT_BUFFER];
   unsigned char output_buffer[W_AUDIO_OUTPUT_BUFFER];
+  // Para as threads:
+  pthread_t thread;
 #endif
-}
+};
 @
 
 E declaramos o nosso array dessas estruturas:
 
+@<Som: Declarações@>+=
+extern struct _music_data _music[W_MAX_MUSIC];
+@
 @<Som: Variáveis Estáticas@>+=
-static struct _music_data _music[W_MAX_MUSIC];
+struct _music_data _music[W_MAX_MUSIC];
 #ifdef W_MULTITHREAD
   // Mutex para quando formos mudar as variáveis que mudam o
   // comportamento das threads responsáveis pela música:
@@ -103,10 +114,10 @@ static struct _music_data _music[W_MAX_MUSIC];
 Para preenchermos a variável |status|, vamos definir as seguintes
 macros:
 
-@<Som: Variáveis Estáticas@>+=
-#define NOT_LOADED 0
-#define PLAYING    1
-#define PAUSED     2  
+@<Som: Declarações@>+=
+#define _NOT_LOADED 0
+#define _PLAYING    1
+#define _PAUSED     2  
 @
 
 E inicializamos a estrutura:
@@ -114,14 +125,14 @@ E inicializamos a estrutura:
 @<Som: Inicialização@>+=
 {
   int i, j;
-  for(i = 0; i < W_MAX_MUSIC i ++){
-    for(j = 0 j < W_MAX_SUBLOOP; j ++){
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    for(j = 0; j < W_MAX_SUBLOOP; j ++){
       _music[i].volume[j] = 0.5;
-      _music[i].status[j] = NOT_LOADED;
+      _music[i].status[j] = _NOT_LOADED;
       _music[i].filename[j][0] = '\0';
     }
   }
-#if W_TARGET = W_ELF
+#if W_TARGET == W_ELF
   mpg123_init();
 #endif
 #ifdef W_MULTITHREAD
@@ -164,7 +175,7 @@ bool _play_music(char *name){
   pthread_mutex_lock(&_music_mutex);
 #endif
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    if(_music[i].status[_number_of_loops] == NOT_LOADED){
+    if(_music[i].status[_number_of_loops] == _NOT_LOADED){
 #if W_TARGET == W_WEB
       // Se rodando na web, não há threads, apenas tocamos a música.
       EM_ASM_({
@@ -175,7 +186,7 @@ bool _play_music(char *name){
 #endif
       _music[i].volume[_number_of_loops] = 0.5; 
       strncpy(_music[i].filename[_number_of_loops], name, 256);
-      _music[i].status[_number_of_loops] = PLAYING;
+      _music[i].status[_number_of_loops] = _PLAYING;
       success = true;
       break;
     }
@@ -217,7 +228,7 @@ bool _pause_music(char *name){
 #endif
   for(i = 0; i < W_MAX_MUSIC; i ++){
     if(!strcmp(name, _music[i].filename[_number_of_loops]) &&
-       _music[i].status[_number_of_loops] == PLAYING){
+       _music[i].status[_number_of_loops] == _PLAYING){
 #if W_TARGET == W_WEB
       // Se rodando na web, não há threads, apenas pausamos a música.
       EM_ASM_({
@@ -226,7 +237,7 @@ bool _pause_music(char *name){
           }
         }, i);
 #endif
-      _music[i].status[_number_of_loops] = PAUSED;
+      _music[i].status[_number_of_loops] = _PAUSED;
       success = true;
       break;
     }
@@ -276,7 +287,7 @@ bool _stop_music(char *name){
         }, i);
 #endif
       _music[i].filename[_number_of_loops][0] = '\0';
-      _music[i].status[_number_of_loops] = NOT_LOADED;
+      _music[i].status[_number_of_loops] = _NOT_LOADED;
       success = true;
       break;
     }
@@ -363,11 +374,13 @@ na web, o valor é modificado na hora:
           }
         }, _music[i].volume[_number_of_loops]);
 #endif
+      success = true;
     }
   }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
 #endif
+  return success;
 }
 @
 
@@ -397,9 +410,9 @@ para o seu loop pai:
   pthread_mutex_lock(&_music_mutex);
 #endif
   int i;
-  for(i = 0; i < W_MAX_MUSIC i ++){
+  for(i = 0; i < W_MAX_MUSIC; i ++){
     _music[i].volume[_number_of_loops] = 0.5;
-    _music[i].status[_number_of_loops] = NOT_LOADED;
+    _music[i].status[_number_of_loops] = _NOT_LOADED;
     _music[i].filename[_number_of_loops][0] = '\0';
 #if W_TARGET == W_WEB
     // Se rodando na web, não há threads, paramos imediatamente as
@@ -427,9 +440,9 @@ as também quando estamos prestes a substituir o loop atual por outro:
   pthread_mutex_lock(&_music_mutex);
 #endif
   int i;
-  for(i = 0; i < W_MAX_MUSIC i ++){
+  for(i = 0; i < W_MAX_MUSIC; i ++){
     _music[i].volume[_number_of_loops] = 0.5;
-    _music[i].status[_number_of_loops] = NOT_LOADED;
+    _music[i].status[_number_of_loops] = _NOT_LOADED;
     _music[i].filename[_number_of_loops][0] = '\0';
 #if W_TARGET == W_WEB
     // Se rodando na web, não há threads, paramos imediatamente as
@@ -457,7 +470,7 @@ executando na web, temos que parar as músicas atuais explicitamente:
 #if W_TARGET == W_WEB
 {
   int i;
-  for(i = 0; i < W_MAX_MUSIC i ++){
+  for(i = 0; i < W_MAX_MUSIC; i ++){
     EM_ASM_({
         if(document["music" + $0] !== undefined){
           document["music" + $0].pause();
@@ -477,7 +490,7 @@ que continuar a tocar as músicas que tocavam nele antes:
 #if W_TARGET == W_WEB
 {
   int i;
-  for(i = 0; i < W_MAX_MUSIC i ++){
+  for(i = 0; i < W_MAX_MUSIC; i ++){
     EM_ASM_({
         if(document["music" + $0] !== undefined){
           document["music" + $0].play();
@@ -488,3 +501,36 @@ que continuar a tocar as músicas que tocavam nele antes:
 #endif
 @
 
+E finalmente, nós temos que iniciar as threads na inicialização caso
+estejamos rodando nativamente:
+
+@<Som: Inicialização@>+=
+#if W_TARGET == W_ELF
+{
+  int i;
+  //int ret;
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    /*ret = pthread_create(&(_music[i].thread), NULL, &_music_thread,
+                         &(_music[i]));
+    if(ret != 0){
+      fprintf(stderr, "WARNING (0): Can't create music threads. "
+              "Music may fail to play.");
+      break;
+      }*/
+  }
+}
+#endif
+@
+
+E durante o endcerramento, enviamos um sinal para cancelar cada uma
+das threads de música:
+
+@<Som: Finalização@>+=
+#if W_TARGET == W_ELF
+{
+  int i;
+  for(i = 0; i < W_MAX_MUSIC; i ++)
+    pthread_cancel(_music[i].thread);
+}
+#endif
+@
