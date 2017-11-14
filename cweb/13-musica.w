@@ -251,7 +251,7 @@ bool _pause_music(char *name){
 #if W_TARGET == W_ELF
       if(_music[i].status[_number_of_loops] == _PLAYING){
         // Reservamos o semáforo para fazer a thread parar de tocar:
-        sem_post(&(_music[i].semaphore));
+        sem_wait(&(_music[i].semaphore));
       }
 #endif
       _music[i].status[_number_of_loops] = _PAUSED;
@@ -306,7 +306,7 @@ bool _stop_music(char *name){
 #if W_TARGET == W_ELF
       if(_music[i].status[_number_of_loops] == _PLAYING){
         // Reservamos o semáforo para fazer a thread parar de tocar:
-        sem_post(&(_music[i].semaphore));
+        sem_wait(&(_music[i].semaphore));
       }
 #endif
       _music[i].filename[_number_of_loops][0] = '\0';
@@ -434,9 +434,6 @@ para o seu loop pai:
 #endif
   int i;
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    _music[i].volume[_number_of_loops] = 0.5;
-    _music[i].status[_number_of_loops] = _NOT_LOADED;
-    _music[i].filename[_number_of_loops][0] = '\0';
 #if W_TARGET == W_WEB
     // Se rodando na web, não há threads, paramos imediatamente as
     // músicas atuais:
@@ -446,7 +443,15 @@ para o seu loop pai:
           document["music" + $0] = undefined;
         }
       }, i);
+#else
+    if(_music[i].status[_number_of_loops] == _PLAYING){
+      // Reservamos o semáforo para fazer a thread parar de tocar:
+      sem_wait(&(_music[i].semaphore));
+    }
 #endif
+    _music[i].volume[_number_of_loops] = 0.5;
+    _music[i].status[_number_of_loops] = _NOT_LOADED;
+    _music[i].filename[_number_of_loops][0] = '\0';
   }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
@@ -464,9 +469,6 @@ as também quando estamos prestes a substituir o loop atual por outro:
 #endif
   int i;
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    _music[i].volume[_number_of_loops] = 0.5;
-    _music[i].status[_number_of_loops] = _NOT_LOADED;
-    _music[i].filename[_number_of_loops][0] = '\0';
 #if W_TARGET == W_WEB
     // Se rodando na web, não há threads, paramos imediatamente as
     // músicas atuais:
@@ -476,7 +478,15 @@ as também quando estamos prestes a substituir o loop atual por outro:
           document["music" + $0] = undefined;
         }
       }, i);
+#else
+    if(_music[i].status[_number_of_loops] == _PLAYING){
+      // Reservamos o semáforo para fazer a thread parar de tocar:
+      sem_wait(&(_music[i].semaphore));
+    }
 #endif
+    _music[i].volume[_number_of_loops] = 0.5;
+    _music[i].status[_number_of_loops] = _NOT_LOADED;
+    _music[i].filename[_number_of_loops][0] = '\0';
   }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
@@ -486,42 +496,53 @@ as também quando estamos prestes a substituir o loop atual por outro:
 
 Mas também temos que nos atentar ao entrar em um novo subloop. Nesses
 casos, se rodamos nativamente, as nossas threads de música devem ser
-capazes de perceber a mudana e se comportar de acordo. Mas se estamos
+capazes de perceber a mudança e se comportar de acordo, mas ainda
+temos que bloquear o semáforo para fazê-las parar. Já se estamos
 executando na web, temos que parar as músicas atuais explicitamente:
 
 @<Código antes de Subloop@>+=
-#if W_TARGET == W_WEB
 {
   int i;
   for(i = 0; i < W_MAX_MUSIC; i ++){
+#if W_TARGET == W_WEB
     EM_ASM_({
         if(document["music" + $0] !== undefined){
           document["music" + $0].pause();
           document["music" + $0] = undefined;
         }
       }, i);
+#else
+    if(_music[i].status[_number_of_loops - 1] == _PLAYING){
+      // Reservamos o semáforo para fazer a thread parar de tocar:
+      sem_wait(&(_music[i].semaphore));
+    }
+#endif
   }
 }
-#endif
 @
 
 Ainda no caso de música no caso da web, como não temos threads, ao
 sair de um subloop, antes de começar a executar o mesmo loop, temos
-que continuar a tocar as músicas que tocavam nele antes:
+que continuar a tocar as músicas que tocavam nele antes. E se estamos
+rodando nativamente, temos que liberar os semáforos neste caso:
 
 @<Código Imediatamente antes de Loop Principal@>+=
-#if W_TARGET == W_WEB
 {
   int i;
   for(i = 0; i < W_MAX_MUSIC; i ++){
+#if W_TARGET == W_WEB
     EM_ASM_({
         if(document["music" + $0] !== undefined){
           document["music" + $0].play();
         }
       }, i);
+#else
+    if(_music[i].status[_number_of_loops] == _PLAYING){
+      sem_post(&(_music[i].semaphore));
+    }
+#endif
   }
 }
-#endif
 @
 
 E finalmente, nós temos que iniciar as threads na inicialização caso
