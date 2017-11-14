@@ -187,8 +187,14 @@ bool _play_music(char *name){
 #endif
       _music[i].volume[_number_of_loops] = 0.5; 
       strncpy(_music[i].filename[_number_of_loops], name, 256);
-      _music[i].status[_number_of_loops] = _PLAYING;
       success = true;
+      if(_music[i].status[_number_of_loops] != _PLAYING){
+        _music[i].status[_number_of_loops] = _PLAYING;
+#if W_TARGET == W_ELF
+      // Liberamos o semáforo para que a thread possa tocar:
+        sem_post(&(_music[i].semaphore));
+#endif
+      }
       break;
     }
   }
@@ -238,6 +244,12 @@ bool _pause_music(char *name){
           }
         }, i);
 #endif
+#if W_TARGET == W_ELF
+      if(_music[i].status[_number_of_loops] == _PLAYING){
+        // Reservamos o semáforo para fazer a thread parar de tocar:
+        sem_post(&(_music[i].semaphore));
+      }
+#endif
       _music[i].status[_number_of_loops] = _PAUSED;
       success = true;
       break;
@@ -286,6 +298,12 @@ bool _stop_music(char *name){
             document["music" + $0] = undefined;
           }
         }, i);
+#endif
+#if W_TARGET == W_ELF
+      if(_music[i].status[_number_of_loops] == _PLAYING){
+        // Reservamos o semáforo para fazer a thread parar de tocar:
+        sem_post(&(_music[i].semaphore));
+      }
 #endif
       _music[i].filename[_number_of_loops][0] = '\0';
       _music[i].status[_number_of_loops] = _NOT_LOADED;
