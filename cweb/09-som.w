@@ -1672,6 +1672,7 @@ void _finalize_all(void){
     p -> finalize(p -> data);
     p = p -> next;
   }
+  _finalize_list[_number_of_loops] = NULL;
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_finalizing_mutex);
 #endif

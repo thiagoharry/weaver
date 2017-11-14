@@ -74,11 +74,15 @@ valores padrão caso elas não sejam definidas:
 #endif
 @
 
-Como usamos o libmpg123:
+Como usamos o libmpg123 e semáforos:
 
 @<Som: Declarações@>+=
+#if W_TARGET == W_ELF
 #include <mpg123.h>
+#include <semaphore.h>
+#endif
 @
+
   
 A estrutura de dados que armazenará as informações para cada faixa de
 música será:
@@ -575,7 +579,7 @@ void *_music_thread(void *arg){
   int last_loop = _number_of_loops;
   for(;;){
     // Ficamos aqui até ter alguma música para tocar:
-    while(music_data -> status != _PLAYING)
+    while(music_data -> status[_number_of_loops] != _PLAYING)
       sem_wait(&(music_data -> semaphore));
     if(last_loop != _number_of_loops){
       // Se o loop em que estamos mudou, atualizaremos o status e só

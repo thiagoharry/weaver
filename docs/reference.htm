@@ -657,7 +657,10 @@
       </p>
       <p>
         If a mouse button starts to get pressed in this frame, it will
-        have the value 1 in the array.
+        have the value 1 in the array. But remember that mouse clicks
+        can be really fast and sometimes the user click and release
+        the button in the same frame. If this happens, you detect just
+        the button being released, so it won't start with the value 1.
       </p>
       <p>
         If a mouse button is getting pressed for more than 1 frame, it
@@ -667,7 +670,9 @@
       <p>
         And if a mouse button is released in this frame, it will have
         a negative value of -1 multiplied by the number of
-        microseconds that the button was kept pressed.
+        microseconds that the button was kept pressed. If the button
+        is pressed and released really fast, in the same frame, the
+        first value different than 0 detected is the value -1, not 1.
       </p>
       <p>
         The variables <tt>W.mouse.x</tt> and <tt>W.mouse.y</tt> stores
