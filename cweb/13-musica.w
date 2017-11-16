@@ -98,6 +98,7 @@ struct _music_data{
   // Para as threads:
   pthread_t thread;
   sem_t semaphore;
+  FILE *fp[W_MAX_SUBLOOP];
 #endif
 };
 @
@@ -135,6 +136,7 @@ E inicializamos a estrutura:
       _music[i].volume[j] = 0.5;
       _music[i].status[j] = _NOT_LOADED;
       _music[i].filename[j][0] = '\0';
+      _music[i].fp[j] = NULL;
     }
   }
 #if W_TARGET == W_ELF
@@ -189,8 +191,16 @@ bool _play_music(char *name){
           document["music" + $0].play();
         }, i, name);
 #endif
-      _music[i].volume[_number_of_loops] = 0.5; 
-      strncpy(_music[i].filename[_number_of_loops], name, 256);
+      _music[i].volume[_number_of_loops] = 0.5;
+      // Gerando o caminho do arquivo da música:
+#if W_DEBUG_LEVEL == 0
+      strncpy(_music[i].filename[_number_of_loops], W_INSTALL_DATA);
+      strcat(_music[i].filename[_number_of_loops], "/");
+#endif
+      strncpy(_music[i].filename[_number_of_loops], "music/",
+              256 - strlen(_music[i].filename[_number_of_loops]));
+      strncpy(_music[i].filename[_number_of_loops], name,
+              256 - strlen(_music[i].filename[_number_of_loops]));
       success = true;
       if(_music[i].status[_number_of_loops] != _PLAYING){
         _music[i].status[_number_of_loops] = _PLAYING;
@@ -311,6 +321,10 @@ bool _stop_music(char *name){
 #endif
       _music[i].filename[_number_of_loops][0] = '\0';
       _music[i].status[_number_of_loops] = _NOT_LOADED;
+      if(_music[i].fp[_number_of_loops] != NULL){
+        fclose(_music[i].fp[_number_of_loops]);
+        _music[i].fp[_number_of_loops] = NULL;
+      }
       success = true;
       break;
     }
@@ -452,6 +466,10 @@ para o seu loop pai:
     _music[i].volume[_number_of_loops] = 0.5;
     _music[i].status[_number_of_loops] = _NOT_LOADED;
     _music[i].filename[_number_of_loops][0] = '\0';
+    if(_music[i].fp[_number_of_loops] != NULL){
+      fclose(_music[i].fp[_number_of_loops]);
+      _music[i].fp[_number_of_loops] = NULL;
+    }
   }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
@@ -480,6 +498,10 @@ as também quando estamos prestes a substituir o loop atual por outro:
       }, i);
 #else
     if(_music[i].status[_number_of_loops] == _PLAYING){
+      if(_music[i].fp[_number_of_loops] != NULL){
+        fclose(_music[i].fp[_number_of_loops]);
+        _music[i].fp[_number_of_loops] = NULL;
+      }
       // Reservamos o semáforo para fazer a thread parar de tocar:
       sem_wait(&(_music[i].semaphore));
     }
