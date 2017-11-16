@@ -99,6 +99,7 @@ struct _music_data{
   pthread_t thread;
   sem_t semaphore;
   FILE *fp[W_MAX_SUBLOOP];
+  mpg123_handle *mpg_handle;
 #endif
 };
 @
@@ -130,8 +131,18 @@ E inicializamos a estrutura:
   
 @<Som: Inicialização@>+=
 {
-  int i, j;
+  int i, j, ret;
+#if W_TARGET == W_ELF
+  mpg123_init();
+#endif
   for(i = 0; i < W_MAX_MUSIC; i ++){
+#if W_TARGET == W_ELF
+    _music[i].mpg_handle = mpg123_new(NULL, &ret);
+    if(_music[i].mpg_handle == NULL){
+      fprintf(stderr, "WARNING: MP3 handling failed.\n");
+    }
+    mpg123_open_feed(_music[i].mpg_handle);
+#endif
     for(j = 0; j < W_MAX_SUBLOOP; j ++){
       _music[i].volume[j] = 0.5;
       _music[i].status[j] = _NOT_LOADED;
@@ -139,9 +150,6 @@ E inicializamos a estrutura:
       _music[i].fp[j] = NULL;
     }
   }
-#if W_TARGET == W_ELF
-  mpg123_init();
-#endif
 #ifdef W_MULTITHREAD
   if(pthread_mutex_init(&_music_mutex, NULL) != 0){
     perror("Initializing music mutex:");
