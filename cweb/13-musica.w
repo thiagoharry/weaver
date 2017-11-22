@@ -131,8 +131,9 @@ E inicializamos a estrutura:
   
 @<Som: Inicialização@>+=
 {
-  int i, j, ret;
+  int i, j;
 #if W_TARGET == W_ELF
+  int ret;
   mpg123_init();
 #endif
   for(i = 0; i < W_MAX_MUSIC; i ++){
@@ -147,7 +148,9 @@ E inicializamos a estrutura:
       _music[i].volume[j] = 0.5;
       _music[i].status[j] = _NOT_LOADED;
       _music[i].filename[j][0] = '\0';
+#if W_TARGET == W_ELF
       _music[i].fp[j] = NULL;
+#endif
     }
   }
 #ifdef W_MULTITHREAD
@@ -202,7 +205,7 @@ bool _play_music(char *name){
       _music[i].volume[_number_of_loops] = 0.5;
       // Gerando o caminho do arquivo da música:
 #if W_DEBUG_LEVEL == 0
-      strncpy(_music[i].filename[_number_of_loops], W_INSTALL_DATA);
+      strncpy(_music[i].filename[_number_of_loops], W_INSTALL_DATA, 256);
       strcat(_music[i].filename[_number_of_loops], "/");
 #endif
       strncpy(_music[i].filename[_number_of_loops], "music/",
@@ -329,10 +332,12 @@ bool _stop_music(char *name){
 #endif
       _music[i].filename[_number_of_loops][0] = '\0';
       _music[i].status[_number_of_loops] = _NOT_LOADED;
+#if W_TARGET == W_ELF
       if(_music[i].fp[_number_of_loops] != NULL){
         fclose(_music[i].fp[_number_of_loops]);
         _music[i].fp[_number_of_loops] = NULL;
       }
+#endif
       success = true;
       break;
     }
@@ -474,10 +479,12 @@ para o seu loop pai:
     _music[i].volume[_number_of_loops] = 0.5;
     _music[i].status[_number_of_loops] = _NOT_LOADED;
     _music[i].filename[_number_of_loops][0] = '\0';
+#if W_TARGET == W_ELF
     if(_music[i].fp[_number_of_loops] != NULL){
       fclose(_music[i].fp[_number_of_loops]);
       _music[i].fp[_number_of_loops] = NULL;
     }
+#endif
   }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
@@ -621,9 +628,12 @@ semáforo que só estará livre quando houver uma música para ser tocada
 e ela não estiver pausada. O código para ele será:
 
 @<Som: Declarações@>+=
-  void *_music_thread(void *);
+#if W_TARGET == W_ELF
+void *_music_thread(void *);
+#endif
 @
 @<Som: Definições@>+=
+#if W_TARGET == W_ELF
 void *_music_thread(void *arg){
   struct _music_data *music_data = (struct _music_data *) arg;
   int last_status = music_data -> status[_number_of_loops];
@@ -660,4 +670,5 @@ void *_music_thread(void *arg){
     sem_post(&(music_data -> semaphore));
   }
 }
+#endif
 @

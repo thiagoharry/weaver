@@ -1538,10 +1538,10 @@ int _iWbreakpoint_(char *filename, unsigned long line){
   return _new_breakpoint(_internal_arena, filename, line);
 }
 #else
-int _Wbreakpoint_(void){
+int _Wbreakpoint(void){
   return _new_breakpoint(_user_arena);
 }
-int _iWbreakpoint(void){
+int _iWbreakpoint_(void){
   return _new_breakpoint(_internal_arena);
 }
 #endif

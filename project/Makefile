@@ -161,6 +161,7 @@ install:
 	install -d ${INSTALL_DATA_DIR}/
 	cp -r shaders/ ${INSTALL_DATA_DIR}/
 	cp -r sound/ ${INSTALL_DATA_DIR}/
+	cp -r image/ ${INSTALL_DATA_DIR}/
 	install -d ${INSTALL_PROG_DIR}
 	install -m755 -c ${PROG} ${INSTALL_PROG_DIR}
 else

@@ -1896,7 +1896,14 @@ de renderização, separada da engine de física e controle do jogo.
     int last_type;
     int i;
     bool first_element = true;
+    float time_float;
     struct _shader *current_shader;
+    // Vamos passar para os shaders o tempo em segundos na forma de um
+    // float. Isso é para calcularmos com mais precisão minimizando
+    // underflows
+    i = W.t / 1000000;
+    time_float = (float) i;
+    time_float += ((float) (W.t - 1000000 * i)) / 1000000.0;
     // Não usamos teste de profundidade ao desenhar interfaces:
     glDisable(GL_DEPTH_TEST);
     // Ativamos os vértices das interfaces:
@@ -1933,8 +1940,7 @@ de renderização, separada da engine de física e controle do jogo.
         glUniform2f(current_shader -> _uniform_object_size,
                     _interface_queue[_number_of_loops][i] -> width,
                     _interface_queue[_number_of_loops][i] -> height);
-        glUniform1f(current_shader -> _uniform_time,
-                    (float) W.t / (float) 1000000);
+        glUniform1f(current_shader -> _uniform_time, time_float);
         glUniform1i(current_shader -> _uniform_integer,
                     _interface_queue[_number_of_loops][i] -> integer);
         glUniformMatrix4fv(current_shader -> _uniform_model_view, 1, false,
