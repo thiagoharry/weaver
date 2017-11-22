@@ -162,10 +162,19 @@ E inicializamos a estrutura:
 }
 @
 
-Não esqueçamos a finalização. Por hora isso significa apenas finalizar
-o mutex que podemos ou não estar usando:
+Não esqueçamos a finalização. Finalizamos os possíveis mutex e
+estruturas do mpg123:
 
 @<Som: Finalização@>+=
+#if W_TARGET == W_ELF
+{
+  int i;
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    mpg123_delete(_music[i].mpg_handle);
+  }
+  mpg123_exit();
+}
+#endif
 #ifdef W_MULTITHREAD
   pthread_mutex_destroy(&_music_mutex);
 #endif
@@ -644,7 +653,10 @@ void *_music_thread(void *arg){
       sem_wait(&(music_data -> semaphore));
     if(last_loop != _number_of_loops){
       // Se o loop em que estamos mudou, atualizaremos o status e só
-      // faremos algo na próxima iteração:
+      // faremos algo na próxima iteração. Podemos ter que fechar um
+      // arquivo aberto:
+      if(last_loop > _number_of_loops && music_data -> fp[last_loop] != NULL)
+        fclose(music_data -> fp[last_loop]);
       last_loop = _number_of_loops;
       last_status = music_data -> status[last_loop];
     }
@@ -653,16 +665,61 @@ void *_music_thread(void *arg){
       // mudança no status:
       if(last_status != music_data -> status[_number_of_loops]){
         last_status = music_data -> status[_number_of_loops];
-        // Se o novo status é tocar música, temos que fechar o último
-        // arquivo de áudio aberto e abrir o novo que devemos ler:
-        if(last_status == _PLAYING){
-          // XXX
+        // Se o novo status é parar uma música, temos que fechar o seu
+        // arquivo de áudio:
+        if(last_status == _NOT_LOADED){
+          fclose(music_data -> fp[last_loop]);
+          music_data -> fp[last_loop] = NULL;
+        }
+        // Se o novo status é tocar uma nova música, vamos abrir o
+        // arquivo:
+        else if(last_status == _PLAYING){
+          music_data -> fp[last_loop] =
+            fopen(music_data -> filename[last_loop], "r");
+          if(music_data -> fp[last_loop] == NULL)
+            music_data -> status[last_loop] = _NOT_LOADED;
         }
       }
-      else{
-        // Se nada udou e estamos aqui, apenas continuamos a tocar a
+      else if(music_data -> fp[last_loop] != NULL){
+        int ret;
+        size_t dummy;
+        // Se nada mudou e estamos aqui, apenas continuamos a tocar a
         // música:
-        // XXX
+        ret = fread(music_data -> input_buffer, sizeof(unsigned char),
+                    W_AUDIO_INPUT_BUFFER, music_data -> fp[last_loop]);
+        if(ret < W_AUDIO_INPUT_BUFFER){ // Se acabou, começa de novo:
+          fclose(music_data -> fp[last_loop]);
+          music_data -> fp[last_loop] =
+            fopen(music_data -> filename[last_loop], "r");
+          if(music_data -> fp[last_loop] == NULL)
+            music_data -> status[last_loop] = _NOT_LOADED;
+        }
+        // Decodificando o MP3:
+        ret = mpg123_decode(music_data -> mpg_handle,
+                            music_data -> input_buffer,
+                            ret,
+                            music_data -> output_buffer,
+                            W_AUDIO_OUTPUT_BUFFER,
+                            &dummy);
+        if(ret == MPG123_ERR){
+          fprintf(stderr, "ERROR: decoding mp3: %s",
+                  mpg123_strerror(music_data -> mpg_handle));
+          fclose(music_data -> fp[last_loop]);
+          music_data -> fp[last_loop] = NULL;
+        }
+        else{
+          /// XXX: Escreve
+          // Decodificou sem erros, tocamos o que temos:
+          while(ret != MPG123_ERR && ret != MPG123_NEED_MORE){
+            ret = mpg123_decode(music_data -> mpg_handle,
+                                NULL,
+                                0,
+                                music_data -> output_buffer,
+                                W_AUDIO_OUTPUT_BUFFER,
+                                &dummy);
+            // XXX: Escreve:
+          }
+        }
       }
     }
     // No final liberamos o semáforo para que ele tenha a chance de
