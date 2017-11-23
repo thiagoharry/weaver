@@ -379,6 +379,7 @@ bool _destroy_interface(struct interface *inter){
       break;
   if(i == W_MAX_INTERFACES)
     return false; // Não encontrada
+  @<Código ao Remover Interface@>
   switch(_interfaces[_number_of_loops][i].type){
     //@<Desaloca Interfaces de Vários Tipos@>
   case W_INTERFACE_SQUARE:
@@ -387,7 +388,6 @@ bool _destroy_interface(struct interface *inter){
   default: // Nos casos mais simples é só remover o tipo
     _interfaces[_number_of_loops][i].type = W_NONE;
   }
-  @<Código ao Remover Interface@>
 #ifdef W_MULTITHREAD
   if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex)) != 0){
     perror("Error destroying mutex from interface:");
@@ -1690,7 +1690,7 @@ void _compile_and_insert_new_shader(char *dir, int position){
 @*1 Renderizando.
 
 Interfaces que tem o mesmo shader devem ser renderizadas em sequência
-para evitarmos aso máximo a ação de termos que trocar de shaders. Por
+para evitarmos ao máximo a ação de termos que trocar de shaders. Por
 isso, é importante que mantenhamos uma lista de ponteiros para shaders
 e que seja ordenada de acordo com o seu shader. E cada loop também
 deve possuir a sua própria lista de interfaces.
