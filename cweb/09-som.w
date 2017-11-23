@@ -261,6 +261,7 @@ bool _select_sound_device(int position){
     @<Som: Antes de Trocar de Dispositivo@>
     alcCloseDevice(default_device);
     default_device = alcOpenDevice(W.sound_device_name[position]);
+    @<Som: Após Trocar de Dispositivo@>
     return true;
 }
 @
