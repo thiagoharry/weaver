@@ -128,6 +128,7 @@ void _finalize_sound(void);
 
 @<Som: Definições@>=
 void _finalize_sound(void){
+    @<Som: Primeira Finalização@>
     @<Som: Finalização@>
     // Fechar o dispositivo é a última coisa que deve ser feita ao
     // encerrar o som.

@@ -51,26 +51,10 @@ nem sempre suportam o formato. Além disso, como as patentes do formato
 estão morrendo, aparentemente elas não causarão mais problemas. Sendo
 assim, a biblioteca escolhida para rodar nativamente será a mpg123.
 
-Quando vamos ler um arquivo MP3, precisaremos de um buffer para
-colocar o que lemos e outro para colocar o áudio extraído dele. O
-tamanho do buffer também deverá ser obtido de uma macro, caso
-contrário valores razoáveis serão usados por padrão. As macros serão
-|W_AUDIO_INPUT_BUFFER| e |W_AUDIO_OUTPUT_BUFFER|. Como já mencionamos
-as 3 macros que serão relevantes para nós, vamos preencher seus
-valores padrão caso elas não sejam definidas:
-
 @(project/src/weaver/conf_end.h@>+=
 // Por padrão, teremos só uma faixa de áudio:
 #ifndef W_MAX_MUSIC
 #define W_MAX_MUSIC 1
-#endif
-// Os buffers de áudio tem o mesmo tamanho do usado no programa de
-// exemplo na documentação do mpg123:
-#ifndef W_AUDIO_INPUT_BUFFER
-#define W_AUDIO_INPUT_BUFFER 16384
-#endif
-#ifndef W_AUDIO_OUTPUT_BUFFER
-#define W_AUDIO_OUTPUT_BUFFER 32768
 #endif
 @
 
@@ -93,12 +77,11 @@ struct _music_data{
   int status[W_MAX_SUBLOOP];
   float volume[W_MAX_SUBLOOP];
 #if W_TARGET == W_ELF
-  unsigned char input_buffer[W_AUDIO_INPUT_BUFFER];
-  unsigned char output_buffer[W_AUDIO_OUTPUT_BUFFER];
+  unsigned char *buffer;
+  size_t buffer_size;
   // Para as threads:
   pthread_t thread;
   sem_t semaphore;
-  FILE *fp[W_MAX_SUBLOOP];
   // Para decodificar MP3:
   mpg123_handle *mpg_handle;
   // Para lidar com o OpenAL:
@@ -145,16 +128,16 @@ E inicializamos a estrutura:
     if(_music[i].mpg_handle == NULL){
       fprintf(stderr, "WARNING: MP3 handling failed.\n");
     }
-    mpg123_open_feed(_music[i].mpg_handle);
+    _music[i].buffer_size = mpg123_outblock(_music[i].mpg_handle);
+    _music[i].buffer = (unsigned char *) Walloc(_music[i].buffer_size);
 #endif
     for(j = 0; j < W_MAX_SUBLOOP; j ++){
       _music[i].volume[j] = 0.5;
       _music[i].status[j] = _NOT_LOADED;
       _music[i].filename[j][0] = '\0';
 #if W_TARGET == W_ELF
-      _music[i].fp[j] = NULL;
-      alGenSources(1, music[i].sound_source);
-      alGenBuffers(1, music[i].openal_buffer);
+      alGenSources(1, &_music[i].sound_source);
+      alGenBuffers(1, &_music[i].openal_buffer);
 #endif
     }
   }
@@ -170,14 +153,16 @@ E inicializamos a estrutura:
 Não esqueçamos a finalização. Finalizamos os possíveis mutex e
 estruturas do mpg123:
 
-@<Som: Finalização@>+=
+@<Som: Primeira Finalização@>+=
 #if W_TARGET == W_ELF
 {
   int i;
-  for(i = 0; i < W_MAX_MUSIC; i ++){
+  for(i = W_MAX_MUSIC - 1; i >= 0; i --){
+    mpg123_close(_music[i].mpg_handle);
     mpg123_delete(_music[i].mpg_handle);
-    alDeleteSources(1, music[i].sound_source);
-    alDeleteBuffers(1, music[i].openal_buffer);
+    alDeleteSources(1, &_music[i].sound_source);
+    alDeleteBuffers(1, &_music[i].openal_buffer);
+    Wfree(_music[i].buffer);
   }
   mpg123_exit();
 }
@@ -195,7 +180,7 @@ a fonte de som atual caso troquemos o dispositio usado para tocar:
 {
   int i;
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    alGenSources(1, music[i].sound_source);
+    alGenSources(1, &_music[i].sound_source);
   }
 }
 #endif
@@ -204,12 +189,12 @@ a fonte de som atual caso troquemos o dispositio usado para tocar:
 E depois de fazermos a troca de dispositivo, geramos novamente a fonte
 de som:
 
-@<Som: Após de Trocar de Dispositivo@>
+@<Som: Após Trocar de Dispositivo@>=
 #if W_TARGET == W_ELF
 {
   int i;
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    alDeleteSources(1, music[i].sound_source);
+    alDeleteSources(1, &_music[i].sound_source);
   }
 }
 #endif
@@ -248,13 +233,14 @@ bool _play_music(char *name){
 #endif
       _music[i].volume[_number_of_loops] = 0.5;
       // Gerando o caminho do arquivo da música:
+      _music[i].filename[_number_of_loops][0] = '\0';
 #if W_DEBUG_LEVEL == 0
       strncpy(_music[i].filename[_number_of_loops], W_INSTALL_DATA, 256);
       strcat(_music[i].filename[_number_of_loops], "/");
 #endif
-      strncpy(_music[i].filename[_number_of_loops], "music/",
+      strncat(_music[i].filename[_number_of_loops], "music/",
               256 - strlen(_music[i].filename[_number_of_loops]));
-      strncpy(_music[i].filename[_number_of_loops], name,
+      strncat(_music[i].filename[_number_of_loops], name,
               256 - strlen(_music[i].filename[_number_of_loops]));
       success = true;
       if(_music[i].status[_number_of_loops] != _PLAYING){
@@ -376,12 +362,6 @@ bool _stop_music(char *name){
 #endif
       _music[i].filename[_number_of_loops][0] = '\0';
       _music[i].status[_number_of_loops] = _NOT_LOADED;
-#if W_TARGET == W_ELF
-      if(_music[i].fp[_number_of_loops] != NULL){
-        fclose(_music[i].fp[_number_of_loops]);
-        _music[i].fp[_number_of_loops] = NULL;
-      }
-#endif
       success = true;
       break;
     }
@@ -523,12 +503,6 @@ para o seu loop pai:
     _music[i].volume[_number_of_loops] = 0.5;
     _music[i].status[_number_of_loops] = _NOT_LOADED;
     _music[i].filename[_number_of_loops][0] = '\0';
-#if W_TARGET == W_ELF
-    if(_music[i].fp[_number_of_loops] != NULL){
-      fclose(_music[i].fp[_number_of_loops]);
-      _music[i].fp[_number_of_loops] = NULL;
-    }
-#endif
   }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
@@ -557,10 +531,6 @@ as também quando estamos prestes a substituir o loop atual por outro:
       }, i);
 #else
     if(_music[i].status[_number_of_loops] == _PLAYING){
-      if(_music[i].fp[_number_of_loops] != NULL){
-        fclose(_music[i].fp[_number_of_loops]);
-        _music[i].fp[_number_of_loops] = NULL;
-      }
       // Reservamos o semáforo para fazer a thread parar de tocar:
       sem_wait(&(_music[i].semaphore));
     }
@@ -682,7 +652,11 @@ void *_music_thread(void *arg){
   struct _music_data *music_data = (struct _music_data *) arg;
   int last_status = music_data -> status[_number_of_loops];
   int last_loop = _number_of_loops;
-  int current_format;
+  int ret;
+  int current_format = 0xfff5;
+  size_t size;
+  long rate;
+  int channels, encoding, bits;
   for(;;){
     // Ficamos aqui até ter alguma música para tocar:
     while(music_data -> status[_number_of_loops] != _PLAYING)
@@ -691,8 +665,6 @@ void *_music_thread(void *arg){
       // Se o loop em que estamos mudou, atualizaremos o status e só
       // faremos algo na próxima iteração. Podemos ter que fechar um
       // arquivo aberto:
-      if(last_loop > _number_of_loops && music_data -> fp[last_loop] != NULL)
-        fclose(music_data -> fp[last_loop]);
       last_loop = _number_of_loops;
       last_status = music_data -> status[last_loop];
     }
@@ -701,85 +673,46 @@ void *_music_thread(void *arg){
       // mudança no status:
       if(last_status != music_data -> status[_number_of_loops]){
         last_status = music_data -> status[_number_of_loops];
-        // Se o novo status é parar uma música, temos que fechar o seu
-        // arquivo de áudio:
-        if(last_status == _NOT_LOADED){
-          fclose(music_data -> fp[last_loop]);
-          music_data -> fp[last_loop] = NULL;
-        }
         // Se o novo status é tocar uma nova música, vamos abrir o
         // arquivo:
-        else if(last_status == _PLAYING){
-          music_data -> fp[last_loop] =
-            fopen(music_data -> filename[last_loop], "r");
-          if(music_data -> fp[last_loop] == NULL)
-            music_data -> status[last_loop] = _NOT_LOADED;
+        if(last_status == _PLAYING){
+          ret = mpg123_open(music_data -> mpg_handle,
+                      music_data -> filename[last_loop]);
+          if(ret != MPG123_OK){
+            printf("Falha ao abrir %s\n", music_data -> filename[last_loop]);
+            music_data -> status[last_status] = _NOT_LOADED;
+          }
+          else{
+            mpg123_getformat(music_data -> mpg_handle,
+                             &rate, &channels, &encoding);
+            bits = mpg123_encsize(encoding) * 8;
+            current_format = 0xfff5;
+            if(bits == 8){
+              if(channels == 1) current_format = AL_FORMAT_MONO8;
+              else if(channels == 2) current_format = AL_FORMAT_STEREO8;
+            } else if(bits == 16){
+              if(channels == 1) current_format = AL_FORMAT_MONO16;
+              else if(channels == 2) current_format = AL_FORMAT_STEREO16;
+            } 
+          }
         }
       }
-      else if(music_data -> fp[last_loop] != NULL){
-        int ret;
-        size_t dummy;
-        // Se nada mudou e estamos aqui, apenas continuamos a tocar a
-        // música:
-        ret = fread(music_data -> input_buffer, sizeof(unsigned char),
-                    W_AUDIO_INPUT_BUFFER, music_data -> fp[last_loop]);
-        if(ret < W_AUDIO_INPUT_BUFFER){ // Se acabou, começa de novo:
-          fclose(music_data -> fp[last_loop]);
-          music_data -> fp[last_loop] =
-            fopen(music_data -> filename[last_loop], "r");
-          if(music_data -> fp[last_loop] == NULL)
-            music_data -> status[last_loop] = _NOT_LOADED;
-        }
-        // Decodificando o MP3:
-        ret = mpg123_decode(music_data -> mpg_handle,
-                            music_data -> input_buffer,
-                            ret,
-                            music_data -> output_buffer,
-                            W_AUDIO_OUTPUT_BUFFER,
-                            &dummy);
-        if(ret == MPG123_ERR){
-          fprintf(stderr, "ERROR: decoding mp3: %s",
-                  mpg123_strerror(music_data -> mpg_handle));
-          fclose(music_data -> fp[last_loop]);
-          music_data -> fp[last_loop] = NULL;
-        }
-        else if(ret == MPG123_NEW_FORMAT){
-          long rate;
-          int channels, enc;
-          // Novo arquivo de áudio, temos que atualizar informações
-          // sobre o número de bits de cada amostra, o número de
-          // canais e com está codificado:
-          current_format = 0xfff5;
-          mpg123_getformat(music_data -> mpg_handle, &rate, &channels, &enc);
-          if(rate == 8){
-            if(channels == 1) format = AL_FORMAT_MONO8;
-            else if(channels == 2) format = AL_FORMAT_STEREO8;
-          } else if(rate == 16){
-            if(channels == 1) format = AL_FORMAT_MONO16;
-            else if(channels == 2) format = AL_FORMAT_STEREO16;
-          }
-          if(format == 0xfff5){
-            // MP3 com som em formato não-suportado
-            fprintf(stderr, "WARNING(0): Combination of channel and bitrate not "
-                    "supported in %s (sound have %d channels and %d bitrate "
-                    "while we support just 1 or 2 channels and 8 or 16 as "
-                    "bitrate).\n", music_data -> filename, channels, rate);
-            fclose(music_data -> fp[last_loop]);
-            music_data -> fp[last_loop] = NULL;
-          }
+      else if(music_data -> status[last_status] == _PLAYING){
+        ret = mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                          music_data -> buffer_size, &size);
+        
+        if(!ret){ // Se acabou, começa de novo:
+          mpg123_close(music_data -> mpg_handle);
+          mpg123_open(music_data -> mpg_handle,
+                      music_data -> filename[last_loop]);
         }
         else{
-          /// XXX: Escreve
-          // Decodificou sem erros, tocamos o que temos:
-          while(ret != MPG123_ERR && ret != MPG123_NEED_MORE){
-            ret = mpg123_decode(music_data -> mpg_handle,
-                                NULL,
-                                0,
-                                music_data -> output_buffer,
-                                W_AUDIO_OUTPUT_BUFFER,
-                                &dummy);
-            // XXX: Escreve:
-          }
+          /// Escreve e envia para o OpenAL
+          alBufferData(music_data -> openal_buffer, current_format,
+                       music_data -> buffer,
+                       (ALsizei) size, 44100);
+          alSourcei(music_data -> sound_source,
+                    AL_BUFFER, music_data -> openal_buffer);
         }
       }
     }
