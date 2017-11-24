@@ -680,7 +680,7 @@ void *_music_thread(void *arg){
                       music_data -> filename[last_loop]);
           if(ret != MPG123_OK){
             printf("Falha ao abrir %s\n", music_data -> filename[last_loop]);
-            music_data -> status[last_status] = _NOT_LOADED;
+            music_data -> status[last_loop] = _NOT_LOADED;
           }
           else{
             mpg123_getformat(music_data -> mpg_handle,
@@ -693,14 +693,21 @@ void *_music_thread(void *arg){
             } else if(bits == 16){
               if(channels == 1) current_format = AL_FORMAT_MONO16;
               else if(channels == 2) current_format = AL_FORMAT_STEREO16;
-            } 
+            }
+            if(current_format == 0xfff5){
+              fprintf(stderr,
+                      "WARNING(0): Combination of channel and bitrate not "
+                      "supported (sound have %d channels and %d bitrate while "
+                      "we support just 1 or 2 channels and 8 or 16 as "
+                      "bitrate).\n",
+                      channels, bits);
+            }
           }
         }
       }
-      else if(music_data -> status[last_status] == _PLAYING){
+      else if(music_data -> status[last_loop] == _PLAYING){
         ret = mpg123_read(music_data -> mpg_handle, music_data -> buffer,
                           music_data -> buffer_size, &size);
-        
         if(!ret){ // Se acabou, começa de novo:
           mpg123_close(music_data -> mpg_handle);
           mpg123_open(music_data -> mpg_handle,
@@ -710,9 +717,10 @@ void *_music_thread(void *arg){
           /// Escreve e envia para o OpenAL
           alBufferData(music_data -> openal_buffer, current_format,
                        music_data -> buffer,
-                       (ALsizei) size, 44100);
+                       (ALsizei) size, rate);
           alSourcei(music_data -> sound_source,
                     AL_BUFFER, music_data -> openal_buffer);
+          
         }
       }
     }
