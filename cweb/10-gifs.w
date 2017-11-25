@@ -1314,7 +1314,7 @@ imagens finais:
       Wfree(frame_duration);
       returned_data = NULL;
       goto error_gif;
-  } 
+    }
   }
   // A identificação das texturas que vão para a placa de vídeo:
   returned_data = (GLuint *) Walloc((*number_of_frames) * sizeof(GLuint));
@@ -1791,6 +1791,21 @@ void _finalize_interface_texture(void *data){
   struct interface *p = (struct interface *) data;
   glDeleteTextures(p -> number_of_frames, p -> _texture);
 }
+@
+
+Funções como |_finalize_after| são úteis para garantirmos que os
+recursos alocados pelas interfaces com textura sejam liberados da
+memória ao sairmos do loop atual. Mas caso nós queiramos destruir uma
+interface por meio de |W.destroy_interface|, precisamos fazer tal
+limpeza manualmente:
+
+@<Código ao Remover Interface@>+=
+{
+  _finalize_this(&_interfaces[_number_of_loops][i], true);
+  Wfree(_interfaces[_number_of_loops][i]._texture);
+  _finalize_interface_texture((void *) &_interfaces[_number_of_loops][i]);
+}
+@
 
 @*1 Shader e Renderização.
 

@@ -1713,6 +1713,8 @@ ser desalocadas depois:
       if(p -> data == data){
         if(p -> prev != NULL)
           p -> prev -> next = p -> next;
+        else
+          _finalize_list[_number_of_loops] = p -> next;
         if(p -> next != NULL)
           p -> next -> prev = p -> prev;
         if(remove)
