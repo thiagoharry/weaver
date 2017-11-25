@@ -934,6 +934,7 @@ suporte à transparência.
 glClearColor(W_DEFAULT_COLOR, 1.0f);
 // Ativamos o buffer de profundidade:
 glEnable(GL_DEPTH_TEST);
+glDepthFunc(GL_LEQUAL);
 // Descartamos a face interna de qualquer triângulo (otimização necessária)
 glEnable(GL_CULL_FACE);
 // Ativamos transparência

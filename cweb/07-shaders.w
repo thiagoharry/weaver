@@ -1904,8 +1904,8 @@ de renderização, separada da engine de física e controle do jogo.
     i = W.t / 1000000;
     time_float = (float) i;
     time_float += ((float) (W.t - 1000000 * i)) / 1000000.0;
-    // Não usamos teste de profundidade ao desenhar interfaces:
-    glDisable(GL_DEPTH_TEST);
+    // Limpamos o buffer de profundidade para desenhar interfaces
+    glClear(GL_DEPTH_BUFFER_BIT);
     // Ativamos os vértices das interfaces:
     glBindVertexArray(_interface_VAO);
     // Agora iteramos sobre as interfaes renderizando-as. Como elas
