@@ -1901,9 +1901,9 @@ de renderização, separada da engine de física e controle do jogo.
     // Vamos passar para os shaders o tempo em segundos na forma de um
     // float. Isso é para calcularmos com mais precisão minimizando
     // underflows
-    i = W.t / 1000000;
-    time_float = (float) i;
-    time_float += ((float) (W.t - 1000000 * i)) / 1000000.0;
+    i = W.t % 5000000;
+    time_float = (float) i / 1000000;
+    time_float += ((float) (i - 1000000 * time_float)) / 1000000.0;
     // Limpamos o buffer de profundidade para desenhar interfaces
     glClear(GL_DEPTH_BUFFER_BIT);
     // Ativamos os vértices das interfaces:

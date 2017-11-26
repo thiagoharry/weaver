@@ -466,7 +466,7 @@ arquivos em diferentes threads.
 
 Mas é importante que tenhamos terminado de carregar todos os
 arquivos da rede antes de sairmos do loop atual. Caso contrário,
-estaremos nos coloando à mercê de falhas de segmentação. Ao encerrar o
+estaremos nos colocando à mercê de falhas de segmentação. Ao encerrar o
 loop atual, marcamos como disponíveis as regiões alocadas no loop. Mas
 se tem um código assíncrono preenchendo tais regiões, isso causará
 problemas. Por causa disso, teremos que manter uma contagem de
