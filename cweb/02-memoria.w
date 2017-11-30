@@ -1933,8 +1933,9 @@ renderiza as coisas de nosso jogo na tela.
 As funções |Wloop| e |Wsubloop| tem a seguinte declaração:
 
 @<Cabeçalhos Weaver@>+=
-void Wloop(MAIN_LOOP (*f)(void)) __attribute__ ((noreturn));
+void _Wloop(MAIN_LOOP (*f)(void)) __attribute__ ((noreturn));
 void Wsubloop(MAIN_LOOP (*f)(void)) __attribute__ ((noreturn));
+#define Wloop(a) ((W.pending_files)?(false):(_Wloop(a)))
 @
 
 Note que estas funções nunca retornam. O modo de sair de um loop é
@@ -1945,6 +1946,18 @@ mantermos dentro das restrições trazidas pelo Emscripten cujo modelo
 de loop principal não prevê um retorno. Mas a restrição também torna
 mais explícita a sequência de loops pela qual um jogo passa.
 
+O |Wloop| também é ignorado quando a variável |W.pendding_files| tem
+um valor diferente dde zero. Esta é uma variável que definiremos
+depois, mas basicamente irá armazenar quantos arquivos aindda estão
+pendentes para terminar de ser processados. Nos recusaremos a mudar o
+loop vigente se há arquivos pendentes, pois enquanto eles estão sendo
+lidos, poddem estar sendo copiados para uma região dde memória que
+será desalocada quando sairmos do loop. Então é bom ter em mente que a
+função |Wloop| pode ser ignorada caso aindda não tenhamo terminado de
+carregar todos os arquivos do loop atual. O mesmo não precisa ser
+feito para o |Wsubloop|, pois ele não desaloca a memória que estamos
+usando.
+  
 Um jogo sempre começa com um |Wloop|. O primeiro loop é um caso
 especial. Não podemos descartar a memória prévia, ou acabaremos nos
 livrando de alocações globais. Então vamos usar uma pequena variável
@@ -1975,7 +1988,7 @@ _number_of_loops = 0;
 Eis que o código de |Wloop| é:
 
 @<API Weaver: Definições@>+=
-void Wloop(void (*f)(void)){
+void _Wloop(void (*f)(void)){
   if(_first_loop)
     _first_loop = false;
   else{
@@ -2155,7 +2168,8 @@ seguintes definições de macro:
    goto _BEGIN_LOOP_INITIALIZATION; _END_LOOP_INITIALIZATION:\
    _lag +=  _update_time(); while(_lag >= 40000){ _update(); _LABEL_0
 #define LOOP_END _lag -=  40000; W.t +=  40000; } \
-   _render(); if(_running_loop) return; if(W.t == 0) goto _LABEL_0;\
+   _render(); if(_running_loop || W.pending_files) return; \
+   if(W.t == 0) goto _LABEL_0;\
    _LOOP_FINALIZATION
 @
 
@@ -2181,11 +2195,23 @@ MAIN_LOOP main_loop(void){
     W.t += 40000;
   }
   _render();
-  if(!running_loop){
+  if(!running_loop && !W.pending_file){
     /* Código de usuário para finalização */
   }
 }
 @
+
+Note que para sairmos dde um loop não basta não querermos mais
+executá-lo. É preciso não ter nenhum arquivo pendente a ser trataddo
+neste loop. Seria catastrófico se sairmos de um subloop e voltássemos
+a um loop enquanto ainda estivéssemos carregando um arquivo a ser
+copiaddo para a memória. A memória que estava reservadda já foi
+recolhida pelo nosso coletor de lixo, então o arquivo pendente que
+pode estar sendo processado por uma thread poderá sobrescrever nossa
+memória.
+
+Testando a existência de arquivos pendentes, nós apenas adiamos a
+nossa saída do loop para quandoo todos já tiverem dsido processados.
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
