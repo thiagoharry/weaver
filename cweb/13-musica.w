@@ -85,7 +85,7 @@ struct _music_data{
   // Para decodificar MP3:
   mpg123_handle *mpg_handle;
   // Para lidar com o OpenAL:
-  ALuint sound_source, openal_buffer;
+  ALuint sound_source, openal_buffer[2];
 #endif
 };
 @
@@ -137,7 +137,10 @@ E inicializamos a estrutura:
       _music[i].filename[j][0] = '\0';
 #if W_TARGET == W_ELF
       alGenSources(1, &_music[i].sound_source);
-      alGenBuffers(1, &_music[i].openal_buffer);
+      alGenBuffers(2, _music[i].openal_buffer);
+      if(alGetError() != AL_NO_ERROR){
+        fprintf(stderr, "WARNING: Error generating music buffer.\n");
+      }
 #endif
     }
   }
@@ -161,7 +164,7 @@ estruturas do mpg123:
     mpg123_close(_music[i].mpg_handle);
     mpg123_delete(_music[i].mpg_handle);
     alDeleteSources(1, &_music[i].sound_source);
-    alDeleteBuffers(1, &_music[i].openal_buffer);
+    alDeleteBuffers(2, _music[i].openal_buffer);
     Wfree(_music[i].buffer);
   }
   mpg123_exit();
@@ -702,25 +705,34 @@ void *_music_thread(void *arg){
                       "bitrate).\n",
                       channels, bits);
             }
+            // Preenchemos nossos buffer inicialmente
+            alBufferData(music_data -> openal_buffer[0],
+                         current_format, music_data -> buffer,
+                         (ALsizei) size, rate);
+            alBufferData(music_data -> openal_buffer[0],
+                         current_format, music_data -> buffer,
+                         (ALsizei) size, rate);
+            alSourceQueueBuffers(music_data -> sound_source, 2,
+                                 music_data -> openal_buffer);
+            printf("(%d)\n", alGetError());
           }
         }
       }
       else if(music_data -> status[last_loop] == _PLAYING){
-        ret = mpg123_read(music_data -> mpg_handle, music_data -> buffer,
-                          music_data -> buffer_size, &size);
-        if(!ret){ // Se acabou, começa de novo:
-          mpg123_close(music_data -> mpg_handle);
-          mpg123_open(music_data -> mpg_handle,
-                      music_data -> filename[last_loop]);
-        }
-        else{
-          /// Escreve e envia para o OpenAL
-          alBufferData(music_data -> openal_buffer, current_format,
-                       music_data -> buffer,
-                       (ALsizei) size, rate);
-          alSourcei(music_data -> sound_source,
-                    AL_BUFFER, music_data -> openal_buffer);
-          
+        int buffers;
+        // Checar se há buffers prontos pra tocar mais:
+        alGetSourcei(music_data -> sound_source, AL_BUFFERS_PROCESSED, &buffers);
+        while(buffers --){
+          ALuint num;
+          alSourceUnqueueBuffers(music_data -> sound_source, 1, &num);
+          ret = mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                            music_data -> buffer_size, &size);
+          if(ret){
+            alBufferData(music_data -> openal_buffer[num],
+                         current_format, music_data -> buffer,
+                         (ALsizei) size, rate);
+            alSourceQueueBuffers(music_data -> sound_source, 1, &num);
+          }
         }
       }
     }
