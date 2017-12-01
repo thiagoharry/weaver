@@ -706,15 +706,20 @@ void *_music_thread(void *arg){
                       channels, bits);
             }
             // Preenchemos nossos buffer inicialmente
+            //alcMakeContextCurrent(default_context);
+            mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                        music_data -> buffer_size, &size);
             alBufferData(music_data -> openal_buffer[0],
                          current_format, music_data -> buffer,
                          (ALsizei) size, rate);
-            alBufferData(music_data -> openal_buffer[0],
+            mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                            music_data -> buffer_size, &size);
+            alBufferData(music_data -> openal_buffer[1],
                          current_format, music_data -> buffer,
                          (ALsizei) size, rate);
             alSourceQueueBuffers(music_data -> sound_source, 2,
                                  music_data -> openal_buffer);
-            printf("(%d)\n", alGetError());
+            alSourcePlay(music_data -> sound_source);
           }
         }
       }
@@ -722,16 +727,28 @@ void *_music_thread(void *arg){
         int buffers;
         // Checar se há buffers prontos pra tocar mais:
         alGetSourcei(music_data -> sound_source, AL_BUFFERS_PROCESSED, &buffers);
-        while(buffers --){
-          ALuint num;
-          alSourceUnqueueBuffers(music_data -> sound_source, 1, &num);
+        if(buffers){
+          ALuint buf;
+          alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
           ret = mpg123_read(music_data -> mpg_handle, music_data -> buffer,
                             music_data -> buffer_size, &size);
-          if(ret){
-            alBufferData(music_data -> openal_buffer[num],
+          if(ret == MPG123_OK){
+            printf("(%d)\n", ret = alGetError());
+            alBufferData(buf,
                          current_format, music_data -> buffer,
                          (ALsizei) size, rate);
-            alSourceQueueBuffers(music_data -> sound_source, 1, &num);
+            printf("(%d)\n", ret = alGetError());
+            if(ret == AL_OUT_OF_MEMORY)
+              printf("sem memoria\n");
+            else if(ret == AL_INVALID_VALUE)
+              printf("valor inválido\n");
+            else if(ret == AL_INVALID_ENUM)
+              printf("invalid enum\n");
+            alSourceQueueBuffers(music_data -> sound_source, 1, &buf);
+          }
+          else{
+            // cabou o áudio?
+            printf("MPG123: %s\n", mpg123_plain_strerror(ret));
           }
         }
       }
