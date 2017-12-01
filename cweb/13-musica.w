@@ -682,7 +682,7 @@ void *_music_thread(void *arg){
           ret = mpg123_open(music_data -> mpg_handle,
                       music_data -> filename[last_loop]);
           if(ret != MPG123_OK){
-            printf("Falha ao abrir %s\n", music_data -> filename[last_loop]);
+            printf("Error opening %s\n", music_data -> filename[last_loop]);
             music_data -> status[last_loop] = _NOT_LOADED;
           }
           else{
@@ -733,22 +733,35 @@ void *_music_thread(void *arg){
           ret = mpg123_read(music_data -> mpg_handle, music_data -> buffer,
                             music_data -> buffer_size, &size);
           if(ret == MPG123_OK){
-            printf("(%d)\n", ret = alGetError());
             alBufferData(buf,
                          current_format, music_data -> buffer,
                          (ALsizei) size, rate);
-            printf("(%d)\n", ret = alGetError());
-            if(ret == AL_OUT_OF_MEMORY)
-              printf("sem memoria\n");
-            else if(ret == AL_INVALID_VALUE)
-              printf("valor inválido\n");
-            else if(ret == AL_INVALID_ENUM)
-              printf("invalid enum\n");
             alSourceQueueBuffers(music_data -> sound_source, 1, &buf);
           }
-          else{
-            // cabou o áudio?
-            printf("MPG123: %s\n", mpg123_plain_strerror(ret));
+          else if(ret == MPG123_DONE){
+            // Terminou de tocar o áudio. Feche e abra novamente.
+            mpg123_close(music_data -> mpg_handle);
+            ret = mpg123_open(music_data -> mpg_handle,
+                              music_data -> filename[last_loop]);
+            if(ret != MPG123_OK){
+              printf("Error opening %s\n", music_data -> filename[last_loop]);
+              music_data -> status[last_loop] = _NOT_LOADED;
+            }
+            else{
+              mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                          music_data -> buffer_size, &size);
+              alBufferData(music_data -> openal_buffer[0],
+                           current_format, music_data -> buffer,
+                           (ALsizei) size, rate);
+              mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                          music_data -> buffer_size, &size);
+              alBufferData(music_data -> openal_buffer[1],
+                           current_format, music_data -> buffer,
+                           (ALsizei) size, rate);
+              alSourceQueueBuffers(music_data -> sound_source, 2,
+                                   music_data -> openal_buffer);
+              alSourcePlay(music_data -> sound_source);
+            }
           }
         }
       }
