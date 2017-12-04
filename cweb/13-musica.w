@@ -221,6 +221,12 @@ nada e colocando a música passada como argumento para tocar:
 bool _play_music(char *name){
   int i;
   bool success = false;
+  // Antes de assumir que ainda não temos a música rodando, vamos ver
+  // se ela já não existe e não está tocando, ainda que esteja
+  // pausada:
+  if(_resume_music(name))
+    return true;
+  // Se não retornamos, temos que passar a tocar uma noa música
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_music_mutex);
 #endif
@@ -327,6 +333,47 @@ E adicionamos à estrutura |W|:
 @
 @<API Weaver: Inicialização@>+=
   W.pause_music = &_pause_music;
+@
+
+Agora que sabemos o que acontece quando pausamos, vamos definir o
+|_resume_music|, que nós não exportaremos, mas usaremos internamente:
+
+@<Som: Declarações@>+=
+  bool _resume_music(char *);
+@
+
+@<Som: Definições@>+=
+bool _resume_music(char *name){
+  int i;
+  bool success = false;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_music_mutex);
+#endif
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    if(!strcmp(name, basename(_music[i].filename[_number_of_loops])) &&
+       _music[i].status[_number_of_loops] == _PAUSED){
+#if W_TARGET == W_WEB
+      // Se rodando na web, não há threads, apenas pausamos a música.
+      EM_ASM_({
+          if(document["music" + $0] !== undefined){
+            document["music" + $0].play();
+          }
+        }, i);
+#endif
+#if W_TARGET == W_ELF
+      // Liberamos o semáforo para que a thread possa tocar:
+        sem_post(&(_music[i].semaphore));
+#endif
+      _music[i].status[_number_of_loops] = _PLAYING;
+      success = true;
+      break;
+    }
+  }
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_music_mutex);
+#endif
+  return success;
+}
 @
 
 Também pediremos para parar de tocar a música. Isso será equivalente a
@@ -723,6 +770,12 @@ void *_music_thread(void *arg){
             alSourcePlay(music_data -> sound_source);
           }
         }
+        else if(music_data -> status[_number_of_loops] == _PLAYING &&
+                last_status == _PAUSED){
+          // Voltando a tocar:
+          alSourcePlay(music_data -> sound_source);
+          last_status = music_data -> status[_number_of_loops];
+        }
         else{
           // Atualizando status
           last_status = music_data -> status[_number_of_loops];
@@ -785,6 +838,7 @@ void *_music_thread(void *arg){
     // Se recebemos comando para pausar, pausamos na hora:
     if(music_data -> status[_number_of_loops] == _PAUSED){
       alSourcePause(music_data -> sound_source);
+      last_status = _PAUSED;
     }
     // No final liberamos o semáforo para que ele tenha a chance de
     // ser bloqueado pelo programa principal e assim podermos sair:
