@@ -169,8 +169,11 @@
             <li><a href="#current_sound_device">W.current_sound_device</a></li>
             <li><a href="#destroy_sound">W.destroy_sound</a></li>
             <li><a href="#new_sound">W.new_sound</a></li>
+            <li><a href="#pause_music">W.pause_music</a></li>
+            <li><a href="#play_music">W.play_music</a></li>
             <li><a href="#play_sound">W.play_sound</a></li>
             <li><a href="#select_sound_device">W.select_sound_device</a></li>
+            <li><a href="#stop_music">W.stop_music</a></li>
           </ol>
         </ol>
         <li><a href="#data">Data</a></li>
@@ -908,7 +911,8 @@
       <p>
         Every interface record has the following variables:
       </p>
-      <h6>int type</h6>
+      <h6>int type<img class="icon" src="images/read_only.png"
+             width="25px" height="25px" title="Read-only"></h6>
       <p>
         How the interface should be rendered. If it's a positive
         integer, then it's the number of the shader which will render
@@ -916,6 +920,16 @@
         value <tt>W_INTERFACE_SQUARE</tt> (if it should be rendered as
         a solid rectangle) or <tt>W_INTERFACE_PERIMETER</tt> (if it
         should be rendered as the perimeter of a rectangle).
+      </p>
+      <p>
+        Interfaces with the same type are rendered together. If he
+        interface type is user-defined (its value is a positive
+        integer), interfaces with greater type numbers will be
+        rendered first. Knowing this may be useful if you want to
+        render correctly translucent interfaces (interfaces with parts
+        not completely opaque nor completely transparent). In this
+        case, you need to ensure that the translucent interfaces are
+        rendered after the others.
       </p>
       <h6>int integer</h6>
       <p>
@@ -1280,12 +1294,40 @@
         Currently Weaver is able to extract onle WAVE files.  If
         Weaver can't extract a sound file, it returns NULL.
       </p>
+      <h5 id="pause_music">bool W.pause_music(char *filename)</h5>
+      <p>
+        Pauses the music which is being played and whose contents are
+        being read from the file in the <tt>music</tt> directory whose
+        name is passed as argument.
+      </p>
+      <p>
+        The function returns if the operation was successful. If the
+        given music wasn't loaded, doesn't exist or was already
+        paused, the function returns false. Otherwise, it returns
+        true.
+      </p>
+      <h5 id="play_music">bool W.play_music(char *filename, bool loop)</h5>
+      <p>
+        Start to play the music or sound effect in the filename passed
+        as first argument inside the <tt>music</tt> directory. If the
+        music is already loaded, but was paused
+        (with <a href="#pause_music">W.pause_music</a>), the music
+        resumes playing. The second argument defines if the music
+        should loop after it ends.
+      </p>
+      <p>
+        If Weaver can't play the music (or it's already playing), the
+        function returns false. Otherwise, it returns true.
+      </p>
       <h5 id="play_sound">bool W.play_sound(struct sound *snd)</h5>
       <p>
         Play a sound created by <a href="#new_sound">W.new_sound</a>
         and then returns if it was possible to play the sound. If the
-        sound wasn't fully loaded, the function fails and return
-        false.
+        sound was already playing, if we are already playing the
+        maximum number of music (defined by
+        macro <a href="configuration.htm#W_HEIGHT">W_MAX_MUSIC</a>),
+        or if the file was not found this function returns
+        false. Otherwise, it returns true.
       </p>
       <h5 id="select_sound_device">bool W.select_sound_device(int
         id)</h5>
@@ -1298,6 +1340,18 @@
       <p>
         If you pass an invalid number or this function fails for some
         other reason, it returns false.
+      </p>
+      <h5 id="stop_music">bool W.stop_music(char *filename)</h5>
+      <p>
+        Stops playing a music identified by the filename passed as
+        argument and inside the <tt>music</tt> directory. The music is
+        also unloaded from memory and a different music can be played
+        in its place.
+      </p>
+      <p>
+        The function returns if the operation was successful. If the
+        music doesn' exist, or it wasn't loaded, it returns
+        false. Otherwise, it returns true.
       </p>
       <h3 id="data">Data</h3>
       <p>

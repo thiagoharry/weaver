@@ -76,6 +76,7 @@ struct _music_data{
   char filename[W_MAX_SUBLOOP][256];
   int status[W_MAX_SUBLOOP];
   float volume[W_MAX_SUBLOOP];
+  bool loop[W_MAX_SUBLOOP];
 #if W_TARGET == W_ELF
   unsigned char *buffer;
   size_t buffer_size;
@@ -208,17 +209,18 @@ jogo. Tais funções funcionarão apenas ajustando variáveis. Quem irá
 efetivamente fazer o trabalho são as threads que programaremos depois
 e que terão a responsabilidade de checar as variáveis. A primeira será
 a função que passa a tocar uma música. Ela deve ser invocada como
-|W.play_music("o_fortuna.mp3")|. Então ela terá a assinatura:
+|W.play_music("o_fortuna.mp3", true)|. O segundo argumento só diz se a
+música dee tocar em um loop ou não. Então ela terá a assinatura:
 
 @<Som: Declarações@>+=
-  bool _play_music(char *);
+  bool _play_music(char *, bool);
 @
 
 A função funcionará achando uma thread disponível que não está tocando
 nada e colocando a música passada como argumento para tocar:
 
 @<Som: Definições@>+=
-bool _play_music(char *name){
+  bool _play_music(char *name, bool loop){
   int i;
   bool success = false;
   // Antes de assumir que ainda não temos a música rodando, vamos ver
@@ -237,8 +239,11 @@ bool _play_music(char *name){
       EM_ASM_({
           document["music" + $0] = new Audio(Pointer_stringify($1));
           document["music" + $0].volume = 0.5;
+          if($2){
+            document["music" + $0].loop = true;
+          }
           document["music" + $0].play();
-        }, i, name);
+        }, i, name, loop);
 #endif
       _music[i].volume[_number_of_loops] = 0.5;
       // Gerando o caminho do arquivo da música:
@@ -254,6 +259,7 @@ bool _play_music(char *name){
       success = true;
       if(_music[i].status[_number_of_loops] != _PLAYING){
         _music[i].status[_number_of_loops] = _PLAYING;
+        _music[i].loop[_number_of_loops] = loop;
 #if W_TARGET == W_ELF
       // Liberamos o semáforo para que a thread possa tocar:
         sem_post(&(_music[i].semaphore));
@@ -272,7 +278,7 @@ bool _play_music(char *name){
 E adicionando à estrutura |W|:
 
 @<Funções Weaver@>+=
-  bool (*play_music)(char *);
+  bool (*play_music)(char *, bool);
 @
 @<API Weaver: Inicialização@>+=
   W.play_music = &_play_music;
@@ -809,29 +815,33 @@ void *_music_thread(void *arg){
                 alGetSourcei(music_data -> sound_source, AL_SOURCE_STATE, &val);
               } while(val == AL_PLAYING);
             }
-            // Depois de terminar de esperar, reinicia a música
             mpg123_close(music_data -> mpg_handle);
-            ret = mpg123_open(music_data -> mpg_handle,
-                              music_data -> filename[last_loop]);
-            if(ret != MPG123_OK){
-              fprintf(stderr, "Error opening %s\n",
-                      music_data -> filename[last_loop]);
-              music_data -> status[last_loop] = _NOT_LOADED;
-            }
-            else{
-              mpg123_read(music_data -> mpg_handle, music_data -> buffer,
-                          music_data -> buffer_size, &size);
-              alBufferData(music_data -> openal_buffer[0],
-                           current_format, music_data -> buffer,
-                           (ALsizei) size, rate);
-              mpg123_read(music_data -> mpg_handle, music_data -> buffer,
-                          music_data -> buffer_size, &size);
-              alBufferData(music_data -> openal_buffer[1],
-                           current_format, music_data -> buffer,
-                           (ALsizei) size, rate);
-              alSourceQueueBuffers(music_data -> sound_source, 2,
-                                   music_data -> openal_buffer);
-              alSourcePlay(music_data -> sound_source);
+            music_data -> status[last_loop] = _NOT_LOADED;
+            // Depois de terminar de esperar, reinicia a música se
+            // tiermos que fazer um loop
+            if(music_data -> loop[last_loop]){
+              ret = mpg123_open(music_data -> mpg_handle,
+                                music_data -> filename[last_loop]);
+              if(ret != MPG123_OK){
+                fprintf(stderr, "Error opening %s\n",
+                        music_data -> filename[last_loop]);
+              }
+              else{
+                mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                            music_data -> buffer_size, &size);
+                alBufferData(music_data -> openal_buffer[0],
+                             current_format, music_data -> buffer,
+                             (ALsizei) size, rate);
+                mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                            music_data -> buffer_size, &size);
+                alBufferData(music_data -> openal_buffer[1],
+                             current_format, music_data -> buffer,
+                             (ALsizei) size, rate);
+                alSourceQueueBuffers(music_data -> sound_source, 2,
+                                     music_data -> openal_buffer);
+                alSourcePlay(music_data -> sound_source);
+                music_data -> status[last_loop] = _PLAYING;
+              }
             }
           }
         }
@@ -870,3 +880,19 @@ void *_music_thread(void *arg){
 }
 #endif
 @
+
+@*1 Sumário das variáveis e Funções de Música.
+
+\macronome As seguintes 3 novas funções foram definidas:
+
+\macrovalor|bool W.pause_music(char *filename)|: Pausa a música que
+está tocando e que está sendo lida do arquivo cujo nome foi passado
+como argumento. Retorna se a operação foi bem-sucedida.
+
+\macrovalor|bool W.play_music(char *filename)|: Começa a tocar a
+música no arquivo cujo nome é passado como argumento. Retorna se a
+operação foi bem-sucedida.
+
+\macrovalor|bool W.stop_music(char *filename)|: Para de tocar a música
+que está tocando e sendo lida do arquivo identificado pelo nome
+passado como argumento. Retorna se a operação foi bem-sucedida.
