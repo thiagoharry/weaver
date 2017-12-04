@@ -292,7 +292,7 @@ bool _pause_music(char *name){
   pthread_mutex_lock(&_music_mutex);
 #endif
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    if(!strcmp(name, _music[i].filename[_number_of_loops]) &&
+    if(!strcmp(name, basename(_music[i].filename[_number_of_loops])) &&
        _music[i].status[_number_of_loops] == _PLAYING){
 #if W_TARGET == W_WEB
       // Se rodando na web, não há threads, apenas pausamos a música.
@@ -675,10 +675,11 @@ void *_music_thread(void *arg){
       // Se não mudamos o loop em que estamos, primeiro checamos se há
       // mudança no status:
       if(last_status != music_data -> status[_number_of_loops]){
-        last_status = music_data -> status[_number_of_loops];
         // Se o novo status é tocar uma nova música, vamos abrir o
         // arquivo:
-        if(last_status == _PLAYING){
+        if(music_data -> status[_number_of_loops] == _PLAYING &&
+           last_status == _NOT_LOADED){
+          last_status = music_data -> status[_number_of_loops];
           ret = mpg123_open(music_data -> mpg_handle,
                       music_data -> filename[last_loop]);
           if(ret != MPG123_OK){
@@ -721,6 +722,10 @@ void *_music_thread(void *arg){
                                  music_data -> openal_buffer);
             alSourcePlay(music_data -> sound_source);
           }
+        }
+        else{
+          // Atualizando status
+          last_status = music_data -> status[_number_of_loops];
         }
       }
       else if(music_data -> status[last_loop] == _PLAYING){
@@ -776,6 +781,10 @@ void *_music_thread(void *arg){
           }
         }
       }
+    }
+    // Se recebemos comando para pausar, pausamos na hora:
+    if(music_data -> status[_number_of_loops] == _PAUSED){
+      alSourcePause(music_data -> sound_source);
     }
     // No final liberamos o semáforo para que ele tenha a chance de
     // ser bloqueado pelo programa principal e assim podermos sair:
