@@ -726,12 +726,12 @@ void *_music_thread(void *arg){
         // arquivo:
         if(music_data -> status[_number_of_loops] == _PLAYING &&
            last_status == _NOT_LOADED){
-          printf("<PLAY>\n");
           last_status = music_data -> status[_number_of_loops];
           ret = mpg123_open(music_data -> mpg_handle,
                       music_data -> filename[last_loop]);
           if(ret != MPG123_OK){
-            printf("Error opening %s\n", music_data -> filename[last_loop]);
+            fprintf(stderr, "Error opening %s\n",
+                    music_data -> filename[last_loop]);
             music_data -> status[last_loop] = _NOT_LOADED;
           }
           else{
@@ -814,7 +814,8 @@ void *_music_thread(void *arg){
             ret = mpg123_open(music_data -> mpg_handle,
                               music_data -> filename[last_loop]);
             if(ret != MPG123_OK){
-              printf("Error opening %s\n", music_data -> filename[last_loop]);
+              fprintf(stderr, "Error opening %s\n",
+                      music_data -> filename[last_loop]);
               music_data -> status[last_loop] = _NOT_LOADED;
             }
             else{
@@ -844,7 +845,6 @@ void *_music_thread(void *arg){
     // Recebemos um comando para parar:
     else if(music_data -> status[_number_of_loops] == _NOT_LOADED){
       ALuint buf;
-      printf("<<PARANDO>>\n");
       mpg123_close(music_data -> mpg_handle);
       alSourceStop(music_data -> sound_source);
       last_status = _NOT_LOADED;
