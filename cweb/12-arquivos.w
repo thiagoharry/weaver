@@ -105,7 +105,7 @@ static sqlite3 *database;
 Agora vamos à questão de onde devemos armazenar o banco de dados de um
 projeto Weaver.  O local escolhido deverá ser um diretório oculto na
 ``home'' de um usuário. Iremos escolher então o endereço
-\monoespaco{.weaver/XXX/XXX.db} no diretório do usuário, onde ``XXX''
+\monoespaco{.weaver_data/XXX/XXX.db} no diretório do usuário, onde ``XXX''
 é o nome do projeto Weaver em execução. Na inicialização iremos então
 nos assegurar de que o banco de dados existe, e se não existir iremos
 criá-lo:
@@ -150,11 +150,11 @@ void _initialize_database(void){
   }
   // Criando o endereço do diretório cuidando com buffer overflows:
   if(size + 9 < 256){
-    size += 9;
-    strcat(path, "/.weaver/");
+    size += 14;
+    strcat(path, "/.weaver_data/");
     mkdir(path, 0755);
   }
-  // Criando o .weaver/W_PROG:
+  // Criando o .weaver_data/W_PROG:
   size += strlen(W_PROG) + 1;
   if(size < 256){
     strcat(path, W_PROG);
