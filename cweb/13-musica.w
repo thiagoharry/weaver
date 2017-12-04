@@ -353,7 +353,7 @@ bool _resume_music(char *name){
     if(!strcmp(name, basename(_music[i].filename[_number_of_loops])) &&
        _music[i].status[_number_of_loops] == _PAUSED){
 #if W_TARGET == W_WEB
-      // Se rodando na web, não há threads, apenas pausamos a música.
+      // Se rodando na web, não há threads, apenas recomeçamos a música.
       EM_ASM_({
           if(document["music" + $0] !== undefined){
             document["music" + $0].play();
@@ -393,7 +393,7 @@ bool _stop_music(char *name){
   pthread_mutex_lock(&_music_mutex);
 #endif
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    if(!strcmp(name, _music[i].filename[_number_of_loops])){
+    if(!strcmp(name, basename(_music[i].filename[_number_of_loops]))){
 #if W_TARGET == W_WEB
       // Se rodando na web, não há threads, apenas pausamos e
       // removemos a música.
@@ -404,14 +404,14 @@ bool _stop_music(char *name){
           }
         }, i);
 #endif
+      _music[i].filename[_number_of_loops][0] = '\0';
+      _music[i].status[_number_of_loops] = _NOT_LOADED;
 #if W_TARGET == W_ELF
       if(_music[i].status[_number_of_loops] == _PLAYING){
         // Reservamos o semáforo para fazer a thread parar de tocar:
         sem_wait(&(_music[i].semaphore));
       }
 #endif
-      _music[i].filename[_number_of_loops][0] = '\0';
-      _music[i].status[_number_of_loops] = _NOT_LOADED;
       success = true;
       break;
     }
@@ -726,6 +726,7 @@ void *_music_thread(void *arg){
         // arquivo:
         if(music_data -> status[_number_of_loops] == _PLAYING &&
            last_status == _NOT_LOADED){
+          printf("<PLAY>\n");
           last_status = music_data -> status[_number_of_loops];
           ret = mpg123_open(music_data -> mpg_handle,
                       music_data -> filename[last_loop]);
@@ -839,6 +840,28 @@ void *_music_thread(void *arg){
     if(music_data -> status[_number_of_loops] == _PAUSED){
       alSourcePause(music_data -> sound_source);
       last_status = _PAUSED;
+    }
+    // Recebemos um comando para parar:
+    else if(music_data -> status[_number_of_loops] == _NOT_LOADED){
+      ALuint buf;
+      printf("<<PARANDO>>\n");
+      mpg123_close(music_data -> mpg_handle);
+      alSourceStop(music_data -> sound_source);
+      last_status = _NOT_LOADED;
+      do{
+        alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
+        ret = alGetError();
+      }while(ret == AL_INVALID_VALUE);
+      do{
+        alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
+        ret = alGetError();
+      }while(ret == AL_INVALID_VALUE);
+      {
+        ALint val;
+        do {
+          alGetSourcei(music_data -> sound_source, AL_SOURCE_STATE, &val);
+        } while(val == AL_PLAYING);
+      }
     }
     // No final liberamos o semáforo para que ele tenha a chance de
     // ser bloqueado pelo programa principal e assim podermos sair:
