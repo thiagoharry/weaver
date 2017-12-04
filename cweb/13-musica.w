@@ -739,7 +739,18 @@ void *_music_thread(void *arg){
             alSourceQueueBuffers(music_data -> sound_source, 1, &buf);
           }
           else if(ret == MPG123_DONE){
-            // Terminou de tocar o áudio. Feche e abra novamente.
+            // Terminou de extrair o áudio. Esperar de terminar de tocar.
+            do{
+              alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
+              ret = alGetError();
+            }while(ret == AL_INVALID_VALUE);
+            {
+              ALint val;
+              do {
+                alGetSourcei(music_data -> sound_source, AL_SOURCE_STATE, &val);
+              } while(val == AL_PLAYING);
+            }
+            // Depois de terminar de esperar, reinicia a música
             mpg123_close(music_data -> mpg_handle);
             ret = mpg123_open(music_data -> mpg_handle,
                               music_data -> filename[last_loop]);
