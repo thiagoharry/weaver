@@ -485,17 +485,18 @@ volume após a mudança, ou -1.0 se a operação não foi bem-sucedida:
 @<Som: Definições@>+=
 float _increase_volume(char *name, float increment){
   int i;
-  float success = -1.0;
+  float success = -1.0, total;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_music_mutex);
 #endif
   for(i = 0; i < W_MAX_MUSIC; i ++){
-    if(!strcmp(name, _music[i].filename[_number_of_loops])){
-      _music[i].volume[_number_of_loops] += increment;
-      if(_music[i].volume[_number_of_loops] > 1.0)
+    if(!strcmp(name, basename(_music[i].filename[_number_of_loops]))){
+      total = _music[i].volume[_number_of_loops] + increment;
+      if(total > 1.0)
         _music[i].volume[_number_of_loops] = 1.0;
-      else if(_music[i].volume[_number_of_loops] < 0.0)
+      else if(total < 0.0)
         _music[i].volume[_number_of_loops] = 0.0;
+      else _music[i].volume[_number_of_loops] = total;
 #if W_TARGET == W_WEB
       // Se rodando na web, não há threads, apenas atualizamos o
       // volume:
@@ -714,6 +715,7 @@ void *_music_thread(void *arg){
   size_t size;
   long rate;
   int channels, encoding, bits;
+  float last_volume = music_data -> volume[last_loop];
   for(;;){
     // Ficamos aqui até ter alguma música para tocar:
     while(music_data -> status[_number_of_loops] != _PLAYING)
@@ -775,6 +777,8 @@ void *_music_thread(void *arg){
                          (ALsizei) size, rate);
             alSourceQueueBuffers(music_data -> sound_source, 2,
                                  music_data -> openal_buffer);
+            alSourcef(music_data -> sound_source, AL_GAIN,
+                      music_data -> volume[last_loop]);
             alSourcePlay(music_data -> sound_source);
           }
         }
@@ -791,6 +795,12 @@ void *_music_thread(void *arg){
       }
       else if(music_data -> status[last_loop] == _PLAYING){
         int buffers;
+        // Checando se temos que mudar o volume:
+        if(last_volume != music_data -> volume[last_loop]){
+          alSourcef(music_data -> sound_source, AL_GAIN,
+                    music_data -> volume[last_loop]);
+          last_volume = music_data -> volume[last_loop];
+        }
         // Checar se há buffers prontos pra tocar mais:
         alGetSourcei(music_data -> sound_source, AL_BUFFERS_PROCESSED, &buffers);
         if(buffers){
