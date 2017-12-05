@@ -1,6 +1,9 @@
 # weaver
 A Game Engine written in C which can be used to develop games in C or C++ and compiled to Linux executables or Javascript web pages
 
+Check the project homepage for more info:
+https://thiagoharry.github.io/weaver/
+
 Weaver is a literate programming project written in brazilian
 portuguese which describes the building of a 3D game engine using the
 C language.
