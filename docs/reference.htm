@@ -168,6 +168,8 @@
           <ol>
             <li><a href="#current_sound_device">W.current_sound_device</a></li>
             <li><a href="#destroy_sound">W.destroy_sound</a></li>
+            <li><a href="#get_volume">W.get_volume</a></li>
+            <li><a href="#increase_volume">W.increase_volume</a></li>
             <li><a href="#new_sound">W.new_sound</a></li>
             <li><a href="#pause_music">W.pause_music</a></li>
             <li><a href="#play_music">W.play_music</a></li>
@@ -1275,6 +1277,31 @@
         free the memory when you exit the main loop where the sound
         was allocated. But if you allocated the sound outside a main
         loop, you need this function to avoid a memory leak.
+      </p>
+      <h5 id="get_volume">float W.get_volume(char *filename)</h5>
+      <p>
+        If the music file at <tt>music</tt> directory is loaded and
+        playing or paused, this function returns it's volume as a
+        floating pont number between 0 and 1. If the music isn't
+        playing, it returns -1.0.
+      </p>
+      <h5 id="increase_volume">float W.get_volume(char *filename,
+        float increment)</h5>
+      <p>
+        If the music found in the given filename at <tt>music</tt>
+        directory is playing or is paused, this function increases its
+        volume by the value passed as the second argument. the value
+        can be negative if you want to lower the volume.
+      </p>
+      <p>
+        If the function would change a volume to a value greater than
+        1, it changes the value to 1 instead. If the function woulkd
+        change a volume to a value lesser than 0, it changes to 0
+        instead.
+      </p>
+      <p>
+        The function returns the new volume after the change or
+        returns -1.0 if the music wasn't loaded. 
       </p>
       <h5 id="new_sound">struct sound *W.new_sound(char
         *filename)</h5>

@@ -64,6 +64,10 @@
           <li><a href="#W_INSTALL_PROG">W_INSTALL_PROG</a></li>
           <li><a href="#W_PLUGIN_PATH">W_PLUGIN_PATH</a></li>
         </ol>
+        <li><a href="#sound">Macros about Sound and Music</a></li>
+        <ol>
+          <li><a href="#W_MAX_MUSIC">W_MAX_MUSIC</a></li>
+        </ol>
       </ol>
       <h3 id="basic">Basic Macros</h3>
       <h4 id="W_DEBUG_LEVEL">W_DEBUG_LEVEL (0, 1, or 2)</h4>
@@ -344,6 +348,16 @@
         <a href="#W_DEBUG_LEVEL">W_DEBUG_LEVEL</a> is not set to 0),
         or is set to a directory called "plugins"
         at <a href="#W_INSTALL_DATA">W_INSTAL_DATA</a> otherwise.
+      </p>
+      <h3 id="sound">Macros about Sound and Music</h3>
+      <h4 id="W_MAX_MUSIC">W_MAX_MUSIC (a non-negative integer)</h4>
+      <p>
+        This macro is the maximum number of music that is played at
+        same time in your game. The default value is 1. You should set
+        a greater value if you are composing an ambient sound with
+        various sound files, each with its own volume or if you want
+        some audio like a character monologue to play at same time
+        than a theme music.
       </p>
     </div>
   </body>

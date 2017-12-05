@@ -474,17 +474,18 @@ passada como argumento (até o máximo de 1). Para decrementar, pode-se
 passar um número negativo (mas o mínimo será 0):
 
 @<Som: Declarações@>+=
-bool _increase_volume(char *, float);
+float _increase_volume(char *, float);
 @
 
 A função funciona apenas mudando a variável, confiando que a thread
 notará que o valor do volume foi modificado. Ou, se estivermos rodando
-na web, o valor é modificado na hora:
+na web, o valor é modificado na hora. Esta função deve retornar o
+volume após a mudança, ou -1.0 se a operação não foi bem-sucedida:
 
 @<Som: Definições@>+=
-  bool _increase_volume(char *name, float increment){
+float _increase_volume(char *name, float increment){
   int i;
-  bool success = false;
+  float success = -1.0;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_music_mutex);
 #endif
@@ -504,7 +505,7 @@ na web, o valor é modificado na hora:
           }
         }, _music[i].volume[_number_of_loops]);
 #endif
-      success = true;
+      success = _music[i].volume[_number_of_loops];
     }
   }
 #ifdef W_MULTITHREAD
@@ -517,7 +518,7 @@ na web, o valor é modificado na hora:
 E adicionando a estrutura |W|:
 
 @<Funções Weaver@>+=
-  bool (*increase_volume)(char *, float);
+  float (*increase_volume)(char *, float);
 @
 @<API Weaver: Inicialização@>+=
   W.increase_volume = &_increase_volume;
@@ -883,7 +884,18 @@ void *_music_thread(void *arg){
 
 @*1 Sumário das variáveis e Funções de Música.
 
-\macronome As seguintes 3 novas funções foram definidas:
+\macronome As seguintes 5 novas funções foram definidas:
+
+\macrovalor|float W.get_volume(char *filename)|: Se a música no
+arquivo passado como argumento está tocando, retorna o seu volume como
+um número em ponto flutuante entre 0 e 1. Se não estiver, retorna -1.0;
+
+\macrovalor|float W.increase_volume(char *filename, float increment)|:
+Se a música no arquivo passado como argumento está tocando, soma o seu
+volume atual com o número passado como argumento (que pode ser negativo
+para diminuir o volume). Se o resultado for maior que 1, será tratado
+como 1 e se for menor que 0, será tratado como 0. O número retornado é
+o novo volume após a mudança.
 
 \macrovalor|bool W.pause_music(char *filename)|: Pausa a música que
 está tocando e que está sendo lida do arquivo cujo nome foi passado
