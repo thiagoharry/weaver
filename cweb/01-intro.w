@@ -846,8 +846,8 @@ válido ou não. Para isso, três condições precisam ser
 satisfeitas:
 
 1) O nome base do projeto deve ser formado somente por caracteres
-alfanuméricos (embora uma barra possa aparecer para passar o caminho
-completo de um projeto).
+alfanuméricos e underline (embora uma barra possa aparecer para passar
+o caminho completo de um projeto).
 
 2) Não pode existir um arquivo com o mesmo nome do projeto no local
 indicado para a criação.
@@ -868,7 +868,7 @@ if(have_arg && !arg_is_path){
   int i;
   // Checando caracteres inválidos no nome:
   for(i = 0; i < size; i ++){
-    if(!isalnum(base[i])){
+    if(!isalnum(base[i]) && base[i] != '_'){
       goto NOT_VALID;
     }
   }
@@ -893,7 +893,7 @@ NOT_VALID:
 Checar se o argumento que recebemos pode ser um nome válido para um
 módulo só faz sentido se estivermos dentro de um diretório Weaver e se
 um argumento estiver sendo passado. Neste caso, o argumento é um nome
-válido se ele contiver apenas caracteres alfanuméricos e se não
+  válido se ele contiver apenas caracteres alfanuméricos, underline e se não
 existir no projeto um arquivo \monoespaco{.c} ou \monoespaco{.h} em
 \monoespaco{src/} que tenha o mesmo nome do argumento passado:
 
@@ -904,7 +904,7 @@ if(have_arg && inside_weaver_directory){
   size = strlen(argument);
   // Checando caracteres inválidos no nome:
   for(i = 0; i < size; i ++){
-    if(!isalnum(argument[i])){
+    if(!isalnum(argument[i]) && argument[i] != '_'){
       goto NOT_VALID_MODULE;
     }
   }
@@ -928,7 +928,8 @@ NOT_VALID_MODULE:
 @*3 Inicializando \monoespaco{arg\_is\_valid\_plugin}.
 
 Para que um argumento seja um nome válido para plugin, ele deve ser
-composto só por caracteres alfanuméricos e não existir no diretório
+composto só por caracteres alfanuméricos ou underline e não existir no
+diretório
 \monoespaco{plugin} um arquivo com a extensão \monoespaco{.c} de mesmo
 nome. Também precisamos estar naturalmente, em um diretório Weaver.
 
@@ -939,7 +940,7 @@ if(argument2 != NULL && inside_weaver_directory){
   size = strlen(argument2);
   // Checando caracteres inválidos no nome:
   for(i = 0; i < size; i ++){
-    if(!isalnum(argument2[i])){
+    if(!isalnum(argument2[i]) && argument2[i] != '_'){
       goto NOT_VALID_PLUGIN;
     }
   }
@@ -959,9 +960,9 @@ NOT_VALID_PLUGIN:
 @*3 Inicializando \monoespaco{arg\_is\_valid\_function}.
 
 Para que essa variável seja verdadeira, é preciso existir um segundo
-argumento e ele deve ser formado somente por caracteres
-alfanuméricos. Além disso, o primeiro caractere precisa ser uma letra
-e ele não pode ter o mesmo nome de alguma palavra reservada em C.
+argumento e ele deve ser formado somente por caracteres alfanuméricos
+ou underline. Além disso, o primeiro caractere precisa ser uma letra e
+ele não pode ter o mesmo nome de alguma palavra reservada em C.
 
 @<Inicialização@>+=
 if(argument2 != NULL && inside_weaver_directory && !strcmp(argument, "--loop")){
@@ -973,7 +974,7 @@ if(argument2 != NULL && inside_weaver_directory && !strcmp(argument, "--loop")){
   size = strlen(argument2);
   // Checando caracteres inválidos no nome:
   for(i = 0; i < size; i ++){
-    if(!isalnum(argument2[i])){
+    if(!isalnum(argument2[i]) && argument2[i] != '_'){
       goto NOT_VALID_PLUGIN;
     }
   }
@@ -1534,7 +1535,7 @@ if(! inside_weaver_directory && have_arg){
     fclose(fp);
     fp = fopen("src/includes.h", "w");
     write_copyright(fp, author_name, argument, year);
-    fprintf(fp, "\n#include \"weaver/weaver.h\"");
+    fprintf(fp, "\n#include \"weaver/weaver.h\"\n");
     fclose(fp);
   }
   else{
