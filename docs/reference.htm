@@ -1318,7 +1318,7 @@
         variable <tt>loaded</tt>.
       </p>
       <p>
-        Currently Weaver is able to extract onle WAVE files.  If
+        Currently Weaver is able to extract WAVE and MP3 files.  If
         Weaver can't extract a sound file, it returns NULL.
       </p>
       <h5 id="pause_music">bool W.pause_music(char *filename)</h5>
@@ -1341,6 +1341,9 @@
         (with <a href="#pause_music">W.pause_music</a>), the music
         resumes playing. The second argument defines if the music
         should loop after it ends.
+      </p>
+      <p>
+        Currently Weaver can only play music encoded as MP3.
       </p>
       <p>
         If Weaver can't play the music (or it's already playing), the

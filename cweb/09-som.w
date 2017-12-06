@@ -997,6 +997,7 @@ struct sound *_new_sound(char *filename){
         // que no caso é o id de um som alocado no OpenAL:
         _finalize_after(&(snd -> _data), _finalize_openal);
     }
+    @<Som: Extrai outros Formatos@>
     if(ret){ // ret é verdadeiro caso um erro tenha acontecido
       // Se estamos em um loop principal, removemos o buffer OpenAL da
       // lista de elementos que precisam ser desalocados depois. A função

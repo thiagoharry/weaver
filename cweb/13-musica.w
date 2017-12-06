@@ -286,7 +286,7 @@ E adicionando à estrutura |W|:
 
 Uma vez que podemos tocar uma música, podemos querer também pausar
 ela. Para isso, a assinatura da função para pausar será:
-
+ 
 @<Som: Declarações@>+=
   bool _pause_music(char *);
 @
@@ -890,6 +890,145 @@ void *_music_thread(void *arg){
   }
 }
 #endif
+@
+
+@*1 Integrando o MP3 à Efeitos Sonoros.
+
+No capítulo sobre o som e efeitos sonoros, nós estivemos extraindo som
+no formato WAVE para rodar nossos efeitos sonoros. Mas agora que
+adicionamos o suporte à MP3 para músicas, podemos também decodificar
+efeitos sonoros no formato MP3. Isso permitirá que nossos efeitos
+sonoros possam também se beneficiar da compressão do formato MP3 (que
+não é lá essas coisas, mas é muito melhor que nada como no caso WAVE).
+
+Para podermos fazer isso, primeiro temos que checar se o efeito sonoro
+que recebemos tem uma extensão MP3:
+
+@<Som: Extrai outros Formatos@>=
+else if(!strcmp(ext, ".mp3") || !strcmp(ext, ".MP3")){ // Suportando .mp3
+  @<Som: Extraindo MP3@>
+}
+@
+
+Extrair o MP3 para um buffer requer que primeiro saibamos qual o
+tamanho do buffer que precisamos para manter todo o efeito sonoro na
+memória. Usando a função |mpg123_outblock|, obtemos o tamanho máximo
+de um ``frame'' do áudio. Para tocar a música, usamos isso para
+determinar o tamanho de nosos buffer. Aqui, usaremos o valor para
+gerar o buffer inicial e tentamos ler o áudio. Se lemos tudo,
+paramos. Caso contrário, descartamos a leitura, reiniciamos a
+interpretação do arquivo, mas após termos dobrado o tamanho do
+buffer. Continuamos até conseguirmos:
+
+@<Som: Extraindo MP3@>=
+int current_format = 0xfff5;
+size_t buffer_size;
+unsigned char *buffer = NULL;
+ALuint openal_buffer = 0;
+ret = false;
+{
+  int test;
+  size_t decoded_bytes;
+  mpg123_handle *mpg_handle = mpg123_new(NULL, &test);
+  buffer_size = mpg123_outblock(mpg_handle);
+  for(;;){
+    // Abrimos arquivo
+    test = mpg123_open(mpg_handle, complete_path);
+    if(test != MPG123_OK){
+      fprintf(stderr, "Warning: Error opening %s\n", complete_path);
+      buffer_size = 0;
+      ret = true;
+      break;
+    }
+    // Lendo o formato
+    if(current_format  == 0xfff5){
+      int channels, encoding, bits;
+      long rate;
+      mpg123_getformat(mpg_handle, &rate, &channels, &encoding);
+      bits = mpg123_encsize(encoding) * 8;
+      snd -> freq = rate;
+      snd -> channels = channels;
+      snd -> bitrate = bits;
+      if(bits == 8){
+        if(channels == 1) current_format = AL_FORMAT_MONO8;
+        else if(channels == 2) current_format = AL_FORMAT_STEREO8;
+      } else if(bits == 16){
+        if(channels == 1) current_format = AL_FORMAT_MONO16;
+        else if(channels == 2) current_format = AL_FORMAT_STEREO16;
+      }
+      if(current_format == 0xfff5){
+        fprintf(stderr,
+                "WARNING(0): Combination of channel and bitrate not "
+                "supported in file %s (sound have %d channels and %d bitrate"
+                " while "
+                "we support just 1 or 2 channels and 8 or 16 as "
+                "bitrate).\n",
+                complete_path, channels, bits);
+      }
+    }
+    // Criando e preenchendo o buffer:
+    buffer = (unsigned char *) Walloc(buffer_size);
+    if(buffer == NULL){
+      fprintf(stderr, "ERROR: Not enough memory to load %s. Please, "
+              "increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+              complete_path);
+      buffer_size = 0;
+      ret = true;
+      break;
+    }
+    test = mpg123_read(mpg_handle, buffer, buffer_size, &decoded_bytes);
+    mpg123_close(mpg_handle);
+    // Se não conseguimos copiar tudo, prepare próxima iteração:
+    if(decoded_bytes > buffer_size){
+      Wfree(buffer);
+      buffer = NULL;
+      buffer_size *= 2;
+    }
+    else break; // Se copiamos tudo, saimos daqui
+  }
+  // Se tudo deu certo:
+  snd -> size = buffer_size;
+}
+@
+
+Tudo o que fizemos foi extrair o conteúdo do MP3 em um buffer. Mas
+temos agora que criar um novo buffer openAL, enviar os dados que
+extraímos para ele e então atribuir o buffer gerado para a estrutura
+do efeito sonoro:
+
+@<Som: Extraindo MP3@>+=
+if(buffer != NULL){
+  int status;
+  alGenBuffers(1, &openal_buffer);
+  status = alGetError();
+  if(status != AL_NO_ERROR){
+    fprintf(stderr, "WARNING(0)): No sound buffer could be created. "
+            "alGenBuffers failed. ");
+    if(status == AL_INVALID_VALUE){
+      fprintf(stderr, "Internal error: buffer array isn't large enough.\n");
+    }
+    else if(status == AL_OUT_OF_MEMORY){
+      fprintf(stderr, "Internal error: out of memory.\n");
+    }
+    else{
+      fprintf(stderr, "Unknown error (%d).\n", status);
+    }
+    ret = true;
+  }
+  else{
+    alBufferData(openal_buffer, current_format, buffer, snd -> size,
+                 snd -> freq);
+    status = alGetError();
+    if(status != AL_NO_ERROR){
+      fprintf(stderr, "WARNING(0): Can't pass audio to OpenAL. "
+              "alBufferData failed. Sound may not work.\n");
+      ret = true;
+    }
+    Wfree(buffer);
+    snd -> _data = openal_buffer;
+    _finalize_after(&(snd -> _data), _finalize_openal);
+  }
+}
 @
 
 @*1 Sumário das variáveis e Funções de Música.
