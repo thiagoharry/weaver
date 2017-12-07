@@ -17,7 +17,7 @@ endif
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
 web: test_emcc test_xxd shader_data make-web
 else ifeq ($(strip $(TARGET_TEST)),W_ELF)
-prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd shader_data make-prog
+prog: test_cc test_xlib test_xrandr test_opengl test_mpg123 test_openal test_xxd shader_data make-prog
 else
 err:
 	$(error Invalid W_TARGET in conf/conf.h)
@@ -64,6 +64,7 @@ test_openal: .weaver/have_openal
 test_opengl: .weaver/have_opengl
 test_xrandr: .weaver/have_xrandr
 test_xlib: .weaver/have_xlib
+test_mpg123: .weaver/have_mpg123
 test_cc: .weaver/have_cc
 .weaver/have_xxd:
 	@echo -n "Testing XXD.................."
@@ -115,6 +116,20 @@ test_cc: .weaver/have_cc
 	else /bin/echo -e "\033[31mFAILED\033[m";\
 	touch .error;\
 	echo "ERROR: You need GLX extension and GLEW library and header files.";\
+	fi
+.weaver/have_mpg123:
+	@echo -n "Testing MPG123..............."
+	@echo "#include <mpg123.h>" > .weaver/dummy.c
+	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
+	@(gcc .weaver/dummy.c -o .weaver/a.out -lmpg123 &> /dev/null && \
+	touch .weaver/have_mpg123) || \
+	(clang .weaver/dummy.c -o .weaver/a.out -lmpg123 &> /dev/null && \
+	touch .weaver/have_mpg123) ||true
+	@if [ -e .weaver/have_opengl ]; then \
+	echo "OK";  \
+	else /bin/echo -e "\033[31mFAILED\033[m";\
+	touch .error;\
+	echo "ERROR: You need MPG123 GLEW library and header files.";\
 	fi
 .weaver/have_xrandr:
 	@echo -n "Testing XRandR..............."
