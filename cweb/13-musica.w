@@ -62,8 +62,10 @@ Como usamos o libmpg123 e semáforos:
 
 @<Som: Declarações@>+=
 #if W_TARGET == W_ELF
-#include <mpg123.h>
 #include <semaphore.h>
+#ifndef W_DISABLE_MP3
+#include <mpg123.h>
+#endif
 #endif
 @
 
@@ -83,8 +85,10 @@ struct _music_data{
   // Para as threads:
   pthread_t thread;
   sem_t semaphore;
+#ifndef W_DISABLE_MP3
   // Para decodificar MP3:
   mpg123_handle *mpg_handle;
+#endif
   // Para lidar com o OpenAL:
   ALuint sound_source, openal_buffer[2];
 #endif
@@ -111,7 +115,7 @@ macros:
 @<Som: Declarações@>+=
 #define _NOT_LOADED 0
 #define _PLAYING    1
-#define _PAUSED     2  
+#define _PAUSED     2
 @
 
 E inicializamos a estrutura:
@@ -120,11 +124,13 @@ E inicializamos a estrutura:
 {
   int i, j;
 #if W_TARGET == W_ELF
+#ifndef W_DISABLE_MP3
   int ret;
   mpg123_init();
 #endif
+#endif
   for(i = 0; i < W_MAX_MUSIC; i ++){
-#if W_TARGET == W_ELF
+#if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
     _music[i].mpg_handle = mpg123_new(NULL, &ret);
     if(_music[i].mpg_handle == NULL){
       fprintf(stderr, "WARNING: MP3 handling failed.\n");
@@ -162,13 +168,19 @@ estruturas do mpg123:
 {
   int i;
   for(i = W_MAX_MUSIC - 1; i >= 0; i --){
+#ifndef W_DISABLE_MP3
     mpg123_close(_music[i].mpg_handle);
     mpg123_delete(_music[i].mpg_handle);
+#endif
     alDeleteSources(1, &_music[i].sound_source);
     alDeleteBuffers(2, _music[i].openal_buffer);
+#ifndef W_DISABLE_MP3
     Wfree(_music[i].buffer);
+#endif
   }
+#ifndef W_DISABLE_MP3
   mpg123_exit();
+#endif
 }
 #endif
 #ifdef W_MULTITHREAD
@@ -213,7 +225,7 @@ a função que passa a tocar uma música. Ela deve ser invocada como
 música dee tocar em um loop ou não. Então ela terá a assinatura:
 
 @<Som: Declarações@>+=
-  bool _play_music(char *, bool);
+bool _play_music(char *, bool);
 @
 
 A função funcionará achando uma thread disponível que não está tocando
@@ -271,7 +283,11 @@ nada e colocando a música passada como argumento para tocar:
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
 #endif
+#ifdef W_DISABLE_MP3
+  return success && false;
+#else
   return success;
+#endif
 }
 @
 
@@ -328,7 +344,11 @@ bool _pause_music(char *name){
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
 #endif
+#ifdef W_DISABLE_MP3
+  return success && false;
+#else
   return success;
+#endif
 }
 @
 
@@ -378,7 +398,11 @@ bool _resume_music(char *name){
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
 #endif
+#ifdef W_DISABLE_MP3
+  return success && false;
+#else
   return success;
+#endif
 }
 @
 
@@ -425,7 +449,11 @@ bool _stop_music(char *name){
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
 #endif
+#ifdef W_DISABLE_MP3
+  return success && false;
+#else
   return success;
+#endif
 }
 @
 
@@ -512,7 +540,11 @@ float _increase_volume(char *name, float increment){
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_music_mutex);
 #endif
+#ifdef W_DISABLE_MP3
+  return success && false;
+#else
   return success;
+#endif
 }
 @
 
@@ -668,6 +700,7 @@ estejamos rodando nativamente:
     if(ret == -1){
       perror("sem_init");
     }
+#ifndef W_DISABLE_MP3
     ret = pthread_create(&(_music[i].thread), NULL, &_music_thread,
                          &(_music[i]));
     if(ret != 0){
@@ -675,6 +708,7 @@ estejamos rodando nativamente:
               "Music may fail to play.");
       break;
     }
+#endif
   }
 }
 #endif
@@ -689,7 +723,9 @@ das threads de música e destruir seus semáforos:
   int i;
   for(i = 0; i < W_MAX_MUSIC; i ++){
     sem_destroy(&(_music[i].semaphore));
+#ifndef W_DISABLE_MP3
     pthread_cancel(_music[i].thread);
+#endif
   }
 }
 #endif
@@ -700,12 +736,12 @@ semáforo que só estará livre quando houver uma música para ser tocada
 e ela não estiver pausada. O código para ele será:
 
 @<Som: Declarações@>+=
-#if W_TARGET == W_ELF
+#if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
 void *_music_thread(void *);
 #endif
 @
 @<Som: Definições@>+=
-#if W_TARGET == W_ELF
+#if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
 void *_music_thread(void *arg){
   struct _music_data *music_data = (struct _music_data *) arg;
   int last_status = music_data -> status[_number_of_loops];
@@ -905,9 +941,11 @@ Para podermos fazer isso, primeiro temos que checar se o efeito sonoro
 que recebemos tem uma extensão MP3:
 
 @<Som: Extrai outros Formatos@>=
+#ifndef W_DISABLE_MP3
 else if(!strcmp(ext, ".mp3") || !strcmp(ext, ".MP3")){ // Suportando .mp3
   @<Som: Extraindo MP3@>
 }
+#endif
 @
 
 Extrair o MP3 para um buffer requer que primeiro saibamos qual o

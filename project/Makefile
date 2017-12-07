@@ -6,7 +6,12 @@ TARGET_TEST=$(shell grep "\#define[ \t]\+W_TARGET[ \t]\+W_" conf/conf.h | grep -
 INSTALL_DATA_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_DATA[ \t]\+" conf/conf.h | grep -o "\".*\"")
 INSTALL_PROG_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_PROG[ \t]\+" conf/conf.h | grep -o "\".*\"")
 DEBUG_LEVEL=$(shell grep "\#define[ \t]\+W_DEBUG_LEVEL[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
-
+DONT_USE_MP3=$(shell grep "^\#define[ \t]\+W_DISABLE_MP3" conf/conf.h)
+ifeq ($(DONT_USE_MP3),)
+TESTMP3=test_mpg123
+else
+TESTMP3=
+endif
 ifeq ($(INSTALL_DATA_DIR),)
 INSTALL_DATA_DIR := "/usr/share/games/"$(PROG)
 endif
@@ -17,7 +22,7 @@ endif
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
 web: test_emcc test_xxd shader_data make-web
 else ifeq ($(strip $(TARGET_TEST)),W_ELF)
-prog: test_cc test_xlib test_xrandr test_opengl test_mpg123 test_openal test_xxd shader_data make-prog
+prog: test_cc test_xlib test_xrandr test_opengl ${TESTMP3} test_openal test_xxd shader_data make-prog
 else
 err:
 	$(error Invalid W_TARGET in conf/conf.h)
@@ -129,7 +134,7 @@ test_cc: .weaver/have_cc
 	echo "OK";  \
 	else /bin/echo -e "\033[31mFAILED\033[m";\
 	touch .error;\
-	echo "ERROR: You need MPG123 GLEW library and header files.";\
+	echo "ERROR: You need MPG123 library and header files, or define W_DISABLE_MP3 at conf/conf.h if you don't want MP3 support.";\
 	fi
 .weaver/have_xrandr:
 	@echo -n "Testing XRandR..............."
