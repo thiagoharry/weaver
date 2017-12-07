@@ -81,6 +81,10 @@ div.topics{
     margin-left: auto;
     margin-right: auto;
     padding-top: 25px;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    grid-gap: 10px;
+    grid-auto-rows: 150px;
 }
 
 div.docs div.topic{
@@ -93,6 +97,7 @@ div.docs div.topic{
     margin-left: 5px;
     margin-right: 5px;
     margin-top: 10px;
+    height: 130px;
 }
 
 div.topic h4{

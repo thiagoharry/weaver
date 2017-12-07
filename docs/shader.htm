@@ -147,7 +147,16 @@ W.new_interface(1, W.width / 2, W.height / 2, W.width, W.height, NULL);</pre>
       </p>
       <h5 id="time">uniform float time</h5>
       <p>
-        This is the time in seconds since the beginning of the game.
+        This is the time in seconds. Every time we render in the
+        screen, we increment this uniform to inform how many seconds
+        passed since last rendering. But after 5 minutes, when
+        hisuniform would have the value 600.0, instead we set it to 0
+        again, to prevent underflows and loss of precision of bigger
+        float numbers.
+      </p>
+      <p>
+        If you use the time to rneder some animation, it's a good idea
+        to make the animation cyclic with a period of 5 minutes.
       </p>
       <h4 id="vertex">Vertex Shader Variables</h4>
       <p>
