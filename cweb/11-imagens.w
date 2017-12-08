@@ -59,6 +59,7 @@ GLuint *_extract_png(char * filename, unsigned *number_of_frames,
                      unsigned  **frame_duration, int *max_repetition,
                      bool *error){
   int width, height, number_of_passes;
+  unsigned char *pixel_array;
   png_byte color_type, bit_depth;
   png_structp png_ptr;
   png_infop info_ptr;
@@ -213,14 +214,42 @@ aconteça durante a leitura dos pixels:
 @
 
 Para ler o arquivo, vamos alocar memória agora que temos o cabeçalho e
-sabemos o tamanho da imagem:
+sabemos o tamanho da imagem. A função |png_read_image| nos retorna a
+imagem na forma de um array de ponteiros para linhas. Vamos precisar
+passar isso para um arra de pixels, que é o formato que precisamos
+para passar para o OpenGL.
 
 @<PNG: Extrair Arquivo@>+=
 {
-  int y;
-  row_pointers = (png_bytep*) malloc(sizeof(png_bytep) * height);
-  for (y = 0; y < height; y++)
-    row_pointers[y] = (png_byte*) malloc(png_get_rowbytes(png_ptr, info_ptr));
+  int y, z;
+  pixel_array = (unsigned char *) Walloc(width * height * 4);
+  if(pixel_array == NULL){
+    fprintf(stderr, "ERROR: No enough memory to load %s. "
+            "Please increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+            filename);
+    goto error_png;
+  }
+  row_pointers = (png_bytep*) Walloc(sizeof(png_bytep) * height);
+  if(row_pointers == NULL){
+    Wfree(pixel_array);
+    fprintf(stderr, "ERROR: No enough memory to load %s. "
+            "Please increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+            filename);
+    goto error_png;
+  }
+  for(y = 0; y < height; y ++){
+    row_pointers[y] = (png_byte*) Walloc(png_get_rowbytes(png_ptr, info_ptr));
+    if(row_pointers[y] == NULL){
+      for(z = y - 1; z >= 0; x --)
+        Wfree(row_pointers[z]);
+      Wfree(pixel_array);
+      fprintf(stderr, "ERROR: No enough memory to load %s. "
+              "Please increase the value of W_MAX_MEMORY at conf/conf.h.\n",
+              filename);
+      goto error_png;
+    }
+  }
+  // Lemos a imagem em row_pointers
   png_read_image(png_ptr, row_pointers);
   fclose(fp);
 }
