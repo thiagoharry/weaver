@@ -47,6 +47,7 @@ Primeiro criaremos os arquivos básicos para lidarmos com interfaces:
 #include <sys/stat.h> // mkdir
 #include <sys/types.h> // mkdir
 #endif
+@<Interface: Cabeçalhos@>
 @<Interface: Funções Estáticas@>
 @<Interface: Definições@>
 @
