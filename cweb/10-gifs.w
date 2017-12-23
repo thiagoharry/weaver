@@ -1802,7 +1802,8 @@ limpeza manualmente:
 @<Código ao Remover Interface@>+=
 {
   _finalize_this(&_interfaces[_number_of_loops][i], true);
-  Wfree(_interfaces[_number_of_loops][i]._texture);
+  if(_interfaces[_number_of_loops][i]._texture != &_empty_texture)
+    Wfree(_interfaces[_number_of_loops][i]._texture);
   _finalize_interface_texture((void *) &_interfaces[_number_of_loops][i]);
 }
 @

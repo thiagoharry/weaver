@@ -607,7 +607,7 @@ Já para lermos um inteiro quando executamos na web via cookies:
 bool _read_integer(char *name, int *value){
   // Primeiro checamos se o cookie existe:
   int exists = EM_ASM_INT({
-      var nameEQ = $0 + "=";
+      var nameEQ = "int_" + Pointer_stringify($0) + "=";
       var ca = document.cookie.split(';');
       for(var i=0;i < ca.length;i++) {
         var c = ca[i];
@@ -621,7 +621,7 @@ bool _read_integer(char *name, int *value){
     return false;
   // Se não encerramos, o valor existe. Vamos obtê-lo:
   *value = EM_ASM_INT({
-      var nameEQ = $0 + "=";
+      var nameEQ = "int_" + Pointer_stringify($0) + "=";
       var ca = document.cookie.split(';');
       for(var i=0;i < ca.length;i++) {
         var c = ca[i];
@@ -644,7 +644,7 @@ converter para float usando |EM_ASM_DOUBLE|:
 bool _read_float(char *name, float *value){
   // Primeiro checamos se o cookie existe:
   int exists = EM_ASM_INT({
-      var nameEQ = $0 + "=";
+      var nameEQ = "float_" + Pointer_stringify($0) + "=";
       var ca = document.cookie.split(';');
       for(var i=0;i < ca.length;i++) {
         var c = ca[i];
@@ -658,7 +658,7 @@ bool _read_float(char *name, float *value){
     return false;
   // Se não encerramos, o valor existe. Vamos obtê-lo:
   *value = EM_ASM_DOUBLE({
-      var nameEQ = $0 + "=";
+      var nameEQ = "float_" + Pointer_stringify($0) + "=";
       var ca = document.cookie.split(';');
       for(var i=0;i < ca.length;i++) {
         var c = ca[i];
@@ -681,7 +681,7 @@ para podermos copiar uma string Javascript para C:
 bool _read_string(char *name, char *value, int size){
   // Primeiro checamos se o cookie existe:
   int exists = EM_ASM_INT({
-      var nameEQ = $0 + "=";
+      var nameEQ = "string_" + Pointer_stringify($0) + "=";
       var ca = document.cookie.split(';');
       for(var i=0;i < ca.length;i++) {
         var c = ca[i];
@@ -695,7 +695,7 @@ bool _read_string(char *name, char *value, int size){
     return false;
   // Se não encerramos, o valor existe. Vamos obtê-lo:
   EM_ASM_({
-      var nameEQ = $0 + "=";
+      var nameEQ = "string_" + Pointer_stringify($0) + "=";
       var ca = document.cookie.split(';');
       for(var i=0;i < ca.length;i++) {
         var c = ca[i];

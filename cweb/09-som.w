@@ -883,7 +883,7 @@ buffer com o som:
                  *freq);
     status = alGetError();
     if(status != AL_NO_ERROR){
-        fprintf(stderr, "WARNING(0): Can't pass audio to OpenAL. "
+      fprintf(stderr, "WARNING(0): Can't pass audio to OpenAL. "
                 "alBufferData failed. Sound may not work.\n");
         Wfree(returned_data);
         alDeleteBuffers(1, &returned_buffer);

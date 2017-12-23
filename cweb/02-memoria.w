@@ -156,7 +156,7 @@ declarações das funções e estruturas de dado a serem usadas nele:
 @<Declarações de Memória@>=
 #include <sys/mman.h> // |mmap|, |munmap|
 #include <pthread.h> // |pthread_mutex_init|, |pthread_mutex_destroy|
-#include <string.h> // |strncpy|
+#include <string.h> // |memcpy|
 #include <unistd.h> // |sysconf|
 #include <stdlib.h> // |size_t|
 #include <stdio.h> // |perror|
@@ -434,7 +434,8 @@ static bool _initialize_arena_header(struct _arena_header *header,
 #endif
 #if W_DEBUG_LEVEL >= 1
   header -> line = line;
-  strncpy(header -> file, filename, 31);
+  memcpy(header -> file, filename, 32);
+  header -> file[31] = '\0';
 #endif
 #if W_DEBUG_LEVEL >= 3
   header -> max_used = header -> used;
@@ -590,7 +591,8 @@ static void _initialize_breakpoint(struct _breakpoint *self,
   self -> last_breakpoint = last_breakpoint;
   self -> size = arena -> used - sizeof(struct _breakpoint);
 #if W_DEBUG_LEVEL >= 1
-  strncpy(self -> file, file, 32);
+  memcpy(self -> file, file, 32);
+  self -> file[31] = '\0';
   self -> line = line;
   _assert__breakpoint(self);
 #endif
@@ -1058,7 +1060,8 @@ void *_alloc(void *arena, size_t size){
   mem_header -> flags = 0x1;
   mem_header -> arena = arena;
 #if W_DEBUG_LEVEL >= 1
-  strncpy(mem_header -> file, filename, 32);
+  memcpy(mem_header -> file, filename, 32);
+  mem_header -> file[31] = '\0';
   mem_header -> line = line;
   _assert__memory_header(mem_header);
 #endif
@@ -1280,7 +1283,8 @@ int _new_breakpoint(void *arena){
   breakpoint -> last_breakpoint = (void *) old_breakpoint;
   breakpoint -> size = old_size;
 #if W_DEBUG_LEVEL >= 1
-  strncpy(breakpoint -> file, filename, 32);
+  memcpy(breakpoint -> file, filename, 32);
+  breakpoint -> file[31] = '\0';
   breakpoint -> line = line;
 #endif
 #if W_DEBUG_LEVEL >= 4

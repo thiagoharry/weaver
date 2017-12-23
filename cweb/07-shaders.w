@@ -382,7 +382,7 @@ bool _destroy_interface(struct interface *inter){
     return false; // Não encontrada
   @<Código ao Remover Interface@>
   switch(_interfaces[_number_of_loops][i].type){
-    //@<Desaloca Interfaces de Vários Tipos@>
+  //@<Desaloca Interfaces de Vários Tipos@>
   case W_INTERFACE_SQUARE:
   case W_INTERFACE_PERIMETER:
   case W_NONE:

@@ -69,7 +69,22 @@ Como usamos o libmpg123 e semáforos:
 #endif
 @
 
-  
+
+Vamos implementar nossa própria função |basename| para funcionar
+quando o Emscripten não suportar ela:
+
+@<Som: Funções Estáticas@>+=
+#if W_TARGET == W_WEB
+static char *basename(char *path){
+  char *p = path, *c;
+  for(c = path; c != '\0'; c ++)
+    if(*c == '/' && *(c+1) != '\0')
+      p = c + 1;
+  return p;
+}
+#endif
+@
+
 A estrutura de dados que armazenará as informações para cada faixa de
 música será:
 
