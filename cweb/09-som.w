@@ -917,6 +917,7 @@ struct sound *_new_sound(char *filename){
                            "GET", "", (void *) snd,
                            &onload_sound, &onerror_sound,
                            &onprogress_sound);
+    return snd;
 #else // Executando nativamente
     // Obtendo a extensão:
     ext = strrchr(filename, '.');

@@ -2165,7 +2165,8 @@ de tempo fixos. Para construirmos então este controle, usaremos as
 seguintes definições de macro:
 
 @<Cabeçalhos Weaver@>+=
-#define LOOP_INIT if(!_running_loop) _exit_loop(); if(!_running_loop)\
+#define LOOP_INIT if(!_running_loop && !W.pending_files) _exit_loop();\
+  if(!_running_loop)                                                    \
    goto _LOOP_FINALIZATION; if(!_loop_begin) goto _END_LOOP_INITIALIZATION;\
    _BEGIN_LOOP_INITIALIZATION
 #define LOOP_BODY _loop_begin =  false; if(_loop_begin)\
