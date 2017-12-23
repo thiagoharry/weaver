@@ -476,40 +476,6 @@ pthread_mutex_destroy(&(W._pending_files_mutex));
 #endif
 @
 
-E agora impedimos que o Weaver abandone nosso loop antes de
-carregar todos os arquivos
-
-@<Código antes de Loop, mas não de Subloop@>+=
-while(W.pending_files){
-#if W_TARGET == W_ELF
-  struct timespec tim;
-  // Espera 0,1 segundo
-  tim.tv_sec = 0;
-  tim.tv_nsec = 100000000L;
-  nanosleep(&tim, NULL);
-#else
-  emscripten_sleep(1);
-#endif
-}
-@
-
-E repetimos a mesma coisa caso ao invés de trocarmos o loop atual, a
-gente encerre ele para voltar a um loop de nível anterior:
-
-@<Código após sairmos de Subloop@>+=
-while(W.pending_files){
-#if W_TARGET == W_ELF
-  struct timespec tim;
-  // Espera 0,1 segundo
-  tim.tv_sec = 0;
-  tim.tv_nsec = 100000000L;
-    nanosleep(&tim, NULL);
-#else
-  emscripten_sleep(1);
-#endif
-}
-@
-
 Consultar esta variável |W.pending_files| pode ser usada por loops que
 funcionam como telas de carregamento. O valor será extremamente útil
 para saber quantos arquivos ainda precisam terminar de ser carregados
@@ -1144,9 +1110,9 @@ void _destroy_sound(struct sound *snd);
 @<Som: Definições@>+=
 void _destroy_sound(struct sound *snd){
   // Desalocar um som envolce desalocar o seu dado sonoro (sua
-  // variável _data) e desalocar a própria estrutura de som. Mas antes
-  // de podermos fazer isso, precisamos esperar que o som já tenha
-  // sido carregado:
+  // variável _data) e desalocar a própria estrutura de som. Mas para
+  // isso ocorrer, precisamos garantir que o som já tenha sido
+  // carregado.
   while(snd -> loaded == false && W.pending_files > 0){
 #ifdef W_MULTITHREAD
     sched_yield();
@@ -1159,7 +1125,7 @@ void _destroy_sound(struct sound *snd){
       nanosleep(&tim, NULL);
     }
 #elif W_TARGET == W_WEB
-    emscripten_sleep(1);
+    return;
 #endif
   }
   // Ok, podemos desalocar:
