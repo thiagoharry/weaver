@@ -1537,7 +1537,7 @@ case W_INTERFACE_IMAGE:
 #elif W_TARGET == W_ELF
   char dir[] = W_INSTALL_DATA"/image/";
 #endif
-#if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
+#if W_TARGET == W_ELF
   char *ext;
   bool ret = true;
 #endif
@@ -1549,31 +1549,17 @@ case W_INTERFACE_IMAGE:
   strncpy(complete_path, dir, 256);
   complete_path[255] = '\0';
   strncat(complete_path, filename, 256 - strlen(complete_path));
-#if W_TARGET == W_WEB || defined(W_MULTITHREAD)
-  // Rodando assincronamente
 #if W_TARGET == W_WEB
+  // Rodando assincronamente
   if(mkdir("image/", 0777) == -1) // Emscripten
     perror(NULL);
-#ifdef W_MULTITHREAD
-  pthread_mutex_lock(&(W._pending_files_mutex));
-#endif
   W.pending_files ++;
-#ifdef W_MULTITHREAD
-  pthread_mutex_unlock(&(W._pending_files_mutex));
-#endif
   // Obtendo arquivo via Emsripten
   emscripten_async_wget2(complete_path, complete_path,
                          "GET", "",
                          (void *) &(_interfaces[_number_of_loops][i]),
                          &onload_texture, &onerror_texture,
                          &onprogress_texture);
-#else
-  // Obtendo arquivo via threads
-  _multithread_load_file(complete_path,
-                         (void *) &(_interfaces[_number_of_loops][i]),
-                         &process_texture,
-                         &onload_texture, &onerror_texture);  
-#endif
 #else
   // Rodando sincronamente:
   ext = strrchr(filename, '.');
@@ -1615,9 +1601,7 @@ acima. Elas são |onload_texture| (a ser executada em ambiente web após
 fazermos o download do arquivo GIF), |onerror_texture| (a ser
 executada se um erro ocorrer quando carregamos o arquivo
 assincronamente), |onprogress_texture| (uma função vazia quenão faz
-nada a ser invocada à medida que baixamos o arquivo),
-|process_texture| (uma função a ser executada caso estejamos
-carregando com threads e que irá funcionar em uma thread) e
+nada a ser invocada à medida que baixamos o arquivo) e
 |_finalize_interface_texture| (função que irá pedir para que a textura
 seja removida da memória da placa de vídeo quando a interface for
 desalocada).
@@ -1687,34 +1671,6 @@ static void onload_texture(unsigned undocumented,
 #endif
 @
 
-E caso não estejamos executando em ambiente web, as assincronamente
-usando threads:
-
-@<Interface: Funções Estáticas@>=
-#if W_TARGET == W_ELF && defined(W_MULTITHREAD)
-// Recebe uma interface como argumento e preenchemos sua textura:
-static void *onload_texture(void *p){
-  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
-  struct interface * my_interface = (struct interface *) (file_info -> target);
-  my_interface -> _loaded_texture = true;
-  return NULL;
-}
-#endif
-@
-
-E no caso de execução via threads:
-
-@<Interface: Funções Estáticas@>+=
-#if W_TARGET == W_ELF && defined(W_MULTITHREAD)
-static void *onerror_texture(void *p){
-  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
-  fprintf(stderr, "Warning (0): Failed to load texture file: %s\n",
-          file_info -> filename);
-  return NULL;
-}
-#endif
-@
-
 A função que não faz nada e que será inocada à medida que baixamos o
 arquivo via web:
 
@@ -1727,56 +1683,6 @@ static void onprogress_texture(unsigned int undocumented, void *snd,
 #endif
 @
 
-A função que irá fazer todo o trabalho de carregar a textura para a
-interface em ambiente om threads nativas:
-
-@<Interface: Funções Estáticas@>+=
-#if defined(W_MULTITHREAD) && W_TARGET == W_ELF
-static void *process_texture(void *p){
-  char *ext;
-  bool ret = true;
-  struct _thread_file_info *file_info = (struct _thread_file_info *) p;
-  struct interface *my_interface = (struct interface *) (file_info -> target);
-  ext = strrchr(file_info -> filename, '.');  
-  if(! ext){
-    file_info -> onerror(p);
-  }
-  else if(!strcmp(ext, ".gif") || !strcmp(ext, ".GIF")){ // Suportando .gif
-    my_interface -> _texture =
-      _extract_gif(file_info -> filename,
-                  &(my_interface -> number_of_frames),
-                   &(my_interface -> frame_duration),
-                  &(my_interface -> max_repetition), &ret);
-  }
-  if(ret){ // Se algum erro aconteceu:
-    my_interface -> type = W_NONE;
-    return NULL;
-  }
-  if(my_interface -> number_of_frames > 1)
-    my_interface -> animate = true;
-  _finalize_after(my_interface, _finalize_interface_texture);
-  if(ret){ // ret é verdadeiro caso um erro de extração tenha ocorrido
-    file_info -> onerror(p);
-  }
-  else{
-    file_info -> onload(p);
-  }
-  // Finalização:
-#if W_THREAD_POOL == 0
-  Wfree(p); // Sem pool de threads, nosso argumento foi alocado
-            // dinamicamente e precisa ser destruído.
-#endif
-#ifdef W_MULTITHREAD
-  pthread_mutex_lock(&(W._pending_files_mutex));
-#endif
-  W.pending_files --;
-#ifdef W_MULTITHREAD
-  pthread_mutex_unlock(&(W._pending_files_mutex));
-#endif
-  return NULL;
-}
-#endif
-@
 
 E por fim a função para desalocar texturas na placa de vídeo:
 
@@ -1982,7 +1888,7 @@ interfaces personalizadas:
 #elif W_TARGET == W_ELF
   char dir[] = W_INSTALL_DATA"/image/";
 #endif
-#if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
+#if W_TARGET == W_ELF
   char *ext;
   bool ret = true;
 #endif
@@ -1995,30 +1901,16 @@ interfaces personalizadas:
     strncpy(complete_path, dir, 256);
     complete_path[255] = '\0';
     strncat(complete_path, filename, 256 - strlen(complete_path));
-    #if W_TARGET == W_WEB || defined(W_MULTITHREAD)
   // Rodando assincronamente
 #if W_TARGET == W_WEB
     mkdir("images/", 0777); // Emscripten
-#ifdef W_MULTITHREAD
-    pthread_mutex_lock(&(W._pending_files_mutex));
-#endif
     W.pending_files ++;
-#ifdef W_MULTITHREAD
-    pthread_mutex_unlock(&(W._pending_files_mutex));
-#endif
     // Obtendo arquivo via Emsripten
     emscripten_async_wget2(complete_path, complete_path,
                            "GET", "",
                            (void *) &(_interfaces[_number_of_loops][i]),
                            &onload_texture, &onerror_texture,
                            &onprogress_texture);
-#else
-    // Obtendo arquivo via threads
-    _multithread_load_file(complete_path,
-                           (void *) &(_interfaces[_number_of_loops][i]),
-                           &process_texture,
-                           &onload_texture, &onerror_texture);  
-#endif
 #else
     // Rodando sincronamente:
     ext = strrchr(filename, '.');

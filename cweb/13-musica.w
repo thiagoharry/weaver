@@ -114,13 +114,18 @@ E declaramos o nosso array dessas estruturas:
 
 @<Som: Declarações@>+=
 extern struct _music_data _music[W_MAX_MUSIC];
+#ifdef W_MULTITHREAD
+  // Mutex para quando formos mudar as variáveis que mudam o
+  // comportamento das threads responsáveis pela música:
+extern pthread_mutex_t _music_mutex;
+#endif
 @
 @<Som: Variáveis Estáticas@>+=
 struct _music_data _music[W_MAX_MUSIC];
 #ifdef W_MULTITHREAD
   // Mutex para quando formos mudar as variáveis que mudam o
   // comportamento das threads responsáveis pela música:
-  pthread_mutex_t _music_mutex;
+pthread_mutex_t _music_mutex;
 #endif
 @
 
