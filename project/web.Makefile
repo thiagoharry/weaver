@@ -34,10 +34,10 @@ endif
 
 
 make-web: create_plugin_code create_shader_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
-	mkdir -p web
-	cp -r sound/ web
-	cp -r image/ web
-	${FINAL_CC} -O2 ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o web/${PROG}.html ${LIB}
+	mkdir -p docs
+	cp -r sound/ docs
+	cp -r image/ docs
+	${FINAL_CC} -O2 ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o docs/index.html ${LIB}
 create_shader_code:
 	mkdir -p .hidden_code .plugin
 	echo "struct _shader _shader_list[${NUMBER_OF_SHADERS}];" > .hidden_code/shader.h
