@@ -283,7 +283,6 @@ para passar para o OpenGL.
   }
   // Lemos a imagem em row_pointers
   png_read_image(png_ptr, row_pointers);
-  fclose(fp);
 }
 @
 
@@ -390,4 +389,28 @@ acabamos de extrair:
 @
 
 E isso encerra nossa extração e definição da função de extrair
-arquivos PNG.
+arquivos PNG. Mas agora precisamos integrá-la dentro das outras
+funções que são usadas para extrair imagens para interfaces:
+
+@<Interface: Extraindo Arquivos de Imagens Adicionais@>=
+#ifndef W_DISABLE_PNG
+  if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG")){ // Suportando .png
+    _interfaces[_number_of_loops][i]._texture =
+      _extract_png(complete_path,
+                   &(_interfaces[_number_of_loops][i].number_of_frames),
+                   &(_interfaces[_number_of_loops][i].frame_duration),
+                   &(_interfaces[_number_of_loops][i].max_repetition),
+                   &ret);
+    if(ret){ // Se algum erro aconteceu:
+      _interfaces[_number_of_loops][i].type = W_NONE;
+      return NULL;
+    }
+    // Sem animação:
+    _interfaces[_number_of_loops][i].animate = false;
+    _interfaces[_number_of_loops][i]._loaded_texture = true;
+    // Limpa a textura antes de encerrar
+    _finalize_after(&(_interfaces[_number_of_loops][i]),
+                    _finalize_interface_texture);
+  }
+#endif
+@

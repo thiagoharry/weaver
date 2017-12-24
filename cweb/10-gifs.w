@@ -1590,6 +1590,7 @@ case W_INTERFACE_IMAGE:
     _finalize_after(&(_interfaces[_number_of_loops][i]),
                     _finalize_interface_texture);
   }
+  @<Interface: Extraindo Arquivos de Imagens Adicionais@>
 #endif
 }
   break;
