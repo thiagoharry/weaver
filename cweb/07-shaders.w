@@ -300,10 +300,10 @@ struct interface *_new_interface(int type, int x, int y, int width,
       _interfaces[_number_of_loops][i].visible = true;
       _interfaces[_number_of_loops][i].integer = 0;
       // Por padrão vamos deixar as interfaces brancas:
-      _interfaces[_number_of_loops][i].r = 1.0;
-      _interfaces[_number_of_loops][i].g = 1.0;
-      _interfaces[_number_of_loops][i].b = 1.0;
-      _interfaces[_number_of_loops][i].a = 1.0;
+      _interfaces[_number_of_loops][i].r = 0.0;
+      _interfaces[_number_of_loops][i].g = 0.0;
+      _interfaces[_number_of_loops][i].b = 0.0;
+      _interfaces[_number_of_loops][i].a = 0.0;
       // Posição:
       _interfaces[_number_of_loops][i].x = (float) x;
       _interfaces[_number_of_loops][i].y = (float) y;

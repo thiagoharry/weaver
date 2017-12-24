@@ -414,3 +414,12 @@ funções que são usadas para extrair imagens para interfaces:
   }
 #endif
 @
+
+Quando usamos shaders personalizados também será útil podermos
+interpretar PNGs:
+
+@<Interface: Formatos Adicionais com Shaders Personalizados@>=
+  if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG")){ // Suportando .gif
+
+  }
+@
