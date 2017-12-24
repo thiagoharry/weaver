@@ -53,18 +53,21 @@ um array com a duração de cada frame (o PNG vai sempre ajustar como
 (ajustaremos como -1) e um poneiro para informar se houve um erro ou
 não:
 
-@<Interface: Declarações@>+=
+@<Interface: Definições@>+=
 #ifndef W_DISABLE_PNG
 GLuint *_extract_png(char * filename, unsigned *number_of_frames,
                      unsigned  **frame_duration, int *max_repetition,
                      bool *error){
-  int width, height, number_of_passes;
-  unsigned char *pixel_array;
-  png_byte color_type, bit_depth;
+  int width, height;
+  unsigned char *pixel_array = NULL;
   png_structp png_ptr;
   png_infop info_ptr;
-  png_bytep * row_pointers;
-  GLuint *returned_data  = NULL;
+  png_bytep *row_pointers = NULL;
+  png_byte color_type, bit_depth;
+  GLuint *returned_data  = NULL;  
+  *number_of_frames = 1;
+  *frame_duration = NULL;
+  *max_repetition = 0;
   FILE *fp = fopen(filename, "r");
   *error = false;
   // Como trataremos erros:
@@ -83,7 +86,7 @@ end_of_png:
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
   fclose(fp);
 #else
-  //@<PNG: Encerrando Arquivo@>
+  @<PNG: Encerrando Arquivo@>
 #endif
   return returned_data;
 }
@@ -97,7 +100,7 @@ certificarmos de que ele é um arquivo PNG:
 
 @<PNG: Extrair Arquivo@>=
 {
-  char header[8]; // Armazena o cabeçalho do arquivo
+  unsigned char header[8]; // Armazena o cabeçalho do arquivo
   // O cabeçalho deve ser: 0x89 0x50 0x4E 0x47 0x0D 0x0a 0x1A 0x0A. O
   // primeiro byte é só para ser incomum e minimizar a chance de um
   // texto ser interpretado coo PNG. Depois vem as letras P, N e G. E
@@ -188,13 +191,33 @@ representá-las. Hora de elr essas informações:
 }
 @
 
-Assim como um GIF, um PNG também pode ser armazenado com as linhas
-entrelaçadas. Mas temos que ler no cabeçalho quantas vees temos que
-passar pela imagem para obtermos todas as linhas:
+Podemos precisar fazer transformações na imagem PNG para sermos
+capazes de lidar com ela:
 
 @<PNG: Extrair Arquivo@>+=
 {
-  number_of_passes = png_set_interlace_handling(png_ptr);
+  // Se a imagem for baseada em uma paleta de cores indexadas,
+  // convertemos para RGB:
+  if (color_type == PNG_COLOR_TYPE_PALETTE)
+    png_set_palette_to_rgb(png_ptr);
+  // Se uma imagem em preto-e-branco usa menos de 8 bits para
+  // representar cada pixel, mudamos para 8 bits:
+  if (color_type == PNG_COLOR_TYPE_GRAY &&
+      bit_depth < 8) png_set_expand_gray_1_2_4_to_8(png_ptr);
+  // Se a informação do canal Alpha está em um bloco do arquivo,
+  // passamos para cada um dos pixels:
+  if (png_get_valid(png_ptr, info_ptr,
+                    PNG_INFO_tRNS)) png_set_tRNS_to_alpha(png_ptr);
+  // Se usamos mais de 8 bits por pixel, reduzimos para 8:
+  if (bit_depth == 16)
+    png_set_strip_16(png_ptr);
+  // Se usamos menos de 8, passamos para 8:
+  if (bit_depth < 8)
+    png_set_packing(png_ptr);
+  // Agora convertemos imagens preto-e-branco para RGB:
+  if (color_type == PNG_COLOR_TYPE_GRAY ||
+      color_type == PNG_COLOR_TYPE_GRAY_ALPHA)
+    png_set_gray_to_rgb(png_ptr);
 }
 @
 
@@ -222,6 +245,12 @@ para passar para o OpenGL.
 @<PNG: Extrair Arquivo@>+=
 {
   int y, z;
+  returned_data = (GLuint *) Walloc(sizeof(GLuint));
+  if(returned_data == NULL){
+    fprintf(stderr, "ERROR: Not enough memory to read %s. Please, increase "
+            "the value of W_MAX_MEMORY at conf/conf.h.\n", filename);
+    goto error_png;
+  }
   pixel_array = (unsigned char *) Walloc(width * height * 4);
   if(pixel_array == NULL){
     fprintf(stderr, "ERROR: No enough memory to load %s. "
@@ -240,9 +269,12 @@ para passar para o OpenGL.
   for(y = 0; y < height; y ++){
     row_pointers[y] = (png_byte*) Walloc(png_get_rowbytes(png_ptr, info_ptr));
     if(row_pointers[y] == NULL){
-      for(z = y - 1; z >= 0; x --)
+      for(z = y - 1; z >= 0; z --)
         Wfree(row_pointers[z]);
+      Wfree(row_pointers);
+      row_pointers = NULL;
       Wfree(pixel_array);
+      pixel_array = NULL;
       fprintf(stderr, "ERROR: No enough memory to load %s. "
               "Please increase the value of W_MAX_MEMORY at conf/conf.h.\n",
               filename);
@@ -254,3 +286,108 @@ para passar para o OpenGL.
   fclose(fp);
 }
 @
+
+Se formos encerrar o arquivo por algum motivo, teremos que desalocar a
+memória alocada:
+
+@<PNG: Encerrando Arquivo@>=
+{
+  if(row_pointers != NULL){
+    int z;
+    for(z = height - 1; z >= 0; z --)
+      Wfree(row_pointers[z]);
+    Wfree(row_pointers);
+  }
+  if(pixel_array != NULL)
+    Wfree(pixel_array);
+}
+@
+
+A imagem PNG foi lida. Mas não está em um formato adequado para nós a
+passarmos para a placa de vídeo como textura. Para isso vamos
+processar a imagem abaixo:
+
+@<PNG: Extrair Arquivo@>+=
+{
+  color_type = png_get_color_type(png_ptr, info_ptr);
+  switch(color_type){
+  case PNG_COLOR_TYPE_RGB:
+    @<PNG: Extrai Imagem RGB@>
+    break;
+  case PNG_COLOR_TYPE_RGBA:
+    @<PNG: Extrai RGBA@>
+    break;
+  }
+}
+@
+
+Para extrairmos uma imagem RGBA usamos:
+
+@<PNG: Extrai RGBA@>=
+{
+  int x, y;
+  for (y = 0; y < height; y++){
+    png_byte* row = row_pointers[y];
+    for (x = 0; x < width; x++){
+      png_byte* ptr = &(row[x*4]);
+      pixel_array[4 * width * (height - y - 1) + x * 4] = ptr[0];
+      pixel_array[4 * width * (height - y - 1) + x * 4 + 1] = ptr[1];
+      pixel_array[4 * width * (height - y - 1) + x * 4 + 2] = ptr[2];
+      pixel_array[4 * width * (height - y - 1) + x * 4 + 3] = ptr[3];
+    }
+  }
+}
+@
+
+E uma imagem RGB:
+
+@<PNG: Extrai Imagem RGB@>=
+{
+  int x, y;
+  for (y = 0; y < height; y++){
+    png_byte* row = row_pointers[y];
+    for (x = 0; x < width; x++){
+      png_byte* ptr = &(row[x*3]);
+      pixel_array[4 * width * (height - y - 1) + x * 4] = ptr[0];
+      pixel_array[4 * width * (height - y - 1) + x * 4 + 1] = ptr[1];
+      pixel_array[4 * width * (height - y - 1) + x * 4 + 2] = ptr[2];
+      pixel_array[4 * width * (height - y - 1) + x * 4 + 3] = 255;
+    }
+  }
+}
+@
+
+Tendo extraído todos os pixels e deixado eles no formato certo,
+podemos nos livrar da memória alocada para os dados no formato da
+libpng:
+
+@<PNG: Extrair Arquivo@>+=
+{
+  int z;
+  for(z = height - 1; z >= 0; z --)
+    Wfree(row_pointers[z]);
+  Wfree(row_pointers);
+  row_pointers = NULL;
+}
+@
+
+E agora podemos gerar uma nova textura OpenGL com a imagem que
+acabamos de extrair:
+
+@<PNG: Extrair Arquivo@>+=
+{
+  glGenTextures(1, returned_data);
+  glBindTexture(GL_TEXTURE_2D, *returned_data);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
+               GL_UNSIGNED_BYTE, pixel_array);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+  glBindTexture(GL_TEXTURE_2D, 0);
+}
+@
+
+E isso encerra nossa extração e definição da função de extrair
+arquivos PNG.

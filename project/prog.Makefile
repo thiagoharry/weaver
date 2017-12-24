@@ -11,13 +11,19 @@ HEADERS=$(shell echo src/*.h src/weaver/*.h)
 DEFINES=-DW_PROG=\"${PROG}\"
 FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=gnu11
 SOURCE_TEST=$(shell grep "^\#define[ \t]\+W_SOURCE[ \t]\+W_" conf/conf.h | grep -o "\(W_C\|W_CPP\)")
+DONT_USE_PNG=$(shell grep "^\#define[ \t]\+W_DISABLE_PNG" conf/conf.h)
 DONT_USE_MP3=$(shell grep "^\#define[ \t]\+W_DISABLE_MP3" conf/conf.h)
 ifeq ($(DONT_USE_MP3),)
 LIBMP3=-lmpg123
 else
 LIBMP3=
 endif
-LIB=-lm -pthread -lX11 -lGL -lXrandr -lGLEW -ldl -lopenal ${LIBMP3}
+ifeq ($(DONT_USE_PNG),)
+LIBPNG=-lpng
+else
+LIBPNG=
+endif
+LIB=-lm -pthread -lX11 -lGL -lXrandr -lGLEW -ldl -lopenal ${LIBMP3} ${LIBPNG}
 ifeq ($(strip $(SOURCE_TEST)),W_C)
 FINAL_CC=${CC}
 else ifeq ($(strip $(SOURCE_TEST)),W_CPP)
