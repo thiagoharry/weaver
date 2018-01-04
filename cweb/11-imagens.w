@@ -31,7 +31,7 @@ Se quisermos extrair um PNG para uma interface, precisaremos do
 cabeçalho:
 
 @<Interface: Cabeçalhos@>=
-#ifndef W_DISABLE_PNG
+#if !defined(W_DISABLE_PNG) && (W_TARGET == W_ELF)
 #include <png.h>
 #endif
 @
@@ -40,7 +40,7 @@ Nossa função de extrair PNGs deve ter a mesma assinatura da nossa
 função de extrair GIFs:
 
 @<Interface: Declarações@>+=
-#ifndef W_DISABLE_PNG
+#if !defined(W_DISABLE_PNG) && (W_TARGET == W_ELF)
 GLuint *_extract_png(char *, unsigned *, unsigned  **, int *, bool *);
 #endif
 @
@@ -54,7 +54,7 @@ um array com a duração de cada frame (o PNG vai sempre ajustar como
 não:
 
 @<Interface: Definições@>+=
-#ifndef W_DISABLE_PNG
+#if !defined(W_DISABLE_PNG) && (W_TARGET == W_ELF)
 GLuint *_extract_png(char * filename, unsigned *number_of_frames,
                      unsigned  **frame_duration, int *max_repetition,
                      bool *error){
@@ -415,11 +415,4 @@ funções que são usadas para extrair imagens para interfaces:
 #endif
 @
 
-Quando usamos shaders personalizados também será útil podermos
-interpretar PNGs:
 
-@<Interface: Formatos Adicionais com Shaders Personalizados@>=
-  if(!strcmp(ext, ".png") || !strcmp(ext, ".PNG")){ // Suportando .gif
-
-  }
-@

@@ -1545,7 +1545,7 @@ case W_INTERFACE_IMAGE:
   va_start(valist, height);
   filename = va_arg(valist, char *);
   va_end(valist);
-  // Obtendo o caminho do arquivo de áudio:
+  // Obtendo o caminho do arquivo:
   strncpy(complete_path, dir, 256);
   complete_path[255] = '\0';
   strncat(complete_path, filename, 256 - strlen(complete_path));
@@ -1631,6 +1631,12 @@ static void onerror_texture(unsigned undocumented, void *interface,
 Tendo essa função de erros podemos definir o que fazer quando
 carregamos a textura em ambiente web e algo dá errado.
 
+@<Interface: Cabeçalhos@>+=
+#if W_TARGET == W_WEB
+#include <SDL/SDL_image.h>
+#endif
+@
+
 @<Interface: Funções Estáticas@>=
 #if W_TARGET == W_WEB
 static void onload_texture(unsigned undocumented,
@@ -1638,6 +1644,7 @@ static void onload_texture(unsigned undocumented,
   char *ext;
   bool ret = true;
   struct interface *my_interface = (struct interface *) inter;
+  printf("DEBUG FILENAME: %s.\n", filename);
   // Checando extensão
   ext = strrchr(filename, '.');  
   if(! ext){
@@ -1650,6 +1657,34 @@ static void onload_texture(unsigned undocumented,
                    &(my_interface -> number_of_frames),
                    &(my_interface -> frame_duration),
                    &(my_interface -> max_repetition), &ret);
+  }
+  else{
+    // A imagem não é um GIF. Extrairemos usando o SDL aqui:
+    SDL_Surface *tmp_surface = IMG_Load(filename+1);
+    my_interface -> _texture = (GLuint *) Walloc(sizeof(GLuint));
+    if(my_interface -> _texture == NULL){
+      fprintf(stderr, "ERROR: Not enough memory to read %s. Please, increase "
+              "the value of W_MAX_MEMORY at conf/conf.h.\n", filename);
+    }
+    else{
+      glGenTextures(1, my_interface -> _texture);
+      glBindTexture(GL_TEXTURE_2D, *(my_interface -> _texture));
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      // XXX: Checar se é mesmo RGBA:
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tmp_surface -> w,
+                   tmp_surface -> h, 0, GL_RGBA,
+                   GL_UNSIGNED_BYTE, tmp_surface -> pixels);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+      glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+      glBindTexture(GL_TEXTURE_2D, 0);
+      my_interface -> number_of_frames = 1;
+      my_interface -> frame_duration = NULL;
+      my_interface -> max_repetition = 0;
+      ret = false;
+    }
+    SDL_FreeSurface(tmp_surface);
   }
   if(ret){ // Se algum erro aconteceu:
     my_interface -> type = W_NONE;
