@@ -1660,20 +1660,38 @@ static void onload_texture(unsigned undocumented,
   }
   else{
     // A imagem não é um GIF. Extrairemos usando o SDL aqui:
-    SDL_Surface *tmp_surface = IMG_Load(filename+1);
+    SDL_Surface *tmp_surface = IMG_Load(filename);
+    unsigned char *pixels = (unsigned char *)
+      Walloc(sizeof(unsigned char) * 4 * tmp_surface -> w * tmp_surface -> h);
     my_interface -> _texture = (GLuint *) Walloc(sizeof(GLuint));
-    if(my_interface -> _texture == NULL){
+    if(my_interface -> _texture == NULL || pixels == NULL){
       fprintf(stderr, "ERROR: Not enough memory to read %s. Please, increase "
               "the value of W_MAX_MEMORY at conf/conf.h.\n", filename);
     }
     else{
+      // Corrigindo a orientação da imagem para o nosso padrão
+      int i, j, width = tmp_surface -> w, height = tmp_surface -> h;
+      for(i = 0; i < width; i ++)
+        for(j = 0; j < height; j ++){
+          pixels[4 * (j * width + i)] = ((unsigned char *) tmp_surface -> pixels)
+            [4*((height-1-j) * width + i)];
+          pixels[4 * (j * width + i)+1] =
+            ((unsigned char *) tmp_surface -> pixels)
+            [4*((height-1-j) * tmp_surface -> w + i)+1];
+          pixels[4 * (j * tmp_surface -> w + i)+2] =
+            ((unsigned char *) tmp_surface -> pixels)
+            [4*((height-1-j) * tmp_surface -> w + i)+2];
+          pixels[4 * (j * tmp_surface -> w + i)+3] =
+            ((unsigned char *) tmp_surface -> pixels)
+            [4*((height-1-j) * tmp_surface -> w + i)+3];
+        }
       glGenTextures(1, my_interface -> _texture);
       glBindTexture(GL_TEXTURE_2D, *(my_interface -> _texture));
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       // XXX: Checar se é mesmo RGBA:
       glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tmp_surface -> w,
                    tmp_surface -> h, 0, GL_RGBA,
-                   GL_UNSIGNED_BYTE, tmp_surface -> pixels);
+                   GL_UNSIGNED_BYTE, pixels);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
