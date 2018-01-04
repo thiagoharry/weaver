@@ -1675,28 +1675,28 @@ static void onload_texture(unsigned undocumented,
         for(j = 0; j < height; j ++){
           pixels[4 * (j * width + i)] = ((unsigned char *) tmp_surface -> pixels)
             [4*((height-1-j) * width + i)];
-          pixels[4 * (j * width + i)+1] =
+          pixels[4 * (j * width + i) + 1] =
             ((unsigned char *) tmp_surface -> pixels)
-            [4*((height-1-j) * tmp_surface -> w + i)+1];
-          pixels[4 * (j * tmp_surface -> w + i)+2] =
+            [4*((height-1-j) * width + i)+1];
+          pixels[4 * (j * width + i) + 2] =
             ((unsigned char *) tmp_surface -> pixels)
-            [4*((height-1-j) * tmp_surface -> w + i)+2];
-          pixels[4 * (j * tmp_surface -> w + i)+3] =
+            [4 * ((height-1-j) * width + i) +2];
+          pixels[4 * (j * width + i) + 3] =
             ((unsigned char *) tmp_surface -> pixels)
-            [4*((height-1-j) * tmp_surface -> w + i)+3];
+            [4 * ((height - 1 - j) * width + i) + 3];
         }
       glGenTextures(1, my_interface -> _texture);
       glBindTexture(GL_TEXTURE_2D, *(my_interface -> _texture));
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       // XXX: Checar se é mesmo RGBA:
-      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, tmp_surface -> w,
-                   tmp_surface -> h, 0, GL_RGBA,
+      glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA, width, height, 0, GL_RGBA,
                    GL_UNSIGNED_BYTE, pixels);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
       glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
       glBindTexture(GL_TEXTURE_2D, 0);
+      Wfree(pixels);
       my_interface -> number_of_frames = 1;
       my_interface -> frame_duration = NULL;
       my_interface -> max_repetition = 0;
