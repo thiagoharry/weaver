@@ -1744,7 +1744,7 @@ void _insert_interface_queue(struct interface *inter){
            _interface_queue[_number_of_loops][middle] -> type != type) &&
           begin != end){
         if(_interface_queue[_number_of_loops][middle] == NULL ||
-           _interface_queue[_number_of_loops][middle] -> type < type){
+           _interface_queue[_number_of_loops][middle] -> type > type){
             tmp = (middle + end) / 2;
             if(tmp == end) end --;
             else end = tmp;
@@ -1786,7 +1786,7 @@ void _remove_interface_queue(struct interface *inter){
            _interface_queue[_number_of_loops][middle] -> type != type)
           && begin != end){
         if(_interface_queue[_number_of_loops][middle] == NULL ||
-           _interface_queue[_number_of_loops][middle] -> type < type){
+           _interface_queue[_number_of_loops][middle] -> type > type){
             tmp = (middle + end) / 2;
             if(tmp == end) end --;
             else end = tmp;
