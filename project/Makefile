@@ -17,7 +17,7 @@ INSTALL_PROG_DIR := "/usr/games/"
 endif
 
 ifeq ($(DONT_USE_MP3),)
-TEST_MP3=have_mp3
+TEST_MP3=test_mp3
 else
 TEST_MP3=
 endif
@@ -30,7 +30,7 @@ endif
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
 web: test_emcc test_xxd shader_data make-web
 else ifeq ($(strip $(TARGET_TEST)),W_ELF)
-prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd ${TEST_PNG} shader_data make-prog
+prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd ${TEST_PNG} ${TEST_MP3} shader_data make-prog
 else
 err:
 	$(error Invalid W_TARGET in conf/conf.h)
@@ -78,6 +78,7 @@ test_opengl: .weaver/have_opengl
 test_xrandr: .weaver/have_xrandr
 test_xlib: .weaver/have_xlib
 test_png: .weaver/have_png
+test_mp3: .weaver/have_mp3
 test_cc: .weaver/have_cc
 .weaver/have_xxd:
 	@echo -n "Testing XXD.................."
@@ -168,11 +169,27 @@ test_cc: .weaver/have_cc
 	touch .weaver/have_png) || \
 	(clang .weaver/dummy.c -o .weaver/a.out -lpng &> /dev/null && \
 	touch .weaver/have_png) ||true
-	@if [ -e .weaver/have_openal ]; then \
+	@if [ -e .weaver/have_png ]; then \
 	echo "OK";  \
 	else /bin/echo -e "\033[31mFAILED\033[m";\
 	touch .error;\
 	echo "ERROR: Install PNG library and headers to run this command.";\
+	echo "       Or disable PNG support adding W_DISABLE_PNG in conf/conf.h.";\
+	fi
+.weaver/have_mp3:
+	@echo -n "Testing MPG123..............."
+	@echo "#include <mpg123.h>" > .weaver/dummy.c
+	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
+	@(gcc .weaver/dummy.c -o .weaver/a.out -lmpg123 &> /dev/null && \
+	touch .weaver/have_mp3) || \
+	(clang .weaver/dummy.c -o .weaver/a.out -lmpg123 &> /dev/null && \
+	touch .weaver/have_mp3) ||true
+	@if [ -e .weaver/have_mp3 ]; then \
+	echo "OK";  \
+	else /bin/echo -e "\033[31mFAILED\033[m";\
+	touch .error;\
+	echo "ERROR: Install MPG123 library and headers to run this command.";\
+	echo "       Or disable MP3 support adding W_DISABLE_MP3 in conf/conf.h.";\
 	fi
 test_emcc: .weaver/have_emcc
 .weaver/have_emcc:
