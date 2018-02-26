@@ -453,8 +453,10 @@ versão compatível:
 
 @<Janela: Inicialização@>+=
 {
-  int glx_major, glx_minor;
+  int glx_major, glx_minor, gl_major = 0, gl_minor = 0;
   Bool ret;
+  glGetIntegerv(GL_MAJOR_VERSION, &gl_major);
+  glGetIntegerv(GL_MINOR_VERSION, &gl_minor);
   ret = glXQueryVersion(_dpy, &glx_major, &glx_minor);
   if(!ret || (( glx_major == 1 ) && ( glx_minor < 3 )) || glx_major < 1){
     fprintf(stderr,
@@ -462,6 +464,9 @@ versão compatível:
             glx_major, glx_minor);
     exit(1);
   }
+#if W_DEBUG_LEVEL >= 3
+  printf("WARNING (3): GLX Version: %d.%d\n", glx_major, glx_minor);
+#endif
 }
 @
 
