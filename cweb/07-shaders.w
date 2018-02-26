@@ -1474,6 +1474,8 @@ void _compile_and_insert_new_shader(char *dir, int position){
     char *vertex_source = NULL, *fragment_source = NULL;
     off_t vertex_size = 0, fragment_size = 0;
     GLuint vertex, fragment;
+    size_t size_t_ret;
+    bool read_error = false;
     char *p;
     int i;
     FILE *fp;
@@ -1628,7 +1630,9 @@ void _compile_and_insert_new_shader(char *dir, int position){
             _shader_list[position].vertex_source = NULL;
         }
         else{
-            fread(vertex_source, sizeof(char), vertex_size, fd);
+            size_t_ret = fread(vertex_source, sizeof(char), vertex_size, fd);
+	    if(size_t_ret != vertex_size * sizeof(char))
+	      read_error = true;
             vertex_source[vertex_size - 1] = '\0';
             fclose(fd);
         }
@@ -1642,10 +1646,15 @@ void _compile_and_insert_new_shader(char *dir, int position){
             _shader_list[position].fragment_source = NULL;
         }
         else{
-            fread(fragment_source, sizeof(char), fragment_size, fd);
+            size_t_ret = fread(fragment_source, sizeof(char), fragment_size, fd);
+	    if(size_t_ret != vertex_size * sizeof(char))
+	      read_error = true;
             fragment_source[fragment_size - 1] = '\0';
             fclose(fd);
         }
+    }
+    if(read_error){
+      fprintf(stderr, "WARNING (0): Something failed while reading shader file.\n");
     }
     // Tendo feito isso, o que resta a fazer é enfim compilar e ligar
     // o programa.
