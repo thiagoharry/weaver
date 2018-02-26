@@ -143,15 +143,16 @@ passou a suportar estas coisas.
 @<Interpretando Arquivo GIF@>=
 {
   char data[4];
-  fread(data, 1, 3, fp);
+  size_t size_t_ret;
+  size_t_ret = fread(data, 1, 3, fp);
   data[3] = '\0';
-  if(strcmp(data, "GIF")){
+  if(strcmp(data, "GIF") || size_t_ret != 3){
     fprintf(stderr, "WARNING: Not a GIF file: %s\n", filename);
     goto error_gif;
   }
-  fread(data, 1, 3, fp);
+  size_t_ret = fread(data, 1, 3, fp);
   data[3] = '\0';
-  if(strcmp(data, "87a") && strcmp(data, "89a")){
+  if((strcmp(data, "87a") && strcmp(data, "89a")) || size_t_ret != 3){
     fprintf(stderr, "WARNING: Not supported GIF version: %s\n", filename);
     goto error_gif;
   }
@@ -173,16 +174,24 @@ atuais). Por fim, também há algumas flags com informações adicionais.
   // Primeiro lemos a largura da imagem, a informação está presente nos
   // próximos 2 bytes (largura máxima: 65535 pixels)
   unsigned char data[2];
-  fread(data, 1, 2, fp);
+  size_t size_t_ret;
+  bool read_error = false;
+  size_t_ret = fread(data, 1, 2, fp);
+  if(size_t_ret != 2)
+    read_error = true;
   width = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
   // Agora lemos a altura da imagem nos próximos 2 bytes (tamanho
   // máximo: 65535 pixels)
-  fread(data, 1, 2, fp);
+  size_t_ret = fread(data, 1, 2, fp);
+  if(size_t_ret != 2)
+    read_error = true;
   height = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
   image_size = (width) * (height);
   // Lemos o próximo byte de onde extraímos informações sobre algumas
   // flags:
-  fread(data, 1, 1, fp);
+  size_t_ret = fread(data, 1, 1, fp);
+  if(size_t_ret != 1)
+    read_error = true;
   // Temos uma tabela de cores global?
   global_color_table_flag = (data[0] & 128);
   // O tamanho da tabela de cores caso ela exista é definido por este
@@ -190,9 +199,17 @@ atuais). Por fim, também há algumas flags com informações adicionais.
   global_color_table_size = data[0] % 8;
   global_color_table_size = 3 * (1 << (global_color_table_size + 1));
   // Lemos a cor de fundo de nosso GIF
-  fread(&background_color, 1, 1, fp);
+  size_t_ret = fread(&background_color, 1, 1, fp);
+  if(size_t_ret != 1)
+    read_error = true;
   // Lemos e ignoramos  a proporção de altura e largura de pixel
-  fread(data, 1, 1, fp);
+  size_t_ret = fread(data, 1, 1, fp);
+  if(size_t_ret != 1)
+    read_error = true;
+  if(read_error){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
 }
 @
 
@@ -208,7 +225,11 @@ if(global_color_table_flag){
     goto error_gif;
   }
   // E agora lemos a tabela global de cores:
-  fread(global_color_table, 1, global_color_table_size, fp);
+  if(fread(global_color_table, 1, global_color_table_size, fp) !=
+     global_color_table_size){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
 }
 @
 
@@ -231,7 +252,12 @@ sequência, até que cheguemos no bloco que marca ofim de dados:
 {
   unsigned block_type;
   unsigned char data[2];
-  fread(data, 1, 1, fp);
+  size_t size_t_ret;
+  size_t_ret = fread(data, 1, 1, fp);
+  if(size_t_ret != 1){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
   block_type = data[0];
   while(block_type != 59){
     switch(block_type){
@@ -247,7 +273,11 @@ sequência, até que cheguemos no bloco que marca ofim de dados:
       goto error_gif;
     }
     // Terminamos este bloco, lendo o próximo:
-    fread(data, 1, 1, fp);
+    size_t_ret = fread(data, 1, 1, fp);
+    if(size_t_ret != 1){
+      fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+      goto error_gif;
+    }
     block_type = data[0];
   }
 }
@@ -270,7 +300,10 @@ animados usam isso para definir quantas iterações terá a animação):
 @<GIF: Bloco de Extensão@>=
 {
   unsigned extension_type;
-  fread(data, 1, 1, fp);
+  if(fread(data, 1, 1, fp) != 1){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
   extension_type = (unsigned) data[0];
   switch(extension_type){
   case 1: // Texto puro
@@ -313,15 +346,28 @@ recomendação e ignorá-la:
   // Primeiro jogamos fora os próximos 15 bytes que descrevem
   // informações gerais sobre esta extensão:
   unsigned char buffer[256];
-  fread(buffer, 1, 15, fp);
+  bool read_error = false;
+  if(fread(buffer, 1, 15, fp) != 15){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
   // Agora jogamos fora os sub-blocos de dados. Cada um deles começa
   // com um byte que diz a quantidade de dados que o sucede. E quando
   // encontrarmos um deles cujo byte inicial é zero, então terminamos
   // de jogar todos eles fora:
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
   while(buffer[0] != 0){
-    fread(buffer, 1, buffer[0], fp);
-    fread(buffer, 1, 1, fp);
+    if(fread(buffer, 1, buffer[0], fp) != buffer[0])
+      read_error = true;
+    if(fread(buffer, 1, 1, fp) != 1)
+      read_error = true;
+  }
+  if(read_error){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
   }
   @<GIF: Após Extensão de Texto Puro@>
 }
@@ -346,28 +392,38 @@ apenas ignoramos os dados:
 
 @<GIF: Extensão de Aplicação@>=
 {
+  bool read_error = false;
   bool netscape_extension = false;
   char buffer[12];
   unsigned char buffer2[256];
   // O primeiro byte é só informação sobre o tamanho do cabeçalho
   // deste bloco de extensão. Seu valor é sempre 11, então não
   // precisamos realmente usar este valor:
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
   // Em seguida, devemos ler os próximos 11 bytes para checar se
   // estamos diante de uma extensão do Netscape 2.0.
-  fread(buffer, 1, 11, fp);
+  if(fread(buffer, 1, 11, fp) != 11)
+    read_error = true;
   buffer[11] = '\0';
   if(!strcmp(buffer, "NETSCAPE2.0"))
     netscape_extension = true;
   // Agora vamos ver os dados que estão dentro desta extensão
-  fread(buffer2, 1, 1, fp);
+  if(fread(buffer2, 1, 1, fp) != 1)
+    read_error = true;
   while(buffer2[0] != 0){
-    fread(buffer2, 1, buffer2[0], fp);
+    if(fread(buffer2, 1, buffer2[0], fp) != buffer2[0])
+      read_error = true;
     if(netscape_extension && buffer2[0] == 1){
       // Lemos agora quantas vezes temos que dar um loop na animação:
       number_of_loops = ((unsigned) buffer2[2]) * 256 + ((unsigned) buffer2[1]);
     }
-    fread(buffer2, 1, 1, fp);
+    if(fread(buffer2, 1, 1, fp) != 1)
+      read_error = true;
+  }
+  if(read_error){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
   }
 }
 @
@@ -382,11 +438,19 @@ extensão de texto puro:
 @<GIF: Extensão de Comentário@>=
 {
   unsigned char buffer[256];
-    fread(buffer, 1, 1, fp);
-    while(buffer[0] != 0){
-      fread(buffer, 1, buffer[0], fp);
-      fread(buffer, 1, 1, fp);
-    }
+  bool read_error = false;
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
+  while(buffer[0] != 0){
+    if(fread(buffer, 1, buffer[0], fp) != buffer[0])
+      read_error = true;
+    if(fread(buffer, 1, 1, fp) != 1)
+      read_error = true;
+  }
+  if(read_error){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
 }
 @
 
@@ -397,18 +461,21 @@ tais recursos:
 
 @<GIF: Extensão de Controle de Gráficos@>=
 {
+  bool read_error = false;
   // Primeiro lemos o tamanho do cabeçalho deste bloco. Mas ele sempre
   // tem o tamanho de 4, então podemos ignorar o valor lido por já
   // sabermos qual é ele:
   unsigned char buffer[256];
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
   // No próximo byte lido, temos mais informações que geralmente são
   // ignoradas em softwares modernos. Por exemplo, há um bit que
   // especifica que o GIF não deve avançar a animação enquanto não
   // houver algum tipo de interação com o usuário pedindo por
   // isso. Alguns outros bits estão reservados para uso futuro. Mas há
   // dois valores que nos interessam e que devemos extrair:
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
   // Primeiro é o "método de disposição", que é o que deve acontecer
   // nas animações quando um frame mostra um pixel que seria
   // transparente ou deixa de preencher uma região. O valor de 0 e não
@@ -422,16 +489,23 @@ tais recursos:
   transparent_color_flag = buffer[0] % 2;
   // Agora lemos quantos centesimos de segundo devemos esperar em cada
   // mudança do frame de uma animação:
-  fread(buffer, 1, 2, fp);
+  if(fread(buffer, 1, 2, fp) != 2)
+    read_error = true;
   delay_time = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
   // Se a flag de transparência estiver ativa, o valor que lemos em
   // seguida é o índice da cor que devemos considerar transparente:
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
   transparency_index = buffer[0];
   // Este bloco nunca tem mais nenhum dado. Fazemos mais uma leitura
   // adicional só para ler o último byte com valor zero e que encerra
   // o bloco:
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
+  if(read_error){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
 }
 @
 
@@ -464,23 +538,29 @@ descritor de um frame da imagem):
 
 @<GIF: Bloco Descritor de Imagem@>=
 {
+  bool read_error = false;
   int lzw_minimum_code_size;
   // Lendo o offset horizontal da imagem:
   unsigned char buffer[257];
-  fread(buffer, 1, 2, fp);
+  if(fread(buffer, 1, 2, fp) != 2)
+    read_error = true;
   img_offset_x = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
   // Offset vertical da imagem:
-  fread(buffer, 1, 2, fp);
+  if(fread(buffer, 1, 2, fp) != 2)
+    read_error = true;
   img_offset_y = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
   // Largura da imagem:
-  fread(buffer, 1, 2, fp);
+  if(fread(buffer, 1, 2, fp) != 2)
+    read_error = true;
   img_width = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
   // Altura da imagem:
-  fread(buffer, 1, 2, fp);
+  if(fread(buffer, 1, 2, fp) != 2)
+    read_error = true;
   img_height = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
   // E agora preenchemos as informações sobre a imagem obtidas no
   // próximo byte:
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
   // Se as linhas estão armazenadas 'entrelaçadas' (para serem
   // exibidas mais rapidamente ao serem transmitidas por conexões
   // lentas):
@@ -490,6 +570,10 @@ descritor de um frame da imagem):
   local_color_table_size = 3 * (1 << (local_color_table_size + 1));
   // Se temos uma tabela de cores local ou devemos usar a global:
   local_color_table_flag = buffer[0] >> 7;
+  if(read_error){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
   // Se temos tabela de cores local, lemos ela:
   if(local_color_table_flag){
     @<GIF: Tabela de Cor Local@>
@@ -511,7 +595,11 @@ dela, basta lermos ela diretamente:
     goto error_gif;
   }
   // E agora lemos a tabela local de cores:
-  fread(local_color_table, 1, local_color_table_size, fp);
+  if(fread(local_color_table, 1, local_color_table_size, fp) !=
+     local_color_table_size){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
+  }
 }
 @
 
@@ -529,20 +617,28 @@ os dados da imagem propriamente dita (ou do frame de uma animação):
   // cores for muito pequena, dá para representar com menos bits suas
   // entradas, então o valor de bits será menor. Já se ela tiver 256
   // cores, aí precisaremos de 8 bits:
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
   lzw_minimum_code_size = buffer[0];
   @<GIF: Inicializando Nova Imagem@>
   // Leitura típica de dados em um GIF. Lemos uma série de dados onde
   // o primeiro byte representa a sequência de dados e um 0 significa
   // o fim dos dados:
-  fread(buffer, 1, 1, fp);
+  if(fread(buffer, 1, 1, fp) != 1)
+    read_error = true;
   while(buffer[0] != 0){
     buffer_size = buffer[0];
     buffer[buffer_size] = '\0';
-    fread(buffer, 1, buffer[0], fp);
+    if(fread(buffer, 1, buffer[0], fp) != buffer[0])
+      read_error = true;
     // E aqui lemos os códigos segundo o algoritmo LZW:
     @<GIF: Interpretando Imagem@>
-    fread(buffer, 1, 1, fp);
+    if(fread(buffer, 1, 1, fp) != 1)
+      read_error = true;
+  }
+  if(read_error){
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    goto error_gif;
   }
   @<GIF: Finalizando Nova Imagem@>
   // Depois de lermos uma imagem, os valores ajustados pelo controle

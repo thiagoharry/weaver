@@ -100,6 +100,7 @@ certificarmos de que ele é um arquivo PNG:
 
 @<PNG: Extrair Arquivo@>=
 {
+  size_t size_t_ret;
   unsigned char header[8]; // Armazena o cabeçalho do arquivo
   // O cabeçalho deve ser: 0x89 0x50 0x4E 0x47 0x0D 0x0a 0x1A 0x0A. O
   // primeiro byte é só para ser incomum e minimizar a chance de um
@@ -107,8 +108,8 @@ certificarmos de que ele é um arquivo PNG:
   // alguns caracteres só para reonhecer os valores de quebra de linha
   // e fim de arquivo em vários sistemas. Assim em muitos casos o
   // comando cat não imprime bobagens quando recebe um PNG.
-  fread(header, 1, 8, fp);
-  if(png_sig_cmp(header, 0, 8)){
+  size_t_ret = fread(header, 1, 8, fp);
+  if(png_sig_cmp(header, 0, 8) || size_t_ret != 8){
     fprintf(stderr, "ERROR: %s don't have a PNG header.\n", filename);
     goto error_png;
   }
