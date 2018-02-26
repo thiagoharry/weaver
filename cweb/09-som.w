@@ -512,8 +512,9 @@ basta checar se os primeiros 4 bytes do arquivo formam a string
 @<Interpretando Arquivo WAV@>=
 {
     char data[5];
+    size_t size_t_ret;
     data[0] = '\0';
-    fread(data, 1, 4, fp);
+    size_t_ret = fread(data, 1, 4, fp);
     data[4] = '\0';
     if(strcmp(data, "RIFF")){
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
@@ -521,6 +522,12 @@ basta checar se os primeiros 4 bytes do arquivo formam a string
         fclose(fp);
         *error = true;
         return 0;
+    }
+    if(size_t_ret != 4){
+      fprintf(stderr, "ERROR: Failed while reading %s file.\n", filename);
+      fclose(fp);
+      *error = true;
+      return 0;
     }
 }
 @
@@ -560,10 +567,11 @@ verdade, os primeiros 4 bytes formam a string ``WAVE'':
 @<Interpretando Arquivo WAV@>+=
 {
     char data[5];
+    size_t size_t_ret;
     data[0] = '\0';
-    fread(data, 1, 4, fp);
+    size_t_ret = fread(data, 1, 4, fp);
     data[4] = '\0';
-    if(strcmp(data, "WAVE")){
+    if(strcmp(data, "WAVE") || size_t_ret != 4){
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
                 filename);
         fclose(fp);
@@ -761,6 +769,7 @@ alocar o buffer que armazenará ele, e copiá-lo para ele.
 
 @<Interpretando Arquivo WAV@>+=
 {
+    size_t size_t_ret;
     returned_data = Walloc((size_t) *size);
     if(returned_data == NULL){
         printf("WARNING(0): Not enough memory to read file: %s.\n",
@@ -773,7 +782,13 @@ alocar o buffer que armazenará ele, e copiá-lo para ele.
         *error = true;
         return 0;
     }
-    fread(returned_data, *size, 1, fp);
+    size_t_ret = fread(returned_data, *size, 1, fp);
+    if(size_t_ret != *size){
+      fclose(fp);
+      *error = true;
+      fprintf(stderr, "ERROR (0): Error reading file %s.\n", filename);
+      return 0;
+    }
 }
 @
 
