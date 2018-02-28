@@ -519,7 +519,7 @@ que pode ser desenhada e com buffer duplo.
 @
 
 Agora iremos precisar usar uma função chamada
-|glXCreateContextAttribsARB| para criar um contexto OpenGL 3.0. O
+|glXCreateContextAttribsARB| para criar um contexto OpenGL 2.0 ES. O
 problema é que nem todas as placas de vídeo possuem ela. Algumas podem
 não ter suporte à versões mais novas do openGL. Por causa disso, a API
 não sabe se esta função existe ou não e ela não está sequer
@@ -538,9 +538,9 @@ criar o contexto:.
 @<Janela: Inicialização@>+=
 {
   int context_attribs[] =
-    { //  Iremos usar e exigir OpenGL 3.3
-      GLX_CONTEXT_MAJOR_VERSION_ARB, 3,
-      GLX_CONTEXT_MINOR_VERSION_ARB, 3,
+    { //  Iremos usar e exigir OpenGL 2.0 ES
+      GLX_CONTEXT_MAJOR_VERSION_ARB, 2,
+      GLX_CONTEXT_MINOR_VERSION_ARB, 0,
       None
     };
   glXCreateContextAttribsARBProc glXCreateContextAttribsARB = 0;
@@ -548,7 +548,7 @@ criar o contexto:.
     // Usamox 'glXQueryExtensionsString' para obter lista de extensões
     const char *glxExts = glXQueryExtensionsString(_dpy, _screen);
     if(strstr(glxExts, "GLX_ARB_create_context") == NULL){
-      fprintf(stderr, "ERROR: Can't create an OpenGL 3.0 context.\n");
+      fprintf(stderr, "ERROR: Can't create an OpenGL 2.0 ES context.\n");
       exit(1);
     }
   }
@@ -559,7 +559,7 @@ criar o contexto:.
   _context = glXCreateContextAttribsARB(_dpy, *fbConfigs, NULL, GL_TRUE,
                                        context_attribs);
   if(_context == NULL){
-    fprintf(stderr, "ERROR: Couldn't create an OpenGL 3.0 context.\n");
+    fprintf(stderr, "ERROR: Couldn't create an OpenGL 2.0 ES context.\n");
     exit(1);
   }
   // Aqui pode ocorrer um erro aparentemente não-detectável, quando o
@@ -638,9 +638,9 @@ pthread_mutex_t _window_mutex;
 #endif
 
 void _initialize_canvas(void){
-  SDL_Init(SDL_INIT_VIDEO); // Inicializando SDL com OpenGL 3.3
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 3);
-  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 3);
+  SDL_Init(SDL_INIT_VIDEO); // Inicializando SDL com OpenGL 2.0 ES
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+  SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
   W.resolution_x = emscripten_run_script_int("window.innerWidth");
   W.resolution_y = emscripten_run_script_int("window.innerHeight");
   if(W.resolution_x < 800)
