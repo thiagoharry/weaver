@@ -1654,7 +1654,11 @@ void _compile_and_insert_new_shader(char *dir, int position){
         }
     }
     if(read_error){
-      fprintf(stderr, "WARNING (0): Something failed while reading shader file.\n");
+#if W_DEBUG_LEVEL >= 4
+      fprintf(stderr, "WARNING (3): Something failed while reading shader file.\n");
+#else
+      read_error = false;
+#endif
     }
     // Tendo feito isso, o que resta a fazer é enfim compilar e ligar
     // o programa.
