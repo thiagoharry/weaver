@@ -95,6 +95,9 @@ GLuint *_extract_gif(char *filename, unsigned *number_of_frames,
     GLXContext thread_context;
 #endif
     *number_of_frames = 0;
+#ifdef W_DEBUG_GIF
+    printf("DEBUG: Opening GIF file %s.\n", filename);
+#endif
     // Abrindo o arquivo da imagem
     FILE *fp = fopen(filename, "r");
     *error = false;
@@ -112,10 +115,16 @@ GLuint *_extract_gif(char *filename, unsigned *number_of_frames,
   goto end_of_gif;
 error_gif:
   // Código executado apenas em caso de erro
+#ifdef W_DEBUG_GIF
+  printf("DEBUG: Image %s had errors.\n", filename);
+#endif
   *error = true;
   returned_data = NULL;
 end_of_gif:
   // Código de encerramento
+#ifdef W_DEBUG_GIF
+  printf("DEBUG: Exiting image %s.\n", filename);
+#endif
 #if W_TARGET == W_ELF && !defined(W_MULTITHREAD)
   fclose(fp);
   _iWtrash();
@@ -156,6 +165,9 @@ passou a suportar estas coisas.
     fprintf(stderr, "WARNING: Not supported GIF version: %s\n", filename);
     goto error_gif;
   }
+#ifdef W_DEBUG_GIF
+  printf("DEBUG: %s: GIF version: %s.\n", filename, data);
+#endif
 }
 @
 
@@ -187,6 +199,9 @@ atuais). Por fim, também há algumas flags com informações adicionais.
     read_error = true;
   height = ((unsigned long) data[1]) * 256 + ((unsigned long) data[0]);
   image_size = (width) * (height);
+#ifdef W_DEBUG_GIF
+  printf("DEBUG: %s: Image size: %ld x %ld.\n", filename, width, height);
+#endif
   // Lemos o próximo byte de onde extraímos informações sobre algumas
   // flags:
   size_t_ret = fread(data, 1, 1, fp);
@@ -207,8 +222,7 @@ atuais). Por fim, também há algumas flags com informações adicionais.
   if(size_t_ret != 1)
     read_error = true;
   if(read_error){
-    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
-    goto error_gif;
+    read_error = true;
   }
 }
 @
@@ -230,6 +244,26 @@ if(global_color_table_flag){
     fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
     goto error_gif;
   }
+#ifdef W_DEBUG_LEVEL
+  {
+    unsigned int i, aux, line = -1;
+    aux = background_color % 10;
+    printf("DEBUG: %s: Global Color Table:\n   ", filename);
+    for(i = 0; i < aux; i ++) printf("               ");
+    printf("( background  )");
+    aux = background_color / 10;
+    for(i = 0; i < global_color_table_size; i += 3){
+      if(!(i % 30)){
+        if(line == aux) printf("( background  )");
+        printf("\n   ");
+        line ++;
+      }
+      printf("(%3d, %3d, %3d)", global_color_table[i], global_color_table[i + 1],
+             global_color_table[i + 2]);
+    }
+    printf("\n");
+  }
+#endif
 }
 @
 
@@ -253,6 +287,9 @@ sequência, até que cheguemos no bloco que marca ofim de dados:
   unsigned block_type;
   unsigned char data[2];
   size_t size_t_ret;
+#ifdef W_DEBUG_GIF
+  printf("DEBUG: %s: File Blocks: \n", filename);
+#endif
   size_t_ret = fread(data, 1, 1, fp);
   if(size_t_ret != 1){
     fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
@@ -301,7 +338,7 @@ animados usam isso para definir quantas iterações terá a animação):
 {
   unsigned extension_type;
   if(fread(data, 1, 1, fp) != 1){
-    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    fprintf(stderr, "WARNING: File %s couldn't be read E .\n", filename);
     goto error_gif;
   }
   extension_type = (unsigned) data[0];
@@ -343,6 +380,9 @@ recomendação e ignorá-la:
 
 @<GIF: Extensão de Texto Puro@>=
 {
+#ifdef W_DEBUG_GIF
+  printf("   [Extension: Text (deprecated block)]\n");
+#endif
   // Primeiro jogamos fora os próximos 15 bytes que descrevem
   // informações gerais sobre esta extensão:
   unsigned char buffer[256];
@@ -399,32 +439,46 @@ apenas ignoramos os dados:
   // O primeiro byte é só informação sobre o tamanho do cabeçalho
   // deste bloco de extensão. Seu valor é sempre 11, então não
   // precisamos realmente usar este valor:
-  if(fread(buffer, 1, 1, fp) != 1)
+  if(fread(buffer, 1, 1, fp) != 1){
     read_error = true;
+  }
   // Em seguida, devemos ler os próximos 11 bytes para checar se
   // estamos diante de uma extensão do Netscape 2.0.
-  if(fread(buffer, 1, 11, fp) != 11)
+  if(fread(buffer, 1, 11, fp) != 11){
     read_error = true;
+  }
   buffer[11] = '\0';
   if(!strcmp(buffer, "NETSCAPE2.0"))
     netscape_extension = true;
   // Agora vamos ver os dados que estão dentro desta extensão
-  if(fread(buffer2, 1, 1, fp) != 1)
+  if(fread(buffer2, 1, 1, fp) != 1){
     read_error = true;
+  }
   while(buffer2[0] != 0){
-    if(fread(buffer2, 1, buffer2[0], fp) != buffer2[0])
+    int test;
+    if((test = fread(buffer2, 1, buffer2[0], fp)) != buffer2[0]){
       read_error = true;
+    }
     if(netscape_extension && buffer2[0] == 1){
       // Lemos agora quantas vezes temos que dar um loop na animação:
       number_of_loops = ((unsigned) buffer2[2]) * 256 + ((unsigned) buffer2[1]);
     }
-    if(fread(buffer2, 1, 1, fp) != 1)
+    if(fread(buffer2, 1, 1, fp) != 1){
       read_error = true;
+    }
   }
   if(read_error){
-    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
-    goto error_gif;
+#if W_DEBUG_LEVEL >= 3
+    fprintf(stderr, "WARNING: fread should be checked in "
+            "Application Extension.\n", filename);
+#endif
   }
+#ifdef W_DEBUG_GIF
+  if(netscape_extension)
+    printf("   [Extension: Application (animated gif)]\n");
+  else
+    printf("   [Extension: Application (unknown)]\n");
+#endif
 }
 @
 
@@ -439,16 +493,30 @@ extensão de texto puro:
 {
   unsigned char buffer[256];
   bool read_error = false;
-  if(fread(buffer, 1, 1, fp) != 1)
+  unsigned int size;
+  if(fread(&size, 1, 1, fp) != 1)
     read_error = true;
+#ifdef W_DEBUG_GIF
+  printf("   [Extension: Comment (");
+#endif
   while(buffer[0] != 0){
-    if(fread(buffer, 1, buffer[0], fp) != buffer[0])
+    if(fread(buffer, 1, size, fp) != size)
       read_error = true;
-    if(fread(buffer, 1, 1, fp) != 1)
+#ifdef W_DEBUG_GIF
+    {
+      unsigned int i;
+      for(i = 0; i < size; i ++)
+        printf("%c", buffer[i]);
+    }
+#endif
+    if(fread(&size, 1, 1, fp) != 1)
       read_error = true;
   }
+#ifdef W_DEBUG_GIF
+  printf(")]\n");
+#endif
   if(read_error){
-    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    fprintf(stderr, "WARNING: File %s couldn't be read. J\n", filename);
     goto error_gif;
   }
 }
@@ -466,6 +534,9 @@ tais recursos:
   // tem o tamanho de 4, então podemos ignorar o valor lido por já
   // sabermos qual é ele:
   unsigned char buffer[256];
+#ifdef W_DEBUG_GIF
+  printf("   [Extension: Graphic Control (");
+#endif
   if(fread(buffer, 1, 1, fp) != 1)
     read_error = true;
   // No próximo byte lido, temos mais informações que geralmente são
@@ -485,27 +556,68 @@ tais recursos:
   // pixel com a cor de fundo do GIF. E um 3 deixa o pixel
   // verdadeiramente transparente.
   disposal_method = (buffer[0] >> 2) % 8;
+#ifdef W_DEBUG_GIF
+  printf("Disposal Method: ");
+  switch(disposal_method){
+  case 0:
+    printf("Not specified, ");
+    break;
+  case 1:
+    printf("Draw on top, ");
+    break;
+  case 2:
+    printf("Restore background, ");
+    break;
+  case 3:
+    printf("Restore previous, ");
+    break;
+  }
+#endif
   // Agora descobrimos se iremos suportar transparência
   transparent_color_flag = buffer[0] % 2;
+#ifdef W_DEBUG_GIF
+  if(transparent_color_flag)
+    printf("Transparency: ON, ");
+  else
+    printf("Transparency: OFF, ");
+#endif
   // Agora lemos quantos centesimos de segundo devemos esperar em cada
   // mudança do frame de uma animação:
   if(fread(buffer, 1, 2, fp) != 2)
     read_error = true;
   delay_time = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
+#ifdef W_DEBUG_GIF
+  printf("Delay: %dcs, ", delay_time);
+#endif
   // Se a flag de transparência estiver ativa, o valor que lemos em
   // seguida é o índice da cor que devemos considerar transparente:
   if(fread(buffer, 1, 1, fp) != 1)
     read_error = true;
   transparency_index = buffer[0];
+#ifdef W_DEBUG_GIF
+  if(!transparent_color_flag)
+    printf("Transparent Color: Not applicable");
+  else if(!local_color_table_flag)
+    printf("Transparent Color: (index %d: %3d, %3d, %3d)",
+           transparency_index,
+           global_color_table[transparency_index * 3],
+           global_color_table[transparency_index * 3 + 1],
+           global_color_table[transparency_index * 3 + 2]);
+  else
+    printf("Transparent Color: Local color");
+#endif
   // Este bloco nunca tem mais nenhum dado. Fazemos mais uma leitura
   // adicional só para ler o último byte com valor zero e que encerra
   // o bloco:
   if(fread(buffer, 1, 1, fp) != 1)
     read_error = true;
   if(read_error){
-    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    fprintf(stderr, "WARNING: File %s couldn't be read K.\n", filename);
     goto error_gif;
   }
+#ifdef W_DEBUG_GIF
+  printf(")]\n");
+#endif
 }
 @
 
@@ -538,6 +650,9 @@ descritor de um frame da imagem):
 
 @<GIF: Bloco Descritor de Imagem@>=
 {
+#ifdef W_DEBUG_GIF
+  printf("   [Image Descriptor (");
+#endif
   bool read_error = false;
   int lzw_minimum_code_size;
   // Lendo o offset horizontal da imagem:
@@ -559,19 +674,35 @@ descritor de um frame da imagem):
   img_height = ((unsigned) buffer[1]) * 256 + ((unsigned) buffer[0]);
   // E agora preenchemos as informações sobre a imagem obtidas no
   // próximo byte:
+#ifdef W_DEBUG_GIF
+  printf("Position: %dx%d+%d+%d, ", img_width, img_height, img_offset_x,
+         img_offset_y);
+#endif
   if(fread(buffer, 1, 1, fp) != 1)
     read_error = true;
   // Se as linhas estão armazenadas 'entrelaçadas' (para serem
   // exibidas mais rapidamente ao serem transmitidas por conexões
   // lentas):
   interlace_flag = (buffer[0] >> 6) % 2;
+#ifdef W_DEBUG_GIF
+  if(interlace_flag)
+    printf("Interlace: ON, ");
+  else
+    printf("Interlace: OFF, ");
+#endif
   // O tamanho da tabela de cores local (se existir):
   local_color_table_size = buffer[0] % 8;
   local_color_table_size = 3 * (1 << (local_color_table_size + 1));
   // Se temos uma tabela de cores local ou devemos usar a global:
   local_color_table_flag = buffer[0] >> 7;
+#ifdef W_DEBUG_GIF
+  if(local_color_table_flag)
+    printf("Color Table: Local)]\n");
+  else
+    printf("Color Table: Global)]\n");
+#endif
   if(read_error){
-    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    fprintf(stderr, "WARNING: File %s couldn't be read M.\n", filename);
     goto error_gif;
   }
   // Se temos tabela de cores local, lemos ela:
@@ -597,7 +728,7 @@ dela, basta lermos ela diretamente:
   // E agora lemos a tabela local de cores:
   if(fread(local_color_table, 1, local_color_table_size, fp) !=
      local_color_table_size){
-    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
+    fprintf(stderr, "WARNING: File %s couldn't be read N.\n", filename);
     goto error_gif;
   }
 }
@@ -637,8 +768,10 @@ os dados da imagem propriamente dita (ou do frame de uma animação):
       read_error = true;
   }
   if(read_error){
-    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
-    goto error_gif;
+#if W_DEBUG_LEVEL >= 3
+    fprintf(stderr, "WARNING: fread should be checked in "
+            "Image Data.\n", filename);
+#endif
   }
   @<GIF: Finalizando Nova Imagem@>
   // Depois de lermos uma imagem, os valores ajustados pelo controle
@@ -907,7 +1040,7 @@ int bits;
   bits = lzw_minimum_code_size + 1;
 }
 @
-    
+
 O fato de não lermos bytes,mas uma quantidade variável de bits da
 entrada faz com que tenhamos que tomar cuidado na leitura dos
 dados. Nós sempre colocamos os dados a serem lidos em um buffer que é
@@ -917,7 +1050,7 @@ nossa leitura do buffer. E a segunda de qual bit dentro deste byte nós
 devemos continuar:
 
 @<GIF: Variáveis Temporárias para Imagens Lidas@>+=
-int byte_offset = 0, bit_offset = 0; 
+int byte_offset = 0, bit_offset = 0;
 unsigned code = 0, previous_code;
 // Essa variável vai nos ajudar caso uma parte dos bits de nosso
 // código esteja no buffer atual e a outra parte no buffer que ainda
@@ -1359,7 +1492,7 @@ principal. Para gerar um novo contexto, fazemos:
 
 E sabendo que podemos gerar texturas OpenGL, enfim geramos nossas
 imagens finais:
-  
+
 @<GIF: Gerando Imagem Final@>+=
 {
   unsigned i, line_source, line_destiny, col;
@@ -1441,29 +1574,20 @@ imagens finais:
            col >= p -> x_offset + p -> width ||
            line_destiny >= p -> y_offset + p -> height ||
            p -> rgba_image[source_index + 3] == 0){
-          if(i == 0 || current_disposal_method == 3){
+          if(i == 0 || current_disposal_method == 3 ||
+             current_disposal_method == 2){
             // Deixa transparente
             current_image[target_index] = p -> rgba_image[source_index];
             current_image[target_index + 1] = p -> rgba_image[source_index + 1];
             current_image[target_index + 2] = p -> rgba_image[source_index + 2];
             current_image[target_index + 3] = p -> rgba_image[source_index + 3];
           }
-          else if(current_disposal_method == 1){
+          else{
             // Repete imagem anterior
             current_image[target_index] = previous_image[target_index];
             current_image[target_index + 1] = previous_image[target_index + 1];
             current_image[target_index + 2] = previous_image[target_index + 2];
             current_image[target_index + 3] = previous_image[target_index + 3];
-          }
-          else{
-            // Preenche com cor de fundo
-            current_image[target_index] =
-              global_color_table[background_color * 3];
-            current_image[target_index + 1] =
-              global_color_table[background_color * 3 + 1];
-            current_image[target_index + 2] =
-              global_color_table[background_color * 3 + 2];
-            current_image[target_index + 3] = 255;
           }
         }
         else{
@@ -1547,7 +1671,7 @@ animação.
 
 @<Interface: Atributos Adicionais@>=
 // Isso fica dentro da definição de 'struct interface':
-GLuint *_texture; 
+GLuint *_texture;
 bool _loaded_texture; // A(s) textura(s) acima foi(ram) carregada(s)?
 bool animate; // A interface é animada?
 unsigned number_of_frames; // Quantos frames a imagem tem?
@@ -1637,7 +1761,7 @@ case W_INTERFACE_IMAGE:
   char *ext;
   bool ret = true;
 #endif
-  char *filename, complete_path[256]; 
+  char *filename, complete_path[256];
   va_start(valist, height);
   filename = va_arg(valist, char *);
   va_end(valist);
@@ -1742,7 +1866,7 @@ static void onload_texture(unsigned undocumented,
   struct interface *my_interface = (struct interface *) inter;
   printf("DEBUG FILENAME: %s.\n", filename);
   // Checando extensão
-  ext = strrchr(filename, '.');  
+  ext = strrchr(filename, '.');
   if(! ext){
     onerror_texture(0, inter, 0);
     return;
@@ -2110,7 +2234,7 @@ dados foi atualizada:
   unsigned number_of_frames;
   unsigned current_frame;
   unsigned frame_duration[];
-  int max_repetition;    
+  int max_repetition;
 }|
 
 \macrovalor|animate|: Nos diz se esta interface é animada ou não. Ou
