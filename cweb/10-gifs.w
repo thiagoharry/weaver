@@ -244,7 +244,7 @@ if(global_color_table_flag){
     fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
     goto error_gif;
   }
-#ifdef W_DEBUG_LEVEL
+#ifdef W_DEBUG_GIF
   {
     unsigned int i, aux, line = -1;
     aux = background_color % 10;
