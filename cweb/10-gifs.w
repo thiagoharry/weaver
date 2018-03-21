@@ -612,7 +612,7 @@ tais recursos:
   if(fread(buffer, 1, 1, fp) != 1)
     read_error = true;
   if(read_error){
-    fprintf(stderr, "WARNING: File %s couldn't be read K.\n", filename);
+    fprintf(stderr, "WARNING: File %s couldn't be read.\n", filename);
     goto error_gif;
   }
 #ifdef W_DEBUG_GIF
@@ -770,7 +770,7 @@ os dados da imagem propriamente dita (ou do frame de uma animação):
   if(read_error){
 #if W_DEBUG_LEVEL >= 3
     fprintf(stderr, "WARNING: fread should be checked in "
-            "Image Data.\n", filename);
+            "Image Data.\n");
 #endif
   }
   @<GIF: Finalizando Nova Imagem@>
