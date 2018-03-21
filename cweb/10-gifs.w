@@ -470,7 +470,7 @@ apenas ignoramos os dados:
   if(read_error){
 #if W_DEBUG_LEVEL >= 3
     fprintf(stderr, "WARNING: fread should be checked in "
-            "Application Extension.\n", filename);
+            "Application Extension.\n");
 #endif
   }
 #ifdef W_DEBUG_GIF
