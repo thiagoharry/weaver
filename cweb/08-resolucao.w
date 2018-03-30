@@ -297,7 +297,7 @@ if(_final_shader[_number_of_loops] != W_NONE){
     // Usar os vértices das interfaces
     glBindBuffer(GL_ARRAY_BUFFER,_interface_VBO);
     glBindFramebuffer(GL_FRAMEBUFFER, 0); // Usar framebuffer padrão
-    glViewport(0, 0, W.width, W.height);
+    glViewport(0, 0, W.resolution_x, W.resolution_y);
     glBindVertexArray(_interface_VAO);
     glDisable(GL_DEPTH_TEST);
     if(_final_shader[_number_of_loops] > 0){
