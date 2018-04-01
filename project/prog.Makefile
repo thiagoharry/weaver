@@ -22,7 +22,7 @@ ifeq ($(DONT_USE_PNG),)
 LIBPNG=-lpng
 else
 LIBPNG=
-endifx
+endif
 LIB=-lm -pthread -lX11 -lGL -lXrandr -lGLEW -ldl -lopenal ${LIBMP3} ${LIBPNG}
 ifeq ($(strip $(SOURCE_TEST)),W_C)
 FINAL_CC=${CC}

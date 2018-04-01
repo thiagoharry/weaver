@@ -1536,6 +1536,7 @@ if(! inside_weaver_directory && have_arg){
     fp = fopen("src/includes.h", "w");
     write_copyright(fp, author_name, argument, year);
     fprintf(fp, "\n#include \"weaver/weaver.h\"\n");
+    fprintf(fp, "\n#include \"game.h\"\n");
     fclose(fp);
   }
   else{
