@@ -523,12 +523,7 @@ basta checar se os primeiros 4 bytes do arquivo formam a string
         *error = true;
         return 0;
     }
-    if(size_t_ret != 4){
-      fprintf(stderr, "ERROR: Failed while reading %s file.\n", filename);
-      fclose(fp);
-      *error = true;
-      return 0;
-    }
+    if(size_t_ret){};
 }
 @
 
@@ -571,7 +566,8 @@ verdade, os primeiros 4 bytes formam a string ``WAVE'':
     data[0] = '\0';
     size_t_ret = fread(data, 1, 4, fp);
     data[4] = '\0';
-    if(strcmp(data, "WAVE") || size_t_ret != 4){
+    if(size_t_ret){};
+    if(strcmp(data, "WAVE")){
         fprintf(stderr, "WARNING: Not compatible audio format: %s\n",
                 filename);
         fclose(fp);
@@ -783,12 +779,7 @@ alocar o buffer que armazenará ele, e copiá-lo para ele.
         return 0;
     }
     size_t_ret = fread(returned_data, *size, 1, fp);
-    if(size_t_ret != *size){
-      fclose(fp);
-      *error = true;
-      fprintf(stderr, "ERROR (0): Error reading file %s.\n", filename);
-      return 0;
-    }
+    if(size_t_ret){};
 }
 @
 
@@ -1028,7 +1019,7 @@ static void onload_sound(unsigned undocumented, void *snd,
   bool ret = true;
   struct sound *my_sound = (struct sound *) snd;
   // Checando extensão
-  ext = strrchr(filename, '.');  
+  ext = strrchr(filename, '.');
   if(! ext){
     onerror_sound(0, snd, 0);
     return;
@@ -1061,7 +1052,7 @@ static void onload_sound(unsigned undocumented, void *snd,
 E uma função vazia que precisamos passar emostra o que o Emscripten
 tem que fazer à medida que carrega cada porcentagem relevante do
 arquivo:
-  
+
 @<Som: Funções Estáticas@>+=
 #if W_TARGET == W_WEB
 static void onprogress_sound(unsigned int undocumented, void *snd,
