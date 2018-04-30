@@ -1082,6 +1082,7 @@ executá-las:
 @<Código a executar todo loop@>+=
 {
   int i;
+  void (*f)(void);
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_scheduler_mutex);
 #endif
@@ -1089,27 +1090,29 @@ executá-las:
     if(_scheduled_functions[_number_of_loops][i].f == NULL)
       break;
     if(_scheduled_functions[_number_of_loops][i].period <
-       W.t - _scheduled_functions[_number_of_loops][i].last_execution){
-      _scheduled_functions[_number_of_loops][i].f();
-      _scheduled_functions[_number_of_loops][i].last_execution = W.t;
+      W.t - _scheduled_functions[_number_of_loops][i].last_execution){
+      f = _scheduled_functions[_number_of_loops][i].f;
       if(_scheduled_functions[_number_of_loops][i].periodic == false){
-        int j;
-        _scheduled_functions[_number_of_loops][i].f = NULL;
-        for(j = i + 1; j < W_MAX_SCHEDULING; j ++){
-          if(_scheduled_functions[_number_of_loops][j - 1].f == NULL)
-            break;
-          _scheduled_functions[_number_of_loops][j - 1].periodic =
-            _scheduled_functions[_number_of_loops][j].periodic;
-          _scheduled_functions[_number_of_loops][j - 1].last_execution =
-            _scheduled_functions[_number_of_loops][j].last_execution;
-          _scheduled_functions[_number_of_loops][j - 1].period =
-            _scheduled_functions[_number_of_loops][j].period;
-          _scheduled_functions[_number_of_loops][j - 1].f =
-            _scheduled_functions[_number_of_loops][j].f;
-        }
-        _scheduled_functions[_number_of_loops][j - 1].f = NULL;
-        i --;
+          int j;
+          _scheduled_functions[_number_of_loops][i].f = NULL;
+          for(j = i + 1; j < W_MAX_SCHEDULING; j ++){
+              if(_scheduled_functions[_number_of_loops][j - 1].f == NULL)
+                  break;
+              _scheduled_functions[_number_of_loops][j - 1].periodic =
+                  _scheduled_functions[_number_of_loops][j].periodic;
+              _scheduled_functions[_number_of_loops][j - 1].last_execution =
+                  _scheduled_functions[_number_of_loops][j].last_execution;
+              _scheduled_functions[_number_of_loops][j - 1].period =
+                  _scheduled_functions[_number_of_loops][j].period;
+              _scheduled_functions[_number_of_loops][j - 1].f =
+                  _scheduled_functions[_number_of_loops][j].f;
+          }
+          _scheduled_functions[_number_of_loops][j - 1].f = NULL;
+          i --;
       }
+      else
+          _scheduled_functions[_number_of_loops][i].last_execution = W.t;
+      f();
     }
   }
 #ifdef W_MULTITHREAD
@@ -1159,7 +1162,7 @@ void _run_periodically(void (*f)(void), float t){
     fprintf(stderr, "ERROR (1): Can't schedule more functions.");
     fprintf(stderr, "Please, define W_MAX_SCHEDULING in conf/conf.h "
             "with a value bigger than the current %d.\n",
-            W_MAX_SCHEDULING);                                                    
+            W_MAX_SCHEDULING);
   }
 }
 @
@@ -1192,7 +1195,7 @@ void _run_futurelly(void (*f)(void), float t){
     fprintf(stderr, "ERROR (1): Can't schedule more functions.");
     fprintf(stderr, "Please, define W_MAX_SCHEDULING in conf/conf.h "
             "with a value bigger than the current %d.\n",
-            W_MAX_SCHEDULING);                                                    
+            W_MAX_SCHEDULING);
   }
 }
 @

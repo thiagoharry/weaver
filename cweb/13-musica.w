@@ -1108,9 +1108,10 @@ o novo volume após a mudança.
 está tocando e que está sendo lida do arquivo cujo nome foi passado
 como argumento. Retorna se a operação foi bem-sucedida.
 
-\macrovalor|bool W.play_music(char *filename)|: Começa a tocar a
+\macrovalor|bool W.play_music(char *filename, bool loop)|: Começa a tocar a
 música no arquivo cujo nome é passado como argumento. Retorna se a
-operação foi bem-sucedida.
+operação foi bem-sucedida. O segundo argumento indica se a música
+deve tocar em loop ou não.
 
 \macrovalor|bool W.stop_music(char *filename)|: Para de tocar a música
 que está tocando e sendo lida do arquivo identificado pelo nome
