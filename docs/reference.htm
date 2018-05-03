@@ -704,7 +704,7 @@
       </p>
       <h3 id="scheduling">Scheduling</h3>
       <h4 id="scheduling_functions">Scheduling Functions</h4>
-      <h5 id="cancel">void W.cancel(void (*f)(void))<img class="icon"
+      <h5 id="cancel">float W.cancel(void (*f)(void))<img class="icon"
                src="images/loop.png" width="25px" height="25px"
                title="Main loop only"></h5>
       <p>
@@ -715,8 +715,15 @@
         cancel this passing the function f to W.cancel.
       </p>
       <p>
+        The function returns the time in seconds in which the function
+        would be executed if it wasn't cancelled.
+      </p>
+      <p>
         If you pass a function not scheduled for future execution or
-        an invalid pointer for this function, nothing happens.
+        an invalid pointer for this function, nothing happens and it
+        returns NaN (Not a Number). The same happens if you try to
+        cancel a function scheduled to be executed only once and which
+        already executed.
       </p>
       <h5 id="period">float W.period(void (*f)(void))<img class="icon"
                src="images/loop.png" width="25px" height="25px"
@@ -964,7 +971,7 @@
         the last frame. Avalue greater than 0 means that the animation
         is running, but the value will decrement each time the
         animation shows its last frame. In a not animated interface,
-        the value is ignored. 
+        the value is ignored.
       </p>
       <h6>float x, y <img class="icon" src="images/read_only.png"
                  width="25px" height="25px" title="Read-only"></h6>
@@ -1301,7 +1308,7 @@
       </p>
       <p>
         The function returns the new volume after the change or
-        returns -1.0 if the music wasn't loaded. 
+        returns -1.0 if the music wasn't loaded.
       </p>
       <h5 id="new_sound">struct sound *W.new_sound(char
         *filename)</h5>

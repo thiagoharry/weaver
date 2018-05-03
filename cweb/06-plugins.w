@@ -1126,7 +1126,7 @@ E finalmente funções para interagir com código executado periodicamente:
 @<Cabeçalhos Weaver@>+=
 void _run_periodically(void (*f)(void), float t); // Torna uma função periódica
 void _run_futurelly(void (*f)(void), float t); // Executa ela 1x no futuro
-void _cancel(void (*f)(void));  // Cancela uma função agendada
+float _cancel(void (*f)(void));  // Cancela uma função agendada
 float _period(void (*f)(void));  // Obém o período de uma função agendada
 @
 
@@ -1201,17 +1201,22 @@ void _run_futurelly(void (*f)(void), float t){
 @
 
 Para remover uma função do agendador, podemos usar a função
-abaixo. Chamá-la para uma função que não está agendada deve ser
-inócuo:
+abaixo. Ela retorna quanto tempo faltava para a próxima execução da
+função agendada se ela não tivesse sido cancelada. Chamá-la para uma
+função que não está agendada deve ser inócuo e deve retornar infinito.
 
 @<API Weaver: Definições@>+=
-void _cancel(void (*f)(void)){
+float _cancel(void (*f)(void)){
   int i;
+  unsigned long period, last_execution;
+  float return_value = NAN;
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_scheduler_mutex);
 #endif
   for(i = 0; i < W_MAX_SCHEDULING; i ++){
     if(_scheduled_functions[_number_of_loops][i].f == f){
+      period = _scheduled_functions[_number_of_loops][i].period;
+      last_execution = _scheduled_functions[_number_of_loops][i].period;
       for(; i < W_MAX_SCHEDULING - 1; i ++){
         _scheduled_functions[_number_of_loops][i].f =
                                   _scheduled_functions[_number_of_loops][i+1].f;
@@ -1221,12 +1226,14 @@ void _cancel(void (*f)(void)){
                      _scheduled_functions[_number_of_loops][i+1].last_execution;
       }
       _scheduled_functions[_number_of_loops][i].f = NULL;
-      return;
+      return_value = ((float) ((W.t - last_execution) - period)) / 1000000.0; ;
+      break;
     }
   }
 #ifdef W_MULTITHREAD
   pthread_mutex_unlock(&_scheduler_mutex);
 #endif
+  return return_value;
 }
 @
 
@@ -1266,7 +1273,7 @@ E finalmente colocamos tudo isso dentro da estrutura |W|:
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
 void (*run_periodically)(void (*f)(void), float);
 void (*run_futurelly)(void (*f)(void), float);
-void (*cancel)(void (*f)(void));
+float (*cancel)(void (*f)(void));
 float (*period)(void (*f)(void));
 @
 
@@ -1415,7 +1422,7 @@ W.set_plugin_data = &_Wset_plugin_data;
 
 @*1 Sumário das Variáveis e Funções referentes à Plugins.
 
-\macronome As seguintes 11 novas funções foram definidas:
+\macronome As seguintes 12 novas funções foram definidas:
 
 \macrovalor|int W.get_plugin(char *)|: Obtém o número de identificação
 de um plugin dado o seu nome. Se o plugin não for encontrado, retorna
@@ -1469,3 +1476,9 @@ de uma função periódica e NaN se a função não for periódica. Como a
 ocorrência de um NaN (Not a Number) pode ser testada com a função
 |isnan|, então esta é a forma recomendada de descobrir se uma dada
 função é periódica ou não.
+
+\macrovalor|float W.cancel(void (*f)(void))|: Cancela uma função
+agendada para executar no futuro, seja ela periódica ou não. Retorna o
+tempo que faltava para a função ser executada em segundos antes dela
+ser cancelada. Se a função não estava agendada, retorna NaN (Not a
+Number).
