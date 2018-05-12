@@ -1092,12 +1092,10 @@ executá-las:
     if(_scheduled_functions[_number_of_loops][i].period <
       W.t - _scheduled_functions[_number_of_loops][i].last_execution){
       f = _scheduled_functions[_number_of_loops][i].f;
-      if(_scheduled_functions[_number_of_loops][i].periodic == false){
+      if(!_scheduled_functions[_number_of_loops][i].periodic){
           int j;
           _scheduled_functions[_number_of_loops][i].f = NULL;
           for(j = i + 1; j < W_MAX_SCHEDULING; j ++){
-              if(_scheduled_functions[_number_of_loops][j - 1].f == NULL)
-                  break;
               _scheduled_functions[_number_of_loops][j - 1].periodic =
                   _scheduled_functions[_number_of_loops][j].periodic;
               _scheduled_functions[_number_of_loops][j - 1].last_execution =
@@ -1107,7 +1105,7 @@ executá-las:
               _scheduled_functions[_number_of_loops][j - 1].f =
                   _scheduled_functions[_number_of_loops][j].f;
           }
-          _scheduled_functions[_number_of_loops][j - 1].f = NULL;
+          _scheduled_functions[_number_of_loops][W_MAX_SCHEDULING - 1].f = NULL;
           i --;
       }
       else
