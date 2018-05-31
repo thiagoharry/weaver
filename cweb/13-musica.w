@@ -337,7 +337,6 @@ modificadas:
 bool _pause_music(char *name){
   int i;
   bool success = false;
-  printf("Pausando %s\n", name);
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_music_mutex);
 #endif
@@ -351,12 +350,6 @@ bool _pause_music(char *name){
             document["music" + $0].pause();
           }
         }, i);
-#endif
-#if W_TARGET == W_ELF
-      if(_music[i].status[_number_of_loops] == _PLAYING){
-        // Reservamos o semáforo para fazer a thread parar de tocar:
-        sem_wait(&(_music[i].semaphore));
-      }
 #endif
       _music[i].status[_number_of_loops] = _PAUSED;
       success = true;
@@ -408,11 +401,11 @@ bool _resume_music(char *name){
           }
         }, i);
 #endif
-#if W_TARGET == W_ELF
-      // Liberamos o semáforo para que a thread possa tocar:
-        sem_post(&(_music[i].semaphore));
-#endif
       _music[i].status[_number_of_loops] = _PLAYING;
+#if W_TARGET == W_ELF
+      // Liberamos o semáforo para que a thread possa voltar a tocar:
+      sem_post(&(_music[i].semaphore));
+#endif
       success = true;
       break;
     }
@@ -459,10 +452,9 @@ bool _stop_music(char *name){
       _music[i].filename[_number_of_loops][0] = '\0';
       _music[i].status[_number_of_loops] = _NOT_LOADED;
 #if W_TARGET == W_ELF
-      if(_music[i].status[_number_of_loops] == _PLAYING){
-        // Reservamos o semáforo para fazer a thread parar de tocar:
-        sem_wait(&(_music[i].semaphore));
-      }
+      // Liberamos o mutex caso a thread tenha sido pausada
+      if(_music[i].status[_number_of_loops] == _PAUSED)
+          sem_post(&(_music[i].semaphore));
 #endif
       success = true;
       break;
@@ -818,8 +810,17 @@ tocando_musica:
       _music_thread_update_volume(music_data);
       last_volume = music_data -> volume[_number_of_loops];
   }
+  // Por ela sendo pausada:
+  else if(music_data -> status[_number_of_loops] == _PAUSED){
+      alSourcePause(music_data -> sound_source);
+      // Fica preso no semáforo até algém soltar
+      while(music_data -> status[_number_of_loops] == _PAUSED)
+          sem_wait(&(music_data -> semaphore));
+      // E retoma após sair:
+      alSourcePlay(music_data -> sound_source);
+  }
   // E pela música sendo parada
-  else if(music_data -> status[_number_of_loops] == _NOT_LOADED){
+  if(music_data -> status[_number_of_loops] == _NOT_LOADED){
       // Música foi parada
       _music_thread_interrupt_music(music_data);
       goto sem_musica_nenhuma;
@@ -950,7 +951,7 @@ void _music_thread_interrupt_music(struct _music_data *music_data){
 #endif
 @
 
-E finalmente, a função para as thhreads atualizarem o volume:
+E finalmente, a função para as threads atualizarem o volume:
 
 @<Som: Funções Estáticas@>+=
 #if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
