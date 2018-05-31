@@ -5,7 +5,7 @@ computador. Entretanto, o mesmo código não pode ser usado para tocar
 músicas ou arquivos de áudio muito longos. Primeiro porque com o que
 foi feito no capítulo 9, nós só somos capazes de tocar áudio no
 formato WAVE, sem compactação. Tais arquivos ficam grandes demais para
-músicas. Segundo porque o código do capítulo 9 copia todo o onteúdo do
+músicas. Segundo porque o código do capítulo 9 copia todo o conteúdo do
 áudio para a memória. Para efeitos sonoros simples, isso é ideal. Mas
 é algo imprático para áudios longos que gastariam uma quantidade
 grande demais de memória.
@@ -45,11 +45,12 @@ arquivo deve ser local para cada loop principal.
 Outra coisa relevante é que formatos de música iremos suportar. Por
 mais que eu, autor deste software, queira usar o Ogg Vorbis, irei
 começar com o MP3. É um formato ligeiramente inferior que causou
-muitops problemas com patentes, mas que é universalmente
-suportado. O grande problema são os navegadores de Internet, os quais
-nem sempre suportam o formato. Além disso, como as patentes do formato
-estão morrendo, aparentemente elas não causarão mais problemas. Sendo
-assim, a biblioteca escolhida para rodar nativamente será a mpg123.
+muitos problemas com patentes, mas que é universalmente suportado. Mas
+para mim, o grande problema são os navegadores de Internet, os quais
+nem sempre suportam o formato Ogg Vorbis. Além disso, como as patentes
+do formato estão morrendo, aparentemente elas não causarão mais
+problemas. Sendo assim, a biblioteca escolhida para rodar nativamente
+será a mpg123.
 
 @(project/src/weaver/conf_end.h@>+=
 // Por padrão, teremos só uma faixa de áudio:
@@ -90,22 +91,22 @@ música será:
 
 @<Som: Declarações@>+=
 struct _music_data{
-  char filename[W_MAX_SUBLOOP][256];
-  int status[W_MAX_SUBLOOP];
-  float volume[W_MAX_SUBLOOP];
-  bool loop[W_MAX_SUBLOOP];
+    char filename[W_MAX_SUBLOOP][256];
+    int status[W_MAX_SUBLOOP]; // Playing, not playing or paused
+    float volume[W_MAX_SUBLOOP];
+    bool loop[W_MAX_SUBLOOP];
 #if W_TARGET == W_ELF
-  unsigned char *buffer;
-  size_t buffer_size;
-  // Para as threads:
-  pthread_t thread;
-  sem_t semaphore;
+    unsigned char *buffer;
+    size_t buffer_size;
+    // Para as threads:
+    pthread_t thread;
+    sem_t semaphore;
 #ifndef W_DISABLE_MP3
-  // Para decodificar MP3:
-  mpg123_handle *mpg_handle;
+    // Para decodificar MP3:
+    mpg123_handle *mpg_handle;
 #endif
-  // Para lidar com o OpenAL:
-  ALuint sound_source, openal_buffer[2];
+    // Para lidar com o OpenAL:
+    ALuint sound_source, openal_buffer[2];
 #endif
 };
 @
@@ -139,7 +140,7 @@ macros:
 @
 
 E inicializamos a estrutura:
-  
+
 @<Som: Inicialização@>+=
 {
   int i, j;
@@ -260,7 +261,7 @@ nada e colocando a música passada como argumento para tocar:
   // pausada:
   if(_resume_music(name))
     return true;
-  // Se não retornamos, temos que passar a tocar uma noa música
+  // Se não retornamos, temos que passar a tocar uma nova música
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_music_mutex);
 #endif
@@ -322,7 +323,7 @@ E adicionando à estrutura |W|:
 
 Uma vez que podemos tocar uma música, podemos querer também pausar
 ela. Para isso, a assinatura da função para pausar será:
- 
+
 @<Som: Declarações@>+=
   bool _pause_music(char *);
 @
@@ -336,6 +337,7 @@ modificadas:
 bool _pause_music(char *name){
   int i;
   bool success = false;
+  printf("Pausando %s\n", name);
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&_music_mutex);
 #endif
@@ -753,7 +755,11 @@ das threads de música e destruir seus semáforos:
 
 Vamos ao trabalho da thread de música. Essa thread deve passar por um
 semáforo que só estará livre quando houver uma música para ser tocada
-e ela não estiver pausada. O código para ele será:
+e ela não estiver pausada. Para entender o trabalho esta thread,
+devemos lembrar que ela tanto deve tocar a música como ficar atenta a
+qualquer mensagem que diz para ela parar, pausar ou continuar a
+música. Além disso, ela deve estar atenta para mudanças e loops. O
+código para ela será:
 
 @<Som: Declarações@>+=
 #if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
@@ -763,187 +769,194 @@ void *_music_thread(void *);
 @<Som: Definições@>+=
 #if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
 void *_music_thread(void *arg){
+  // Nossa struct de música exclusiva para a thread:
   struct _music_data *music_data = (struct _music_data *) arg;
-  int last_status = music_data -> status[_number_of_loops];
+  // O loop em que estávamos última vez que checamos
   int last_loop = _number_of_loops;
-  int ret;
+  // O volume da última vez que vimos
+  float last_volume = music_data -> volume[last_loop];
+  // Informações técnicas do formato da música e MP3:
   int current_format = 0xfff5;
   size_t size;
   long rate;
   int channels, encoding, bits;
-  float last_volume = music_data -> volume[last_loop];
-  for(;;){
-    // Ficamos aqui até ter alguma música para tocar:
-    while(music_data -> status[_number_of_loops] != _PLAYING)
+sem_musica_nenhuma: // Se paramos ou nunca começamos a tocar
+  while(music_data -> status[_number_of_loops] == _NOT_LOADED)
       sem_wait(&(music_data -> semaphore));
-    if(last_loop != _number_of_loops){
-      // Se o loop em que estamos mudou, atualizaremos o status e só
-      // faremos algo na próxima iteração. Podemos ter que fechar um
-      // arquivo aberto:
-      last_loop = _number_of_loops;
-      last_status = music_data -> status[last_loop];
-    }
-    else{
-      // Se não mudamos o loop em que estamos, primeiro checamos se há
-      // mudança no status:
-      if(last_status != music_data -> status[_number_of_loops]){
-        // Se o novo status é tocar uma nova música, vamos abrir o
-        // arquivo:
-        if(music_data -> status[_number_of_loops] == _PLAYING &&
-           last_status == _NOT_LOADED){
-          last_status = music_data -> status[_number_of_loops];
-          ret = mpg123_open(music_data -> mpg_handle,
-                      music_data -> filename[last_loop]);
-          if(ret != MPG123_OK){
-            fprintf(stderr, "Error opening %s\n",
-                    music_data -> filename[last_loop]);
-            music_data -> status[last_loop] = _NOT_LOADED;
-          }
-          else{
-            mpg123_getformat(music_data -> mpg_handle,
-                             &rate, &channels, &encoding);
-            bits = mpg123_encsize(encoding) * 8;
-            current_format = 0xfff5;
-            if(bits == 8){
-              if(channels == 1) current_format = AL_FORMAT_MONO8;
-              else if(channels == 2) current_format = AL_FORMAT_STEREO8;
-            } else if(bits == 16){
-              if(channels == 1) current_format = AL_FORMAT_MONO16;
-              else if(channels == 2) current_format = AL_FORMAT_STEREO16;
-            }
-            if(current_format == 0xfff5){
-              fprintf(stderr,
-                      "WARNING(0): Combination of channel and bitrate not "
-                      "supported (sound have %d channels and %d bitrate while "
-                      "we support just 1 or 2 channels and 8 or 16 as "
-                      "bitrate).\n",
-                      channels, bits);
-            }
-            // Preenchemos nossos buffer inicialmente
-            //alcMakeContextCurrent(default_context);
-            mpg123_read(music_data -> mpg_handle, music_data -> buffer,
-                        music_data -> buffer_size, &size);
-            alBufferData(music_data -> openal_buffer[0],
-                         current_format, music_data -> buffer,
-                         (ALsizei) size, rate);
-            mpg123_read(music_data -> mpg_handle, music_data -> buffer,
-                            music_data -> buffer_size, &size);
-            alBufferData(music_data -> openal_buffer[1],
-                         current_format, music_data -> buffer,
-                         (ALsizei) size, rate);
-            alSourceQueueBuffers(music_data -> sound_source, 2,
-                                 music_data -> openal_buffer);
-            alSourcef(music_data -> sound_source, AL_GAIN,
-                      music_data -> volume[last_loop]);
-            alSourcePlay(music_data -> sound_source);
-          }
-        }
-        else if(music_data -> status[_number_of_loops] == _PLAYING &&
-                last_status == _PAUSED){
-          // Voltando a tocar:
-          alSourcePlay(music_data -> sound_source);
-          last_status = music_data -> status[_number_of_loops];
-        }
-        else{
-          // Atualizando status
-          last_status = music_data -> status[_number_of_loops];
-        }
-      }
-      else if(music_data -> status[last_loop] == _PLAYING){
-        int buffers;
-        // Checando se temos que mudar o volume:
-        if(last_volume != music_data -> volume[last_loop]){
-          alSourcef(music_data -> sound_source, AL_GAIN,
-                    music_data -> volume[last_loop]);
-          last_volume = music_data -> volume[last_loop];
-        }
-        // Checar se há buffers prontos pra tocar mais:
-        alGetSourcei(music_data -> sound_source, AL_BUFFERS_PROCESSED, &buffers);
-        if(buffers){
-          ALuint buf;
-          alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
-          ret = mpg123_read(music_data -> mpg_handle, music_data -> buffer,
-                            music_data -> buffer_size, &size);
-          if(ret == MPG123_OK){
-            alBufferData(buf,
-                         current_format, music_data -> buffer,
-                         (ALsizei) size, rate);
-            alSourceQueueBuffers(music_data -> sound_source, 1, &buf);
-          }
-          else if(ret == MPG123_DONE){
-            // Terminou de extrair o áudio. Esperar de terminar de tocar.
-            do{
-              alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
-              ret = alGetError();
-            }while(ret == AL_INVALID_VALUE);
-            {
-              ALint val;
-              do {
-                alGetSourcei(music_data -> sound_source, AL_SOURCE_STATE, &val);
-              } while(val == AL_PLAYING);
-            }
-            mpg123_close(music_data -> mpg_handle);
-            music_data -> status[last_loop] = _NOT_LOADED;
-            // Depois de terminar de esperar, reinicia a música se
-            // tiermos que fazer um loop
-            if(music_data -> loop[last_loop]){
-              ret = mpg123_open(music_data -> mpg_handle,
-                                music_data -> filename[last_loop]);
-              if(ret != MPG123_OK){
-                fprintf(stderr, "Error opening %s\n",
-                        music_data -> filename[last_loop]);
-              }
-              else{
-                mpg123_read(music_data -> mpg_handle, music_data -> buffer,
-                            music_data -> buffer_size, &size);
-                alBufferData(music_data -> openal_buffer[0],
-                             current_format, music_data -> buffer,
-                             (ALsizei) size, rate);
-                mpg123_read(music_data -> mpg_handle, music_data -> buffer,
-                            music_data -> buffer_size, &size);
-                alBufferData(music_data -> openal_buffer[1],
-                             current_format, music_data -> buffer,
-                             (ALsizei) size, rate);
-                alSourceQueueBuffers(music_data -> sound_source, 2,
-                                     music_data -> openal_buffer);
-                alSourcePlay(music_data -> sound_source);
-                music_data -> status[last_loop] = _PLAYING;
-              }
-            }
-          }
-        }
-      }
-    }
-    // Se recebemos comando para pausar, pausamos na hora:
-    if(music_data -> status[_number_of_loops] == _PAUSED){
-      alSourcePause(music_data -> sound_source);
-      last_status = _PAUSED;
-    }
-    // Recebemos um comando para parar:
-    else if(music_data -> status[_number_of_loops] == _NOT_LOADED){
-      ALuint buf;
-      mpg123_close(music_data -> mpg_handle);
-      alSourceStop(music_data -> sound_source);
-      last_status = _NOT_LOADED;
-      do{
-        alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
-        ret = alGetError();
-      }while(ret == AL_INVALID_VALUE);
-      do{
-        alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
-        ret = alGetError();
-      }while(ret == AL_INVALID_VALUE);
-      {
-        ALint val;
-        do {
-          alGetSourcei(music_data -> sound_source, AL_SOURCE_STATE, &val);
-        } while(val == AL_PLAYING);
-      }
-    }
-    // No final liberamos o semáforo para que ele tenha a chance de
-    // ser bloqueado pelo programa principal e assim podermos sair:
-    sem_post(&(music_data -> semaphore));
+  // Se saímos do loop acima, é porque temos uma nova música a tocar:
+  if(!_music_thread_prepare_new_music(music_data, &rate, &channels, &encoding,
+                                      &bits, &current_format, &size)){
+      // Se carregar a música falhar, desistimos de tocar
+      music_data -> status[_number_of_loops] = _NOT_LOADED;
+      fprintf(stderr, "Error opening %s\n",
+              music_data -> filename[last_loop]);
+      goto sem_musica_nenhuma;
   }
+tocando_musica:
+  if(!_music_thread_play_music(music_data, rate, current_format, size)){
+      // Se estamos aqui, a música terminou
+      _music_thread_end_music(music_data);
+      if(music_data -> loop[last_loop]){
+          // A música eve tocar em loop, vamos recomeçar de novo
+          _music_thread_prepare_new_music(music_data, &rate, &channels, &encoding,
+                                          &bits, &current_format, &size);
+          goto tocando_musica;
+      }
+      else{
+          music_data -> status[_number_of_loops] = _NOT_LOADED;
+          goto sem_musica_nenhuma;
+      }
+  }
+  // Checando por mudança de loop
+  if(last_loop != _number_of_loops){
+      last_loop = _number_of_loops;
+      if(music_data -> status[_number_of_loops] == _NOT_LOADED)
+          goto sem_musica_nenhuma;
+  }
+  // E por mudança de volume
+  else if(last_volume != music_data -> volume[_number_of_loops]){
+      _music_thread_update_volume(music_data);
+      last_volume = music_data -> volume[_number_of_loops];
+  }
+  // E pela música sendo parada
+  else if(music_data -> status[_number_of_loops] == _NOT_LOADED){
+      // Música foi parada
+      _music_thread_interrupt_music(music_data);
+      goto sem_musica_nenhuma;
+  }
+  goto tocando_musica;
+}
+#endif
+@
+
+Uma thread sempre irá preparar uma nova música executando a seguinte função:
+
+@<Som: Funções Estáticas@>+=
+#if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
+bool _music_thread_prepare_new_music(struct _music_data *music_data,
+                                     long *rate, int *channels, int *encoding,
+                                     int *bits, int *current_format,
+                                     size_t *size){
+    *current_format = 0xfff5;
+    if(mpg123_open(music_data -> mpg_handle,
+                   music_data -> filename[_number_of_loops]) != MPG123_OK)
+        return false;
+    mpg123_getformat(music_data -> mpg_handle, rate, channels, encoding);
+    *bits = mpg123_encsize(*encoding) * 8;
+    if(*bits == 8){
+        if(*channels == 1) *current_format = AL_FORMAT_MONO8;
+        else if(*channels == 2) *current_format = AL_FORMAT_STEREO8;
+    } else if(*bits == 16){
+        if(*channels == 1) *current_format = AL_FORMAT_MONO16;
+        else if(*channels == 2) *current_format = AL_FORMAT_STEREO16;
+    }
+    if(*current_format == 0xfff5)
+        return false;
+    // Tudo certo, preenchendo o buffer inicial:
+    mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                music_data -> buffer_size, size);
+    alBufferData(music_data -> openal_buffer[0],
+                 *current_format, music_data -> buffer,
+                 (ALsizei) *size, *rate);
+    mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                music_data -> buffer_size, size);
+    alBufferData(music_data -> openal_buffer[1],
+                 *current_format, music_data -> buffer,
+                 (ALsizei) *size, *rate);
+    alSourceQueueBuffers(music_data -> sound_source, 2,
+                         music_data -> openal_buffer);
+    alSourcef(music_data -> sound_source, AL_GAIN,
+              music_data -> volume[_number_of_loops]);
+    alSourcePlay(music_data -> sound_source);
+    return true;
+}
+#endif
+@
+
+Já quando estiver tocando uma música, a thread sempre usará esta função:
+
+@<Som: Funções Estáticas@>+=
+#if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
+bool _music_thread_play_music(struct _music_data *music_data,
+                              long rate, int current_format, size_t size){
+    int buffers, ret;
+    ALuint buf;
+    // Se a música estiver pausada ou foi interrompida, não precisa continuar
+    if(music_data -> status[_number_of_loops] != _PLAYING)
+        return true;
+    // Checar se há buffers prontos pra tocar mais:
+    alGetSourcei(music_data -> sound_source, AL_BUFFERS_PROCESSED, &buffers);
+    if(!buffers)
+        return true;
+    alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
+    ret = mpg123_read(music_data -> mpg_handle, music_data -> buffer,
+                      music_data -> buffer_size,  &size);
+    if(ret == MPG123_OK){
+        alBufferData(buf, current_format, music_data -> buffer,
+                     (ALsizei) size, rate);
+        alSourceQueueBuffers(music_data -> sound_source, 1, &buf);
+    }
+    else if(ret == MPG123_DONE)
+        return false;
+    return true;
+}
+#endif
+@
+
+Esta é a função que as threads usarão para finaliar suas músicas:
+
+@<Som: Funções Estáticas@>+=
+#if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
+void _music_thread_end_music(struct _music_data *music_data){
+    ALuint buf;
+    ALint stat;
+    int ret;
+    // Esperar de terminar de tocar.
+    do{
+        alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
+        ret = alGetError();
+    }while(ret == AL_INVALID_VALUE);
+    do{
+        alGetSourcei(music_data -> sound_source, AL_SOURCE_STATE, &stat);
+    }while(stat == AL_PLAYING);
+    // Encerrando
+    mpg123_close(music_data -> mpg_handle);
+}
+#endif
+@
+
+E as threads usarão isso para interromper uma música:
+
+@<Som: Funções Estáticas@>+=
+#if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
+void _music_thread_interrupt_music(struct _music_data *music_data){
+    ALuint buf;
+    ALint stat;
+    int ret;
+    mpg123_close(music_data -> mpg_handle);
+    alSourceStop(music_data -> sound_source);
+    do{
+        alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
+        ret = alGetError();
+    }while(ret == AL_INVALID_VALUE);
+    do{
+        alSourceUnqueueBuffers(music_data -> sound_source, 1, &buf);
+        ret = alGetError();
+    }while(ret == AL_INVALID_VALUE);
+    do {
+        alGetSourcei(music_data -> sound_source, AL_SOURCE_STATE, &stat);
+    } while(stat == AL_PLAYING);
+}
+#endif
+@
+
+E finalmente, a função para as thhreads atualizarem o volume:
+
+@<Som: Funções Estáticas@>+=
+#if W_TARGET == W_ELF && !defined(W_DISABLE_MP3)
+void _music_thread_update_volume(struct _music_data *music_data){
+    alSourcef(music_data -> sound_source, AL_GAIN,
+              music_data -> volume[_number_of_loops]);
 }
 #endif
 @
