@@ -78,7 +78,7 @@ quando o Emscripten não suportar ela:
 #if W_TARGET == W_WEB
 static char *basename(char *path){
   char *p = path, *c;
-  for(c = path; c != '\0'; c ++)
+  for(c = path; *c != '\0'; c ++)
     if(*c == '/' && *(c+1) != '\0')
       p = c + 1;
   return p;
@@ -253,7 +253,7 @@ A função funcionará achando uma thread disponível que não está tocando
 nada e colocando a música passada como argumento para tocar:
 
 @<Som: Definições@>+=
-  bool _play_music(char *name, bool loop){
+bool _play_music(char *name, bool loop){
   int i;
   bool success = false;
   // Antes de assumir que ainda não temos a música rodando, vamos ver
@@ -270,13 +270,13 @@ nada e colocando a música passada como argumento para tocar:
 #if W_TARGET == W_WEB
       // Se rodando na web, não há threads, apenas tocamos a música.
       EM_ASM_({
-          document["music" + $0] = new Audio(Pointer_stringify($1));
+          document["music" + $0] = new Audio("music/" + Pointer_stringify($1));
           document["music" + $0].volume = 0.5;
           if($2){
             document["music" + $0].loop = true;
           }
           document["music" + $0].play();
-        }, i, name, loop);
+          }, i, name, loop);
 #endif
       _music[i].volume[_number_of_loops] = 0.5;
       // Gerando o caminho do arquivo da música:
@@ -399,7 +399,7 @@ bool _resume_music(char *name){
           if(document["music" + $0] !== undefined){
             document["music" + $0].play();
           }
-        }, i);
+          }, i);
 #endif
       _music[i].status[_number_of_loops] = _PLAYING;
 #if W_TARGET == W_ELF
