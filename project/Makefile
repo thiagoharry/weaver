@@ -207,6 +207,7 @@ install:
 	cp -r shaders/ ${INSTALL_DATA_DIR}/
 	cp -r sound/ ${INSTALL_DATA_DIR}/
 	cp -r image/ ${INSTALL_DATA_DIR}/
+	cp -r music/ ${INSTALL_DATA_DIR}/
 	chmod 755 ${INSTALL_DATA_DIR}/*
 	chmod 755 ${INSTALL_DATA_DIR}/shaders/*
 	install -d ${INSTALL_PROG_DIR}
