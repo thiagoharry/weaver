@@ -38,7 +38,7 @@ make-web: create_plugin_code create_shader_code ${BC} ${W_BC} ${HEADERS} ${PLUGI
 	cp -r sound/ docs
 	cp -r music/ docs
 	cp -r image/ docs
-	${FINAL_CC} -O2 ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o docs/index.htm ${LIB}
+	${FINAL_CC} -O2 ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o docs/index.html ${LIB}
 create_shader_code:
 	mkdir -p .hidden_code .plugin
 	echo "struct _shader _shader_list[${NUMBER_OF_SHADERS}];" > .hidden_code/shader.h
