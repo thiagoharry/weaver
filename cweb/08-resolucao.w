@@ -136,7 +136,7 @@ GLuint _depth_stencil;
   // Ligando o buffer de renderização ao framebuffer não-padrão:
   glFramebufferRenderbuffer(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
                             GL_RENDERBUFFER, _depth_stencil);
-  
+
   glBindFramebuffer(GL_FRAMEBUFFER, 0);
 }
 @
@@ -387,6 +387,8 @@ void _change_resolution(int resolution_x, int resolution_y){
       GL_UNSIGNED_BYTE, NULL); // Mesmos parâmetros de antes
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
   glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+  glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
   // Ligamos a nossa textura ao buffer de cor do framebuffer
   // não-padrão:
   glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
@@ -458,7 +460,7 @@ void _change_final_shader(int type);
 
 @<Shaders: Definições@>+=
 void _change_final_shader(int type){
-  _final_shader[_number_of_loops] = type;   
+  _final_shader[_number_of_loops] = type;
 }
 @
 
