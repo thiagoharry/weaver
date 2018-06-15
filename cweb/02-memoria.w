@@ -211,7 +211,7 @@ than 16 KB:
 #define W_MAX_SUBLOOP 1
 #endif
 @
-  
+
 @*1 Estruturas de Dados Usadas.
 
 Vamos considerar primeiro uma \negrito{arena}. Toda \negrito{arena} terá
@@ -1151,7 +1151,7 @@ void _free(void *mem){
     pthread_mutex_unlock(&(arena -> mutex));
 #endif
     mem_header -> flags = 0x0;
-#if W_DEBUG_LEVEL >= 2 && !defined(W_MULTITHREAD)
+#if W_DEBUG_LEVEL >= 3 && !defined(W_MULTITHREAD)
   // Pode ser que tenhamos que imprimir um aviso de depuração acusando
   // desalocação na ordem errada:
     fprintf(stderr,
@@ -1554,7 +1554,7 @@ void _Wtrash(void){
 }
 void _iWtrash(void){
   Wtrash_arena(_internal_arena);
-} 
+}
 @
 
 E por fim as adicionamos à |W|:
@@ -1961,7 +1961,7 @@ função |Wloop| pode ser ignorada caso aindda não tenhamo terminado de
 carregar todos os arquivos do loop atual. O mesmo não precisa ser
 feito para o |Wsubloop|, pois ele não desaloca a memória que estamos
 usando.
-  
+
 Um jogo sempre começa com um |Wloop|. O primeiro loop é um caso
 especial. Não podemos descartar a memória prévia, ou acabaremos nos
 livrando de alocações globais. Então vamos usar uma pequena variável
