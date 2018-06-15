@@ -1151,7 +1151,7 @@ void _free(void *mem){
     pthread_mutex_unlock(&(arena -> mutex));
 #endif
     mem_header -> flags = 0x0;
-#if W_DEBUG_LEVEL >= 3 && !defined(W_MULTITHREAD)
+#if W_DEBUG_LEVEL >= 2 && !defined(W_MULTITHREAD)
   // Pode ser que tenhamos que imprimir um aviso de depuração acusando
   // desalocação na ordem errada:
     fprintf(stderr,
@@ -2037,10 +2037,10 @@ void _exit_loop(void){
     Wexit();
   }
 #endif
-  Wtrash();
   if(_number_of_loops == 0)
     Wexit();
   else{
+    Wtrash();
     @<Código após sairmos de Subloop@>
     _number_of_loops --;
     @<Código Imediatamente antes de Loop Principal@>
@@ -2216,7 +2216,19 @@ pode estar sendo processado por uma thread poderá sobrescrever nossa
 memória.
 
 Testando a existência de arquivos pendentes, nós apenas adiamos a
-nossa saída do loop para quandoo todos já tiverem dsido processados.
+nossa saída do loop para quando todos já tiverem sido processados.
+
+Outra coisa que faremos agora é que quano forçamos a saída com um
+Wexit(), deveremos chamar Wtrash() um número de vees até desalocarmos
+tuddo o que alocamos invocando loops:
+
+@<API Weaver: Encerramento@>+=
+{
+    int i;
+    for(i = 0; i <= _number_of_loops; i ++)
+        Wtrash();
+}
+@
 
 @*1 Sumário das Variáveis e Funções de Memória.
 
