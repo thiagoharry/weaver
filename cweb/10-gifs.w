@@ -2144,14 +2144,17 @@ glBindTexture(GL_TEXTURE_2D,
 @
 
 Agora nós podemos criar uma nova interface que é um GIF animado por
-meio do |W.new_interface(W_INTERFACE_IMAGE, ...)|. Mas seria bom
-podermos usar GIFs animados em interfaces cujo shader é definido pelo
-usuário. Para isso, teremos que ler um argumento adicional quando
-geramos uma nova interface personalizada. Esse argumento pode ser
-|NULL| ou uma string vazia para indicar que não queremos usar uma
-imagem como textura. Ou pode ser o nome do arquivo de imagem onde está
-a nossa textura. Para isso lemos um argumento a mais ao lermos
-interfaces personalizadas:
+meio do:
+
+|W.new_interface(W_INTERFACE_IMAGE, ...)|.
+
+Mas seria bom podermos usar GIFs animados em interfaces cujo shader é
+definido pelo usuário. Para isso, teremos que ler um argumento
+adicional quando geramos uma nova interface personalizada. Esse
+argumento pode ser |NULL| ou uma string vazia para indicar que não
+queremos usar uma imagem como textura. Ou pode ser o nome do arquivo
+de imagem onde está a nossa textura. Para isso lemos um argumento a
+mais ao lermos interfaces personalizadas:
 
 @<Interface: Lê Argumentos de Interfaces Personalizadas@>=
 {
@@ -2273,10 +2276,10 @@ formatos de arquivo suportados. No momento só o formato GIF é
 suportado, mas isso pode mudar nos próximos capítulos. Um exemplo de
 uso:
 
-\alinhacodigo
-interface = W.new_interface(W_INTERFACE_IMAGE, W.width/2, W.height/2,
-                            10, 10, "minha_imagem.gif");
-\alinhanormal
+
+|interface = W.new_interface(W_INTERFACE_IMAGE, W.width/2, W.height/2,
+                            10, 10, "minha_imagem.gif");|
+
 
 Essecódigo gera uma nova interface no loop principal atual e retorna
 seu ponteiro. Essa interface deve estar centralizada na tela e medir 10
@@ -2286,11 +2289,9 @@ indicado pelo último argumento. O arquivo pode conter um GIF animado.
 Além disso, o uso desta função em shaders personalizados mudou e agora
 precisamos usar um argumento adicional:
 
-\alinhacodigo
-interface = W.new_interface(1, W.width/2, W.height/2, 10, 10, NULL);
-\alinhanormal
+|interface = W.new_interface(1, W.width/2, W.height/2, 10, 10, NULL);|
 
 O último argumento pode ser NULL, uma string vazia ou o nome de um
 arquivo que contém uma imagem. Se for o nome de um arquivo com imagem,
 a imagem é passada como textura para o shader, que pode lê-la por meio
-da variável |texture1|.
+da variável texture1.

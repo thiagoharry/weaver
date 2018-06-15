@@ -105,7 +105,7 @@ static sqlite3 *database;
 Agora vamos à questão de onde devemos armazenar o banco de dados de um
 projeto Weaver.  O local escolhido deverá ser um diretório oculto na
 ``home'' de um usuário. Iremos escolher então o endereço
-\monoespaco{.weaver_data/XXX/XXX.db} no diretório do usuário, onde ``XXX''
+\monoespaco{.weaver\_data/XXX/XXX.db} no diretório do usuário, onde ``XXX''
 é o nome do projeto Weaver em execução. Na inicialização iremos então
 nos assegurar de que o banco de dados existe, e se não existir iremos
 criá-lo:
@@ -885,7 +885,7 @@ void _delete_all(void){
 valores armazenados pelo programa.
 
 \macrovalor|void W.delete_float(char *name)|: Apaga do banco de dados
-o número em ponto-flutuante identificado pela string passada como
+o número em ponto\=flutuante identificado pela string passada como
 argumento. Ignora valores não-encontrados.
 
 \macrovalor|void W.delete_integer(char *name)|: Apaga do banco de dados
