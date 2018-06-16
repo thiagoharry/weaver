@@ -137,6 +137,8 @@ install: uninstall
 	install -c project/src/weaver/database.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/metafont.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/metafont.c ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/trie.h ${PROJECT_SHARE}/src/weaver
+	install -c project/src/weaver/trie.c ${PROJECT_SHARE}/src/weaver
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver

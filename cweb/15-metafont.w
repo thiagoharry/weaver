@@ -150,14 +150,6 @@ static struct token *new_token(int type, float value, char *name){
     ret -> value = value;
     ret -> name = name;
     ret -> prev = ret -> next = NULL;
-    // DEBUG
-    printf("TOKEN: ");
-    if(name != NULL)
-        printf("%s: %s\n", ((type == STRING)?("String"):("Identificador")), name);
-    else if(type == NUMBER)
-        printf("Numero: %f\n", value);
-    else
-        printf("Isolado: %c\n", type);
     return ret;
 }
 #define new_token_number(a) new_token(NUMBER, a, NULL)
