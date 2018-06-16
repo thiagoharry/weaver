@@ -363,7 +363,7 @@ internas, etc:
 
 @<Metafont: Variáveis Estáticas@>+=
 struct metafont{
-  //@<METAFONT: Estrutura METAFONT@>
+  @<METAFONT: Estrutura METAFONT@>
 };
 @
 
@@ -371,15 +371,16 @@ Ela será criada por:
 
 @<Metafont: Funções Estáticas@>+=
 struct metafont *new_metafont(void){
-    struct metafont *ret = (struct metafont *) Walloc(sizeof(struct metafont));
-    if(ret == NULL){
-      fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-                      "source. Please, increase the value of W_MEMORY "
-                      "at conf/conf.h.\n");
-      return NULL;
-    }
-    //@<METAFONT: Inicializa estrutura METAFONT@>
-    return ret;
+    struct metafont *structure = (struct metafont *) Walloc(sizeof(struct metafont));
+    if(structure == NULL)
+        goto end_of_memory_error;
+    @<METAFONT: Inicializa estrutura METAFONT@>
+    return structure;
+end_of_memory_error:
+    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
+            "source. Please, increase the value of W_MEMORY "
+            "at conf/conf.h.\n");
+    return NULL;
 }
 @
 
@@ -413,7 +414,8 @@ ponto-e-vírgula e sempre terminada por \monoespaco{end}
 ou \monoespaco{dump}:
 
 @<Metafont: Funções Estáticas@>+=
-void parser(char *source, char *filename, int line, int *next_line){
+void parser(struct metafont *M, char *source, char *filename, int line,
+            int *next_line){
     bool end_of_file = false;
     char *c = source;
     struct token *list_of_tokens, *last_token, *new_token;
@@ -430,6 +432,7 @@ void parser(char *source, char *filename, int line, int *next_line){
                 return;
             }
             append_token(last_token, new_token);
+            last_token = new_token;
             @<METAFONT: Interpreta Tokens@>
         }
         list_of_tokens = new_token = last_token = NULL;
@@ -488,7 +491,7 @@ além de poder ser vazia, como já visto, pode ter a forma:
 Representamos isso então com:
 
 @<METAFONT: Interpreta Tokens@>+=
-  //@<METAFONT: Declaração@>
+  @<METAFONT: Declaração@>
   //@<METAFONT: Titulo@>
   //@<METAFONT: Equação@>
   //@<METAFONT: Atribuição@>
@@ -568,6 +571,103 @@ variável METAFONT pode ter:
 #define NUMERIC   8
 @
 
+E dentro da estrutura METAFONT iremos armazenar em uma árvore trie
+todas as variáveis declaradas e o tipo delas:
+
+@<METAFONT: Estrutura METAFONT@>+=
+struct _trie *declarations;
+@
+
+A qual será inicializada com um simples:
+
+@<METAFONT: Inicializa estrutura METAFONT@>+=
+structure -> declarations = _new_trie();
+if(structure -> declarations == NULL)
+    goto end_of_memory_error;
+@
+
+Quando obtemos os tokens, checamos se estamos diante de uma declaração
+apenas checando o primeiro token e nos certificando de ser um dos
+nomes de tipos de variáveis:
+
+@<METAFONT: Declaração@>+=
+{
+    int type = -1;
+    if(list_of_tokens -> type == IDENTI){
+        if(!strcmp(list_of_tokens -> name, "boolean"))
+            type = BOOLEAN;
+        else if(!strcmp(list_of_tokens -> name, "string"))
+            type = STRING;
+        else if(!strcmp(list_of_tokens -> name, "path"))
+            type = PATH;
+        else if(!strcmp(list_of_tokens -> name, "pen"))
+            type = PEN;
+        else if(!strcmp(list_of_tokens -> name, "picture"))
+            type = PICTURE;
+        else if(!strcmp(list_of_tokens -> name, "transform"))
+            type = TRANSFORM;
+        else if(!strcmp(list_of_tokens -> name, "pair"))
+            type = PAIR;
+        else if(!strcmp(list_of_tokens -> name, "numeric"))
+            type = NUMERIC;
+    }
+    if(type != -1){
+        char buffer[4098];
+        buffer[0] = '\0';
+        int p = 0;
+        while(last_token -> type != SCOLON){
+            // O primeiro token deve ser simbólico
+            if(buffer[0] == '\0' && last_token -> type != IDENTI &&
+               last_token -> type != SCOMMA){
+                printf("DEBUG: Foi %d%c\n", last_token -> type, last_token -> type);
+                fprintf(stderr,
+                        "ERROR (%s:%d): Missing symbolic token.\n",
+                        filename, line);
+                break;
+            }
+            // Tokens numéricos não são permitidos
+            else if(last_token -> type == NUMERIC){
+                fprintf(stderr,
+                        "ERROR (%s:%d): Illegal suffix of declared variable.\n",
+                        filename, line);
+                break;
+            }
+            // Se não é o primeiro token, mas um sufixo, coloca um espaço:
+            if(buffer[0] != '\0'){
+                buffer[p % 4098] = ' ';
+                p ++;
+            }
+            // Forma nome da variável em buffer se aplicável
+            if(last_token -> name != NULL && last_token -> type != SCOMMA){
+                char *n = last_token -> name;
+                while(*n != '\0'){
+                    buffer[p % 4098] = *n;
+                    p ++;
+                    n ++;
+                }
+            }
+            new_token = next_token(c, &c, line, &line, filename);
+            if(new_token == NULL){
+                *next_line = line;
+                return;
+            }
+            last_token = new_token;
+            // Em caso de vírgula ou ponto-e-vírgula, salva a variável:
+            if(last_token -> type == SCOMMA || last_token -> type == SCOLON){
+                buffer[p % 4098] = '\0';
+                printf("DEBUG: Salva variável %s, tipo %d\n", buffer, type);
+                _insert_trie(M -> declarations, INT, buffer, type);
+                buffer[0] = '\0';
+                p = 0;
+            }
+        }
+        have_statement = true;
+    }
+}
+@
+
+
+
 
 
 
@@ -576,28 +676,13 @@ variável METAFONT pode ter:
 Teste temporário do analizador léxico:
 
 @<Metafont: Declarações@>+=
-void _metafont_init(void);
-@
-
-@<API Weaver: Inicialização@>+=
-{
-    _metafont_init();
-}
+void _metafont_test(char *);
 @
 
 @<Metafont: Definições@>+=
-void _metafont_init(void){
+void _metafont_test(char *teste){
     int line;
-    printf("Erro de string incompleta: \n");
-    parser("\"Vamos arrasar\n", "teste.mf", 1, &line);
-    printf("Erro caractere inválido: \n");
-    parser("Vamos é arrasar\n", "teste.mf", 1, &line);
-
-    printf("Termina com end:\n");
-    parser("end", "teste.mf", 1, &line);
-    printf("Termina com dump: \n");
-    parser("dump", "teste.mf", 1, &line);
-    printf("Vazios mais end:\n");
-    parser(";   ;  ;  ;;end ", "teste.mf", 1, &line);
+    struct metafont *M = new_metafont();
+    parser(M, teste, "teste.mf", 1, &line);
 }
 @
