@@ -91,7 +91,7 @@ um erro de string incompleta.
 
 Regra 05: Tokens Caracteres: Se o próximo caractere for um abre ou
 fecha parênteses, uma vírgula ou um ponto-e-vírgula, aquele caractere
-é um único token.
+é um único token, considerado como um token simbólico.
 
 Regra 06: Tokens compostos: Caso contrário, temos um token simbólico
 que será formado pela maior sequência de caracteres que abaixo
@@ -121,11 +121,7 @@ identificadores. Podemos representar cada token pela estrutura:
 // Tipo de token
 #define NUMBER 1
 #define STRING 2
-#define IDENTI 3
-#define OP_PAR '('
-#define CL_PAR ')'
-#define SCOMMA ','
-#define SCOLON ';'
+#define SYMBOL 3
 struct token{
     int type;
     float value; // Para números
@@ -133,6 +129,14 @@ struct token{
     struct token *prev, *next; // Para listas duplamente encadeadas
 };
 @
+
+É importante notar que trataremos todos os números como em
+ponto-flutuante simples. O METAFONT original usava outra definição,
+onde todos os números tinham a parte inteira entre -4095 e +4095 e a
+parte fracionária um múltiplo de $1/65536$. Mas a representação em
+ponto-flutuante é melhor por ser mais rápida, ter pelo menos uma casa
+decimal a mais de precisão e por ser capaz de representar uma maior
+gama de números. Então não iremos manter a compatibilidade nisso.
 
 Podemos criar os seguintes construtores para tais diferentes tokens:
 
@@ -154,24 +158,28 @@ static struct token *new_token(int type, float value, char *name){
 }
 #define new_token_number(a) new_token(NUMBER, a, NULL)
 #define new_token_string(a) new_token(STRING, 0.0, a)
-#define new_token_open_par() new_token(OP_PAR, 0.0, NULL)
-#define new_token_close_par() new_token(CL_PAR, 0.0, NULL)
-#define new_token_comma() new_token(SCOMMA, 0.0, NULL)
-#define new_token_semicolon() new_token(SCOLON, 0.0, NULL)
-#define new_token_identifier(a) new_token(IDENTI, 0.0, a)
+#define new_token_symbol(a) new_token(SYMBOL, 0.0, a)
 @
 
 Na prática estaremos com muita frequência formando listas encadeadas
 de tokens à medida que formos interpretando eles de um código-fonte ou
 caso queiramos armazenar o significado de uma macro. Para ajudar com
-isso, usaremos a função para ligar um token no outro:
+isso, usaremos as funções para ligar um token no outro:
 
 @<Metafont: Funções Estáticas@>+=
+// Coloca sequência de tokens 'after' após primeiro token de 'before'
 static void append_token(struct token *before, struct token *after){
     if(before -> next != NULL){
         before -> next -> prev = after;
         after -> next = before -> next;
     }
+    before -> next = after;
+    after -> prev = before;
+}
+// Coloca sequência de tokens 'after' após a sequência de tokens 'before'
+static void concat_token(struct token *before, struct token *after){
+    while(before -> next != NULL)
+        before = before -> next;
     before -> next = after;
     after -> prev = before;
 }
@@ -195,7 +203,11 @@ static int character_family(char c){
         "]\n"
         "{}\n"
         ".\n"
-        "^~\n";
+        "^~\n"
+        ",\n"
+        ";\n"
+        "(\n"
+        ")\n";
     char *p;
     int number = 0;
     for(p = families; *p != '\0'; p ++){
@@ -204,6 +216,7 @@ static int character_family(char c){
         else if(*p == c){
             return number;
         }
+
     }
     return -1;
 }
@@ -259,12 +272,8 @@ static struct token *next_token(char *source, char **next_position,
                 position ++;
             }while(isdigit(*position) || *position == '.');
             buffer = (char *) _iWalloc(position + 1 - begin);
-            if(buffer == NULL){
-                fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-                        "source. Please, increase the value of W_INTERNAL_MEMORY "
-                        "at conf/conf.h.\n");
-                return NULL;
-            }
+            if(buffer == NULL)
+                goto error_no_memory;
             strncpy(buffer, begin, position - begin);
             buffer[position - begin] = '\0';
             ret = new_token_number(atof(buffer));
@@ -286,12 +295,8 @@ static struct token *next_token(char *source, char **next_position,
                 position ++;
             }
             buffer = (char *) _iWalloc(position - begin + 1);
-            if(buffer == NULL){
-                fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-                        "source. Please, increase the value of W_INTERNAL_MEMORY "
-                        "at conf/conf.h.\n");
-                return NULL;
-            }
+            if(buffer == NULL)
+                goto error_no_memory;
             strncpy(buffer, begin, position - begin);
             buffer[position - begin] = '\0';
             ret = new_token_string(buffer);
@@ -301,24 +306,44 @@ static struct token *next_token(char *source, char **next_position,
         }
         // Regra 05: Tokens caracteres
         else if(*position == '('){
+            buffer = (char *) _iWalloc(2);
+            if(buffer == NULL)
+                goto error_no_memory;
+            buffer[0] = '(';
+            buffer[1] = '\0';
             *next_position = position + 1;
             *next_line = line;
-            return new_token_open_par();
+            return new_token_symbol(buffer);
         }
         else if(*position == ')'){
+            buffer = (char *) _iWalloc(2);
+            if(buffer == NULL)
+                goto error_no_memory;
+            buffer[0] = ')';
+            buffer[1] = '\0';
             *next_position = position + 1;
             *next_line = line;
-            return new_token_close_par();
+            return new_token_symbol(buffer);
         }
         else if(*position == ','){
+            buffer = (char *) _iWalloc(2);
+            if(buffer == NULL)
+                goto error_no_memory;
+            buffer[0] = ',';
+            buffer[1] = '\0';
             *next_position = position + 1;
             *next_line = line;
-            return new_token_comma();
+            return new_token_symbol(buffer);
         }
         else if(*position == ';'){
+            buffer = (char *) _iWalloc(2);
+            if(buffer == NULL)
+                goto error_no_memory;
+            buffer[0] = ';';
+            buffer[1] = '\0';
             *next_position = position + 1;
             *next_line = line;
-            return new_token_semicolon();
+            return new_token_symbol(buffer);
         }
         else{
             // Regra 06: Tokens identificadores
@@ -337,12 +362,8 @@ static struct token *next_token(char *source, char **next_position,
                 current_family = character_family(*position);
             }while(current_family == family_number);
             buffer = (char *) _iWalloc(position - begin + 1);
-            if(buffer == NULL){
-                fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-                        "source. Please, increase the value of W_INTERNAL_MEMORY "
-                        "at conf/conf.h.\n");
-                return NULL;
-            }
+            if(buffer == NULL)
+                goto error_no_memory;
             strncpy(buffer, begin, position - begin);
             buffer[position - begin] = '\0';
             ret = new_token_identifier(buffer);
@@ -351,29 +372,78 @@ static struct token *next_token(char *source, char **next_position,
             return ret;
         }
     }
+error_no_memory:
+    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
+            "source. Please, increase the value of W_INTERNAL_MEMORY "
+            "at conf/conf.h.\n");
     return NULL;
 }
 @
 
-@*1 O Começo do Analizador Sintático.
+@*1 Declarações e Expansões.
 
-Vamos declarar agoira uma estrutura que irá armazenar tudo o que o
-METAFONT precisa para funcionar. Listas de variáveis, definições
-internas, etc:
+Um programa METAFONT tem a seguinte aparência:
+
+\alinhaverbatim
+<Programa> --> <Lista de Declarações> end
+           |-> <Lista de Declarações> dump
+\alinhanormal
+
+Não iremos diferenciar os dois tipos de progrma. Trataremos da mesma
+forma tanto os terminados em \monoespaco{end} como os terminados em
+\monoespaco{dump}. No METAFONT original o segundo tipo de programa
+servia para gerar um arquivo com várias definições já pré-processadas
+para serem carregadas mais rápido. Mas no nosso cenário isso não fará
+sentido. Então podemos tratar os tokens \monoespaco{end} e
+\monoespaco{dump} como sinônimos.
+
+Já a lista de declarações tem a forma:
+
+\alinhaverbatim
+<Lista de Declarações> --> <Vazio>
+                       |-> <Declaração> ; <Lista de Declarações>
+\alinhanormal
+
+Isso significa que o menor programa possível é um formado apenas por
+\monoespaco{end} ou \monoespaco{dump}. Tal programa não faz nada. Mas
+todos os demais programas são mais interessantes e são formados por
+uma lista de declarações separadas pelo token simbólico de
+ponto-e-vírgula.
+
+Sabendo disso, além de uma função que apenas retorna tokens, seria
+interessante se houvesse uma que rotorna listas de tokens que formam
+uma declaração. Para isso, supostamente deveríamos ler tokens
+encadeados até encontrarmos o ponto-e-vírgula final e aí retornamos
+ele. Mas as coisas não são tão diretas. Existem algumas poucas
+declarações que podem conter pontos-e-vírgulas dentro delas. E existem
+alguns tokens que não são primitivos, mas representam macros que devem
+ser substituídos por listas de outros tokens. Às vezes um único token
+deve ser expandido antes de chegar no interpretador e ele representa
+dezenas de declarações.
+
+Sendo assim, nossa função deve ficar responsável por expandir
+tokens. E sempre retornar uma única declaração, guardando os tokens
+sobressalentes para retornarmos depois, após os expandirmos também.
+
+Primeiro vamos criar uma estrutura METAFONT, que representa tudo o que
+é armazenado pelo nosso interpretador. Ali dentro podemos armazxenar
+qualquer token já lido, e que está pendente para ser interpretado:
 
 @<Metafont: Variáveis Estáticas@>+=
 struct metafont{
+  struct token *pending_tokens;
   @<METAFONT: Estrutura METAFONT@>
 };
 @
 
-Ela será criada por:
+Essa estrutura será inicializada por:
 
 @<Metafont: Funções Estáticas@>+=
 struct metafont *new_metafont(void){
     struct metafont *structure = (struct metafont *) Walloc(sizeof(struct metafont));
     if(structure == NULL)
         goto end_of_memory_error;
+    structure -> pending_tokens = NULL;
     @<METAFONT: Inicializa estrutura METAFONT@>
     return structure;
 end_of_memory_error:
@@ -383,6 +453,88 @@ end_of_memory_error:
     return NULL;
 }
 @
+
+Agora vamos nos concentrar apenas na função que ficará responsável por
+obter o próximo token (seja um já lido, mas ainda não interpretado, ou
+um que ainda precisa ser lido de uma string) e expandi-lo:
+
+@<Metafont: Funções Estáticas@>+=
+@<Metafont: Função Estática expand_token@>
+static struct token *get_first_token(struct metafont *mf, char *source,
+                                char **next_position,
+                                int line, int *next_line, char *filename){
+    struct token *first_token = NULL;
+    // Obtemos o primeiro token
+    if(mf -> pending_token){
+        first_token = mf -> pending_token;
+        first_token -> next -> prev = NULL;
+        mv -> pending_token = first_token -> next;
+        first_token -> next = NULL;
+    }
+    else{
+        first_token = next_token(source, &source, line, &line, filename);
+    }
+    while(!expand_token(&first_token, source, &source));
+    return first_token;
+}
+@
+
+Por fim, podemos fazer a nossa função que separa uma declaração:
+
+@<Metafont: Funções Estáticas@>+=
+static struct token *get_statement(struct metafont *mf, char *source,
+                                   char **next_position,
+                                   int line, int *next_line, char *filename){
+    struct token *first_token, *current_token;
+    first_token = get_first_token(mf, source, &source, line, &line, filename);
+    current_token = first_token;
+    // Se o primeiro token é um 'end' ou 'dump', terminamos de ler:
+    if(current_token -> type == SYMBOL &&
+       (!strcmp(current_token -> name, "end") ||
+        !strcmp(current_token -> name, "dump"))){
+        while(*(*next_position) != '\0')
+            (*next_position) ++;
+        return NULL;
+    }
+    // Se não, vamos expandindo cada token até acharmos o fim da declaração
+    while(1){
+        if(current_token -> type == SYMBOL &&
+           !strcmp(current_token -> name, ";"))
+            break;
+        // Se não saímos do loop, temos que ir para o próximo token
+        if(current_token -> next == NULL)
+            current_token = next_token(source, &source, line, &line, filename);
+        if(current_token -> next == NULL)
+            goto source_incomplete_or_with_error;
+        while(!expand_token(&current_token, source, &source));
+    }
+    // Obtida declaração no loop acima, finalizando
+    if(current_token -> next != NULL){
+        current_token -> next -> prev = NULL;
+        if(mf -> pending_tokens == NULL)
+            mf -> pending_tokens = current_token -> next;
+        else
+            concat_tokens(mf -> pending_tokens, current_token -> next);
+    }
+    current_token -> next = NULL;
+    return first_token;
+source_incomplete_or_with_error:
+    fprintf(stderr, "ERROR: %s:%d: Source with error or incomplete, aborting.\n",
+            filename, line);
+    return NULL;
+}
+@
+
+
+@*1 Declaração de Variáveis.
+
+Vamos declarar agoira uma estrutura que irá armazenar tudo o que o
+METAFONT precisa para funcionar. Listas de variáveis, definições
+internas, etc:
+
+
+Ela será criada por:
+
 
 Esta será a estrutura que nosso analisador sintático irá receber e
 modificar ao longo de sua execução.
@@ -537,17 +689,18 @@ isso também é tratado como uma variável cujo nome tem três tokens. Ou
 o ponto poderia ser substituído por um espaço sem trocar o significado.
 
 O uso de ``['' e ``]'' serve para declarar um número infinito de
-variáveis. Se \monoespaco{string escritorio} declara esta variável
-como uma string, então \monoespaco{string escritorio[]nome} declara
-qualquer variável de três tokens que começa com
-\monoespaco{escritorio} e termina com \monoespaco{nome} como sendo uma
-string.
+variáveis com números em seu nome. Se \monoespaco{string escritorio}
+declara esta variável como uma string, então \monoespaco{string
+escritorio[]nome} declara qualquer variável de três tokens que começa
+com \monoespaco{escritorio} e termina com \monoespaco{nome} tendo
+qualquer número no meio.
 
 Durante a declaração, nunca podemos escolher como sufixo um
-número. Esta é uma restrição semântica. Isso ocorre para amnter a
-restrição de METAFONT de que se \monoespaco{x2} é um tipo de variável,
-então \monoespaco{x56} deverá ser do mesmo tipo. Então variáveis assim
-só podem ser declaradas na forma \monoespaco{x[]}.
+número. Esta é uma restrição semântica. Combinado com a regra
+anterior, isso reforça a restrição de METAFONT de que se
+\monoespaco{x2} é um tipo de variável, então \monoespaco{x56} deverá
+ser do mesmo tipo. Variáveis assim só podem ser declaradas na
+forma \monoespaco{x[]}.
 
 Geralmente a declaração serve para avisar METAFONT qual o tipo de uma
 variável e é obrigatória para todas as variáveis, exceto as
