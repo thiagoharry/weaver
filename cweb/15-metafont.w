@@ -427,25 +427,30 @@ tokens. E sempre retornar uma única declaração, guardando os tokens
 sobressalentes para retornarmos depois, após os expandirmos também.
 
 Primeiro vamos criar uma estrutura METAFONT, que representa tudo o que
-é armazenado pelo nosso interpretador. Ali dentro podemos armazxenar
-qualquer token já lido, e que está pendente para ser interpretado:
+é armazenado pelo nosso interpretador. Ali dentro podemos armazenar
+qualquer token já lido, e que está pendente para ser
+interpretado. Também armazenamos uma estrutura-pai. Isso nos permitirá
+definir mais tarde escopo para algumas de nossas declarações e
+interpretações:
 
 @<Metafont: Variáveis Estáticas@>+=
 struct metafont{
   struct token *pending_tokens;
-    //@<METAFONT: Estrutura METAFONT@>
+  struct metafont *parent;
+  @<METAFONT: Estrutura METAFONT@>
 };
 @
 
 Essa estrutura será inicializada por:
 
 @<Metafont: Funções Estáticas@>+=
-struct metafont *new_metafont(void){
+struct metafont *new_metafont(struct metafont *parent){
     struct metafont *structure = (struct metafont *) Walloc(sizeof(struct metafont));
     if(structure == NULL)
         goto end_of_memory_error;
     structure -> pending_tokens = NULL;
-    //@<METAFONT: Inicializa estrutura METAFONT@>
+    structure -> parent = parent;
+    @<METAFONT: Inicializa estrutura METAFONT@>
     return structure;
 end_of_memory_error:
     fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
@@ -547,7 +552,7 @@ void run_statements(struct metafont *mf, char *source, char *filename){
         if(statement == NULL)
             end_execution = true;
         else
-            run_single_statement(mf, statement);
+            run_single_statement(mf, statement, line, filename);
         _iWtrash();
     }
 }
@@ -563,9 +568,13 @@ ponto-e-vírgula. Semanticamente ela é uma declaração que pede para o
 nosso interpretador METAFONT não fazer nada:
 
 @<Metafont: Função run_single_statement@>=
-void run_single_statement(struct metafont *mf, struct token *statement){
+  void run_single_statement(struct metafont *mf, struct token *statement,
+                            int line, char *filename){
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
+    //@<Metafont: Executa Declaração>
+    fprintf(stderr, "ERROR: %s:%d: Ignoring isolated expression.\n",
+            filename, line);
 }
 @
 
@@ -581,6 +590,104 @@ bool expand_token(struct token **first_token, char *source, char **next_char){
 }
 @
 
+@*1 Quantidades Internas.
+
+Antes de começar implementando as coisas mais complexas da linguagem,
+é sempre melhor começarmos com as funcionalidades mais simples que são
+possíveis à partir de nosso estado atual. Somente quando novas
+funcionalidades simples não puderem ser implementadas é que iremos
+avançar implementando coisas mais complexas.
+
+A primeira coisa mais simples de ser implementada são as quantidades
+internas. Elas podem ser vistas como variáveis que sempre irão
+armazenar um número e que deverão ser acessadas da forma mais rápida
+possível. Quando as declaramos, elas sempre devem começar tendo o
+valor zero.
+
+Basicamente nós iremos armazenar dentro da estrutura METAFONT uma
+árvore trie para podermos acessar tais quantidades:
+
+@<METAFONT: Estrutura METAFONT@>=
+struct _trie *internal_quantities;
+@
+
+A qual deverá ser inicializada como vazia para qualquer inicialização
+de estrutura METAFONT:
+
+@<METAFONT: Inicializa estrutura METAFONT@>=
+structure -> internal_quantities = _new_trie();
+@
+
+Mas se estamos declarando a primeira estrutura METAFONT, então ela
+deverá ser inicializada já contendo algumas quantidades internas, pela
+própria especificação da linguagem. Todas elas devem começar valendo
+zero, exceto por \monoespaco{year}, \monoespaco{month},
+\monoespaco{day} e \monoespaco{time} que receberão valores iniciais
+baseados na data e hora do momento da inicialização. E
+\monoespaco{boundarychar} deve começar valendo -1:
+
+@<METAFONT: Inicializa estrutura METAFONT@>+=
+if(structure -> parent == NULL){
+    struct _trie *T = structure -> internal_quantities;
+    time_t current_time;
+    unsigned int year, month, day, time_in_minutes;
+    struct tm *date;
+    time(&current_time);
+    date = localtime(&current_time);
+    year = date -> tm_year + 1900;
+    month = date -> tm_mon + 1;
+    day = date -> tm_mday;
+    time_in_minutes = 60 * date -> tm_hour + date -> tm_min;
+    _insert_trie(T, DOUBLE, "tracingtitles", 0.0);
+    _insert_trie(T, DOUBLE, "tracingequations", 0.0);
+    _insert_trie(T, DOUBLE, "tracingcapsules", 0.0);
+    _insert_trie(T, DOUBLE, "tracingchoices", 0.0);
+    _insert_trie(T, DOUBLE, "tracingspecs", 0.0);
+    _insert_trie(T, DOUBLE, "tracingpens", 0.0);
+    _insert_trie(T, DOUBLE, "tracingcommands", 0.0);
+    _insert_trie(T, DOUBLE, "tracingrestores", 0.0);
+    _insert_trie(T, DOUBLE, "tracingmacros", 0.0);
+    _insert_trie(T, DOUBLE, "tracingedges", 0.0);
+    _insert_trie(T, DOUBLE, "tracingoutput", 0.0);
+    _insert_trie(T, DOUBLE, "tracingonline", 0.0);
+    _insert_trie(T, DOUBLE, "tracingstats", 0.0);
+    _insert_trie(T, DOUBLE, "pausing", 0.0);
+    _insert_trie(T, DOUBLE, "showstopping", 0.0);
+    _insert_trie(T, DOUBLE, "proofing", 0.0);
+    _insert_trie(T, DOUBLE, "turningcheck", 0.0);
+    _insert_trie(T, DOUBLE, "warningcheck", 0.0);
+    _insert_trie(T, DOUBLE, "smoothing", 0.0);
+    _insert_trie(T, DOUBLE, "autorounding", 0.0);
+    _insert_trie(T, DOUBLE, "glanularity", 0.0);
+    _insert_trie(T, DOUBLE, "glanularity", 0.0);
+    _insert_trie(T, DOUBLE, "fillin", 0.0);
+    _insert_trie(T, DOUBLE, "year", (double) year);
+    _insert_trie(T, DOUBLE, "month", (double) month);
+    _insert_trie(T, DOUBLE, "day", (double) day);
+    _insert_trie(T, DOUBLE, "time", (double) time_in_minutes);
+    _insert_trie(T, DOUBLE, "charcode", 0.0);
+    _insert_trie(T, DOUBLE, "charext", 0.0);
+    _insert_trie(T, DOUBLE, "charwd", 0.0);
+    _insert_trie(T, DOUBLE, "charht", 0.0);
+    _insert_trie(T, DOUBLE, "chardp", 0.0);
+    _insert_trie(T, DOUBLE, "charic", 0.0);
+    _insert_trie(T, DOUBLE, "chardx", 0.0);
+    _insert_trie(T, DOUBLE, "chardy", 0.0);
+    _insert_trie(T, DOUBLE, "designsize", 0.0);
+    _insert_trie(T, DOUBLE, "hppp", 0.0);
+    _insert_trie(T, DOUBLE, "vppp", 0.0);
+    _insert_trie(T, DOUBLE, "xoffset", 0.0);
+    _insert_trie(T, DOUBLE, "yoffset", 0.0);
+    _insert_trie(T, DOUBLE, "boundarychar", -1.0);
+}
+@
+
+Várias destas quantidades internas, dependendo do valor, mudam o
+comportamento do METAFONT. Contudo, nossa implementação não irá se
+preocupar em usar todas elas assim como o METAFONT original
+faz. Contudo, elas estarão presentes e poderão ser conferidas e
+checadas pelos programas.
+
 Teste temporário do analizador léxico:
 
 @<Metafont: Declarações@>+=
@@ -589,7 +696,7 @@ void _metafont_test(char *);
 
 @<Metafont: Definições@>+=
 void _metafont_test(char *teste){
-    struct metafont *M = new_metafont();
+    struct metafont *M = new_metafont(NULL);
     run_statements(M, teste, "teste.mf");
 }
 @
