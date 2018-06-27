@@ -893,7 +893,45 @@ if(mf -> everyjob_token_name != NULL)
 @
 
 @*1 Comandos de Modo.
-  
+
+No METAFONT original, assumia-se que a linguagem era interpretada por
+um aplicativo de linha de comando e os Comandos de Modo serviam para
+determinar quanto de interação com o usuário o programa iria ter em
+caso de erro. Atualmente isso não faz sentido, pois a nossa
+implementação da linguagem METAFONT não está ligada à um aplicativo de
+linha de comando. Por causa disso, nós apenas iremos ignorar este tipo
+de comando.
+
+De qualquer forma, como eles fazem parte da linguagem, devemos checar
+a sintaxe deles e imprimir mensagens de erro se houver alguma coisa
+errada. A gramática de tais comandos é:
+
+\alinhaverbatim
+<Comando de Modo> --> batchmode | nonstopmode | scrollmode | errorstopmode
+\alinhanormal
+
+É uma regra gramatical bastante simples. Sendo assim, basta checarmos
+que tais comandos devem aparecer isolados sem nenhum outro token até o
+próximo fim de declaração:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL &&
+   (!strcmp(statement -> name, "batchmode") ||
+    !strcmp(statement -> name, "nonstopmode") ||
+    !strcmp(statement -> name, "scrollmode") ||
+    !strcmp(statement -> name, "errorstopmode"))){
+    // Garante que próximo token é um ';'
+    if(statement -> next == NULL || statement -> next -> type != SYMBOL ||
+       strcmp(statement -> next -> name, ";")){
+        fprintf(stderr, "ERROR: %s:%d: Extra tokens found (%s).\n",
+                filename, line,
+                (statement -> next -> next == NULL)?("NULL"):
+                (statement -> next -> next -> name));
+        return;
+    }
+    return;
+}
+@
 
 Teste temporário do analizador léxico:
 
