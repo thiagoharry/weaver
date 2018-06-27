@@ -30,6 +30,7 @@ seguintes arquivos:
 #include "weaver.h"
 @<Metafont: Inclui Cabeçalhos@>
 @<Metafont: Variáveis Estáticas@>
+@<Metafont: Funções Primitivas Estáticas@>
 @<Metafont: Funções Estáticas@>
 @<Metafont: Definições@>
 @
@@ -512,10 +513,13 @@ static struct token *get_statement(struct metafont *mf, char *source,
             break;
         // Se não saímos do loop, temos que ir para o próximo token
         if(current_token -> next == NULL)
-            current_token = next_token(source, &source, line, &line, filename);
+            current_token -> next = next_token(source, &source, line, &line,
+                                               filename);
         if(current_token -> next == NULL)
             goto source_incomplete_or_with_error;
-        while(!expand_token(&current_token, source, &source));
+        current_token -> next -> prev = current_token;
+        current_token = current_token -> next;
+        while(expand_token(&current_token, source, &source));
     }
     // Obtida declaração no loop acima, finalizando
     if(current_token -> next != NULL){
@@ -572,7 +576,7 @@ nosso interpretador METAFONT não fazer nada:
                             int line, char *filename){
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
-    //@<Metafont: Executa Declaração>
+    @<Metafont: Executa Declaração@>
     fprintf(stderr, "ERROR: %s:%d: Ignoring isolated expression.\n",
             filename, line);
 }
@@ -687,6 +691,119 @@ comportamento do METAFONT. Contudo, nossa implementação não irá se
 preocupar em usar todas elas assim como o METAFONT original
 faz. Contudo, elas estarão presentes e poderão ser conferidas e
 checadas pelos programas.
+
+Agora podemos começar a falar sobre o que é uma declaração. A
+gramática de uma declaração começa com a regra:
+
+\alinhaverbatim
+<Declaração> --> <Vazio>
+             |-> <Título>
+             |-> <Equação>
+             |-> <Atribuição>
+             |-> <Declaração>
+             |-> <Definição>
+             |-> <Composta>
+             |-> <Comando>
+\alinhanormal
+
+Dentre elas, já implementamos a declaração vazia. Diante das demais,
+algumas das mais simples são comandos (ainda que muitos dos comandos
+sejam mais complexos e estejamos deixando pra depois). Os comandos são
+instruções diversas que damos ao nosso interpretador. Os diferentes
+comandos são:
+
+\alinhaverbatim
+<Comando> --> <Comando save>
+          |-> <Comando interim>
+          |-> <Comando newinternal>
+          |-> <Comando randomseed>
+          |-> <Comando let>
+          |-> <Comando delimiters>
+          |-> <Comando protection>
+          |-> <Comando everyjob>
+          |-> <Comando show>
+          |-> <Comando message>
+          |-> Comando mode>
+          |-> <Comando picture>
+          |-> <Comando display>
+          |-> <Comando openwindow>
+          |-> <Comando shipout>
+          |-> <Comando Especial>
+          |-> <Comando de Métrica de Fonte>
+\alinhanormal
+
+Como estamos interessados no momento nas quantidades internas, o
+comando que nos interessa é o que permite declarar novas quantidades
+internas. Tais quantidades sempre irão começar com o valor zero:
+
+\alinhaverbatim
+<Comando newinternal> --> newinternal <lista de Tokens Simbólicos>
+<lista de Tokens Simbólicos> --> <Token Simbólico>
+                             |-> <Lista de Tokens Simbólicos> , <Token Simbólico>
+\alinhanormal
+
+Cada token simbólico contém o nome de uma das novas quantidades
+internas que serão criadas. O nosso trabalho então será primeiro
+definir uma função que identifica listas de tokens simbólicos. Esta
+função irá consumir os tokens lidos por eles, removendo a vírgula
+separadora que esperamos existir entre eles. Se após um dos tokens nós
+não encontrarmos uma vírgula, nós encerramos:
+
+@<Metafont: Funções Primitivas Estáticas@>=
+static struct token *symbolic_token_list(struct token **token,
+                                         char *filename, int line){
+    struct token *first_token = *token, *current_token;
+    current_token = first_token;
+    while(1){
+        // Se o token atual não for simbólico, isso é um erro.
+        if(current_token == NULL || current_token -> type != SYMBOL){
+            fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
+                    filename, line);
+            return NULL;
+        }
+        // Se o próximo token não for uma vírgula, terminamos de ler a
+        // lista
+        if(current_token -> next == NULL ||
+           current_token -> next -> type != SYMBOL ||
+           strcmp(current_token -> next -> name, ",")){
+            *token = current_token -> next;
+            current_token -> next = NULL;
+            return first_token;
+        }
+        // Caso contrário, consumimos a vírgula e ligamos o token
+        // atual no próximo:
+        if(current_token -> next -> next != NULL)
+            current_token -> next -> next -> prev = current_token;
+        current_token -> next = current_token -> next -> next;
+        current_token = current_token -> next;
+    }
+}
+@
+
+Tendo uma função capaz de consumir e interpretar corretamente o <Lista
+de Tokens Simbólicos>, então podemos identificar e interpretar
+corretamente o <Comando newinternal>:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL && !strcmp(statement -> name, "newinternal")){
+    struct token *current_token = statement -> next;
+    struct token *list = symbolic_token_list(&current_token, filename, line);
+    // Se tem algo diferente de ';' após a lista, isso é um erro:
+    if(current_token == NULL || current_token -> type != SYMBOL ||
+       strcmp(current_token -> name, ";")){
+        fprintf(stderr, "ERROR: %s:%d: Extra token at newinternal command (%s).\n",
+                filename, line,
+                (current_token == NULL)?("NULL"):(current_token -> name));
+        return;
+    }
+    // Executa o comando
+    while(list != NULL){
+        _insert_trie(mf -> internal_quantities, DOUBLE, list -> name, 0.0);
+        list = list -> next;
+    }
+    return;
+}
+@
 
 Teste temporário do analizador léxico:
 
