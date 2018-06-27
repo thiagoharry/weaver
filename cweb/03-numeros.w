@@ -38,6 +38,7 @@ E agora o nosso arquivo com as funções C em si:
 #include <sys/stat.h> // open
 #include <fcntl.h> // open
 #endif
+static bool initialized = false;
 @<Funções Numéricas: Variáveis Estáticas@>
 @<Funções Numéricas: Funções Estáticas@>
 @<Funções Numéricas: Definições@>
@@ -68,7 +69,7 @@ retornaria $f(s)$. O segundo número gerado é $f(f(s))$ e assim por
 diante. Então, bastaria sempre armazenarmos o último número gerado e
 por meio dele deduzimos o próximo com a nossa função $f$.
 
-Tanto o MT como o SFMTsão um pouco mais complexos. Não iremos
+Tanto o MT como o SFMT são um pouco mais complexos. Não iremos
 demonstrar suas propriedades, iremos apenas descrevê-las. Ambos os
 algoritmos garantem que são capazes de gerar novos números sem repetir
 periodicamente a sequência um número de vezes igual à um primo de
@@ -119,6 +120,7 @@ void _finalize_numeric_functions(void){
 E isso será inicializado na inicialização do programa:
 
 @<API Weaver: Inicialização@>+=
+
 _initialize_numeric_functions();
 @
 
@@ -133,7 +135,7 @@ não tem nenhum mistério:
 
 @<Funções Numéricas: Inicialização@>=
 #if defined(W_MULTITHREAD)
-if(pthread_mutex_init(&_sfmt_mutex, NULL) != 0){
+if(!initialized && pthread_mutex_init(&_sfmt_mutex, NULL) != 0){
   fprintf(stderr, "ERROR (0): Can't initialize mutex for random numbers.\n");
   exit(1);
 }
@@ -149,14 +151,19 @@ if(pthread_mutex_init(&_sfmt_mutex, NULL) != 0){
 A primeira coisa a fazer é escolher uma semente, um valor inicial para
 o nosso gerador de números pseudo-randômicos. Apesar de na teoria
 nosso algoritmo só tratar números como sequências de 128 bits, a
-semente que passaremos sempre terá 32 bits. Se o usuário definiu a
-macro |W_SEED| em \monoespaco{conf/conf.h}, usaremos este valor. Caso
-contrário usaremos como valor o número lido de
-\monoespaco{/dev/urandom} ou um valor baseado no número de
+semente que passaremos sempre terá 32 bits. Escolheremos a semente
+primeiro checando se a variável \monoespaco{use\_runtime\_seed} é
+verdadeira. Se for o caso, lemos a variável estática global
+\monoespaco{runtime\_seed} para definir a semenete. Caso contrário, se
+o usuário definiu a macro |W_SEED| em \monoespaco{conf/conf.h},
+usaremos este valor. Caso contrário usaremos como valor o número lido
+de \monoespaco{/dev/urandom} ou um valor baseado no número de
 milissegundos.
 
 @<Funções Numéricas: Inicialização@>+=
-{
+if(use_runtime_seed)
+  seed = runtime_seed;
+else{
 #ifndef W_SEED
 #if W_TARGET == W_ELF
   bool got_seed = false;
@@ -184,6 +191,14 @@ milissegundos.
   _sfmt_sequence[0] = seed = (uint32_t) W_SEED; // Se W_SEED é definida, use ela
 #endif
 }
+@
+
+A saber, inicialmente manteremos a \monoespaco{use\_runtime\_seed}
+como falso:
+
+@<Funções Numéricas: Variáveis Estáticas@>+=
+static bool use_runtime_seed = false;
+static unsigned int runtime_seed = 0;
 @
 
 Vamos assumir que a sequência de números que iremos gerar são números
@@ -406,6 +421,23 @@ virão com uma qualidade maior após a preparação inicial:
 {
   _sfmt_index = -1;
   _regenerate_sequence();
+  initialized = true;
+}
+@
+
+A última coisa que falta é fornecermos uma função que permite definir
+a semente do gerador de números pseudo-randômicos em tempo de
+execução. Esta será uma funçãoque será usada mais internamente:
+
+@<Funções Numéricas: Declarações@>+=
+void _set_random_number_seed(unsigned int seed);
+@
+
+@<Funções Numéricas: Definições@>+=
+void _set_random_number_seed(unsigned int seed){
+     use_runtime_seed = true;
+     runtime_seed = seed;
+     _initialize_numeric_functions();
 }
 @
 

@@ -549,15 +549,22 @@ função abaixo que fica obtendo declarações e as executa:
 void run_statements(struct metafont *mf, char *source, char *filename){
     struct token *statement;
     int line = 1;
-    bool end_execution = false;
+    bool end_execution = false, first_loop = true;
     while(!end_execution){
-        _iWbreakpoint();
+        if(mf -> pending_tokens == NULL)
+            _iWbreakpoint();
+        if(first_loop){
+            @<Metafont: Antes de Obter a Primeira Declaração@>
+            first_loop = false;
+        }
         statement = get_statement(mf, source, &source, line, &line, filename);
         if(statement == NULL)
             end_execution = true;
         else
-            run_single_statement(mf, statement, line, filename);
-        _iWtrash();
+            run_single_statement(mf, statement, source, &source, line, &line,
+                                 filename);
+        if(mf -> pending_tokens == NULL)
+            _iWtrash();
     }
 }
 @
@@ -573,12 +580,13 @@ nosso interpretador METAFONT não fazer nada:
 
 @<Metafont: Função run_single_statement@>=
   void run_single_statement(struct metafont *mf, struct token *statement,
-                            int line, char *filename){
+                            char *source, char **next_source,
+                            int line, int *next_line, char *filename){
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
     @<Metafont: Executa Declaração@>
-    fprintf(stderr, "ERROR: %s:%d: Ignoring isolated expression.\n",
-            filename, line);
+    fprintf(stderr, "ERROR: %s:%d: Ignoring isolated expression (%s).\n",
+            filename, line, (statement == NULL)?("NULL"):(statement -> name));
 }
 @
 
@@ -719,13 +727,13 @@ comandos são:
           |-> <Comando randomseed>
           |-> <Comando let>
           |-> <Comando delimiters>
-          |-> <Comando protection>
+          |-> <Comando de Proteção>
           |-> <Comando everyjob>
           |-> <Comando show>
           |-> <Comando message>
-          |-> Comando mode>
-          |-> <Comando picture>
-          |-> <Comando display>
+          |-> <Comando de Modo>
+          |-> <Comando de Imagem>
+          |-> <Comando de Visualização>
           |-> <Comando openwindow>
           |-> <Comando shipout>
           |-> <Comando Especial>
@@ -804,6 +812,88 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "newinternal")){
     return;
 }
 @
+
+
+% Comandos inner e outer dependem de grupo
+
+@*1 O Comando \monoespaco{everyjob}.
+
+Vamos implementar o próximo comando fácil existente. A gramática
+do Comando \monoespaco{everyjob} é:
+
+\alinhaverbatim
+<Comando everyjob> --> everyjob <Token Simbólico>
+\alinhanormal
+
+O propósito deste comando é fazer com que o token simbólico passado
+para ele seja inserido automaticamente toda vez que invocamos o
+METAFONT para interpretar um novo código-fonte.
+
+Para isso, tudo o que temos a fazer é armazenar dentro da própria
+estrutura METAFONT o nome do token a ser armazenado. Usaremos a
+seguinte variável:
+
+@<METAFONT: Estrutura METAFONT@>=
+char *everyjob_token_name;
+@
+
+Na inicialização manteremos o valor como sendo nulo:
+
+@<METAFONT: Inicializa estrutura METAFONT@>+=
+structure -> everyjob_token_name = NULL;
+@
+
+E iremos criar e armazenar o nome do token caso o comando em si seja
+invocado:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL && !strcmp(statement -> name, "everyjob")){
+    // Deve haver um token simbólico após o comando
+    if(statement -> next == NULL || statement -> next -> type != SYMBOL){
+        fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
+                filename, line);
+        return;
+    }
+    // Se aconteceu do token definido como everyjob ser um ';', pegamos mais um:
+    if(!strcmp(statement -> next -> name, ";")){
+        statement -> next -> next = get_statement(mf, source, &source,
+                                                  line, &line, filename);
+        if(statement -> next -> next != NULL)
+            statement -> next -> next -> prev = statement -> next;
+        *next_line = line;
+        *next_source = source;
+    }
+    // E em seguida deve haver um ponto-e-vírgula:
+    if(statement -> next -> next == NULL ||
+       statement -> next -> next -> type != SYMBOL ||
+       strcmp(statement -> next -> next -> name, ";")){
+        fprintf(stderr, "ERROR: %s:%d: Extra tokens found (%s).\n",
+                filename, line,
+                (statement -> next -> next == NULL)?("NULL"):
+                (statement -> next -> next -> name));
+        return;
+    }
+    // Se não ocorreu erro, armazena o nome do token:
+    if(mf -> everyjob_token_name == NULL ||
+       strlen(mf -> everyjob_token_name) < strlen(statement -> next -> name))
+        mf -> everyjob_token_name = (char *)
+            Walloc(strlen(statement -> next -> name) + 1);
+    strcpy(mf -> everyjob_token_name, statement -> next -> name);
+    return;
+}
+@
+
+A ideia é que tendo esse comando, antes de executarmos a primeira
+declaração de um código METAFONT, iremos inserir o token que foi
+registrado como o primeiro a ser inserido:
+
+@<Metafont: Antes de Obter a Primeira Declaração@>=
+if(mf -> everyjob_token_name != NULL)
+    mf -> pending_tokens = new_token_symbol(mf -> everyjob_token_name);
+@
+
+@*1 Comandos de Modo.
+  
 
 Teste temporário do analizador léxico:
 
