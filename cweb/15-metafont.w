@@ -42,10 +42,6 @@ seguintes arquivos:
 // A definir...
 @
 
-@<Metafont: Inclui Cabeçalhos@>+=
-// A definir...
-@
-
 @<Metafont: Variáveis Estáticas@>+=
 // A definir...
 @
@@ -179,6 +175,8 @@ static void append_token(struct token *before, struct token *after){
 }
 // Coloca sequência de tokens 'after' após a sequência de tokens 'before'
 static void concat_token(struct token *before, struct token *after){
+    if(after == NULL)
+        return;
     while(before -> next != NULL)
         before = before -> next;
     before -> next = after;
@@ -504,6 +502,7 @@ static struct token *get_statement(struct metafont *mf, char *source,
         !strcmp(current_token -> name, "dump")))){
         while(*(*next_position) != '\0')
             (*next_position) ++;
+         @<Metafont: Chegamos ao Fim do Código-Fonte@>
          return NULL;
     }
     // Se não, vamos expandindo cada token até acharmos o fim da declaração
@@ -512,9 +511,16 @@ static struct token *get_statement(struct metafont *mf, char *source,
            !strcmp(current_token -> name, ";"))
             break;
         // Se não saímos do loop, temos que ir para o próximo token
-        if(current_token -> next == NULL)
-            current_token -> next = next_token(source, &source, line, &line,
-                                               filename);
+        if(current_token -> next == NULL){
+            if(mf -> pending_tokens == NULL)
+                current_token -> next = next_token(source, &source, line, &line,
+                                                   filename);
+            else{
+                current_token -> next = mf -> pending_tokens;
+                mf -> pending_tokens = mf -> pending_tokens -> next;
+                current_token -> next -> next = NULL;
+            }
+        }
         if(current_token -> next == NULL)
             goto source_incomplete_or_with_error;
         current_token -> next -> prev = current_token;
@@ -530,6 +536,7 @@ static struct token *get_statement(struct metafont *mf, char *source,
             concat_token(mf -> pending_tokens, current_token -> next);
     }
     current_token -> next = NULL;
+    @<Metafont: Imediatamente após gerarmos uma declaração completa@>
     *next_line = line;
     *next_position = source;
     return first_token;
@@ -549,7 +556,7 @@ função abaixo que fica obtendo declarações e as executa:
 void run_statements(struct metafont *mf, char *source, char *filename){
     struct token *statement;
     int line = 1;
-    bool end_execution = false, first_loop = true;
+    bool end_execution = false, first_loop = (mf -> parent == NULL);
     while(!end_execution){
         if(mf -> pending_tokens == NULL)
             _iWbreakpoint();
@@ -557,15 +564,18 @@ void run_statements(struct metafont *mf, char *source, char *filename){
             @<Metafont: Antes de Obter a Primeira Declaração@>
             first_loop = false;
         }
+        @<METAFONT: Imediatamente antes de ler próxima declaração@>
         statement = get_statement(mf, source, &source, line, &line, filename);
         if(statement == NULL)
             end_execution = true;
         else
-            run_single_statement(mf, statement, source, &source, line, &line,
+            run_single_statement(&mf, statement, source, &source, line, &line,
                                  filename);
+        @<METAFONT: Imediatamente após executar declaração@>
         if(mf -> pending_tokens == NULL)
             _iWtrash();
     }
+    @<Metafont: Após terminar de interpretar um código@>
 }
 @
 
@@ -579,7 +589,7 @@ ponto-e-vírgula. Semanticamente ela é uma declaração que pede para o
 nosso interpretador METAFONT não fazer nada:
 
 @<Metafont: Função run_single_statement@>=
-  void run_single_statement(struct metafont *mf, struct token *statement,
+void run_single_statement(struct metafont **mf, struct token *statement,
                             char *source, char **next_source,
                             int line, int *next_line, char *filename){
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
@@ -710,7 +720,7 @@ gramática de uma declaração começa com a regra:
              |-> <Atribuição>
              |-> <Declaração>
              |-> <Definição>
-             |-> <Composta>
+             |-> <Declaração Composta>
              |-> <Comando>
 \alinhanormal
 
@@ -806,7 +816,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "newinternal")){
     }
     // Executa o comando
     while(list != NULL){
-        _insert_trie(mf -> internal_quantities, DOUBLE, list -> name, 0.0);
+        _insert_trie((*mf) -> internal_quantities, DOUBLE, list -> name, 0.0);
         list = list -> next;
     }
     return;
@@ -856,7 +866,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "everyjob")){
     }
     // Se aconteceu do token definido como everyjob ser um ';', pegamos mais um:
     if(!strcmp(statement -> next -> name, ";")){
-        statement -> next -> next = get_statement(mf, source, &source,
+        statement -> next -> next = get_statement(*mf, source, &source,
                                                   line, &line, filename);
         if(statement -> next -> next != NULL)
             statement -> next -> next -> prev = statement -> next;
@@ -867,18 +877,18 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "everyjob")){
     if(statement -> next -> next == NULL ||
        statement -> next -> next -> type != SYMBOL ||
        strcmp(statement -> next -> next -> name, ";")){
-        fprintf(stderr, "ERROR: %s:%d: Extra tokens found (%s).\n",
+        fprintf(stderr, "ERROR: %s:%d: Extra tokens found after everyjob (%s).\n",
                 filename, line,
                 (statement -> next -> next == NULL)?("NULL"):
                 (statement -> next -> next -> name));
         return;
     }
     // Se não ocorreu erro, armazena o nome do token:
-    if(mf -> everyjob_token_name == NULL ||
-       strlen(mf -> everyjob_token_name) < strlen(statement -> next -> name))
-        mf -> everyjob_token_name = (char *)
+    if((*mf) -> everyjob_token_name == NULL ||
+       strlen((*mf) -> everyjob_token_name) < strlen(statement -> next -> name))
+        (*mf) -> everyjob_token_name = (char *)
             Walloc(strlen(statement -> next -> name) + 1);
-    strcpy(mf -> everyjob_token_name, statement -> next -> name);
+    strcpy((*mf) -> everyjob_token_name, statement -> next -> name);
     return;
 }
 @
@@ -923,17 +933,195 @@ if(statement -> type == SYMBOL &&
     // Garante que próximo token é um ';'
     if(statement -> next == NULL || statement -> next -> type != SYMBOL ||
        strcmp(statement -> next -> name, ";")){
-        fprintf(stderr, "ERROR: %s:%d: Extra tokens found (%s).\n",
-                filename, line,
-                (statement -> next -> next == NULL)?("NULL"):
-                (statement -> next -> next -> name));
+        fprintf(stderr, "ERROR: %s:%d: Extra tokens found after %s (%s).\n",
+                filename, line, statement -> name,
+                (statement -> next  == NULL)?("NULL"):
+                (statement -> next -> name));
         return;
     }
     return;
 }
 @
 
-Teste temporário do analizador léxico:
+@*1 Declarações Compostas.
+
+Uma declaração pode ser composta por várias outras declarações. A
+regra gramatical para isso é:
+
+\alinhaverbatim
+<Declaração Composta> --> begingroup
+                          <Lista de Declarações><Declaração que Não é Título>
+                          endgroup
+\alinhanormal
+
+
+Notar que a declaração final dentro do grupo que forma a declaração
+composta, além de não poder ser um título, não é terminada com
+ponto-e-vírgula. Embora a presença de um ponto-e-vírgula não faça
+diferença alguma semanticamente.
+
+Dentro de um grupo, algumas variáveis podem ser declaradas como sendo
+locais daquele grupo. Por isso, quando entramos em um grupo devemos
+fazer duas coisas: criar uma nova estrutura METAFONT que será filha da
+atual e devemos incrementar lá um contador que armazena a profundidade
+em grupos na qual estamos (pois um grupo pode estar dentro do
+outro). Já ao encontrarmos um \monoespaco{endgroup} devemos voltar
+para a estrutura METAFONT anterior e decrementar o contador de
+profundidade.
+
+Não iremos preocupar agora em salvar variáveis ou com o escopo delas
+ainda. Quando chegarmos nos comandos que servem para isso,
+implementaremos tal funcionalidade. No momento nos preocuparemos
+apenas em deixar tudo pronto para que tais programas funcionem.
+
+A primeira coisa a fazer é apenas checar se quando temos uma nova
+declaração a ser executada, ela começa com o token
+\monoespaco{begingroup}. Neste caso, consumiremos apenas ela e
+devolveremos o resto para o começo da lista de tokens que estão
+pendentes para serem interpretados. E ao consumi-la iremos trocar a
+versão atual da estrutura METAFONT por outra.
+
+Vamos agora detectar mais um tipo de erro: se nós estamos saindo de
+nosso programa após encontrarmos um \monoespaco{end},
+\monoespaco{dump} ou o fim do código, então devemos checar se estamos
+em uma estrutura METAFONT sem pai. Se não estivermos, isso significa
+que estamos encerrando o programa no meio de um grupo não-finalizado:
+
+
+@<Metafont: Chegamos ao Fim do Código-Fonte@>=
+if(mf -> parent != NULL){
+    fprintf(stderr, "ERROR: %s:%d: A group begun and never ended.\n",
+            filename, line);
+}
+@
+
+Vamos agora tratar o caso de encontrarmos um \monoespaco{begingroup}
+no começo de uma declaração. Além de criar uma nova estrutura METAFONT
+filha, passamos para ela os tokens pendentes que antes estavam em seu
+pai.
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
+    Wbreakpoint();
+    *mf = new_metafont(*mf);
+    statement = statement -> next;
+    statement -> prev = NULL;
+    (*mf) -> pending_tokens = statement;
+    if(statement != NULL)
+        concat_token((*mf) -> pending_tokens,
+                     (*mf) -> parent -> pending_tokens);
+    else
+        (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
+    (*mf) -> parent -> pending_tokens = NULL;
+    return;
+}
+@
+
+Já tratar o comando \monoespaco{endgroup} é mais complicado, pois ele
+aparece tipicamente na penúltima posição, podendo aparecer na última
+caso o código esteja incorreto por estar incompleto. Sendo assim,
+vamos criar uma forma da fuinção que monta uma nova declaração avisar
+o nosso interpretador caso ela leia um \monoespaco{endgroup} na
+penúltima ou última posição:
+
+@<METAFONT: Estrutura METAFONT@>=
+int hint;
+@
+
+Inicialmente essa variável \monoespaco{hint} deve estar nula. E deve
+ser tornada nula imediatamente antes de ler a próxima declaração:
+
+@<METAFONT: Inicializa estrutura METAFONT@>+=
+structure -> hint = 0;
+@
+
+@<METAFONT: Imediatamente antes de ler próxima declaração@>=
+mf -> hint = 0;
+@
+
+Vamos chamar o caso de termos um \monoespaco{endgroup} na declaração
+atual como algo que será avisado por meio da seguinte definição:
+
+@<Metafont: Inclui Cabeçalhos@>+=
+#define HINT_ENDGROUP 1
+@
+
+Quando somos avisados que temos que encerrar o grupo, após executarmos
+a última declaração (da qual nós removeremos o token
+\monoespaco{endgroup} antes), cuidaremos de remover a estrutura
+METAFONT filha atual e voltarmos para a estrutura pai, restaurando o
+escopo anterior:
+
+@<METAFONT: Imediatamente após executar declaração@>=
+if(mf -> hint == HINT_ENDGROUP){
+    // Caso de erro: usar endgroup sem begingroup:
+    if(mf -> parent == NULL){
+        fprintf(stderr,
+                "ERROR: %s:%d: Extra 'endgroup' while not in 'begingroup'.\n",
+                filename, line);
+    }
+    else{
+        mf = mf -> parent;
+        Wtrash();
+    }
+}
+@
+
+Só temos que tomar cuidado que se nós terminamos de interpretar um
+código, mas não terminamos todos os grupos, temos o trabalho de limpar
+a nossa memória antes de encerrar:
+
+@<Metafont: Após terminar de interpretar um código@>=
+while(mf -> parent != NULL){
+    Wtrash();
+    mf = mf -> parent;
+}
+@
+
+E agora o código que faz com que se encontramos um 'endgroup'
+identificado como na última ou penúltima posição de uma nova
+declaração, após já terem ocorrido todas as expansões de token
+possíveis, então temos que avisar nosso interpretador que ele deve
+encerrar o grupo e silenciosamente remover o token
+\monoespaco{endgroup} para ele não atrapalhar na interpretação da
+declaração. Mas só devemos fazer isso se o primeiro token não é um
+\monoespaco{begingroup}, pois a aplicação das duas regras só funciona
+se forem feitas separadamente.
+
+@<Metafont: Imediatamente após gerarmos uma declaração completa@>=
+// Curiosidade: a verdade é que nem sempre isso é uma declaração
+// completa. Nós apenas paramos no ';', mas construções patológicas na
+// linguagem podem usar o token ';' para outras coisas além de separar
+// declarações. Mas não importa, embora possamos nos enganar, podemos
+// nos recuperar destes enganos. O máximo que pode ocorrer é que
+// construções patológicas na linguagem podem nos induzir a retornar
+// mensagens de erro eradas.
+if(first_token -> type != SYMBOL ||
+     strcmp(first_token -> name, "begingroup")){
+    if(current_token -> type == SYMBOL &&
+       !strcmp(current_token -> name, "endgroup")){
+        if(current_token -> prev != NULL)
+            current_token -> prev -> next = NULL;
+        else
+            first_token = NULL;
+        mf -> hint = HINT_ENDGROUP;
+    }
+    else if(current_token -> prev != NULL &&
+            current_token -> prev -> type == SYMBOL &&
+            !strcmp(current_token -> prev -> name, "endgroup")){
+        if(current_token -> prev -> prev != NULL){
+            current_token -> prev -> prev -> next = current_token;
+            current_token -> prev = current_token -> prev -> prev;
+        }
+        else{
+            current_token -> prev = NULL;
+            first_token = current_token;
+        }
+        mf -> hint = HINT_ENDGROUP;
+    }
+}
+@
+
 
 @<Metafont: Declarações@>+=
 void _metafont_test(char *);
