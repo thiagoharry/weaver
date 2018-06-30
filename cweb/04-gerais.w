@@ -278,3 +278,36 @@ bool _search_trie(struct _trie *tree, int type, char *name, ...){
     }
 }
 @
+
+A tarefa de remover um valor de uma trie é muito semelhante à tarefa
+de consultar o valor. A diferença é que quando o encontramos, nós
+apenas marcamos o nodo emque ele está como não sendo mais uma folha:
+
+@<Trie: Declarações@>+=
+void _remove_trie(struct _trie *tree, char *name);
+@
+
+@<Trie: Definições@>+=
+void _remove_trie(struct _trie *tree, char *name){
+    struct _trie *current_prefix = tree;
+    char *match = name, *p = current_prefix -> string;
+    while(*match != '\0' || *p != '\0'){
+        if(*p == '\0'){
+            // Ramo atual é um prefixo, ir para próximo
+            if(current_prefix -> child[(int) *match] != NULL){
+                current_prefix = current_prefix -> child[(int) *match];
+                p = current_prefix -> string;
+            }
+            else
+                return;
+        }
+        else if(*p == *match){
+            p ++;
+            match ++;
+        }
+        else
+            return;
+    }
+    current_prefix -> leaf = false;
+}
+@

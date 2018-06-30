@@ -1122,6 +1122,101 @@ if(first_token -> type != SYMBOL ||
 }
 @
 
+@*1 O Comando \monoespaco{save}.
+
+A grande utilidade de termos declarações compostas como as que
+definimos é que podemos usar o escopo para termos variáveis
+locais. Por padrão, todas as variáveis são globais, mesmo quando elas
+são usadas ou declaradas dentro de um bloco. Entretanto, um token pode
+passar a ser considerado local usando o Comando \monoespaco{save}. A
+gramática de tal comando é:
+
+\alinhaverbatim
+<Comando save> --> save <Lista de Tokens Simbólicos>
+\alinhanormal
+
+O que é uma boa notícia, pois já temos a função que consome e extrai
+os tokens de uma lista de tokens simbólicos. Este comando não declara
+um tipo para o que será armazenado no identificador representado pelo
+token. Vamos considerar isso como sendo do tipo ``não-declarado'',
+dentre os seguintes tipos de variáveis mais comuns:
+
+@<Metafont: Inclui Cabeçalhos@>+=
+#define NOT_DECLARED -1
+#define BOOLEAN       0
+#define PATH          1
+//#define STRING        2 // Já definido
+#define PEN           3
+#define PICTURE       4
+#define TRANSFORM     5
+#define PAIR          6
+#define NUMERIC       7
+@
+
+Cada estrutura METAFONT representa um escopo. E cada escopo terá a sua
+própria árvore trie para indicar o tipo de suas variáveis. Assumimos
+que o escopo de uma variável é o escopo mais profundo no qual o seu
+tipo é declarado. Sendo assim, vamos declarar a árvore trie dos tipos
+de variáveis:
+
+@<METAFONT: Estrutura METAFONT@>+=
+struct _trie *variable_types;
+@
+
+@<METAFONT: Inicializa estrutura METAFONT@>=
+structure -> variable_types = _new_trie();
+@
+
+O que o comando \monoespaco{save} deverá fazer então é fazer com que o
+tipo de cada uma das variáveis passadas para ele passe a ser
+\monoespaco{NOT\_DECLARED} no escopo atual. Mas não é só isso. Caso
+alguma variável já exista no escopo atual, o seu valor anterior deve
+ser esquecido. Isso significa que devemos declarar também as árvores
+trie que armazenarão os valores de cada variável para que assim
+possamos remover os valores caso eles já existam durante um comando
+\monoespaco{save}:
+
+@<METAFONT: Estrutura METAFONT@>+=
+  struct _trie *vars[8];
+@
+
+@<METAFONT: Inicializa estrutura METAFONT@>=
+{
+    int i;
+    // Uma trie com  valor de variáveis para cada tipo:
+    for(i = 0; i < 8; i ++)
+        structure -> vars[i] = _new_trie();
+}
+@
+
+Tendo definido e declarado todas essas coisas, enfim podemos definir o
+nosso mais novo comando:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL && !strcmp(statement -> name, "save")){
+    struct token *current_token = statement -> next;
+    struct token *list = symbolic_token_list(&current_token, filename, line);
+    // Se tem algo diferente de ';' após a lista, isso é um erro:
+    if(current_token == NULL || current_token -> type != SYMBOL ||
+       strcmp(current_token -> name, ";")){
+        fprintf(stderr, "ERROR: %s:%d: Extra token at save command (%s).\n",
+                filename, line,
+                (current_token == NULL)?("NULL"):(current_token -> name));
+        return;
+    }
+    // Executa o comando
+    while(list != NULL){
+        int current_type;
+        bool already_declared = _search_trie((*mf) -> variable_types, INT,
+                                             list -> name, &current_type);
+        if(already_declared && current_type != NOT_DECLARED)
+            _remove_trie((*mf) -> vars[current_type], list -> name);
+        _insert_trie((*mf) -> variable_types, INT, list -> name, NOT_DECLARED);
+        list = list -> next;
+    }
+    return;
+}
+@
 
 @<Metafont: Declarações@>+=
 void _metafont_test(char *);
