@@ -1218,6 +1218,96 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "save")){
 }
 @
 
+@*1 O Comando \monoespaco{delimiters}.
+
+Nas equações e atribuições que ainda serão criadas na linguagem, é
+útil que alguns tokens sejam vistos como delimitadores de
+sub-extressões. Geralmente tal papel cabe aos parênteses. Assim, temos
+que $(1+3)\times5$ é igual a 20, já que os parênteses como
+delimitadores fazem com que façamos a soma antes da multiplicação.
+
+O que o comendo \monoespaco{delimiters} faz é estabelecer dois tokens
+como sendo delimitadores. Um deles é o começo e o outro é o fim do
+delimitador. A gramática do comando é:
+
+\alinhaverbatim
+<Comando delimiters> --> delimiters <Token Simbólico> <Token Simbólico>
+\alinhanormal
+
+Geralmente o uso mais comum do comando é na declaração:
+
+\alinhaverbatim
+delimiters ( );
+\alinhanormal
+
+Que faz com que os parênteses passem a ter o comportamente que se esper adeles.
+
+Este é um comando bastante simples. Precisaremos armazenar em uma
+árvore trie todos os nomes de tokens simbólicos que servem como começo
+de um delimitador e eles devem armazenar o nome do token simbólico que
+serve como fim de seus delimitadores. Como os delimitadores obedecem o
+escopo dos tokens, temos que checar sempre em qual escopo o
+delimitador está sendo declarado.
+
+Então primeiro criemos e inicializemos o local onde armazenaremos os
+delimitadores:
+
+@<METAFONT: Estrutura METAFONT@>+=
+struct _trie *delimiters;
+@
+
+@<METAFONT: Inicializa estrutura METAFONT@>=
+structure -> delimiters = _new_trie();
+@
+
+
+Fora isso, o comando é bastante
+simples:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
+    char *end_delimiter;
+    struct metafont *scope = (*mf);
+    statement = statement -> next;
+    if(statement == NULL || statement -> type != SYMBOL){
+        fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
+                filename, line);
+        return;
+    }
+    while(scope -> parent != NULL){
+        void *result;
+        if(_search_trie(scope -> variable_types, VOID_P,
+                        statement -> name, &result))
+            break;
+        scope = scope -> parent;
+    }
+    statement = statement -> next;
+    if(statement == NULL || statement -> type != SYMBOL){
+        fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
+                filename, line);
+        return;
+    }
+    end_delimiter = (char *) Walloc(strlen(statement -> name) + 1);
+    if(end_delimiter == NULL){
+        fprintf(stderr, "ERROR: Not enough memory to parse METAFONT. "
+                "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n");
+        return;
+    }
+    strcpy(end_delimiter, statement -> name);
+    _insert_trie(scope -> delimiters, VOID_P, statement -> prev -> name,
+                 (void *) end_delimiter);
+    statement = statement -> next;
+    if(statement == NULL || statement -> type != SYMBOL ||
+       strcmp(statement -> name, ";")){
+        fprintf(stderr, "ERROR: %s:%d: ignoring extra tokens.\n",
+                filename, line);
+        return;
+    }
+    return;
+}
+@
+
+
 @<Metafont: Declarações@>+=
 void _metafont_test(char *);
 @
