@@ -1307,6 +1307,69 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
 }
 @
 
+@*1 Os Comandos de Proteção.
+
+METAFONT permiter declarar que alguns tokens nunca podem aparecer em
+contextos nos quais não são interpretados imediatamente. Assim, tais
+tokens nunca podem aparecer sem acusar erro dentro de condicionais
+falsas, dentro da definição de macros, ou quando estão sendo passados
+como parâmetro para macros sem serem expandidos antes. Por padrão
+nenhum token recebe tal proteção. Mas o comando \monoespaco{outer}
+torna o token protegido e o comando \monoespaco{inner} deprotege um
+token tornado protegido antes. A gramática para tais comandos é:
+
+\alinhaverbatim
+<Comando de Proteção> --> outer <Lista de Tokens SImbólicos>
+                      +-> inner <Lista de Tokens SImbólicos>
+\alinhanormal
+
+Como a proteção depende de escopo, cada estrutura METAFONT deve
+armazenar em uma trie quais de seus tokens são protegidos:
+
+@<METAFONT: Estrutura METAFONT@>+=
+struct _trie *outer_tokens;
+@
+
+@<METAFONT: Inicializa estrutura METAFONT@>=
+structure -> outer_tokens = _new_trie();
+@
+
+Depois disso, podemos definir os comandos de proteção:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL &&
+   (!strcmp(statement -> name, "inner") ||
+    !strcmp(statement -> name, "outer"))){
+    bool inner_command = (statement -> name[0] == 'i');
+    statement = statement -> next;
+    struct token *list = symbolic_token_list(&statement, filename, line);
+    // Se tem algo diferente de ';' após a lista, isso é um erro:
+    if(statement == NULL || statement -> type != SYMBOL ||
+       strcmp(statement -> name, ";")){
+        fprintf(stderr, "ERROR: %s:%d: Extra token at save command (%s).\n",
+                filename, line,
+                (statement == NULL)?("NULL"):(statement -> name));
+        return;
+    }
+    // Executa o comando
+    while(list != NULL){
+        struct metafont *scope = (*mf);
+        while(scope -> parent != NULL){
+            int dummy_result;
+            if(_search_trie(scope -> variable_types, INT,
+                            list -> name, &dummy_result))
+                break;
+            scope = scope -> parent;
+        }
+        if(inner_command)
+            _remove_trie((*mf) -> outer_tokens, list -> name);
+        else
+            _insert_trie((*mf) -> outer_tokens, INT, list -> name, 0);
+        list = list -> next;
+    }
+    return;
+}
+@
 
 @<Metafont: Declarações@>+=
 void _metafont_test(char *);
