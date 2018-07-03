@@ -597,6 +597,11 @@ void run_single_statement(struct metafont **mf, struct token *statement,
     @<Metafont: Executa Declaração@>
     fprintf(stderr, "ERROR: %s:%d: Ignoring isolated expression (%s).\n",
             filename, line, (statement == NULL)?("NULL"):(statement -> name));
+    return;
+clean_exit:
+    *next_source = source;
+    *next_line = line;
+    return;
 }
 @
 
@@ -718,7 +723,7 @@ gramática de uma declaração começa com a regra:
              |-> <Título>
              |-> <Equação>
              |-> <Atribuição>
-             |-> <Declaração>
+             |-> <Declaração de Variáveis>
              |-> <Definição>
              |-> <Declaração Composta>
              |-> <Comando>
@@ -819,7 +824,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "newinternal")){
         _insert_trie((*mf) -> internal_quantities, DOUBLE, list -> name, 0.0);
         list = list -> next;
     }
-    return;
+    goto clean_exit;
 }
 @
 
@@ -889,7 +894,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "everyjob")){
         (*mf) -> everyjob_token_name = (char *)
             Walloc(strlen(statement -> next -> name) + 1);
     strcpy((*mf) -> everyjob_token_name, statement -> next -> name);
-    return;
+    goto clean_exit;
 }
 @
 
@@ -939,7 +944,7 @@ if(statement -> type == SYMBOL &&
                 (statement -> next -> name));
         return;
     }
-    return;
+    goto clean_exit;
 }
 @
 
@@ -1002,7 +1007,6 @@ pai.
 
 @<Metafont: Executa Declaração@>=
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
-    Wbreakpoint();
     *mf = new_metafont(*mf);
     statement = statement -> next;
     statement -> prev = NULL;
@@ -1013,7 +1017,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
     else
         (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
     (*mf) -> parent -> pending_tokens = NULL;
-    return;
+    goto clean_exit;
 }
 @
 
@@ -1054,6 +1058,7 @@ escopo anterior:
 
 @<METAFONT: Imediatamente após executar declaração@>=
 if(mf -> hint == HINT_ENDGROUP){
+    //struct metafont *p;
     // Caso de erro: usar endgroup sem begingroup:
     if(mf -> parent == NULL){
         fprintf(stderr,
@@ -1061,8 +1066,9 @@ if(mf -> hint == HINT_ENDGROUP){
                 filename, line);
     }
     else{
+        //p = mf;
         mf = mf -> parent;
-        Wtrash();
+        //Wfree(p);
     }
 }
 @
@@ -1073,8 +1079,9 @@ a nossa memória antes de encerrar:
 
 @<Metafont: Após terminar de interpretar um código@>=
 while(mf -> parent != NULL){
-    Wtrash();
+    //struct metafont *p = mf;
     mf = mf -> parent;
+    //Wfree(p);
 }
 @
 
@@ -1214,7 +1221,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "save")){
         _insert_trie((*mf) -> variable_types, INT, list -> name, NOT_DECLARED);
         list = list -> next;
     }
-    return;
+    goto clean_exit;
 }
 @
 
@@ -1260,7 +1267,6 @@ struct _trie *delimiters;
 structure -> delimiters = _new_trie();
 @
 
-
 Fora isso, o comando é bastante
 simples:
 
@@ -1303,7 +1309,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
                 filename, line);
         return;
     }
-    return;
+    goto clean_exit;
 }
 @
 
@@ -1367,9 +1373,360 @@ if(statement -> type == SYMBOL &&
             _insert_trie((*mf) -> outer_tokens, INT, list -> name, 0);
         list = list -> next;
     }
-    return;
+    goto clean_exit;
 }
 @
+
+Para justificar a funcionalidade implementada, o seu uso mais
+frequente é a declaração:
+
+\alinhaverbatim
+outer end;
+\alinhanormal
+
+Que impede que um comando para encerrar o programa possa ser inserido
+por uma macro ou ignorado de qualquer forma sem provocar um erro.
+
+@*1 Declaração de Variáveis.
+
+Conforme já visto na árvore trie de declarações, as variáveis podem
+ser de 8 tipos, ignorando o primeiro tipo ``não-definido'' que
+colocamos temporariamente após um \monoespaco{save}. Como já definimos
+o escopo dos programas e já definimos a árvore trie que armazena o
+tipo, podemos terminar deifnindo a declaração de nossas variáveis.
+
+Toda variável que não e do tipo numérico precisa ser declarada antes
+de ser usada. Se uma variável não-declarada for encontrada, ela será
+assumida como sendo do tipo numérico. A gramática de declaraçãod e
+variáveis é:
+
+\alinhaverbatim
+<Declaração de Variáveis> --> <Tipo><Lista Decl. de Var.>
+<Tipo> --> boolean | string | path | pen | picture | transform | pair | numeric
+<Lista Decl. de Var.> --> <Variável Declarada>
+                      +-> <Lista Decl. de Var.> , <Variável Declarada>
+<Variável Declarada> --> <Token Simbólico> <Sufixo Declarado>
+<Sufixo Declarado> --> <Vazio>
+                   +-> <Sufixo Declarado> <Tag>
+                   +-> <Sufixo Declarado> [ ]
+<Tag> --> <Tag Externa>
+      +-> <Quantidade Interna>
+\alinhanormal
+
+Isso significa que um nome de variável pode ser composta por vários
+tokens. Assim uma variável pode ser composta por um nome inicial e
+qualquer quantidade de sufixo seguinte. O nome de uma variável pode
+ter inclusive tokens numéricos em seu nome. Por exemplo,
+\monoespaco{x1}. Ao contrário de muitas outras linguagens, este nome é
+formado por dois tokens, sendo o primeiro simbólico e o segundo numérico.
+
+Esta convenção torna automático o funcionamento de estruturas como
+\monoespaco{casa.altura}, ou \monoespaco{casa.largura}. O caractere de
+espaço simplesmente é ignorado em tais construções e no fim ficam
+apenas dois tokens que representam duas variáveis diferentes.
+
+Existe, contudo, uma restrição semântica: se temos uma variável
+\monoespaco{x1}, a qual é um número, então todas as outras variáveis
+\monoespaco{x2}, \monoespaco{x3}, etc., precisam também ser
+números. Por causa disso, não é possível declarar uma variável
+contendo número. Ao invés de número, deve-se usar uma declaração como:
+
+\alinhaverbatim
+numeric x[];
+\alinhanormal
+
+Que declara as infinitas variáveis que começam com \monoespaco{x} e
+são seguidas por um número de representarem números. Também é
+perfeitamente possível declarar:
+
+\alinhaverbatim
+string y[][]altura[];
+\alinhanormal
+
+Que representa uma declaração de todos os tokens que começam com
+\monoespaco{y}, são seguidos por dois números, pelo token
+\monoespaco{altura} e por um outro número como sendo do tipo string.
+
+Na definição do quê é uma declaração permitida, nota-se que
+absolutamente qualquer token simbólico pode compor a primeira parte do
+nome de variável. Com relação ao seu sufixo, aí as opções são
+menores. Um sufixo pode ser apenas os tokens \monoespaco{[]}, e
+qualquer token simbólico que não seja uma macro e nem um token com um
+significado primitivo, tal como \monoespaco{;} ou
+\monoespaco{string}. Contudo, tais tokens passam a ser considerados
+tags se forem usados após um comando \monoespaco{save}. Mas não são
+tags se forem uma macro. E são tags se forem declarados com
+\monoespaco{vardef}.
+
+Embora estejamos mencionando construções da linguagem que ainda não
+definimos, podemos definir elas rapidamente e entrar em detalhes
+somenter depois. Isso será necessário para checarmos se uma variável
+declarada realmente tem um nome válido. As seguintes árvores trie irão
+armazenar os diferentes tipos de macros:
+
+@<METAFONT: Estrutura METAFONT@>+=
+struct _trie *def, *vardef, *primarydef, *secondarydef, *tertiarydef;
+@
+
+@<METAFONT: Inicializa estrutura METAFONT@>=
+structure -> def = _new_trie();
+structure -> vardef = _new_trie();
+structure -> primarydef = _new_trie();
+structure -> secondarydef = _new_trie();
+structure -> tertiarydef = _new_trie();
+@
+
+E agora sim a seguinte função checa se um token recebido é uma tag:
+
+@<Metafont: Funções Primitivas Estáticas@>=
+static bool is_tag(struct metafont *mf, struct token *token){
+    struct metafont *scope = mf;
+    void *dummy;
+    if(token == NULL)
+        return false;
+    while(scope != NULL){
+        if(_search_trie(scope -> variable_types, VOID_P,
+                        token -> name, &dummy))
+            return true;
+        if(_search_trie(scope -> internal_quantities, VOID_P,
+                        token -> name, &dummy))
+            return true;
+        if(_search_trie(scope -> def, VOID_P,
+                        token -> name, &dummy))
+            return false;
+        if(_search_trie(scope -> vardef, VOID_P,
+                        token -> name, &dummy))
+            return true;
+        if(_search_trie(scope -> primarydef, VOID_P,
+                        token -> name, &dummy))
+            return false;
+        if(_search_trie(scope -> secondarydef, VOID_P,
+                        token -> name, &dummy))
+            return false;
+        if(_search_trie(scope -> tertiarydef, VOID_P,
+                        token -> name, &dummy))
+            return false;
+        scope = scope -> parent;
+    }
+    if(_search_trie(primitive_sparks, VOID_P,
+                    token -> name, &dummy))
+        return false;
+    else
+        return true; // Variável não-declarada
+}
+@
+
+Para essa nossa checagem, teremos que checar também uma lista de
+valores primitivos que sabemos que não são tags, por estarem
+reservados para a linguagem. Como a linguagem chama de ``spark'' tudo
+que não é uma tag, iremos armazená-las na seguinte trie:
+
+@<Metafont: Variáveis Estáticas@>+=
+static struct _trie *primitive_sparks;
+@
+
+Vamos também definir enfim uma função de inicialização para
+preenchermos tal árvore:
+
+@<Metafont: Declarações@>+=
+void _initialize_metafont(void);
+@
+
+@<API Weaver: Inicialização@>+=
+{
+    Wbreakpoint();
+    _initialize_metafont();
+}
+@
+
+No encerramento vamos usar um \monoespaco{Wtrash} para limparmos a
+memória inicializada pelo METAFONT na ordem certa:
+
+@<API Weaver: METAFONT: Encerramento@>+=
+{
+    Wtrash();
+}
+@
+
+@<Metafont: Definições@>+=
+void _initialize_metafont(void){
+    primitive_sparks = _new_trie();
+    _insert_trie(primitive_sparks, INT, "end", 0);
+    _insert_trie(primitive_sparks, INT, "dump", 0);
+    _insert_trie(primitive_sparks, INT, ";", 0);
+    _insert_trie(primitive_sparks, INT, ",", 0);
+    _insert_trie(primitive_sparks, INT, "newinternal", 0);
+    _insert_trie(primitive_sparks, INT, "everyjob", 0);
+    _insert_trie(primitive_sparks, INT, "batchmode", 0);
+    _insert_trie(primitive_sparks, INT, "nonstopmode", 0);
+    _insert_trie(primitive_sparks, INT, "scrollmode", 0);
+    _insert_trie(primitive_sparks, INT, "errorstopmode", 0);
+    _insert_trie(primitive_sparks, INT, "begingroup", 0);
+    _insert_trie(primitive_sparks, INT, "endgroup", 0);
+    _insert_trie(primitive_sparks, INT, "save", 0);
+    _insert_trie(primitive_sparks, INT, "delimiters", 0);
+    _insert_trie(primitive_sparks, INT, "outer", 0);
+    _insert_trie(primitive_sparks, INT, "inner", 0);
+    _insert_trie(primitive_sparks, INT, "[", 0);
+    _insert_trie(primitive_sparks, INT, "]", 0);
+    _insert_trie(primitive_sparks, INT, "boolean", 0);
+    _insert_trie(primitive_sparks, INT, "string", 0);
+    _insert_trie(primitive_sparks, INT, "path", 0);
+    _insert_trie(primitive_sparks, INT, "pen", 0);
+    _insert_trie(primitive_sparks, INT, "picture", 0);
+    _insert_trie(primitive_sparks, INT, "transform", 0);
+    _insert_trie(primitive_sparks, INT, "pair", 0);
+    _insert_trie(primitive_sparks, INT, "numeric", 0);
+    //@<Metafont: Declara Nova Spark@>
+}
+@
+
+A definição acima conta com todas as sparks que já definimos em nossa
+gramática. Outras ainda serão inseridas.
+
+De qualquer forma, com isso já podemos escrever o código de declaração
+de variáveis:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL &&
+   (!strcmp(statement -> name, "boolean") ||
+    !strcmp(statement -> name, "string")  ||
+    !strcmp(statement -> name, "path") ||
+    !strcmp(statement -> name, "pen") ||
+    !strcmp(statement -> name, "picture") ||
+    !strcmp(statement -> name, "transform") ||
+    !strcmp(statement -> name, "pair") ||
+    !strcmp(statement -> name, "numeric"))){
+    bool suffix = false;
+    struct token *first_token, *last_token;
+    int name_size = 0;
+    int type;
+    // Obtém o tipo da declaração em número
+    switch(statement -> name[0]){
+    case 'b':
+        type = BOOLEAN;
+        break;
+    case 's':
+        type = STRING;
+        break;
+    case 't':
+        type = TRANSFORM;
+        break;
+    case 'n':
+        type = NUMERIC;
+        break;
+    default:
+        switch(statement -> name[2]){
+        case 't':
+            type = PATH;
+            break;
+        case 'n':
+            type = PEN;
+            break;
+        case 'c':
+            type = PICTURE;
+            break;
+        default:
+            type = PAIR;
+            break;
+        }
+    }
+    statement = statement -> next;
+    first_token = statement -> next;
+    while(1){
+        // O primeiro token apenas deve ser simbólico
+        if(!suffix && (statement == NULL || statement -> type != SYMBOL)){
+            fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
+                    filename, line);
+            return;
+        }
+        else if(suffix){
+            // Os demais tokens precisam ser '[', ']' ou tags
+            if(statement == NULL || statement -> type != SYMBOL ||
+               (!is_tag(*mf, statement) && (strcmp(statement -> name, "[") ||
+                                            strcmp(statement -> name, "]")))){
+                fprintf(stderr, "ERROR: %s:%d: Illegal suffix.\n", filename,
+                        line);
+                return;
+            }
+        }
+        if(!suffix){
+            first_token = statement;
+            suffix = true;
+            // O primeiro token pode ser até mesmo um ';'. Tratar o caso:
+            if(!strcmp(statement -> name, ";") && statement -> next == NULL){
+                struct token *tok;
+                statement -> next = get_first_token(*mf, source, &source,
+                                                    line, &line, filename);
+                if(statement -> next != NULL)
+                    statement -> next -> prev = statement;
+                tok = statement -> next;
+                while(tok != NULL && strcmp(tok -> name, ";")){
+                    tok -> next = get_first_token(*mf, source, &source,
+                                                  line, &line, filename);
+                    if(tok -> next != NULL)
+                        tok -> next -> prev = tok;
+                    tok = tok -> next;
+                }
+            }
+        }
+        name_size += strlen(statement -> name) + 1;
+        // Se o próximo token é ',' ou ';', encerramos a declaração atual:
+        if(statement -> next != NULL &&
+           statement -> next -> type == SYMBOL &&
+           (!strcmp(statement -> next -> name, ",") ||
+            !strcmp(statement -> next -> name, ";"))){
+            int current_type;
+            bool already_declared = false;
+            struct metafont *scope = *mf;
+            char *buffer = (char *) Walloc(name_size);
+            if(buffer == NULL){
+                fprintf(stderr, "ERROR: Not enough memory. Please increase the "
+                                "value of W_MAX_MEMORY at conf/conf.h.\n");
+                exit(1);
+            }
+            last_token = statement;
+            buffer[0] = '\0';
+            // Copia o nome da variável
+            statement = first_token -> prev;
+            do{
+                statement = statement -> next;
+                strcat(buffer, statement -> name);
+                strcat(buffer, " ");
+            } while(statement != last_token);
+            buffer[name_size - 1] = '\0';
+            while(scope -> parent != NULL){
+                already_declared = _search_trie(scope -> variable_types, INT,
+                                                buffer, &current_type);
+                if(already_declared)
+                    break;
+                scope = scope -> parent;
+            }
+            // Se a variável já havia sido declarada, seus valores devem ser limpos
+            if(scope -> parent == NULL)
+                already_declared = _search_trie(scope -> variable_types, INT,
+                                                 buffer, &current_type);
+            if(already_declared && current_type != NOT_DECLARED)
+                _remove_trie(scope -> vars[current_type], buffer);
+            _insert_trie(scope -> variable_types, INT, buffer, type);
+            // Se o próximo caractere for um ',', vamos pular ele,
+            // se for um ';', encerramos
+            if(statement -> next != NULL){
+                if(statement -> next -> name[0] == ','){
+                    statement = statement -> next;
+                    name_size = 0;
+                    suffix = false;
+                }
+                else
+                    break;
+            }
+        }
+        statement = statement -> next;
+    }
+    goto clean_exit;
+}
+@
+
 
 @<Metafont: Declarações@>+=
 void _metafont_test(char *);
@@ -1381,3 +1738,4 @@ void _metafont_test(char *teste){
     run_statements(M, teste, "teste.mf");
 }
 @
+
