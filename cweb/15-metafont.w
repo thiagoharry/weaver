@@ -1577,7 +1577,7 @@ void _initialize_metafont(void){
     _insert_trie(primitive_sparks, INT, "transform", 0);
     _insert_trie(primitive_sparks, INT, "pair", 0);
     _insert_trie(primitive_sparks, INT, "numeric", 0);
-    //@<Metafont: Declara Nova Spark@>
+    @<Metafont: Declara Nova Spark@>
 }
 @
 
@@ -1727,6 +1727,310 @@ if(statement -> type == SYMBOL &&
 }
 @
 
+@*1 Definições do Tipo \monoespaco{def}.
+
+Agora não há mais como fugir. Devemos começar a nos preocupar com
+expansão de macros, já que esta é a coisa mais simples dentre as que
+restam para se implementar. Primeiro veremos uma das formas pelas
+quais uma macro pode ser implementada. Vamos à gramática das
+definições:
+
+\alinhaverbatim
+<Definição> --> <Cabeçalho de Definição><É><Texto de Substituição> enddef
+<É> --> = | :=
+<Cabeçalho de Definição> --> def <Token Simbólico><Parâmetro de Cabeçalho>
+                         +-> <Cabeçalho vardef>
+                         +-> <Cabeçalho leveldef>
+\alinhanormal
+
+Deixemos pra depois os cabeçalhos vardef e leveldef. Vamos ao primeiro
+tipo de cabeçalho:
+
+\alinhaverbatim
+<Parâmetro de Cabeçalho> --> <Parâm. Delimitados><Parâm. Não Delimitados>
+<Parâm. Delimitados> --> <Vazio>
+            +-> <Parâm. Delimitados>(<Tipo Parâm.><lista de Tokens Simbólicos>)
+<Tipo Parâm.> --> expr | suffix | text
+<Parâm. Não Delimitados> --> <Vazio>
+                         +-> primary <Token Simbólico>
+                         +-> secondary <Token Simbólico>
+                         +-> tertiary <Token Simbólico>
+                         +-> expr <Token Simbólico>
+                         +-> expr <Token Simbólico> of <Token Simbólico>
+                         +-> suffix <Token Simbólico>
+                         +-> text <Token Simbólico>
+\alinhanormal
+
+Observando esta especificação, primeiro vamos registrar os novos
+``sparks'' que estão aparecendo nela:
+
+@<Metafont: Declara Nova Spark@>=
+_insert_trie(primitive_sparks, INT, "expr", 0);
+_insert_trie(primitive_sparks, INT, "suffix", 0);
+_insert_trie(primitive_sparks, INT, "text", 0);
+_insert_trie(primitive_sparks, INT, "primary", 0);
+_insert_trie(primitive_sparks, INT, "secondary", 0);
+_insert_trie(primitive_sparks, INT, "tertiary", 0);
+@
+
+Uma definição basicamente define uma nova macro. Toda nova macro é
+composta por uma lista de argumentos, cada um deles pode ser do tipo
+\monoespaco{primary}, \monoespaco{secondary}, \monoespaco{tertiary},
+\monoespaco{expr}, \monoespaco{suffix} ou \monoespaco{text}. A
+diferença entre eles é relevante quando realmente ocorrer a
+substituição daquela macro, não durante a definição. Então por hora
+nós apenas armazenaremos o tipo. Além do tipo, cada argumento também
+tem um nome. Em suma, podemos aproveitar a estrutura dos tokens para
+representá-los, tratando-os como tipos especiais de tokens que nunca
+irão parar na lista de tokens de código-fonte, mas que serão
+armazenados dentro de definições de macros.
+
+@<Metafont: Variáveis Estáticas@>+=
+// Tipo de token
+#define PRIMARY   4
+#define SECONDARY 5
+#define TERTIARY  6
+#define EXPR      7
+#define SUFFIX    8
+#define TEXT      9
+@
+
+E uma macro em si é apenas uma estrutura formada por uma lista de
+tokens-argumnentos dos novos tipos descritos acima e uma lista de
+tokens de substituição, que podem ser quaisquer tokens normais mais
+qualquer um dos tokens que ela tenha na lista de argumentos.
+
+@<Metafont: Variáveis Estáticas@>+=
+struct macro{
+    struct token *parameters;
+    struct token *replacement_text
+};
+@
+
+Além disso, toda macro tem um nome. Mas este será inserido na árvore
+trie que armazenará a macro:
+
+@<METAFONT: Estrutura METAFONT@>+=
+struct _trie *macros;
+@
+
+@<METAFONT: Inicializa estrutura METAFONT@>=
+structure -> macros = _new_trie();
+@
+
+Uma macro deve ser tratada como algo permanente, assim como os seus
+tokens. Não como os tokens temporários que vínhamos criando até então
+e que eram desalocados da memória tão logo ocorria a interpretação de
+cada declaração. Sendo assim, ao criar ela não podemos usar as mesmas
+funções de criação de tokens que usávamos até então. Vamos definir uma
+função para criar tokens permanentes:
+
+@<Metafont: Funções Estáticas@>+=
+static struct token *new_permanent_token(int type, float value, char *name){
+    struct token *ret;
+    ret = (struct token *) Walloc(sizeof(struct token));
+    if(ret == NULL){
+        fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
+                "source. Please, increase the value of W_MAX_MEMORY "
+                "at conf/conf.h.\n");
+        return NULL;
+    }
+    ret -> type = type;
+    ret -> value = value;
+    ret -> name = name;
+    ret -> prev = ret -> next = NULL;
+    return ret;
+}
+@
+
+Primeiro vamos então nos preocupar com os parâmetros. Esta função
+deverá consumir uma lista de tokens comuns e gerar uma lista de tokens
+permanentes que será uma lista de parâmetros a ser usada por uma
+macro. Ela interpreta apenas parâmetros delimitados:
+
+@<Metafont: Funções Estáticas@>+=
+static struct token *delimited_parameters(struct token **token,
+                                          char *filename, int line){
+    struct token *tok = *token, *parameter_list;
+    struct token *result = NULL, *last_result = NULL;
+    int type = NOT_DEFINED;
+    // Testando se temos parâmetros delimitados:
+    while(tok != NULL && tok -> type == SYMBOL && !strcmp(tok -> name, "(")){
+        tok = tok -> next;
+        if(tok == NULL || tok -> type != SYMBOL){
+            fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
+                    filename, line);
+            return NULL;
+        }
+        if(!strcmp(tok -> name, "expr"))
+            type = EXPR;
+        else if(!strcmp(tok -> name, "suffix"))
+            type = SUFFIX;
+        else if(!strcmp(tok -> name, "text"))
+            type = TEXT;
+        else{
+            fprintf(stderr, "ERROR: %s:%d: Missing parameter type: '%s'"
+                    "is not recognized.\n", filename, line, tok -> name);
+            return NULL;
+        }
+        tok = tok -> next;
+        parameter_list = symbolic_token_list(&tok, filename, line);
+        while(parameter_list != NULL){
+            char *name = (char *) Walloc(strlen(parameter_list -> name) + 1);
+            if(name == NULL) goto error_no_memory;
+            if(last_result != NULL){
+                last_result -> next = new_permanent_token(type, 0.0, name);
+                if(last_result -> next == NULL)
+                    return NULL;
+                last_result -> next -> prev = last_result;
+                last_result = last_result -> next;
+                last_result -> next = NULL;
+            }
+            else{
+                result = new_permanent_token(type, 0.0, name);
+                if(result == NULL)
+                    return NULL;
+                last_result = result;
+            }
+            parameter_list = parameter_list -> next;
+        }
+        if(tok == NULL || tok -> type != SYMBOL || strcmp(tok -> name, ")")){
+            fprintf(stderr, "ERROR: %s:%d: Missing ')' closing parameters.\n",
+                    filename, line);
+            return NULL;
+        }
+        tok = tok -> next;
+    }
+    *token = tok;
+    return result;
+error_no_memory:
+    fprintf(stderr, "ERROR: Not enough memory. Please, increase"
+            " the value of W_MAX_MEMORY at conf/conf.h\n");
+    return NULL;
+}
+@
+
+E agora uma versão desta função apenas para parâmetros não-delimitados:
+
+@<Metafont: Funções Estáticas@>+=
+static struct token *undelimited_parameters(struct token **token,
+                                            char *filename, int line){
+    struct token *tok = *token;
+    int type = NOT_DEFINED;
+    char *name;
+    if(tok != NULL && tok -> type == SYMBOL){
+        if(!strdmp(tok -> name, "primary"))
+            type = PRIMARY;
+        else if(!strcmp(tok -> name, "secondary"))
+            type = SECONDARY;
+        else if(!strcmp(tok -> name, "tertiary"))
+            type = TERTIARY;
+        else if(!strcmp(tok -> name, "tertiary"))
+            type = TERTIARY;
+        else if(!strcmp(tok -> name, "expr"))
+            type = EXPR;
+        else if(!strcmp(tok -> name, "suffix"))
+            type = SUFFIX;
+        else if(!strcmp(tok -> name, "text"))
+            type = TEXT;
+        else return NULL;
+    }
+    tok = tok -> next;
+    if(tok == NULL){
+        fprintf(stderr, "%s:%d: Missing symbolic token.\n", filename, line);
+        return NULL;
+    }
+    name = (char *) Walloc(strlen(tok -> name) + 1);
+    if(name == NULL){
+        fprintf(stderr, "ERROR: Not enough memory. Please, increase"
+                " the value of W_MAX_MEMORY at conf/conf.h\n");
+        return NULL;
+    }
+    return new_permanent_token(type, 0.0, name);
+}
+@
+
+Agora a próxima coisa que irá produzir tais tokens permanentes é o
+texto de substituição. Em princípio ler tal texto é simples. Lemos
+todos os tokens até acharmos um \monoespaco{enddef}. Mas dentro do
+texto de substituição podem existir outras macros sendo
+definidas. Cada uma destas macros é finalizada com seu próprio
+\monoespaco{enddef}. Então precisamos contar quantas vezes iniciamos
+uma nova macro interna e finalizamos para saber qual
+\monoespaco{enddef} é o correto.
+
+Além disso, este é um momento no qual devemos gerar um erro se
+acharmos uma macro declarada como \monoespaco{outer} no corpo de uma
+macro.
+
+Com relação ao começo de macros, devemos ter em mente que existem ao
+todo os seguintes tokens simbólicos que os iniciam: \monoespaco{def}
+(o qual estamos analizando agora), \monoespaco{vardef},
+\monoespaco{primarydef}, \monoespaco{secondarydef} e
+\monoespaco{tertiarydef}. Então, ao lermos o texto de substituição
+podemos contar pela ocorrência de tais tokens e assim saber quantos
+\monoespaco{enddef} precisamos ler:
+
+@<Metafont: Funções Estáticas@>+=
+static struct token *replacement_text(struct metafont *mf, struct token **token,
+                                      char *source, char **final_source,
+                                      char *filename, int line){
+    struct token *tok = *token, *result = NULL, *current_token = NULL;
+    int depth = 0, dummy;
+    for(;;){
+        char *name = NULL;
+        if(tok == NULL || (depth <= 0 && tok -> type == SYMBOL &&
+                           !strcmp(tok -> name, "enddef")))
+            break;
+        // Checando se é um token 'outer'
+        if(tok -> type == SYMBOL && _search_trie(mf -> outer_tokens, INT,
+                                                 tok -> name, &dummy)){
+            fprintf(stderr, "ERROR: %s:%d: Forbidden token (%s) at macro "
+                    "definition.\n", filename, line, tok -> name);
+            return NULL;
+        }
+        // Contagem de sub-macros
+        if(!strcmp(tok -> name, "def") || !strcmp(tok -> name, "vardef") ||
+           !strcmp(tok -> name, "primarydef") ||
+           !strcmp(tok -> name, "secondarydef") ||
+           !strcmp(tok -> name, "tertiarydef"))
+            depth ++;
+        else if(!strcmp(tok -> name, "enddef"))
+            depth --;
+        // Adicionando token ao resultado:
+        if(tok -> type != NUMERIC){
+            name = (char *) Walloc(strlen(tok -> name) + 1);
+            if(name == NULL) goto error_no_memory;
+        }
+        if(result != NULL){
+            current_token -> next = new_permanent_token(tok -> type,
+                                                        tok -> value, name);
+            if(current_token -> next == NULL)
+                goto end_of_function;
+            current_token -> next -> prev = current_token;
+            current_token = current_token -> next;
+        }
+        else{
+            result = new_permanent_token(tok -> type, tok -> value, name);
+            if(result == NULL)
+                goto end_of_function;
+            current_token = result;
+        }
+        if(tok -> next == NULL)
+            tok -> next = get_first_token(mf, source, &source,
+                                          line, &line, filename);
+        tok = tok -> next;
+    }
+end_of_function:
+    *final_source = source;
+    return result;
+error_no_memory:
+    fprintf(stderr, "ERROR: Not enough memory. Please, increase"
+            " the value of W_MAX_MEMORY at conf/conf.h\n");
+    *final_source = source;
+    return NULL;
+}
+@
 
 @<Metafont: Declarações@>+=
 void _metafont_test(char *);
@@ -1738,4 +2042,3 @@ void _metafont_test(char *teste){
     run_statements(M, teste, "teste.mf");
 }
 @
-
