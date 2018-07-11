@@ -2023,12 +2023,66 @@ static struct token *replacement_text(struct metafont *mf, struct token **token,
     }
 end_of_function:
     *final_source = source;
+    if(tok != NULL)
+        *token = tok -> next;
+    else
+        *token = tok;
     return result;
 error_no_memory:
     fprintf(stderr, "ERROR: Not enough memory. Please, increase"
             " the value of W_MAX_MEMORY at conf/conf.h\n");
     *final_source = source;
     return NULL;
+}
+@
+
+Tendo as três funções acima, podemos enfim terminar de definir nosso
+tratamento para macros deste tipo:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")
+{
+    char *name;
+    struct macro *new_macro;
+    struct token *delimited_headers, *undelimited_headers;
+    statement = statement -> next;
+    // Nome da macro
+    if(statement == NULL || statement -> type != SYMBOL){
+        fprintf(stderr,
+                "ERROR: %s:%d: Missing symbolic token at macro definition.\n",
+                filename, line);
+        return NULL;
+    }
+    name = statement -> name;
+    statement = statement -> next;
+    delimited_headers = delimited_parameters(&statement, filename, line);
+    undelimited_header = undelimited_parameters(&statement, filename, line);
+    new_macro = (struct macro *) Walloc(sizeof(struct macro));
+    if(new_macro == NULL){
+        fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+                "value of W_MAX_MEMORY at conf/conf.h\n");
+        exit(1);
+    }
+    new_macro -> parameters = undelimited_header;
+    if(new_macro -> parameters == NULL)
+        new_macro -> parameters = delimited_headers;
+    else
+        new_macro -> parameters -> next = delimited_headers;
+    if(delimited_headers != NULL)
+        delimited_headers -> prev = undelimited_header;
+    // Token = ou :=
+    if(statement == NULL || statement -> type != SYMBOL ||
+       (strcmp(statement -> name, "=") && strcmp(statement -> name, ":="))){
+        fprintf(stderr,
+                "ERROR: %s:%d: Missing '=' or ':=' at  macro definition.\n",
+                filename, line);
+        return NULL;
+    }
+    // Texto de substituição:
+    new_macro -> replacement_text(*mf, &statement, source, &source, filename,
+                                  line);
+    // Armazena a macro
+    _insert_trie((*mf) -> macros, VOID_P, name, (void *) new_macro);
 }
 @
 
