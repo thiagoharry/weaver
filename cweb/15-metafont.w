@@ -137,7 +137,7 @@ gama de números. Então não iremos manter a compatibilidade nisso.
 
 Podemos criar os seguintes construtores para tais diferentes tokens:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Funções Primitivas Estáticas@>+=
 static struct token *new_token(int type, float value, char *name){
     struct token *ret;
     ret = (struct token *) _iWalloc(sizeof(struct token));
@@ -189,7 +189,7 @@ que formam um mesmo identificador. A seguinte função retorna um número
 distinto para cada família de caracteres, ou -1 se for uma família
 inválida.
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Funções Primitivas Estáticas@>+=
 static int character_family(char c){
     char *families = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz\n"
         "<=>:|\n"
@@ -230,7 +230,7 @@ de arquivo de onde viria o código. Essas coisas são úteis para
 mensagens de erro. No caso, a função que fará isso será a seguinte
 implementação de autômato finito:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Funções Primitivas Estáticas@>+=
 static struct token *next_token(char *source, char **next_position,
                                 int line, int *next_line, char *filename){
     struct token *ret;
@@ -463,7 +463,7 @@ Agora vamos nos concentrar apenas na função que ficará responsável por
 obter o próximo token (seja um já lido, mas ainda não interpretado, ou
 um que ainda precisa ser lido de uma string) e expandi-lo:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Funções Primitivas Estáticas@>+=
 @<Metafont: Função Estática expand_token@>
 static struct token *get_first_token(struct metafont *mf, char *source,
                                 char **next_position,
@@ -1803,7 +1803,7 @@ qualquer um dos tokens que ela tenha na lista de argumentos.
 @<Metafont: Variáveis Estáticas@>+=
 struct macro{
     struct token *parameters;
-    struct token *replacement_text
+    struct token *replacement_text;
 };
 @
 
@@ -1825,7 +1825,7 @@ cada declaração. Sendo assim, ao criar ela não podemos usar as mesmas
 funções de criação de tokens que usávamos até então. Vamos definir uma
 função para criar tokens permanentes:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Funções Primitivas Estáticas@>+=
 static struct token *new_permanent_token(int type, float value, char *name){
     struct token *ret;
     ret = (struct token *) Walloc(sizeof(struct token));
@@ -1848,12 +1848,12 @@ deverá consumir uma lista de tokens comuns e gerar uma lista de tokens
 permanentes que será uma lista de parâmetros a ser usada por uma
 macro. Ela interpreta apenas parâmetros delimitados:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Funções Primitivas Estáticas@>+=
 static struct token *delimited_parameters(struct token **token,
                                           char *filename, int line){
     struct token *tok = *token, *parameter_list;
     struct token *result = NULL, *last_result = NULL;
-    int type = NOT_DEFINED;
+    int type = NOT_DECLARED;
     // Testando se temos parâmetros delimitados:
     while(tok != NULL && tok -> type == SYMBOL && !strcmp(tok -> name, "(")){
         tok = tok -> next;
@@ -1912,14 +1912,14 @@ error_no_memory:
 
 E agora uma versão desta função apenas para parâmetros não-delimitados:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Funções Primitivas Estáticas@>+=
 static struct token *undelimited_parameters(struct token **token,
                                             char *filename, int line){
     struct token *tok = *token;
-    int type = NOT_DEFINED;
+    int type = NOT_DECLARED;
     char *name;
     if(tok != NULL && tok -> type == SYMBOL){
-        if(!strdmp(tok -> name, "primary"))
+        if(!strcmp(tok -> name, "primary"))
             type = PRIMARY;
         else if(!strcmp(tok -> name, "secondary"))
             type = SECONDARY;
@@ -1971,7 +1971,7 @@ todo os seguintes tokens simbólicos que os iniciam: \monoespaco{def}
 podemos contar pela ocorrência de tais tokens e assim saber quantos
 \monoespaco{enddef} precisamos ler:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Funções Primitivas Estáticas@>+=
 static struct token *replacement_text(struct metafont *mf, struct token **token,
                                       char *source, char **final_source,
                                       char *filename, int line){
@@ -2040,18 +2040,17 @@ Tendo as três funções acima, podemos enfim terminar de definir nosso
 tratamento para macros deste tipo:
 
 @<Metafont: Executa Declaração@>=
-if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")
-{
+if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")){
     char *name;
     struct macro *new_macro;
-    struct token *delimited_headers, *undelimited_headers;
+    struct token *delimited_headers, *undelimited_header;
     statement = statement -> next;
     // Nome da macro
     if(statement == NULL || statement -> type != SYMBOL){
         fprintf(stderr,
                 "ERROR: %s:%d: Missing symbolic token at macro definition.\n",
                 filename, line);
-        return NULL;
+        return;
     }
     name = statement -> name;
     statement = statement -> next;
@@ -2076,11 +2075,11 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")
         fprintf(stderr,
                 "ERROR: %s:%d: Missing '=' or ':=' at  macro definition.\n",
                 filename, line);
-        return NULL;
+        return;
     }
     // Texto de substituição:
-    new_macro -> replacement_text(*mf, &statement, source, &source, filename,
-                                  line);
+    new_macro -> replacement_text = replacement_text(*mf, &statement, source,
+                                                     &source, filename, line);
     // Armazena a macro
     _insert_trie((*mf) -> macros, VOID_P, name, (void *) new_macro);
 }
