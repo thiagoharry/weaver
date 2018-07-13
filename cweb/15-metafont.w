@@ -1946,6 +1946,7 @@ static struct token *undelimited_parameters(struct token **token,
                 " the value of W_MAX_MEMORY at conf/conf.h\n");
         return NULL;
     }
+    *token = tok -> next;
     return new_permanent_token(type, 0.0, name);
 }
 @
@@ -2016,15 +2017,26 @@ static struct token *replacement_text(struct metafont *mf, struct token **token,
                 goto end_of_function;
             current_token = result;
         }
-        if(tok -> next == NULL)
+        if(tok -> next == NULL){
             tok -> next = get_first_token(mf, source, &source,
                                           line, &line, filename);
+            if(tok -> next != NULL){
+                tok -> next -> prev = tok;
+            }
+        }
         tok = tok -> next;
     }
 end_of_function:
     *final_source = source;
-    if(tok != NULL)
+    if(tok != NULL){
+        if(tok -> next == NULL){
+            tok -> next = get_first_token(mf, source, &source,
+                                          line, &line, filename);
+            if(tok -> next != NULL)
+                tok -> next -> prev = tok;
+        }
         *token = tok -> next;
+    }
     else
         *token = tok;
     return result;
@@ -2082,6 +2094,16 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")){
                                                      &source, filename, line);
     // Armazena a macro
     _insert_trie((*mf) -> macros, VOID_P, name, (void *) new_macro);
+    // Checando pelo fim da declaração
+    if(statement == NULL || statement -> type != SYMBOL ||
+       strcmp(statement -> name, ";")){
+        fprintf(stderr,
+                "ERROR: %s:%d: Extra token after enddef (%s).\n",
+                filename, line,
+                (statement == NULL)?("NULL"):(statement -> name));
+        return;
+    }
+    goto clean_exit;
 }
 @
 
