@@ -1383,11 +1383,15 @@ existência de uma arena padrão e associada à ela as novas funções
 
 Primeiro precisaremos declarar duas variáveis globais. Uma delas será
 uma arena padrão do usuário, a outra deverá ser uma arena usada pelas
-funções internas da própria API. Ambas as variáveis devem ficar
-restritas ao módulo de memória, então serão declaradas como estáticas:
+funções internas da própria API. Elas não serão estáticas, pois outros
+módulos podem precisar acessar elas:
 
 @(project/src/weaver/memory.c@>+=
-static void *_user_arena, *_internal_arena;
+void *_user_arena, *_internal_arena;
+@
+
+@<Declarações de Memória@>+=
+external void *_user_arena, *_internal_arena;
 @
 
 Noe que elas serão variáveis estáticas. Isso garantirá que somente as

@@ -1,12 +1,12 @@
 @* METAFONT.
 
-METAFONT é uma linguagem criaa inicialmente para efinir fontes e
-computador. Mas e fato, ela é uma linguagem capaz de definir desenhos
-e imagens com uma única cor. Ela descreve todas as formas por meio de
-equações geométricas, com ajuda e curvas de Bézier cúbicas. A versão
-atual da linguagem foi criada em 1984 por Donald Knuth. A Engine
-Weaver a usará como uma forma de receber instruções de desenhos e para
-representar fontes.
+METAFONT é uma linguagem criada inicialmente para definir fontes de
+computador. Mas de fato, ela é uma linguagem turing completa capaz de
+definir desenhos e imagens arbitrários, desde que tenham com uma única
+cor. Ela descreve todas as formas por meio de equações geométricas,
+com ajuda e curvas de Bézier cúbicas. A versão atual da linguagem foi
+criada em 1984 por Donald Knuth. A Engine Weaver a usará como uma
+forma de receber instruções de desenhos e para representar fontes.
 
 As funções referentes à linguagem METAFONT ficarão todas dentro dos
 seguintes arquivos:
@@ -54,11 +54,270 @@ seguintes arquivos:
 // A definir...
 @
 
+@*1 Preparativos Iniciais.
+
+Vamos precisar preparar duas coisas adicionais antes de começarmos. A
+primeira tem relação com a memória. Precisamos alocar e desalocar
+coisas nos seguintes três casos:
+
+1- Para variáveis e definições globais, as quais só serão desalocadas
+após sairmos do programa.
+
+2- Para os tokens que vão sendo gerados à medida que formos lendo um
+código-fonte, os quais devem ser desalocados assim que forem
+interpretados.
+
+3- Para variáveis e definições locais, as quais estarão dentro de um
+bloco (que começa com \monoespaco{begingroup} e termina em um
+\monoespaco{endgroup} no METAFONT).
+
+No primeiro caso, vamos querer alocar as nossas estruturas na arena de
+memória geral de nosso jogo. No segundo caso iremos querer alocar na
+arena de memória interna. Mas precisamos de uma terceira arena de
+memória para o terceiro caso.
+
+Declaremos esta arena de memória:
+
+@<Metafont: Variáveis Estáticas@>=
+static void *metafont_memory;
+@
+
+Declaremos a função que irá inicializar tudo o que precisarmos
+referente à interpretação de código METAFONT:
+
+@<Metafont: Declarações@>=
+void _initialize_metafont(void);
+@
+
+Na definição estabeleceremos que 1/4 da memória interna na verdade
+seja usada como memória para o METAFONT:
+
+@<Metafont: Definições@>+=
+void _initialize_metafont(void){
+    struct metafont *mf;
+    metafont_memory = Wcreate_arena(W_INTERNAL_MEMORY / 4);
+    if(metafont_memory == NULL){
+        fprintf(stderr, "ERROR: This system have no enough memory to "
+                "run this program.\n");
+        exit(1);
+    }
+    @<Metafont: Inicialização@>
+    @<Metafont: Lê Arquivo de Inicialização@>
+}
+@
+
+A inicialização do Metafont será chamada após criarmos uma marcação na
+memógia geral:
+
+@<API Weaver: Inicialização@>+=
+{
+    Wbreakpoint();
+    _initialize_metafont();
+}
+@
+
+E essa marcação permite que na finalização desaloquemos tudo que for
+referente ao Metafont em uma só desalocação:
+
+@<API Weaver: METAFONT: Encerramento@>+=
+{
+    Wtrash();
+}
+@
+
+A segunda coisa que precisamos preparar antes de começar a interpretar
+METAFONT é uma estrutura de dados que armazene todas as informações
+que forem relevantes sobre a interpretação: qual arquivo estamos
+lendo, em que linha estamos, que variáveis definimos, e coisas
+assim. No fim essa estrutura de dados irá conter todas as informações
+sobre uma fonte, e durante a interpretação da fonte conterá todas as
+informações que precisamos.
+
+Essa estrutura será chamada de \monoespaco{metafont}:
+
+@<Metafont: Variáveis Estáticas@>+=
+struct metafont{
+    char filename[256]; // Nome de arquivo com fonte
+    FILE *fp; // Ponteiro para arquivo acima
+    char buffer[4096]; // Buffer com conteúdo atual lido do arquivo
+    int buffer_position; // Onde estamos lendo no buffer acima
+    int line; // O número da linha atual do arquivo fonte lido
+    bool error; // Encontramos um erro?
+    struct metafont *parent;
+    @<METAFONT: Estrutura METAFONT@>
+};
+@
+
+Uma estrutura METAFONT pode ser alocada em duas arenas: a global geral
+(quando ela representará uma fonte) e a arena própria que definimos a
+pouco (quando a estrutura representará o escopo dentro de um bloco,
+onde variáveis e macros locais podem estar sendo definidas, caso em
+que a estrutura será filha de outra).
+
+Sendo assim, a inicialização da estrutura será feita pelo seguinte
+construtor:
+
+@<Metafont: Funções Estáticas@>+=
+struct metafont *new_metafont(struct metafont *parent, char *filename){
+    struct metafont *structure;
+    size_t ret;
+    if(parent == NULL){
+        structure = (struct metafont *) Walloc(sizeof(struct metafont));
+        if(structure == NULL)
+            goto error_no_general_memory;
+    }
+    else{
+        structure = (struct metafont *) Walloc_arena(metafont_memory,
+                                                     sizeof(struct metafont));
+        if(structure == NULL)
+            goto error_no_internal_memory;
+    }
+    structure -> parent = parent;
+    strncpy(structure -> filename, filename, 255);
+    structure -> fp = fopen(filename, "r");
+    if(structure -> fp == NULL)
+        goto error_no_file;
+    else{
+        ret = fread(structure -> buffer, 1, 4095, structure -> fp);
+        structure -> buffer[ret] = '\0';
+        if(ret != 4095){
+            fclose(structure -> fp);
+            structure -> fp = NULL;
+        }
+    }
+    structure -> buffer_position = 0;
+    structure -> line = 1;
+    structure -> error = false;
+    @<METAFONT: Inicializa estrutura METAFONT@>
+    @<METAFONT: Executa Arquivo de Inicialização@>
+    return structure;
+error_no_file:
+    fprintf(stderr, "ERROR (0): File %s don't exist.\n", filename);
+    return NULL;
+error_no_general_memory:
+    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
+            "source. Please, increase the value of W_MAX_MEMORY "
+            "at conf/conf.h.\n");
+    return NULL;
+error_no_internal_memory:
+    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
+            "source. Please, increase the value of W_INTERNAL_MEMORY "
+            "at conf/conf.h.\n");
+    return NULL;
+}
+@
+
+Assim, na inicialização, para lermos o nosso arquivo inicial com
+código METAFONT, usamos:
+
+@<Metafont: Lê Arquivo de Inicialização@>=
+    mf = new_metafont("fonts/init.mf");
+@
+
+Agora anter de escrevermos o lexer da nossa linguagem, vamos
+implementar duas funções que serão úteis. A primeira lê e retorna o
+próxio caractere do nosso arquivo-fonte (provavelemtne é algo que já
+está no buffer) e o consome, fazendo com que ele não volte mais a ser
+retornado nas próximas vezes que checarmos o próximo caractere. A
+segunda apenas retorna o caractere, mas não o consome. Tipicamente
+isso é chamado de \monoespaco{read} e \monoespaco{peek}:
+
+@<Metafont: Funções Estáticas@>+=
+char read_char(struct metafont *mf){
+    char ret = mf -> buffer[mf -> buffer_position];
+    size_t size;
+    if(ret != '\0'){
+        mf -> buffer_position ++;
+    }
+    else if(mf -> fp != NULL){
+        size = fread(mf -> buffer, 1, 4095, mf -> fp);
+        mf -> buffer[size] = '\0';
+        if(size != 4095){
+            fclose(mf -> fp);
+            structure -> fp = NULL;
+        }
+        fp -> buffer_position = 0;
+        ret = mf -> buffer[fp -> buffer_position];
+        if(ret != '\0')
+            fp -> buffer_position ++;
+    }
+    else
+        return '\0';
+    // Também implementamos a contagem de linhas aqui
+    if(ret == '\n')
+        mf -> line ++;
+    return ret;
+}
+@
+
+A função \monoespaco{peek_char} pode parecer mais simples, mas temos
+que tratar o caso de quando estamos no fim do buffer e para obtermos o
+próximo caractere precisamos ler mais um bloco de dados do arquivo:
+
+@<Metafont: Funções Estáticas@>+=
+char peek_char(struct metafont *mf){
+    char ret = mf -> buffer[mf -> buffer_position];
+    size_t size;
+    if(ret == '\0'){
+        if(mf -> fp != NULL){
+            size = fread(mf -> buffer, 1, 4095, mf -> fp);
+            mf -> buffer[size] = '\0';
+            if(size != 4095){
+                fclose(mf -> fp);
+                structure -> fp = NULL;
+            }
+            fp -> buffer_position = 0;
+            ret = mf -> buffer[fp -> buffer_position];
+        }
+        else
+            return '\0';
+    }
+    return ret;
+}
+@
+
+Por fim, vamos criar mais uma função básica que serve para avisarmos
+erros no código Metafont. Em tais casos, se um erro do tipo já foi
+sinalizado, não iremos sinalizar outros, pois o erro relevante é
+tipicamente o primeiro:
+
+@<Metafont: Funções Estáticas@>+=
+void mf_error(struct metafont *mf, char *message){
+    if(! mf -> error){
+        fprintf(stderr, "ERROR: Metafont: %s:%d: %s\n",
+                mf -> filename, mf -> line, message);
+        mf -> error = true;
+        // Finaliza a leitura de mais código:
+        if(mf -> fp != NULL){
+            fclose(mf -> fp);
+            mf -> fp = NULL;
+        }
+        mf -> buffer_position = 0;
+        mf -> buffer[mf -> buffer_position] = '\0';
+    }
+}
+@
+
+E também uma função para finalizar o interpretador sem erros:
+
+@<Metafont: Funções Estáticas@>+=
+void mf_end(struct metafont *mf){
+    // Finaliza a leitura de mais código:
+    if(mf -> fp != NULL){
+        fclose(mf -> fp);
+        mf -> fp = NULL;
+    }
+    mf -> buffer_position = 0;
+    mf -> buffer[mf -> buffer_position] = '\0';
+    @<Metafont: Chegamos ao Fim do Código-Fonte@>
+}
+@
+
 @*1 O Analizador Léxico.
 
 A linguagem METAFONT possui as seguintes regras léxicas:
 
-Regra 01: Pontos escartáveis: Se o próximo caractere for um espaço ou
+Regra 01: Pontos descartáveis: Se o próximo caractere for um espaço ou
 for um ponto que não é seguido por um dígito decimal, ou outro ponto,
 ignore-o e continue.
 
@@ -110,9 +369,9 @@ ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz
 \alinhanormal
 %'
 
-Dito isso, o analizador léxico irá sempre produzir 7 tipos de tokens:
-números, strings, ``('', ``)'', ``,'', ``;'' e
-identificadores. Podemos representar cada token pela estrutura:
+Dito isso, o analizador léxico irá sempre produzir 3 tipos de tokens:
+números, strings e símbolos. Podemos representar cada token pela
+estrutura:
 
 @<Metafont: Variáveis Estáticas@>+=
 // Tipo de token
@@ -131,48 +390,190 @@ struct token{
 ponto-flutuante simples. O METAFONT original usava outra definição,
 onde todos os números tinham a parte inteira entre -4095 e +4095 e a
 parte fracionária um múltiplo de $1/65536$. Mas a representação em
-ponto-flutuante é melhor por ser mais rápida, ter pelo menos uma casa
-decimal a mais de precisão e por ser capaz de representar uma maior
-gama de números. Então não iremos manter a compatibilidade nisso.
+ponto-flutuante é melhor por ser mais rápida, ter no caso típico uma
+casa decimal a mais de precisão e por ser capaz de representar uma
+maior gama de números. Então não iremos manter a compatibilidade
+nisso.
 
 Podemos criar os seguintes construtores para tais diferentes tokens:
 
 @<Metafont: Funções Primitivas Estáticas@>+=
-static struct token *new_token(int type, float value, char *name){
+static struct token *new_token(int type, float value, char *name,
+                               void *memory_arena){
     struct token *ret;
-    ret = (struct token *) _iWalloc(sizeof(struct token));
-    if(ret == NULL){
-        fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-                "source. Please, increase the value of W_INTERNAL_MEMORY "
-                "at conf/conf.h.\n");
-        return NULL;
-    }
+    ret = (struct token *) Walloc_arena(memory_arena, sizeof(struct token));
+    if(ret == NULL)
+        goto error_no_memory;
     ret -> type = type;
     ret -> value = value;
-    ret -> name = name;
+    if(name != NULL){
+        ret -> name = Walloc_arena(memory_arena, strlen(name) + 1);
+        if(ret -> name == NULL)
+            goto error_no_memory;
+        strcpy(ret -> name, name);
+    }
+    else
+        ret -> name = name;
     ret -> prev = ret -> next = NULL;
     return ret;
+error_no_memory:
+    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
+            "source. Please, increase the value of %s "
+            "at conf/conf.h.\n",
+            (memory_arena == _user_arena)?"W_MAX_MEMORY":
+            "W_INTERNAL_MEMORY");
+    return NULL;
 }
-#define new_token_number(a) new_token(NUMBER, a, NULL)
-#define new_token_string(a) new_token(STRING, 0.0, a)
-#define new_token_symbol(a) new_token(SYMBOL, 0.0, a)
+#define new_token_number(a) new_token(NUMBER, a, NULL, _internal_arena)
+#define new_token_string(a) new_token(STRING, 0.0, a, _internal_arena)
+#define new_token_symbol(a) new_token(SYMBOL, 0.0, a, _internal_arena)
+@
+
+Com base nisso já podemos escrever a nossa função de analizador
+léxico. Basicamente ela irá sempre retornar o próximo token lido. Ela
+é construída diretamente à partir do autômato finito que pode ser
+definido à partir das regras vistas acima sobre como identificar cada
+token:
+
+@<Metafont: Funções Primitivas Estáticas@>+=
+static struct token *next_token(struct metafont *mf){
+    char buffer[512];
+    int buffer_position = 0;
+    char current_char, next_char;
+    char family[56];
+    bool valid_char;
+    start:
+    current_char = read_char(mf);
+    switch(current_char){
+    case '\0': return NULL;
+    case ' ': case '\n': goto start; // Ignora espaço (regra 01:a)
+    case '.':
+        next_char = peek_char(mf);
+        if(next_char == '.')
+            goto dot_symbol;
+        else if(isdigit(next_char))
+            goto numeric;
+        else
+            goto start; // Ignora '.' nestes casos (Regra 01:b)
+    case '%': // (Regra 02)
+        while(current_char != '\n' && current_char != '\0')
+            current_char = read_char(mf);
+        goto start;
+    case '0': case '1': case '2': case '3': case '4': case '5':
+    case '6': case '7': case '8': case '9':
+        {
+        numeric: // Regra 03: Vai retornar um token numérico
+            int number_of_dots = 0;
+            for(;;){
+                buffer[buffer_position] = current_char;
+                buffer_position = (buffer_position + 1) % 512;
+                if(current_char == '.')
+                    number_of_dots ++;
+                next_char = peek_char(mf);
+                if((next_char == '.' && number_of_dots ==  1) ||
+                   (next_char != '.' && !isdigit(next_char))){
+                    buffer[buffer_position] = '\0';
+                    return new_token_number(atof(buffer));
+                }
+            }
+        }
+    case '"': // Regra 04: Strings
+        current_char = read_char(mf);
+        while(current_char != '"' && current_char != '\0'){
+            if(current_char == '\n'){
+                mf_error(mf, "Incomplete string. "
+                         "Strings should finish on the same line"
+                         " as they began.");
+                return NULL;
+            }
+            buffer[buffer_position] = current_char;
+            buffer_position = (buffer_position + 1) % 512;
+        }
+        buffer[buffer_position] = '\0';
+        return new_token_string(buffer);
+    case '(': case ')': case ',': case ';': // Regra 05: Tokens caracteres
+        buffer[buffer_position] = current_char;
+        buffer_position = (buffer_position + 1) % 512;
+        buffer[buffer_position] = '\0';
+        return new_token_symbol(buffer);
+    case 'a': case 'b': case 'c': case 'd': case 'e': case 'f': case 'g':
+    case 'h': case 'i': case 'j': case 'k': case 'l': case 'm': case 'n':
+    case 'o': case 'p': case 'q': case 'r': case 's': case 't': case 'u':
+    case 'v': case 'w': case 'x': case 'y': case 'z': case '_': case 'A':
+    case 'B': case 'C': case 'D': case 'E': case 'F': case 'G': case 'H':
+    case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O':
+    case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V':
+    case 'W': case 'X': case 'Y': case 'Z':
+        strcpy(family, "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ");
+        break;
+    case '<': case '=': case '>': case ':': case '|':
+        strcpy(family, "<=>:|");
+        break;
+    case '`': case '\'':
+        strcpy(family, "`'");
+        break;
+    case '+': case '-':
+        strcpy(family, "+-");
+        break;
+    case '/': case '*': case '\\':
+        strcpy(family, "/*\\");
+        break;
+    case '!': case '?':
+        strcpy(family, "!?");
+        break;
+    case '#': case '&': case '@': case '$':
+        strcpy(family, "#&@$");
+        break;
+    case '[':
+        strcpy(family, "[");
+        break;
+    case ']':
+        strcpy(family, "]");
+        break;
+    case '{': case '}':
+        strcpy(family, "{}");
+        break;
+    case '.':
+    {
+    dot_symbol:
+        strcpy(family, ".");
+        break;
+    }
+    case '~': case '^':
+        strcpy(family, "~^");
+        break;
+    default:
+        mf_error(mf, "Text line contains an invalid character.");
+        return NULL;
+    }
+    // Se ainda estamos aqui, temos um token composto a tratar
+    do{
+        char *c = family;
+        buffer[buffer_position] = current_char;
+        buffer_position = (buffer_position + 1) % 512;
+        next_char = peek_char(mf);
+        valid_char = false;
+        while(*c != '\0'){
+            if(*c == next_char){
+                valid_char = true;
+                current_char = read_char(mf);
+                break;
+            }
+            c ++;
+        }
+    }while(valid_char);
+    buffer[buffer_position] = '\0';
+    return new_token_symbol(buffer);
+}
 @
 
 Na prática estaremos com muita frequência formando listas encadeadas
 de tokens à medida que formos interpretando eles de um código-fonte ou
 caso queiramos armazenar o significado de uma macro. Para ajudar com
-isso, usaremos as funções para ligar um token no outro:
+isso, usaremos as funções para concatenar uma lista de tokens na
+outra:
 
 @<Metafont: Funções Estáticas@>+=
-// Coloca sequência de tokens 'after' após primeiro token de 'before'
-static void append_token(struct token *before, struct token *after){
-    if(before -> next != NULL){
-        before -> next -> prev = after;
-        after -> next = before -> next;
-    }
-    before -> next = after;
-    after -> prev = before;
-}
 // Coloca sequência de tokens 'after' após a sequência de tokens 'before'
 static void concat_token(struct token *before, struct token *after){
     if(after == NULL)
@@ -181,202 +582,6 @@ static void concat_token(struct token *before, struct token *after){
         before = before -> next;
     before -> next = after;
     after -> prev = before;
-}
-@
-
-Vamos também ter que classificar caracteres de acordo com as famílias
-que formam um mesmo identificador. A seguinte função retorna um número
-distinto para cada família de caracteres, ou -1 se for uma família
-inválida.
-
-@<Metafont: Funções Primitivas Estáticas@>+=
-static int character_family(char c){
-    char *families = "ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz\n"
-        "<=>:|\n"
-        "`'\n"
-        "+-\n"
-        "/*\\\n"
-        "!?\n"
-        "#&@@$\n"
-        "[\n"
-        "]\n"
-        "{}\n"
-        ".\n"
-        "^~\n"
-        ",\n"
-        ";\n"
-        "(\n"
-        ")\n";
-    char *p;
-    int number = 0;
-    for(p = families; *p != '\0'; p ++){
-        if(*p == '\n')
-            number ++;
-        else if(*p == c){
-            return number;
-        }
-
-    }
-    return -1;
-}
-@
-
-E agora precisamos de uma função que dada uma string previsa retornar
-o próximo token lido dela ou NULL se não houverem mais tokens. Além
-disso, é importante retornar uma nova posição na string que foi lida à
-partir da qual poderemos querer ler mais tokens. Também irá receber a
-linha inicial, um ponteiro para a nova linha após a execução e um nome
-de arquivo de onde viria o código. Essas coisas são úteis para
-mensagens de erro. No caso, a função que fará isso será a seguinte
-implementação de autômato finito:
-
-@<Metafont: Funções Primitivas Estáticas@>+=
-static struct token *next_token(char *source, char **next_position,
-                                int line, int *next_line, char *filename){
-    struct token *ret;
-    char *position = source, *begin;
-    char *buffer;
-    while(*position != '\0'){
-        if(*position == '\n'){
-            position ++;
-            line ++;
-            continue;
-        }
-        else if(*position == ' ' ||
-                (*position == '.' && (*(position + 1)) != '.' &&
-                 !isdigit(*(position + 1)))){
-            // Regra 01: Caractere descartável
-            position ++;
-            continue;
-        }
-        else if(*position == '%'){
-            // Regra 02: Comentário
-            while(*position != '\n' && *position != '\0')
-                position ++;
-        }
-        else if(isdigit(*position) || (*position == '.' &&
-                                       isdigit(*(position + 1)))){
-            // Regra 03: Token numérico
-            int number_of_points = 0;
-            begin = position;
-            do{
-                if(*position == '.'){
-                    if(number_of_points == 1 ||
-                       !isdigit(*(position + 1))){
-                        break;
-                    }
-                    else
-                        number_of_points ++;
-                }
-                position ++;
-            }while(isdigit(*position) || *position == '.');
-            buffer = (char *) _iWalloc(position + 1 - begin);
-            if(buffer == NULL)
-                goto error_no_memory;
-            strncpy(buffer, begin, position - begin);
-            buffer[position - begin] = '\0';
-            ret = new_token_number(atof(buffer));
-            *next_position = position;
-            *next_line = line;
-            return ret;
-        }
-        else if(*position == '"'){
-            // Regra 04: String
-            position ++;
-            begin = position;
-            while(*position != '"'){
-                if(*position == '\n'){
-                    fprintf(stderr, "ERROR (%s:%d): Incomplete string.\n",
-                            filename, line);
-                    line ++;
-                    break;
-                }
-                position ++;
-            }
-            buffer = (char *) _iWalloc(position - begin + 1);
-            if(buffer == NULL)
-                goto error_no_memory;
-            strncpy(buffer, begin, position - begin);
-            buffer[position - begin] = '\0';
-            ret = new_token_string(buffer);
-            *next_position = position + 1;
-            *next_line = line;
-            return ret;
-        }
-        // Regra 05: Tokens caracteres
-        else if(*position == '('){
-            buffer = (char *) _iWalloc(2);
-            if(buffer == NULL)
-                goto error_no_memory;
-            buffer[0] = '(';
-            buffer[1] = '\0';
-            *next_position = position + 1;
-            *next_line = line;
-            return new_token_symbol(buffer);
-        }
-        else if(*position == ')'){
-            buffer = (char *) _iWalloc(2);
-            if(buffer == NULL)
-                goto error_no_memory;
-            buffer[0] = ')';
-            buffer[1] = '\0';
-            *next_position = position + 1;
-            *next_line = line;
-            return new_token_symbol(buffer);
-        }
-        else if(*position == ','){
-            buffer = (char *) _iWalloc(2);
-            if(buffer == NULL)
-                goto error_no_memory;
-            buffer[0] = ',';
-            buffer[1] = '\0';
-            *next_position = position + 1;
-            *next_line = line;
-            return new_token_symbol(buffer);
-        }
-        else if(*position == ';'){
-            buffer = (char *) _iWalloc(2);
-            if(buffer == NULL)
-                goto error_no_memory;
-            buffer[0] = ';';
-            buffer[1] = '\0';
-            *next_position = position + 1;
-            *next_line = line;
-            return new_token_symbol(buffer);
-        }
-        else{
-            // Regra 06: Tokens identificadores
-            int family_number = character_family(*position);
-            int current_family;
-            if(family_number == -1){
-                fprintf(stderr,
-                        "ERROR (%s:%d): Invalid character(%c).\n",
-                        filename, line, *position);
-                position ++;
-                continue;
-            }
-            begin = position;
-            do{
-                position ++;
-                current_family = character_family(*position);
-            }while(current_family == family_number);
-            buffer = (char *) _iWalloc(position - begin + 1);
-            if(buffer == NULL)
-                goto error_no_memory;
-            strncpy(buffer, begin, position - begin);
-            buffer[position - begin] = '\0';
-            ret = new_token_symbol(buffer);
-            *next_position = position;
-            *next_line = line;
-            return ret;
-        }
-    }
-    return NULL;
-error_no_memory:
-    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-            "source. Please, increase the value of W_INTERNAL_MEMORY "
-            "at conf/conf.h.\n");
-    return NULL;
 }
 @
 
@@ -411,7 +616,7 @@ uma lista de declarações separadas pelo token simbólico de
 ponto-e-vírgula.
 
 Sabendo disso, além de uma função que apenas retorna tokens, seria
-interessante se houvesse uma que rotorna listas de tokens que formam
+interessante se houvesse uma que retorna listas de tokens que formam
 uma declaração. Para isso, supostamente deveríamos ler tokens
 encadeados até encontrarmos o ponto-e-vírgula final e aí retornamos
 ele. Mas as coisas não são tão diretas. Existem algumas poucas
@@ -428,35 +633,17 @@ sobressalentes para retornarmos depois, após os expandirmos também.
 Primeiro vamos criar uma estrutura METAFONT, que representa tudo o que
 é armazenado pelo nosso interpretador. Ali dentro podemos armazenar
 qualquer token já lido, e que está pendente para ser
-interpretado. Também armazenamos uma estrutura-pai. Isso nos permitirá
-definir mais tarde escopo para algumas de nossas declarações e
-interpretações:
+interpretado.:
 
-@<Metafont: Variáveis Estáticas@>+=
-struct metafont{
-  struct token *pending_tokens;
-  struct metafont *parent;
-  @<METAFONT: Estrutura METAFONT@>
-};
+@<METAFONT: Estrutura METAFONT@>+=
+struct token *pending_tokens;
 @
+
 
 Essa estrutura será inicializada por:
 
-@<Metafont: Funções Estáticas@>+=
-struct metafont *new_metafont(struct metafont *parent){
-    struct metafont *structure = (struct metafont *) Walloc(sizeof(struct metafont));
-    if(structure == NULL)
-        goto end_of_memory_error;
-    structure -> pending_tokens = NULL;
-    structure -> parent = parent;
-    @<METAFONT: Inicializa estrutura METAFONT@>
-    return structure;
-end_of_memory_error:
-    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-            "source. Please, increase the value of W_MEMORY "
-            "at conf/conf.h.\n");
-    return NULL;
-}
+@<METAFONT: Inicializa estrutura METAFONT@>=
+structure -> pending_tokens = NULL;
 @
 
 Agora vamos nos concentrar apenas na função que ficará responsável por
@@ -465,9 +652,7 @@ um que ainda precisa ser lido de uma string) e expandi-lo:
 
 @<Metafont: Funções Primitivas Estáticas@>+=
 @<Metafont: Função Estática expand_token@>
-static struct token *get_first_token(struct metafont *mf, char *source,
-                                char **next_position,
-                                int line, int *next_line, char *filename){
+static struct token *get_token(struct metafont *mf){
     struct token *first_token = NULL;
     // Obtemos o primeiro token
     if(mf -> pending_tokens){
@@ -477,11 +662,9 @@ static struct token *get_first_token(struct metafont *mf, char *source,
         first_token -> next = NULL;
     }
     else{
-         first_token = next_token(source, &source, line, &line, filename);
+         first_token = next_token(mf);
     }
-    while(expand_token(&first_token, source, &source));
-    *next_line = line;
-    *next_position = source;
+    while(expand_token(mf, &first_token));
     return first_token;
 }
 @
@@ -489,21 +672,17 @@ static struct token *get_first_token(struct metafont *mf, char *source,
 Por fim, podemos fazer a nossa função que separa uma declaração:
 
 @<Metafont: Funções Estáticas@>+=
-static struct token *get_statement(struct metafont *mf, char *source,
-                                   char **next_position,
-                                   int line, int *next_line, char *filename){
+static struct token *get_statement(struct metafont *mf){
     struct token *first_token, *current_token;
-    first_token = get_first_token(mf, source, &source, line, &line, filename);
+    first_token = get_token(mf);
     current_token = first_token;
     // Se o primeiro token é um NULL, 'end' ou 'dump', terminamos de ler:
     if(current_token == NULL ||
        (current_token -> type == SYMBOL &&
        (!strcmp(current_token -> name, "end") ||
         !strcmp(current_token -> name, "dump")))){
-        while(*(*next_position) != '\0')
-            (*next_position) ++;
-         @<Metafont: Chegamos ao Fim do Código-Fonte@>
-         return NULL;
+        mf_end(mf);
+        return NULL;
     }
     // Se não, vamos expandindo cada token até acharmos o fim da declaração
     while(1){
@@ -513,8 +692,7 @@ static struct token *get_statement(struct metafont *mf, char *source,
         // Se não saímos do loop, temos que ir para o próximo token
         if(current_token -> next == NULL){
             if(mf -> pending_tokens == NULL)
-                current_token -> next = next_token(source, &source, line, &line,
-                                                   filename);
+                current_token -> next = next_token(mf);
             else{
                 current_token -> next = mf -> pending_tokens;
                 mf -> pending_tokens = mf -> pending_tokens -> next;
@@ -525,7 +703,7 @@ static struct token *get_statement(struct metafont *mf, char *source,
             goto source_incomplete_or_with_error;
         current_token -> next -> prev = current_token;
         current_token = current_token -> next;
-        while(expand_token(&current_token, source, &source));
+        while(expand_token(mf, &current_token));
     }
     // Obtida declaração no loop acima, finalizando
     if(current_token -> next != NULL){
@@ -537,12 +715,9 @@ static struct token *get_statement(struct metafont *mf, char *source,
     }
     current_token -> next = NULL;
     @<Metafont: Imediatamente após gerarmos uma declaração completa@>
-    *next_line = line;
-    *next_position = source;
     return first_token;
 source_incomplete_or_with_error:
-    fprintf(stderr, "ERROR: %s:%d: Source with error or incomplete, aborting.\n",
-            filename, line);
+    mf_error(mf, "Source with error or incomplete, aborting.");
     return NULL;
 }
 @
@@ -553,7 +728,7 @@ função abaixo que fica obtendo declarações e as executa:
 
 @<Metafont: Funções Estáticas@>+=
 @<Metafont: Função run_single_statement@>
-void run_statements(struct metafont *mf, char *source, char *filename){
+void run_statements(struct metafont *mf){
     struct token *statement;
     int line = 1;
     bool end_execution = false, first_loop = (mf -> parent == NULL);
@@ -565,12 +740,11 @@ void run_statements(struct metafont *mf, char *source, char *filename){
             first_loop = false;
         }
         @<METAFONT: Imediatamente antes de ler próxima declaração@>
-        statement = get_statement(mf, source, &source, line, &line, filename);
+        statement = get_statement(mf);
         if(statement == NULL)
             end_execution = true;
         else
-            run_single_statement(&mf, statement, source, &source, line, &line,
-                                 filename);
+            run_single_statement(&mf, statement);
         @<METAFONT: Imediatamente após executar declaração@>
         if(mf -> pending_tokens == NULL)
             _iWtrash();
@@ -589,32 +763,31 @@ ponto-e-vírgula. Semanticamente ela é uma declaração que pede para o
 nosso interpretador METAFONT não fazer nada:
 
 @<Metafont: Função run_single_statement@>=
-void run_single_statement(struct metafont **mf, struct token *statement,
-                            char *source, char **next_source,
-                            int line, int *next_line, char *filename){
+void run_single_statement(struct metafont **mf, struct token *statement){
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
     @<Metafont: Executa Declaração@>
-    fprintf(stderr, "ERROR: %s:%d: Ignoring isolated expression (%s).\n",
-            filename, line, (statement == NULL)?("NULL"):(statement -> name));
-    return;
-clean_exit:
-    *next_source = source;
-    *next_line = line;
+    mf_error(mf, "Isolated expression. I couldn't find a = or := after it.");
     return;
 }
 @
-
 
 Outra coisa que ainda não definimos é a função que expande um único
 token para um ou mais tokens. Essa é a implementação das macros de
 METAFONT, as quais serão definidas logo em seguida.
 
 @<Metafont: Função Estática expand_token@>=
-bool expand_token(struct token **first_token, char *source, char **next_char){
+bool expand_token(struct metafont *mf, struct token **first_token){
      // todo
      return false;
 }
+@
+
+Com isso, podemos enfim fazer cada estrutura Metafont executar logo
+após sua inicialização:
+
+@<METAFONT: Executa Arquivo de Inicialização@>=
+run_statements(structure);
 @
 
 @*1 Quantidades Internas.
@@ -638,7 +811,7 @@ Basicamente nós iremos armazenar dentro da estrutura METAFONT uma
 struct _trie *internal_quantities;
 @
 
-A qual deverá ser inicializada como vazia para qualquer inicialização
+A qual deverá ser inicializada como vazia para qualquer inicializ ação
 de estrutura METAFONT:
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
@@ -1528,28 +1701,12 @@ static struct _trie *primitive_sparks;
 Vamos também definir enfim uma função de inicialização para
 preenchermos tal árvore:
 
-@<Metafont: Declarações@>+=
-void _initialize_metafont(void);
-@
-
-@<API Weaver: Inicialização@>+=
-{
-    Wbreakpoint();
-    _initialize_metafont();
-}
-@
 
 No encerramento vamos usar um \monoespaco{Wtrash} para limparmos a
 memória inicializada pelo METAFONT na ordem certa:
 
-@<API Weaver: METAFONT: Encerramento@>+=
-{
-    Wtrash();
-}
-@
 
-@<Metafont: Definições@>+=
-void _initialize_metafont(void){
+@<Metafont: Inicialização@>=
     primitive_sparks = _new_trie();
     _insert_trie(primitive_sparks, INT, "end", 0);
     _insert_trie(primitive_sparks, INT, "dump", 0);
@@ -1578,7 +1735,6 @@ void _initialize_metafont(void){
     _insert_trie(primitive_sparks, INT, "pair", 0);
     _insert_trie(primitive_sparks, INT, "numeric", 0);
     @<Metafont: Declara Nova Spark@>
-}
 @
 
 A definição acima conta com todas as sparks que já definimos em nossa
