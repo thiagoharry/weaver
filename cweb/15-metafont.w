@@ -79,7 +79,7 @@ memória para o terceiro caso.
 Declaremos esta arena de memória:
 
 @<Metafont: Variáveis Estáticas@>=
-static void *metafont_memory;
+static void *metafont_arena;
 @
 
 Declaremos a função que irá inicializar tudo o que precisarmos
@@ -95,8 +95,8 @@ seja usada como memória para o METAFONT:
 @<Metafont: Definições@>+=
 void _initialize_metafont(void){
     struct metafont *mf;
-    metafont_memory = Wcreate_arena(W_INTERNAL_MEMORY / 4);
-    if(metafont_memory == NULL){
+    metafont_arena = Wcreate_arena(W_INTERNAL_MEMORY / 4);
+    if(metafont_arena == NULL){
         fprintf(stderr, "ERROR: This system have no enough memory to "
                 "run this program.\n");
         exit(1);
@@ -159,19 +159,17 @@ construtor:
 
 @<Metafont: Funções Estáticas@>+=
 struct metafont *new_metafont(struct metafont *parent, char *filename){
+    void *arena;
     struct metafont *structure;
     size_t ret;
-    if(parent == NULL){
-        structure = (struct metafont *) Walloc(sizeof(struct metafont));
-        if(structure == NULL)
-            goto error_no_general_memory;
-    }
-    else{
-        structure = (struct metafont *) Walloc_arena(metafont_memory,
-                                                     sizeof(struct metafont));
-        if(structure == NULL)
-            goto error_no_internal_memory;
-    }
+    if(parent == NULL)
+        arena = _user_arena;
+    else
+        arena = metafont_arena;
+    structure = (struct metafont *) Walloc_arena(arena,
+                                                 sizeof(struct metafont));
+    if(structure == NULL)
+        goto error_no_internal_memory;
     structure -> parent = parent;
     strncpy(structure -> filename, filename, 255);
     structure -> fp = fopen(filename, "r");
@@ -211,7 +209,7 @@ Assim, na inicialização, para lermos o nosso arquivo inicial com
 código METAFONT, usamos:
 
 @<Metafont: Lê Arquivo de Inicialização@>=
-    mf = new_metafont("fonts/init.mf");
+    mf = new_metafont(NULL, "fonts/init.mf");
 @
 
 Agora anter de escrevermos o lexer da nossa linguagem, vamos
@@ -815,7 +813,7 @@ A qual deverá ser inicializada como vazia para qualquer inicializ ação
 de estrutura METAFONT:
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
-structure -> internal_quantities = _new_trie();
+structure -> internal_quantities = _new_trie(arena);
 @
 
 Mas se estamos declarando a primeira estrutura METAFONT, então ela
@@ -838,47 +836,47 @@ if(structure -> parent == NULL){
     month = date -> tm_mon + 1;
     day = date -> tm_mday;
     time_in_minutes = 60 * date -> tm_hour + date -> tm_min;
-    _insert_trie(T, DOUBLE, "tracingtitles", 0.0);
-    _insert_trie(T, DOUBLE, "tracingequations", 0.0);
-    _insert_trie(T, DOUBLE, "tracingcapsules", 0.0);
-    _insert_trie(T, DOUBLE, "tracingchoices", 0.0);
-    _insert_trie(T, DOUBLE, "tracingspecs", 0.0);
-    _insert_trie(T, DOUBLE, "tracingpens", 0.0);
-    _insert_trie(T, DOUBLE, "tracingcommands", 0.0);
-    _insert_trie(T, DOUBLE, "tracingrestores", 0.0);
-    _insert_trie(T, DOUBLE, "tracingmacros", 0.0);
-    _insert_trie(T, DOUBLE, "tracingedges", 0.0);
-    _insert_trie(T, DOUBLE, "tracingoutput", 0.0);
-    _insert_trie(T, DOUBLE, "tracingonline", 0.0);
-    _insert_trie(T, DOUBLE, "tracingstats", 0.0);
-    _insert_trie(T, DOUBLE, "pausing", 0.0);
-    _insert_trie(T, DOUBLE, "showstopping", 0.0);
-    _insert_trie(T, DOUBLE, "proofing", 0.0);
-    _insert_trie(T, DOUBLE, "turningcheck", 0.0);
-    _insert_trie(T, DOUBLE, "warningcheck", 0.0);
-    _insert_trie(T, DOUBLE, "smoothing", 0.0);
-    _insert_trie(T, DOUBLE, "autorounding", 0.0);
-    _insert_trie(T, DOUBLE, "glanularity", 0.0);
-    _insert_trie(T, DOUBLE, "glanularity", 0.0);
-    _insert_trie(T, DOUBLE, "fillin", 0.0);
-    _insert_trie(T, DOUBLE, "year", (double) year);
-    _insert_trie(T, DOUBLE, "month", (double) month);
-    _insert_trie(T, DOUBLE, "day", (double) day);
-    _insert_trie(T, DOUBLE, "time", (double) time_in_minutes);
-    _insert_trie(T, DOUBLE, "charcode", 0.0);
-    _insert_trie(T, DOUBLE, "charext", 0.0);
-    _insert_trie(T, DOUBLE, "charwd", 0.0);
-    _insert_trie(T, DOUBLE, "charht", 0.0);
-    _insert_trie(T, DOUBLE, "chardp", 0.0);
-    _insert_trie(T, DOUBLE, "charic", 0.0);
-    _insert_trie(T, DOUBLE, "chardx", 0.0);
-    _insert_trie(T, DOUBLE, "chardy", 0.0);
-    _insert_trie(T, DOUBLE, "designsize", 0.0);
-    _insert_trie(T, DOUBLE, "hppp", 0.0);
-    _insert_trie(T, DOUBLE, "vppp", 0.0);
-    _insert_trie(T, DOUBLE, "xoffset", 0.0);
-    _insert_trie(T, DOUBLE, "yoffset", 0.0);
-    _insert_trie(T, DOUBLE, "boundarychar", -1.0);
+    _insert_trie(T, arena, DOUBLE, "tracingtitles", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingequations", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingcapsules", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingchoices", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingspecs", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingpens", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingcommands", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingrestores", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingmacros", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingedges", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingoutput", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingonline", 0.0);
+    _insert_trie(T, arena, DOUBLE, "tracingstats", 0.0);
+    _insert_trie(T, arena, DOUBLE, "pausing", 0.0);
+    _insert_trie(T, arena, DOUBLE, "showstopping", 0.0);
+    _insert_trie(T, arena, DOUBLE, "proofing", 0.0);
+    _insert_trie(T, arena, DOUBLE, "turningcheck", 0.0);
+    _insert_trie(T, arena, DOUBLE, "warningcheck", 0.0);
+    _insert_trie(T, arena, DOUBLE, "smoothing", 0.0);
+    _insert_trie(T, arena, DOUBLE, "autorounding", 0.0);
+    _insert_trie(T, arena, DOUBLE, "glanularity", 0.0);
+    _insert_trie(T, arena, DOUBLE, "glanularity", 0.0);
+    _insert_trie(T, arena, DOUBLE, "fillin", 0.0);
+    _insert_trie(T, arena, DOUBLE, "year", (double) year);
+    _insert_trie(T, arena, DOUBLE, "month", (double) month);
+    _insert_trie(T, arena, DOUBLE, "day", (double) day);
+    _insert_trie(T, arena, DOUBLE, "time", (double) time_in_minutes);
+    _insert_trie(T, arena, DOUBLE, "charcode", 0.0);
+    _insert_trie(T, arena, DOUBLE, "charext", 0.0);
+    _insert_trie(T, arena, DOUBLE, "charwd", 0.0);
+    _insert_trie(T, arena, DOUBLE, "charht", 0.0);
+    _insert_trie(T, arena, DOUBLE, "chardp", 0.0);
+    _insert_trie(T, arena, DOUBLE, "charic", 0.0);
+    _insert_trie(T, arena, DOUBLE, "chardx", 0.0);
+    _insert_trie(T, arena, DOUBLE, "chardy", 0.0);
+    _insert_trie(T, arena, DOUBLE, "designsize", 0.0);
+    _insert_trie(T, arena, DOUBLE, "hppp", 0.0);
+    _insert_trie(T, arena, DOUBLE, "vppp", 0.0);
+    _insert_trie(T, arena, DOUBLE, "xoffset", 0.0);
+    _insert_trie(T, arena, DOUBLE, "yoffset", 0.0);
+    _insert_trie(T, arena, DOUBLE, "boundarychar", -1.0);
 }
 @
 
@@ -946,15 +944,14 @@ separadora que esperamos existir entre eles. Se após um dos tokens nós
 não encontrarmos uma vírgula, nós encerramos:
 
 @<Metafont: Funções Primitivas Estáticas@>=
-static struct token *symbolic_token_list(struct token **token,
-                                         char *filename, int line){
+static struct token *symbolic_token_list(struct metafont *mf,
+                                         struct token **token){
     struct token *first_token = *token, *current_token;
     current_token = first_token;
     while(1){
         // Se o token atual não for simbólico, isso é um erro.
         if(current_token == NULL || current_token -> type != SYMBOL){
-            fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
-                    filename, line);
+            mf_error(mf, "Missing symbolic token.");
             return NULL;
         }
         // Se o próximo token não for uma vírgula, terminamos de ler a
@@ -983,26 +980,23 @@ corretamente o <Comando newinternal>:
 @<Metafont: Executa Declaração@>=
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "newinternal")){
     struct token *current_token = statement -> next;
-    struct token *list = symbolic_token_list(&current_token, filename, line);
+    struct token *list = symbolic_token_list(*mf, &current_token);
     // Se tem algo diferente de ';' após a lista, isso é um erro:
     if(current_token == NULL || current_token -> type != SYMBOL ||
        strcmp(current_token -> name, ";")){
-        fprintf(stderr, "ERROR: %s:%d: Extra token at newinternal command (%s).\n",
-                filename, line,
-                (current_token == NULL)?("NULL"):(current_token -> name));
+        mf_error(*mf, "Extra token at newinternal command.");
         return;
     }
     // Executa o comando
     while(list != NULL){
-        _insert_trie((*mf) -> internal_quantities, DOUBLE, list -> name, 0.0);
+        _insert_trie((*mf) -> internal_quantities, _user_arena, DOUBLE,
+                     list -> name, 0.0);
         list = list -> next;
     }
     goto clean_exit;
 }
 @
 
-
-% Comandos inner e outer dependem de grupo
 
 @*1 O Comando \monoespaco{everyjob}.
 
@@ -1038,27 +1032,20 @@ invocado:
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "everyjob")){
     // Deve haver um token simbólico após o comando
     if(statement -> next == NULL || statement -> next -> type != SYMBOL){
-        fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
-                filename, line);
+        mf_error(*mf, "Missing symbolic token.");
         return;
     }
     // Se aconteceu do token definido como everyjob ser um ';', pegamos mais um:
     if(!strcmp(statement -> next -> name, ";")){
-        statement -> next -> next = get_statement(*mf, source, &source,
-                                                  line, &line, filename);
+        statement -> next -> next = get_statement(*mf);
         if(statement -> next -> next != NULL)
             statement -> next -> next -> prev = statement -> next;
-        *next_line = line;
-        *next_source = source;
     }
     // E em seguida deve haver um ponto-e-vírgula:
     if(statement -> next -> next == NULL ||
        statement -> next -> next -> type != SYMBOL ||
        strcmp(statement -> next -> next -> name, ";")){
-        fprintf(stderr, "ERROR: %s:%d: Extra tokens found after everyjob (%s).\n",
-                filename, line,
-                (statement -> next -> next == NULL)?("NULL"):
-                (statement -> next -> next -> name));
+        mf_error(*mf, "Extra tokens found after everyjob.");
         return;
     }
     // Se não ocorreu erro, armazena o nome do token:
@@ -1111,10 +1098,7 @@ if(statement -> type == SYMBOL &&
     // Garante que próximo token é um ';'
     if(statement -> next == NULL || statement -> next -> type != SYMBOL ||
        strcmp(statement -> next -> name, ";")){
-        fprintf(stderr, "ERROR: %s:%d: Extra tokens found after %s (%s).\n",
-                filename, line, statement -> name,
-                (statement -> next  == NULL)?("NULL"):
-                (statement -> next -> name));
+        mf_error(*mf, "Extra tokens found after mode command.")
         return;
     }
     goto clean_exit;
@@ -1168,8 +1152,7 @@ que estamos encerrando o programa no meio de um grupo não-finalizado:
 
 @<Metafont: Chegamos ao Fim do Código-Fonte@>=
 if(mf -> parent != NULL){
-    fprintf(stderr, "ERROR: %s:%d: A group begun and never ended.\n",
-            filename, line);
+    mf_error(mf, "A group begun and never ended.");
 }
 @
 
@@ -1180,7 +1163,8 @@ pai.
 
 @<Metafont: Executa Declaração@>=
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
-    *mf = new_metafont(*mf);
+    Wbreakpoint_arena(metafont_arena);
+    *mf = new_metafont(*mf, (*mf) -> filename);
     statement = statement -> next;
     statement -> prev = NULL;
     (*mf) -> pending_tokens = statement;
@@ -1190,16 +1174,16 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
     else
         (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
     (*mf) -> parent -> pending_tokens = NULL;
-    goto clean_exit;
+    return;
 }
 @
 
 Já tratar o comando \monoespaco{endgroup} é mais complicado, pois ele
-aparece tipicamente na penúltima posição, podendo aparecer na última
-caso o código esteja incorreto por estar incompleto. Sendo assim,
-vamos criar uma forma da fuinção que monta uma nova declaração avisar
-o nosso interpretador caso ela leia um \monoespaco{endgroup} na
-penúltima ou última posição:
+aparece tipicamente na penúltima posição (antes de um
+ponto-e-vírgula), podendo aparecer na última caso o código esteja
+incorreto por estar incompleto. Sendo assim, vamos criar uma forma da
+fuinção que monta uma nova declaração avisar o nosso interpretador
+caso ela leia um \monoespaco{endgroup} na penúltima ou última posição:
 
 @<METAFONT: Estrutura METAFONT@>=
 int hint;
@@ -1233,15 +1217,11 @@ escopo anterior:
 if(mf -> hint == HINT_ENDGROUP){
     //struct metafont *p;
     // Caso de erro: usar endgroup sem begingroup:
-    if(mf -> parent == NULL){
-        fprintf(stderr,
-                "ERROR: %s:%d: Extra 'endgroup' while not in 'begingroup'.\n",
-                filename, line);
-    }
+    if(mf -> parent == NULL)
+        mf_error(mf, Extra 'endgroup' while not in 'begingroup'.");
     else{
-        //p = mf;
         mf = mf -> parent;
-        //Wfree(p);
+        Wtrash_arena(metafont_arena);
     }
 }
 @
@@ -1252,9 +1232,8 @@ a nossa memória antes de encerrar:
 
 @<Metafont: Após terminar de interpretar um código@>=
 while(mf -> parent != NULL){
-    //struct metafont *p = mf;
     mf = mf -> parent;
-    //Wfree(p);
+    Wtrash_arena(metafont_arena);
 }
 @
 
@@ -1344,7 +1323,7 @@ struct _trie *variable_types;
 @
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
-structure -> variable_types = _new_trie();
+structure -> variable_types = _new_trie(arena);
 @
 
 O que o comando \monoespaco{save} deverá fazer então é fazer com que o
@@ -1365,7 +1344,7 @@ possamos remover os valores caso eles já existam durante um comando
     int i;
     // Uma trie com  valor de variáveis para cada tipo:
     for(i = 0; i < 8; i ++)
-        structure -> vars[i] = _new_trie();
+        structure -> vars[i] = _new_trie(arena);
 }
 @
 
@@ -1375,26 +1354,27 @@ nosso mais novo comando:
 @<Metafont: Executa Declaração@>=
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "save")){
     struct token *current_token = statement -> next;
-    struct token *list = symbolic_token_list(&current_token, filename, line);
+    struct token *list = symbolic_token_list(*mf, &current_token);
     // Se tem algo diferente de ';' após a lista, isso é um erro:
     if(current_token == NULL || current_token -> type != SYMBOL ||
        strcmp(current_token -> name, ";")){
-        fprintf(stderr, "ERROR: %s:%d: Extra token at save command (%s).\n",
-                filename, line,
-                (current_token == NULL)?("NULL"):(current_token -> name));
+        mf_error(*mf, "Extra token at save command.");
         return;
     }
     // Executa o comando
     while(list != NULL){
+        void *current_arena =
+            ((*mf) -> parent == NULL)?_user_arena:metafont_arena;
         int current_type;
         bool already_declared = _search_trie((*mf) -> variable_types, INT,
                                              list -> name, &current_type);
         if(already_declared && current_type != NOT_DECLARED)
             _remove_trie((*mf) -> vars[current_type], list -> name);
-        _insert_trie((*mf) -> variable_types, INT, list -> name, NOT_DECLARED);
+        _insert_trie((*mf) -> variable_types, current_arena, INT, list -> name,
+                     NOT_DECLARED);
         list = list -> next;
     }
-    goto clean_exit;
+    return;
 }
 @
 
@@ -1437,7 +1417,7 @@ struct _trie *delimiters;
 @
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
-structure -> delimiters = _new_trie();
+structure -> delimiters = _new_trie(arena);
 @
 
 Fora isso, o comando é bastante
@@ -1446,11 +1426,11 @@ simples:
 @<Metafont: Executa Declaração@>=
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
     char *end_delimiter;
+    void *current_arena;
     struct metafont *scope = (*mf);
     statement = statement -> next;
     if(statement == NULL || statement -> type != SYMBOL){
-        fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
-                filename, line);
+        mf_error(*mf, "Missing symbolic token.");
         return;
     }
     while(scope -> parent != NULL){
@@ -1460,29 +1440,30 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
             break;
         scope = scope -> parent;
     }
+    current_arena = (scope -> parent == NULL)?_user_arena:metafont_arena;
     statement = statement -> next;
     if(statement == NULL || statement -> type != SYMBOL){
-        fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
-                filename, line);
+        mf_error(*mf, "Missing symbolic token.");
         return;
     }
-    end_delimiter = (char *) Walloc(strlen(statement -> name) + 1);
+    end_delimiter = (char *) Walloc_arena(current_arena,
+                                          strlen(statement -> name) + 1);
     if(end_delimiter == NULL){
         fprintf(stderr, "ERROR: Not enough memory to parse METAFONT. "
-                "Please, increase the value of W_MAX_MEMORY at conf/conf.h.\n");
+                "Please, increase the value of %s at conf/conf.h.\n",
+                (current_arena==_user_arena)?"W_MAX_MEMORY":"W_INTERNAL_MEMORY");
         return;
     }
     strcpy(end_delimiter, statement -> name);
-    _insert_trie(scope -> delimiters, VOID_P, statement -> prev -> name,
-                 (void *) end_delimiter);
+    _insert_trie(scope -> delimiters, current_arena, VOID_P,
+                 statement -> prev -> name, (void *) end_delimiter);
     statement = statement -> next;
     if(statement == NULL || statement -> type != SYMBOL ||
        strcmp(statement -> name, ";")){
-        fprintf(stderr, "ERROR: %s:%d: ignoring extra tokens.\n",
-                filename, line);
+        mf_error(*mf, "Missing symbolic token.");
         return;
     }
-    goto clean_exit;
+    return;
 }
 @
 
@@ -1510,7 +1491,7 @@ struct _trie *outer_tokens;
 @
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
-structure -> outer_tokens = _new_trie();
+structure -> outer_tokens = _new_trie(arena);
 @
 
 Depois disso, podemos definir os comandos de proteção:
@@ -1521,17 +1502,16 @@ if(statement -> type == SYMBOL &&
     !strcmp(statement -> name, "outer"))){
     bool inner_command = (statement -> name[0] == 'i');
     statement = statement -> next;
-    struct token *list = symbolic_token_list(&statement, filename, line);
+    struct token *list = symbolic_token_list(*mf, &statement);
     // Se tem algo diferente de ';' após a lista, isso é um erro:
     if(statement == NULL || statement -> type != SYMBOL ||
        strcmp(statement -> name, ";")){
-        fprintf(stderr, "ERROR: %s:%d: Extra token at save command (%s).\n",
-                filename, line,
-                (statement == NULL)?("NULL"):(statement -> name));
+        mf_error(*mf, "Extra token at save command");
         return;
     }
     // Executa o comando
     while(list != NULL){
+        void *current_arena;
         struct metafont *scope = (*mf);
         while(scope -> parent != NULL){
             int dummy_result;
@@ -1540,13 +1520,15 @@ if(statement -> type == SYMBOL &&
                 break;
             scope = scope -> parent;
         }
+        current_arena = (scope -> parent == NULL)?_user_arena:metafont_arena;
         if(inner_command)
             _remove_trie((*mf) -> outer_tokens, list -> name);
         else
-            _insert_trie((*mf) -> outer_tokens, INT, list -> name, 0);
+            _insert_trie((*mf) -> outer_tokens, current_arena, INT,
+                         list -> name, 0);
         list = list -> next;
     }
-    goto clean_exit;
+    return;
 }
 @
 
@@ -2030,7 +2012,7 @@ static struct token *delimited_parameters(struct token **token,
             return NULL;
         }
         tok = tok -> next;
-        parameter_list = symbolic_token_list(&tok, filename, line);
+        parameter_list = symbolic_token_list(*mf, &tok);
         while(parameter_list != NULL){
             char *name = (char *) Walloc(strlen(parameter_list -> name) + 1);
             if(name == NULL) goto error_no_memory;
