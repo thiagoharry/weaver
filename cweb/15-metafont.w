@@ -30,8 +30,8 @@ seguintes arquivos:
 #include "weaver.h"
 @<Metafont: Inclui Cabeçalhos@>
 @<Metafont: Variáveis Estáticas@>
-@<Metafont: Funções Primitivas Estáticas@>
 @<Metafont: Funções Estáticas@>
+@<Metafont: Parser@>
 @<Metafont: Definições@>
 @
 @<Cabeçalhos Weaver@>+=
@@ -157,8 +157,12 @@ que a estrutura será filha de outra).
 Sendo assim, a inicialização da estrutura será feita pelo seguinte
 construtor:
 
-@<Metafont: Funções Estáticas@>+=
-struct metafont *new_metafont(struct metafont *parent, char *filename){
+@<Metafont: Declarações@>+=
+struct metafont *_new_metafont(struct metafont *, char *);
+@
+
+@<Metafont: Definições@>+=
+struct metafont *_new_metafont(struct metafont *parent, char *filename){
     void *arena;
     struct metafont *structure;
     size_t ret;
@@ -169,7 +173,7 @@ struct metafont *new_metafont(struct metafont *parent, char *filename){
     structure = (struct metafont *) Walloc_arena(arena,
                                                  sizeof(struct metafont));
     if(structure == NULL)
-        goto error_no_internal_memory;
+        goto error_no_memory;
     structure -> parent = parent;
     strncpy(structure -> filename, filename, 255);
     structure -> fp = fopen(filename, "r");
@@ -192,15 +196,10 @@ struct metafont *new_metafont(struct metafont *parent, char *filename){
 error_no_file:
     fprintf(stderr, "ERROR (0): File %s don't exist.\n", filename);
     return NULL;
-error_no_general_memory:
-    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-            "source. Please, increase the value of W_MAX_MEMORY "
-            "at conf/conf.h.\n");
-    return NULL;
-error_no_internal_memory:
-    fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-            "source. Please, increase the value of W_INTERNAL_MEMORY "
-            "at conf/conf.h.\n");
+error_no_memory:
+    fprintf(stderr, "ERROR: Not enough memory to parse METAFONT "
+            "source. Please, increase the value of W_%s_MEMORY "
+            "at conf/conf.h.\n", (arena == _user_arena)?"MAX":"INTERNAL");
     return NULL;
 }
 @
@@ -209,7 +208,7 @@ Assim, na inicialização, para lermos o nosso arquivo inicial com
 código METAFONT, usamos:
 
 @<Metafont: Lê Arquivo de Inicialização@>=
-    mf = new_metafont(NULL, "fonts/init.mf");
+    mf = _new_metafont(NULL, "fonts/init.mf");
 @
 
 Agora anter de escrevermos o lexer da nossa linguagem, vamos
@@ -232,12 +231,12 @@ char read_char(struct metafont *mf){
         mf -> buffer[size] = '\0';
         if(size != 4095){
             fclose(mf -> fp);
-            structure -> fp = NULL;
+            mf -> fp = NULL;
         }
-        fp -> buffer_position = 0;
-        ret = mf -> buffer[fp -> buffer_position];
+        mf -> buffer_position = 0;
+        ret = mf -> buffer[mf -> buffer_position];
         if(ret != '\0')
-            fp -> buffer_position ++;
+            mf -> buffer_position ++;
     }
     else
         return '\0';
@@ -262,10 +261,10 @@ char peek_char(struct metafont *mf){
             mf -> buffer[size] = '\0';
             if(size != 4095){
                 fclose(mf -> fp);
-                structure -> fp = NULL;
+                mf -> fp = NULL;
             }
-            fp -> buffer_position = 0;
-            ret = mf -> buffer[fp -> buffer_position];
+            mf -> buffer_position = 0;
+            ret = mf -> buffer[mf -> buffer_position];
         }
         else
             return '\0';
@@ -395,7 +394,7 @@ nisso.
 
 Podemos criar os seguintes construtores para tais diferentes tokens:
 
-@<Metafont: Funções Primitivas Estáticas@>+=
+@<Metafont: Funções Estáticas@>+=
 static struct token *new_token(int type, float value, char *name,
                                void *memory_arena){
     struct token *ret;
@@ -433,10 +432,10 @@ léxico. Basicamente ela irá sempre retornar o próximo token lido. Ela
 definido à partir das regras vistas acima sobre como identificar cada
 token:
 
-@<Metafont: Funções Primitivas Estáticas@>+=
+@<Metafont: Funções Estáticas@>+=
 static struct token *next_token(struct metafont *mf){
     char buffer[512];
-    int buffer_position = 0;
+    int buffer_position = 0, number_of_dots = 0;
     char current_char, next_char;
     char family[56];
     bool valid_char;
@@ -447,8 +446,10 @@ static struct token *next_token(struct metafont *mf){
     case ' ': case '\n': goto start; // Ignora espaço (regra 01:a)
     case '.':
         next_char = peek_char(mf);
-        if(next_char == '.')
-            goto dot_symbol;
+        if(next_char == '.'){
+            strcpy(family, ".");
+            break;
+        }
         else if(isdigit(next_char))
             goto numeric;
         else
@@ -461,7 +462,6 @@ static struct token *next_token(struct metafont *mf){
     case '6': case '7': case '8': case '9':
         {
         numeric: // Regra 03: Vai retornar um token numérico
-            int number_of_dots = 0;
             for(;;){
                 buffer[buffer_position] = current_char;
                 buffer_position = (buffer_position + 1) % 512;
@@ -519,8 +519,8 @@ static struct token *next_token(struct metafont *mf){
     case '!': case '?':
         strcpy(family, "!?");
         break;
-    case '#': case '&': case '@': case '$':
-        strcpy(family, "#&@$");
+    case '#': case '&': case '@@': case '$':
+        strcpy(family, "#&@@$");
         break;
     case '[':
         strcpy(family, "[");
@@ -531,12 +531,6 @@ static struct token *next_token(struct metafont *mf){
     case '{': case '}':
         strcpy(family, "{}");
         break;
-    case '.':
-    {
-    dot_symbol:
-        strcpy(family, ".");
-        break;
-    }
     case '~': case '^':
         strcpy(family, "~^");
         break;
@@ -648,7 +642,7 @@ Agora vamos nos concentrar apenas na função que ficará responsável por
 obter o próximo token (seja um já lido, mas ainda não interpretado, ou
 um que ainda precisa ser lido de uma string) e expandi-lo:
 
-@<Metafont: Funções Primitivas Estáticas@>+=
+@<Metafont: Funções Estáticas@>+=
 @<Metafont: Função Estática expand_token@>
 static struct token *get_token(struct metafont *mf){
     struct token *first_token = NULL;
@@ -724,11 +718,10 @@ Fazendo isso, por fim podemos terminar a estrutura básica da leitura e
 interpretação de um código METAFONT na forma de uma string por meio da
 função abaixo que fica obtendo declarações e as executa:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Parser@>=
 @<Metafont: Função run_single_statement@>
 void run_statements(struct metafont *mf){
     struct token *statement;
-    int line = 1;
     bool end_execution = false, first_loop = (mf -> parent == NULL);
     while(!end_execution){
         if(mf -> pending_tokens == NULL)
@@ -765,7 +758,7 @@ void run_single_statement(struct metafont **mf, struct token *statement){
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
     @<Metafont: Executa Declaração@>
-    mf_error(mf, "Isolated expression. I couldn't find a = or := after it.");
+    mf_error(*mf, "Isolated expression. I couldn't find a = or := after it.");
     return;
 }
 @
@@ -814,6 +807,8 @@ de estrutura METAFONT:
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
 structure -> internal_quantities = _new_trie(arena);
+if(structure -> internal_quantities == NULL)
+    goto error_no_memory;
 @
 
 Mas se estamos declarando a primeira estrutura METAFONT, então ela
@@ -943,7 +938,7 @@ função irá consumir os tokens lidos por eles, removendo a vírgula
 separadora que esperamos existir entre eles. Se após um dos tokens nós
 não encontrarmos uma vírgula, nós encerramos:
 
-@<Metafont: Funções Primitivas Estáticas@>=
+@<Metafont: Funções Estáticas@>=
 static struct token *symbolic_token_list(struct metafont *mf,
                                          struct token **token){
     struct token *first_token = *token, *current_token;
@@ -993,7 +988,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "newinternal")){
                      list -> name, 0.0);
         list = list -> next;
     }
-    goto clean_exit;
+    return;
 }
 @
 
@@ -1054,7 +1049,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "everyjob")){
         (*mf) -> everyjob_token_name = (char *)
             Walloc(strlen(statement -> next -> name) + 1);
     strcpy((*mf) -> everyjob_token_name, statement -> next -> name);
-    goto clean_exit;
+    return;
 }
 @
 
@@ -1098,10 +1093,10 @@ if(statement -> type == SYMBOL &&
     // Garante que próximo token é um ';'
     if(statement -> next == NULL || statement -> next -> type != SYMBOL ||
        strcmp(statement -> next -> name, ";")){
-        mf_error(*mf, "Extra tokens found after mode command.")
+        mf_error(*mf, "Extra tokens found after mode command.");
         return;
     }
-    goto clean_exit;
+    return;
 }
 @
 
@@ -1164,7 +1159,7 @@ pai.
 @<Metafont: Executa Declaração@>=
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
     Wbreakpoint_arena(metafont_arena);
-    *mf = new_metafont(*mf, (*mf) -> filename);
+    *mf = _new_metafont(*mf, (*mf) -> filename);
     statement = statement -> next;
     statement -> prev = NULL;
     (*mf) -> pending_tokens = statement;
@@ -1218,7 +1213,7 @@ if(mf -> hint == HINT_ENDGROUP){
     //struct metafont *p;
     // Caso de erro: usar endgroup sem begingroup:
     if(mf -> parent == NULL)
-        mf_error(mf, Extra 'endgroup' while not in 'begingroup'.");
+        mf_error(mf, "Extra 'endgroup' while not in 'begingroup'.");
     else{
         mf = mf -> parent;
         Wtrash_arena(metafont_arena);
@@ -1624,16 +1619,16 @@ struct _trie *def, *vardef, *primarydef, *secondarydef, *tertiarydef;
 @
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
-structure -> def = _new_trie();
-structure -> vardef = _new_trie();
-structure -> primarydef = _new_trie();
-structure -> secondarydef = _new_trie();
-structure -> tertiarydef = _new_trie();
+structure -> def = _new_trie(arena);
+structure -> vardef = _new_trie(arena);
+structure -> primarydef = _new_trie(arena);
+structure -> secondarydef = _new_trie(arena);
+structure -> tertiarydef = _new_trie(arena);
 @
 
 E agora sim a seguinte função checa se um token recebido é uma tag:
 
-@<Metafont: Funções Primitivas Estáticas@>=
+@<Metafont: Funções Estáticas@>=
 static bool is_tag(struct metafont *mf, struct token *token){
     struct metafont *scope = mf;
     void *dummy;
@@ -1689,33 +1684,33 @@ memória inicializada pelo METAFONT na ordem certa:
 
 
 @<Metafont: Inicialização@>=
-    primitive_sparks = _new_trie();
-    _insert_trie(primitive_sparks, INT, "end", 0);
-    _insert_trie(primitive_sparks, INT, "dump", 0);
-    _insert_trie(primitive_sparks, INT, ";", 0);
-    _insert_trie(primitive_sparks, INT, ",", 0);
-    _insert_trie(primitive_sparks, INT, "newinternal", 0);
-    _insert_trie(primitive_sparks, INT, "everyjob", 0);
-    _insert_trie(primitive_sparks, INT, "batchmode", 0);
-    _insert_trie(primitive_sparks, INT, "nonstopmode", 0);
-    _insert_trie(primitive_sparks, INT, "scrollmode", 0);
-    _insert_trie(primitive_sparks, INT, "errorstopmode", 0);
-    _insert_trie(primitive_sparks, INT, "begingroup", 0);
-    _insert_trie(primitive_sparks, INT, "endgroup", 0);
-    _insert_trie(primitive_sparks, INT, "save", 0);
-    _insert_trie(primitive_sparks, INT, "delimiters", 0);
-    _insert_trie(primitive_sparks, INT, "outer", 0);
-    _insert_trie(primitive_sparks, INT, "inner", 0);
-    _insert_trie(primitive_sparks, INT, "[", 0);
-    _insert_trie(primitive_sparks, INT, "]", 0);
-    _insert_trie(primitive_sparks, INT, "boolean", 0);
-    _insert_trie(primitive_sparks, INT, "string", 0);
-    _insert_trie(primitive_sparks, INT, "path", 0);
-    _insert_trie(primitive_sparks, INT, "pen", 0);
-    _insert_trie(primitive_sparks, INT, "picture", 0);
-    _insert_trie(primitive_sparks, INT, "transform", 0);
-    _insert_trie(primitive_sparks, INT, "pair", 0);
-    _insert_trie(primitive_sparks, INT, "numeric", 0);
+    primitive_sparks = _new_trie(_user_arena);
+    _insert_trie(primitive_sparks, _user_arena, INT, "end", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "dump", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, ";", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, ",", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "newinternal", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "everyjob", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "batchmode", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "nonstopmode", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "scrollmode", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "errorstopmode", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "begingroup", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "endgroup", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "save", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "delimiters", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "outer", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "inner", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "[", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "]", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "boolean", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "string", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "path", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "pen", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "picture", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "transform", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "pair", 0);
+    _insert_trie(primitive_sparks, _user_arena, INT, "numeric", 0);
     @<Metafont: Declara Nova Spark@>
 @
 
@@ -1739,6 +1734,7 @@ if(statement -> type == SYMBOL &&
     struct token *first_token, *last_token;
     int name_size = 0;
     int type;
+    char buffer[512];
     // Obtém o tipo da declaração em número
     switch(statement -> name[0]){
     case 'b':
@@ -1774,8 +1770,7 @@ if(statement -> type == SYMBOL &&
     while(1){
         // O primeiro token apenas deve ser simbólico
         if(!suffix && (statement == NULL || statement -> type != SYMBOL)){
-            fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
-                    filename, line);
+            mf_error(*mf, "Missing symbolic token.");
             return;
         }
         else if(suffix){
@@ -1783,8 +1778,7 @@ if(statement -> type == SYMBOL &&
             if(statement == NULL || statement -> type != SYMBOL ||
                (!is_tag(*mf, statement) && (strcmp(statement -> name, "[") ||
                                             strcmp(statement -> name, "]")))){
-                fprintf(stderr, "ERROR: %s:%d: Illegal suffix.\n", filename,
-                        line);
+                mf_error(*mf, "Illegal sufix.");
                 return;
             }
         }
@@ -1793,19 +1787,9 @@ if(statement -> type == SYMBOL &&
             suffix = true;
             // O primeiro token pode ser até mesmo um ';'. Tratar o caso:
             if(!strcmp(statement -> name, ";") && statement -> next == NULL){
-                struct token *tok;
-                statement -> next = get_first_token(*mf, source, &source,
-                                                    line, &line, filename);
+                statement -> next = get_statement(*mf);
                 if(statement -> next != NULL)
                     statement -> next -> prev = statement;
-                tok = statement -> next;
-                while(tok != NULL && strcmp(tok -> name, ";")){
-                    tok -> next = get_first_token(*mf, source, &source,
-                                                  line, &line, filename);
-                    if(tok -> next != NULL)
-                        tok -> next -> prev = tok;
-                    tok = tok -> next;
-                }
             }
         }
         name_size += strlen(statement -> name) + 1;
@@ -1814,25 +1798,23 @@ if(statement -> type == SYMBOL &&
            statement -> next -> type == SYMBOL &&
            (!strcmp(statement -> next -> name, ",") ||
             !strcmp(statement -> next -> name, ";"))){
+            void *current_arena;
             int current_type;
+            int buffer_size = 511;
             bool already_declared = false;
             struct metafont *scope = *mf;
-            char *buffer = (char *) Walloc(name_size);
-            if(buffer == NULL){
-                fprintf(stderr, "ERROR: Not enough memory. Please increase the "
-                                "value of W_MAX_MEMORY at conf/conf.h.\n");
-                exit(1);
-            }
-            last_token = statement;
             buffer[0] = '\0';
+            last_token = statement;
             // Copia o nome da variável
             statement = first_token -> prev;
             do{
                 statement = statement -> next;
-                strcat(buffer, statement -> name);
-                strcat(buffer, " ");
+                strncat(buffer, statement -> name, buffer_size);
+                buffer_size -= strlen(statement -> name);
+                strncat(buffer, " ", buffer_size);
+                buffer_size --;
             } while(statement != last_token);
-            buffer[name_size - 1] = '\0';
+            buffer[511] = '\0';
             while(scope -> parent != NULL){
                 already_declared = _search_trie(scope -> variable_types, INT,
                                                 buffer, &current_type);
@@ -1840,13 +1822,13 @@ if(statement -> type == SYMBOL &&
                     break;
                 scope = scope -> parent;
             }
-            // Se a variável já havia sido declarada, seus valores devem ser limpos
             if(scope -> parent == NULL)
-                already_declared = _search_trie(scope -> variable_types, INT,
-                                                 buffer, &current_type);
+                current_arena = _user_arena;
+            else
+                current_arena = metafont_arena;
             if(already_declared && current_type != NOT_DECLARED)
                 _remove_trie(scope -> vars[current_type], buffer);
-            _insert_trie(scope -> variable_types, INT, buffer, type);
+            _insert_trie(scope -> variable_types, current_arena, INT, buffer, type);
             // Se o próximo caractere for um ',', vamos pular ele,
             // se for um ';', encerramos
             if(statement -> next != NULL){
@@ -1861,7 +1843,7 @@ if(statement -> type == SYMBOL &&
         }
         statement = statement -> next;
     }
-    goto clean_exit;
+    return;
 }
 @
 
@@ -1903,12 +1885,12 @@ Observando esta especificação, primeiro vamos registrar os novos
 ``sparks'' que estão aparecendo nela:
 
 @<Metafont: Declara Nova Spark@>=
-_insert_trie(primitive_sparks, INT, "expr", 0);
-_insert_trie(primitive_sparks, INT, "suffix", 0);
-_insert_trie(primitive_sparks, INT, "text", 0);
-_insert_trie(primitive_sparks, INT, "primary", 0);
-_insert_trie(primitive_sparks, INT, "secondary", 0);
-_insert_trie(primitive_sparks, INT, "tertiary", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "expr", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "suffix", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "text", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "primary", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "secondary", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "tertiary", 0);
 @
 
 Uma definição basicamente define uma nova macro. Toda nova macro é
@@ -1953,42 +1935,26 @@ struct _trie *macros;
 @
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
-structure -> macros = _new_trie();
+structure -> macros = _new_trie(arena);
 @
 
 Uma macro deve ser tratada como algo permanente, assim como os seus
 tokens. Não como os tokens temporários que vínhamos criando até então
 e que eram desalocados da memória tão logo ocorria a interpretação de
-cada declaração. Sendo assim, ao criar ela não podemos usar as mesmas
-funções de criação de tokens que usávamos até então. Vamos definir uma
-função para criar tokens permanentes:
-
-@<Metafont: Funções Primitivas Estáticas@>+=
-static struct token *new_permanent_token(int type, float value, char *name){
-    struct token *ret;
-    ret = (struct token *) Walloc(sizeof(struct token));
-    if(ret == NULL){
-        fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
-                "source. Please, increase the value of W_MAX_MEMORY "
-                "at conf/conf.h.\n");
-        return NULL;
-    }
-    ret -> type = type;
-    ret -> value = value;
-    ret -> name = name;
-    ret -> prev = ret -> next = NULL;
-    return ret;
-}
-@
+cada declaração. Sendo assim, uma novidade é que ao criar um token
+para elas, devemos declará-los como sendo permanentes, alocados na
+arena de memória de usuário, ou locais de um bloco, sendo declarados
+na arena de memória do próprio METAFONT.
 
 Primeiro vamos então nos preocupar com os parâmetros. Esta função
 deverá consumir uma lista de tokens comuns e gerar uma lista de tokens
 permanentes que será uma lista de parâmetros a ser usada por uma
 macro. Ela interpreta apenas parâmetros delimitados:
 
-@<Metafont: Funções Primitivas Estáticas@>+=
-static struct token *delimited_parameters(struct token **token,
-                                          char *filename, int line){
+@<Metafont: Funções Estáticas@>+=
+static struct token *delimited_parameters(struct metafont *mf,
+                                          struct token **token,
+                                          void *arena){
     struct token *tok = *token, *parameter_list;
     struct token *result = NULL, *last_result = NULL;
     int type = NOT_DECLARED;
@@ -1996,8 +1962,7 @@ static struct token *delimited_parameters(struct token **token,
     while(tok != NULL && tok -> type == SYMBOL && !strcmp(tok -> name, "(")){
         tok = tok -> next;
         if(tok == NULL || tok -> type != SYMBOL){
-            fprintf(stderr, "ERROR: %s:%d: Missing symbolic token.\n",
-                    filename, line);
+            mf_error(mf, "Missing symbolic token.");
             return NULL;
         }
         if(!strcmp(tok -> name, "expr"))
@@ -2007,17 +1972,18 @@ static struct token *delimited_parameters(struct token **token,
         else if(!strcmp(tok -> name, "text"))
             type = TEXT;
         else{
-            fprintf(stderr, "ERROR: %s:%d: Missing parameter type: '%s'"
-                    "is not recognized.\n", filename, line, tok -> name);
+            mf_error(mf, "Missing paramaeter type.");
             return NULL;
         }
         tok = tok -> next;
-        parameter_list = symbolic_token_list(*mf, &tok);
+        parameter_list = symbolic_token_list(mf, &tok);
         while(parameter_list != NULL){
-            char *name = (char *) Walloc(strlen(parameter_list -> name) + 1);
+            char *name = (char *)
+                Walloc_arena(arena,
+                             strlen(parameter_list -> name) + 1);
             if(name == NULL) goto error_no_memory;
             if(last_result != NULL){
-                last_result -> next = new_permanent_token(type, 0.0, name);
+                last_result -> next = new_token(type, 0.0, name, arena);
                 if(last_result -> next == NULL)
                     return NULL;
                 last_result -> next -> prev = last_result;
@@ -2025,7 +1991,7 @@ static struct token *delimited_parameters(struct token **token,
                 last_result -> next = NULL;
             }
             else{
-                result = new_permanent_token(type, 0.0, name);
+                result = new_token(type, 0.0, name, arena);
                 if(result == NULL)
                     return NULL;
                 last_result = result;
@@ -2033,8 +1999,7 @@ static struct token *delimited_parameters(struct token **token,
             parameter_list = parameter_list -> next;
         }
         if(tok == NULL || tok -> type != SYMBOL || strcmp(tok -> name, ")")){
-            fprintf(stderr, "ERROR: %s:%d: Missing ')' closing parameters.\n",
-                    filename, line);
+            mf_error(mf, "Missing ')' closing parameters.");
             return NULL;
         }
         tok = tok -> next;
@@ -2043,16 +2008,18 @@ static struct token *delimited_parameters(struct token **token,
     return result;
 error_no_memory:
     fprintf(stderr, "ERROR: Not enough memory. Please, increase"
-            " the value of W_MAX_MEMORY at conf/conf.h\n");
+            " the value of W_%s_MEMORY at conf/conf.h\n",
+            (arena == _user_arena)?"MAX":"INTERNAL");
     return NULL;
 }
 @
 
 E agora uma versão desta função apenas para parâmetros não-delimitados:
 
-@<Metafont: Funções Primitivas Estáticas@>+=
-static struct token *undelimited_parameters(struct token **token,
-                                            char *filename, int line){
+@<Metafont: Funções Estáticas@>+=
+static struct token *undelimited_parameters(struct metafont *mf,
+                                            struct token **token,
+                                            void *arena){
     struct token *tok = *token;
     int type = NOT_DECLARED;
     char *name;
@@ -2075,17 +2042,18 @@ static struct token *undelimited_parameters(struct token **token,
     }
     tok = tok -> next;
     if(tok == NULL){
-        fprintf(stderr, "%s:%d: Missing symbolic token.\n", filename, line);
+        mf_error(mf, "Missing symbolic token.");
         return NULL;
     }
-    name = (char *) Walloc(strlen(tok -> name) + 1);
+    name = (char *) Walloc_arena(arena, strlen(tok -> name) + 1);
     if(name == NULL){
         fprintf(stderr, "ERROR: Not enough memory. Please, increase"
-                " the value of W_MAX_MEMORY at conf/conf.h\n");
+                " the value of W_%s_MEMORY at conf/conf.h\n",
+                (arena == _user_arena)?"MAX":"INTERNAL");
         return NULL;
     }
     *token = tok -> next;
-    return new_permanent_token(type, 0.0, name);
+    return new_token(type, 0.0, name, arena);
 }
 @
 
@@ -2110,10 +2078,9 @@ todo os seguintes tokens simbólicos que os iniciam: \monoespaco{def}
 podemos contar pela ocorrência de tais tokens e assim saber quantos
 \monoespaco{enddef} precisamos ler:
 
-@<Metafont: Funções Primitivas Estáticas@>+=
+@<Metafont: Funções Estáticas@>+=
 static struct token *replacement_text(struct metafont *mf, struct token **token,
-                                      char *source, char **final_source,
-                                      char *filename, int line){
+                                      void *arena){
     struct token *tok = *token, *result = NULL, *current_token = NULL;
     int depth = 0, dummy;
     for(;;){
@@ -2124,8 +2091,7 @@ static struct token *replacement_text(struct metafont *mf, struct token **token,
         // Checando se é um token 'outer'
         if(tok -> type == SYMBOL && _search_trie(mf -> outer_tokens, INT,
                                                  tok -> name, &dummy)){
-            fprintf(stderr, "ERROR: %s:%d: Forbidden token (%s) at macro "
-                    "definition.\n", filename, line, tok -> name);
+            mf_error(mf, "Forbidden token at macro.");
             return NULL;
         }
         // Contagem de sub-macros
@@ -2138,26 +2104,25 @@ static struct token *replacement_text(struct metafont *mf, struct token **token,
             depth --;
         // Adicionando token ao resultado:
         if(tok -> type != NUMERIC){
-            name = (char *) Walloc(strlen(tok -> name) + 1);
+            name = (char *) Walloc_arena(arena, strlen(tok -> name) + 1);
             if(name == NULL) goto error_no_memory;
         }
         if(result != NULL){
-            current_token -> next = new_permanent_token(tok -> type,
-                                                        tok -> value, name);
+            current_token -> next = new_token(tok -> type,
+                                              tok -> value, name, arena);
             if(current_token -> next == NULL)
                 goto end_of_function;
             current_token -> next -> prev = current_token;
             current_token = current_token -> next;
         }
         else{
-            result = new_permanent_token(tok -> type, tok -> value, name);
+            result = new_token(tok -> type, tok -> value, name, arena);
             if(result == NULL)
                 goto end_of_function;
             current_token = result;
         }
         if(tok -> next == NULL){
-            tok -> next = get_first_token(mf, source, &source,
-                                          line, &line, filename);
+            tok -> next = get_statement(mf);
             if(tok -> next != NULL){
                 tok -> next -> prev = tok;
             }
@@ -2165,11 +2130,9 @@ static struct token *replacement_text(struct metafont *mf, struct token **token,
         tok = tok -> next;
     }
 end_of_function:
-    *final_source = source;
     if(tok != NULL){
         if(tok -> next == NULL){
-            tok -> next = get_first_token(mf, source, &source,
-                                          line, &line, filename);
+            tok -> next = get_statement(mf);
             if(tok -> next != NULL)
                 tok -> next -> prev = tok;
         }
@@ -2180,8 +2143,8 @@ end_of_function:
     return result;
 error_no_memory:
     fprintf(stderr, "ERROR: Not enough memory. Please, increase"
-            " the value of W_MAX_MEMORY at conf/conf.h\n");
-    *final_source = source;
+            " the value of W_%s_MEMORY at conf/conf.h\n",
+            (arena == _user_arena)?"MAX":"INTERNAL");
     return NULL;
 }
 @
@@ -2195,21 +2158,32 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")){
     struct macro *new_macro;
     struct token *delimited_headers, *undelimited_header;
     statement = statement -> next;
+    struct metafont *scope = *mf;
+    void *current_arena = _user_arena;
     // Nome da macro
     if(statement == NULL || statement -> type != SYMBOL){
-        fprintf(stderr,
-                "ERROR: %s:%d: Missing symbolic token at macro definition.\n",
-                filename, line);
+        mf_error(*mf, "Missing symbolic token.");
         return;
     }
     name = statement -> name;
+    // Decidindo em que região de memória alocar
+    while(scope -> parent != NULL){
+        int dummy_result;
+        if(_search_trie(scope -> variable_types, INT,
+                        name, &dummy_result)){
+            current_arena = metafont_arena;
+            break;
+        }
+        scope = scope -> parent;
+    }
     statement = statement -> next;
-    delimited_headers = delimited_parameters(&statement, filename, line);
-    undelimited_header = undelimited_parameters(&statement, filename, line);
-    new_macro = (struct macro *) Walloc(sizeof(struct macro));
+    delimited_headers = delimited_parameters(*mf, &statement, current_arena);
+    undelimited_header = undelimited_parameters(*mf, &statement, current_arena);
+    new_macro = (struct macro *) Walloc_arena(current_arena, sizeof(struct macro));
     if(new_macro == NULL){
         fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
-                "value of W_MAX_MEMORY at conf/conf.h\n");
+                "value of W_%s_MEMORY at conf/conf.h\n",
+                (current_arena == _user_arena)?"MAX":"INTERNAL");
         exit(1);
     }
     new_macro -> parameters = undelimited_header;
@@ -2222,36 +2196,21 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")){
     // Token = ou :=
     if(statement == NULL || statement -> type != SYMBOL ||
        (strcmp(statement -> name, "=") && strcmp(statement -> name, ":="))){
-        fprintf(stderr,
-                "ERROR: %s:%d: Missing '=' or ':=' at  macro definition.\n",
-                filename, line);
+        mf_error(*mf, "Missing '=' or ':=' at macro definition.");
         return;
     }
     // Texto de substituição:
-    new_macro -> replacement_text = replacement_text(*mf, &statement, source,
-                                                     &source, filename, line);
+    new_macro -> replacement_text = replacement_text(*mf, &statement,
+                                                     current_arena);
     // Armazena a macro
-    _insert_trie((*mf) -> macros, VOID_P, name, (void *) new_macro);
+    _insert_trie((*mf) -> macros, current_arena, VOID_P, name,
+                 (void *) new_macro);
     // Checando pelo fim da declaração
     if(statement == NULL || statement -> type != SYMBOL ||
        strcmp(statement -> name, ";")){
-        fprintf(stderr,
-                "ERROR: %s:%d: Extra token after enddef (%s).\n",
-                filename, line,
-                (statement == NULL)?("NULL"):(statement -> name));
+        mf_error(*mf, "Extra token after enddef");
         return;
     }
-    goto clean_exit;
-}
-@
-
-@<Metafont: Declarações@>+=
-void _metafont_test(char *);
-@
-
-@<Metafont: Definições@>+=
-void _metafont_test(char *teste){
-    struct metafont *M = new_metafont(NULL);
-    run_statements(M, teste, "teste.mf");
+    return;
 }
 @

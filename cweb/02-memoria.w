@@ -1391,7 +1391,7 @@ void *_user_arena, *_internal_arena;
 @
 
 @<Declarações de Memória@>+=
-external void *_user_arena, *_internal_arena;
+extern void *_user_arena, *_internal_arena;
 @
 
 Noe que elas serão variáveis estáticas. Isso garantirá que somente as
