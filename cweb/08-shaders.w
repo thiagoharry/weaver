@@ -325,7 +325,13 @@ struct interface *_new_interface(int type, int x, int y, int width,
         switch(type){
         case W_INTERFACE_PERIMETER:
           _interfaces[_number_of_loops][i]._mode = GL_LINE_LOOP;
-          // Realmente não precisa de um 'break' aqui.
+          va_start(valist, height);
+          _interfaces[_number_of_loops][i].r = va_arg(valist, double);
+          _interfaces[_number_of_loops][i].g = va_arg(valist, double);
+          _interfaces[_number_of_loops][i].b = va_arg(valist, double);
+          _interfaces[_number_of_loops][i].a = va_arg(valist, double);
+          va_end(valist);
+          break;
         case W_INTERFACE_SQUARE: // Nestes dois casos só precisamos obter a cor
           va_start(valist, height);
           _interfaces[_number_of_loops][i].r = va_arg(valist, double);

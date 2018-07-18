@@ -244,7 +244,7 @@ deve poder configurar tais padrões sem problemas por meio do arquivo
 
 Desta forma, uma função de inicialização poderia se chamar
 \monoespaco{Winit()} e não precisar de nenhum argumento. Coisas como
-gerenciar a projeção das imagens na tela devem ser transparentessem
+gerenciar a projeção das imagens na tela devem ser transparentes sem
 precisar de uma função específica após os objetos que compõe o
 ambiente serem definidos.
 

@@ -86,8 +86,10 @@ install: uninstall
 	install -d ${PROJECT_SHARE}
 	install -d ${PROJECT_SHARE}/conf
 	install -d ${PROJECT_SHARE}/src/weaver
+	install -d ${PROJECT_SHARE}/fonts
 	install -d ${PROJECT_SHARE}/src/misc
 	install -d ${PROJECT_SHARE}/src/misc/sqlite
+	install -c project/fonts/init.mf ${PROJECT_SHARE}/fonts/
 	install -c project/Makefile ${PROJECT_SHARE}
 	install -c project/prog.Makefile ${PROJECT_SHARE}
 	install -c project/web.Makefile ${PROJECT_SHARE}
