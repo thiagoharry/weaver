@@ -486,6 +486,7 @@ static struct token *next_token(struct metafont *mf){
             }
             buffer[buffer_position] = current_char;
             buffer_position = (buffer_position + 1) % 512;
+	    current_char = read_char(mf);
         }
         buffer[buffer_position] = '\0';
         return new_token_string(buffer);
@@ -1721,7 +1722,6 @@ void declared_variable(struct metafont *mf, struct token **token,
                        char *dst, int dst_size){
     struct token *first_token = *token, *current_token;
     dst[0] = '\0';
-    printf("DEBUG: <Declared Variable>\n");
     // O primeiro token apenas deve ser simbólico
     if(first_token == NULL || first_token -> type != SYMBOL){
         mf_error(mf, "Missing symbolic token.");
@@ -1784,7 +1784,6 @@ if(statement -> type == SYMBOL &&
     !strcmp(statement -> name, "numeric"))){
     int type;
     char buffer[1024];
-    printf("DEBUG: <Declaração de Variáveis>\n");
     // Obtém o tipo da declaração em número
     switch(statement -> name[0]){
     case 'b':
