@@ -1678,11 +1678,6 @@ static struct _trie *primitive_sparks;
 Vamos também definir enfim uma função de inicialização para
 preenchermos tal árvore:
 
-
-No encerramento vamos usar um \monoespaco{Wtrash} para limparmos a
-memória inicializada pelo METAFONT na ordem certa:
-
-
 @<Metafont: Inicialização@>=
     primitive_sparks = _new_trie(_user_arena);
     _insert_trie(primitive_sparks, _user_arena, INT, "end", 0);
@@ -1717,8 +1712,65 @@ memória inicializada pelo METAFONT na ordem certa:
 A definição acima conta com todas as sparks que já definimos em nossa
 gramática. Outras ainda serão inseridas.
 
-De qualquer forma, com isso já podemos escrever o código de declaração
-de variáveis:
+Com isso vamos escrever agora um código para interpretar e consumir
+uma variável declarada e armazena em 'dst' uma string com o nome dela,
+com cada sufixo separado pore espaços:
+
+@<Metafont: Funções Estáticas@>=
+void declared_variable(struct metafont *mf, struct token **token,
+                       char *dst, int dst_size){
+    struct token *first_token = *token, *current_token;
+    dst[0] = '\0';
+    printf("DEBUG: <Declared Variable>\n");
+    // O primeiro token apenas deve ser simbólico
+    if(first_token == NULL || first_token -> type != SYMBOL){
+        mf_error(mf, "Missing symbolic token.");
+        return;
+    }
+    current_token = first_token -> next;
+    strncpy(dst, first_token -> name, dst_size - 1);
+    strcat(dst, " ");
+    dst_size -= (strlen(first_token -> name) + 1);
+    while(current_token != NULL){
+        // Se o token atual for ',' ou ';', devemos encerrar
+	if(current_token -> type == SYMBOL &&
+	   (!strcmp(current_token -> name, ",") ||
+	    !strcmp(current_token -> name, ";"))){
+	    current_token = current_token -> prev;
+	    break;
+	}
+        // Os demais tokens precisam ser '[', ']' ou tags
+	if(current_token -> type != SYMBOL ||
+           (!is_tag(mf, current_token) &&
+	    (strcmp(current_token -> name, "[") ||
+             strcmp(current_token -> name, "]")))){
+            mf_error(mf, "Illegal sufix.");
+            return;
+        }
+	// Se não, apenas incrementa o contador do tamanho do nome do token
+        strncpy(dst, first_token -> name, dst_size - 1);
+        strcat(dst, " ");
+        dst_size -= (strlen(current_token -> name) + 1);
+    }
+    dst[dst_size - 1] = '\0';
+    if(current_token == NULL && first_token -> prev == NULL)
+        *token = NULL;
+    else if(current_token == NULL){
+        first_token -> prev -> next = NULL;
+	*token = NULL;
+    }
+    else if(first_token -> prev == NULL)
+        *token = current_token -> next;
+    else{
+        *token = current_token -> next;	
+	current_token -> next -> prev = first_token -> prev;
+	first_token -> prev -> next = current_token -> next;
+    }
+    return;
+}
+@
+
+Com isso já podemos escrever o código de declaração de variáveis:
 
 @<Metafont: Executa Declaração@>=
 if(statement -> type == SYMBOL &&
@@ -1730,11 +1782,9 @@ if(statement -> type == SYMBOL &&
     !strcmp(statement -> name, "transform") ||
     !strcmp(statement -> name, "pair") ||
     !strcmp(statement -> name, "numeric"))){
-    bool suffix = false;
-    struct token *first_token, *last_token;
-    int name_size = 0;
     int type;
-    char buffer[512];
+    char buffer[1024];
+    printf("DEBUG: <Declaração de Variáveis>\n");
     // Obtém o tipo da declaração em número
     switch(statement -> name[0]){
     case 'b':
@@ -1766,82 +1816,56 @@ if(statement -> type == SYMBOL &&
         }
     }
     statement = statement -> next;
-    first_token = statement -> next;
     while(1){
-        // O primeiro token apenas deve ser simbólico
-        if(!suffix && (statement == NULL || statement -> type != SYMBOL)){
-            mf_error(*mf, "Missing symbolic token.");
-            return;
+        bool already_declared = false;
+	int current_type_if_already_declared;
+	void *current_arena;
+        struct metafont *scope = *mf;
+        // Obtém nome da variável declarada
+        declared_variable(*mf, &statement, buffer, 1024);
+	if(!strcmp(buffer, "")){
+	    mf_error(*mf, "Missing symbolic token.");
+	    return;
+	}
+	// Descobre seu escopo
+	if(scope -> parent == NULL)
+            already_declared = _search_trie(scope -> variable_types, INT,
+	                                    buffer,
+					    &current_type_if_already_declared);
+        while(scope -> parent != NULL){
+            already_declared = _search_trie(scope -> variable_types, INT,
+	                                    buffer,
+					    &current_type_if_already_declared);
+            if(already_declared)
+                break;
+            scope = scope -> parent;
         }
-        else if(suffix){
-            // Os demais tokens precisam ser '[', ']' ou tags
-            if(statement == NULL || statement -> type != SYMBOL ||
-               (!is_tag(*mf, statement) && (strcmp(statement -> name, "[") ||
-                                            strcmp(statement -> name, "]")))){
-                mf_error(*mf, "Illegal sufix.");
-                return;
-            }
-        }
-        if(!suffix){
-            first_token = statement;
-            suffix = true;
-            // O primeiro token pode ser até mesmo um ';'. Tratar o caso:
-            if(!strcmp(statement -> name, ";") && statement -> next == NULL){
-                statement -> next = get_statement(*mf);
-                if(statement -> next != NULL)
-                    statement -> next -> prev = statement;
-            }
-        }
-        name_size += strlen(statement -> name) + 1;
-        // Se o próximo token é ',' ou ';', encerramos a declaração atual:
-        if(statement -> next != NULL &&
-           statement -> next -> type == SYMBOL &&
-           (!strcmp(statement -> next -> name, ",") ||
-            !strcmp(statement -> next -> name, ";"))){
-            void *current_arena;
-            int current_type;
-            int buffer_size = 511;
-            bool already_declared = false;
-            struct metafont *scope = *mf;
-            buffer[0] = '\0';
-            last_token = statement;
-            // Copia o nome da variável
-            statement = first_token -> prev;
-            do{
-                statement = statement -> next;
-                strncat(buffer, statement -> name, buffer_size);
-                buffer_size -= strlen(statement -> name);
-                strncat(buffer, " ", buffer_size);
-                buffer_size --;
-            } while(statement != last_token);
-            buffer[511] = '\0';
-            while(scope -> parent != NULL){
-                already_declared = _search_trie(scope -> variable_types, INT,
-                                                buffer, &current_type);
-                if(already_declared)
-                    break;
-                scope = scope -> parent;
-            }
-            if(scope -> parent == NULL)
-                current_arena = _user_arena;
-            else
-                current_arena = metafont_arena;
-            if(already_declared && current_type != NOT_DECLARED)
-                _remove_trie(scope -> vars[current_type], buffer);
-            _insert_trie(scope -> variable_types, current_arena, INT, buffer, type);
-            // Se o próximo caractere for um ',', vamos pular ele,
-            // se for um ';', encerramos
-            if(statement -> next != NULL){
-                if(statement -> next -> name[0] == ','){
-                    statement = statement -> next;
-                    name_size = 0;
-                    suffix = false;
-                }
-                else
-                    break;
-            }
-        }
-        statement = statement -> next;
+	// Determina sua arena de memória
+        if(scope -> parent == NULL)
+            current_arena = _user_arena;
+        else
+            current_arena = metafont_arena;
+	// Removendo variável se já existe
+        if(already_declared && current_type_if_already_declared != NOT_DECLARED)
+            _remove_trie(scope -> vars[current_type_if_already_declared],
+	                 buffer);
+	// Armazenando nova variável
+        _insert_trie(scope -> variable_types, current_arena, INT, buffer, type);
+	// Se o token atual agora é um ';', terminamos de inserir tudo:
+	if(statement != NULL && statement -> type == SYMBOL &&
+	   !strcmp(statement -> name, ";"))
+	    break;
+	// Se for um ',', apenas o consumimos e continuamos
+	if(statement != NULL && statement -> type == SYMBOL &&
+	   !strcmp(statement -> name, ",")){
+	    statement = statement -> next;
+	    continue;
+	}
+	// Senão, temos algo estranho:
+	else{
+	    mf_error(*mf, "Missing symbolic token.");
+	    return;
+	}
     }
     return;
 }
@@ -2214,3 +2238,24 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")){
     return;
 }
 @
+
+@*1 Definições do Tipo \monoespaco{vardef}.
+
+Existe outro tipo de definição de macro. Ela declara uma variável como
+sendo do tipo ``macro'', e provoca a expansão somente quando o nome da
+macro aparece como sendo o nome de uma variável ou é o prefixo ou
+começo de uma. Ao contrário de outras macros, seus nomes podem ser
+usados no final do nome ou sufixo de outras variáveis sem provocar
+expansão.
+
+A sintaxe de tais comandos usa a mesma sintaxe das macros, mas com o
+cabeçalho especial:
+
+\alinhaverbatim
+<Cabeçalho vardef> --> vardef <Variável Declarada><Parâmetro de Cabeçalho>
+                   +-> vardef <Variável Declarada> @# <Parâmetro de Cabeçalho>
+
+\alinhanormal
+
+Note que todos os trechos acima já foram definidos previamente. Uma
+Variável Declarada foi definida na declaraçãod e variáveis.
