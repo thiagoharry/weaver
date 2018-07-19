@@ -761,6 +761,14 @@ void run_single_statement(struct metafont **mf, struct token *statement){
     @<Metafont: Executa Declaração@>
     mf_error(*mf, "Isolated expression. I couldn't find a = or := after it.");
     return;
+error_no_memory_user:
+    fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+            "value of W_MAX_MEMORY at conf/conf.h\n");
+    exit(1);
+error_no_memory_internal:
+    fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+            "value of W_INTERNAL_MEMORY at conf/conf.h\n");
+    exit(1);
 }
 @
 
@@ -1732,20 +1740,13 @@ void declared_variable(struct metafont *mf, struct token **token,
     strcat(dst, " ");
     dst_size -= (strlen(first_token -> name) + 1);
     while(current_token != NULL){
-        // Se o token atual for ',' ou ';', devemos encerrar
-	if(current_token -> type == SYMBOL &&
-	   (!strcmp(current_token -> name, ",") ||
-	    !strcmp(current_token -> name, ";"))){
-	    current_token = current_token -> prev;
-	    break;
-	}
-        // Os demais tokens precisam ser '[', ']' ou tags
-	if(current_token -> type != SYMBOL ||
+        // Se um token não for uma tag ou '[' e ']', encerremos
+        if(current_token -> type != SYMBOL ||
            (!is_tag(mf, current_token) &&
 	    (strcmp(current_token -> name, "[") ||
              strcmp(current_token -> name, "]")))){
-            mf_error(mf, "Illegal sufix.");
-            return;
+            current_token = current_token -> prev;
+            break;
         }
 	// Se não, apenas incrementa o contador do tamanho do nome do token
         strncpy(dst, first_token -> name, dst_size - 1);
@@ -1759,8 +1760,10 @@ void declared_variable(struct metafont *mf, struct token **token,
         first_token -> prev -> next = NULL;
 	*token = NULL;
     }
-    else if(first_token -> prev == NULL)
+    else if(first_token -> prev == NULL){
         *token = current_token -> next;
+        current_token -> prev = NULL;
+    }
     else{
         *token = current_token -> next;	
 	current_token -> next -> prev = first_token -> prev;
@@ -1862,7 +1865,7 @@ if(statement -> type == SYMBOL &&
 	}
 	// Senão, temos algo estranho:
 	else{
-	    mf_error(*mf, "Missing symbolic token.");
+	    mf_error(*mf, "Illegal suffix or missing symbolic token.");
 	    return;
 	}
     }
@@ -1914,6 +1917,10 @@ _insert_trie(primitive_sparks, _user_arena, INT, "text", 0);
 _insert_trie(primitive_sparks, _user_arena, INT, "primary", 0);
 _insert_trie(primitive_sparks, _user_arena, INT, "secondary", 0);
 _insert_trie(primitive_sparks, _user_arena, INT, "tertiary", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "=", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, ":=", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "(", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, ")", 0);
 @
 
 Uma definição basicamente define uma nova macro. Toda nova macro é
@@ -2107,7 +2114,6 @@ static struct token *replacement_text(struct metafont *mf, struct token **token,
     struct token *tok = *token, *result = NULL, *current_token = NULL;
     int depth = 0, dummy;
     for(;;){
-        char *name = NULL;
         if(tok == NULL || (depth <= 0 && tok -> type == SYMBOL &&
                            !strcmp(tok -> name, "enddef")))
             break;
@@ -2118,28 +2124,25 @@ static struct token *replacement_text(struct metafont *mf, struct token **token,
             return NULL;
         }
         // Contagem de sub-macros
-        if(!strcmp(tok -> name, "def") || !strcmp(tok -> name, "vardef") ||
-           !strcmp(tok -> name, "primarydef") ||
-           !strcmp(tok -> name, "secondarydef") ||
-           !strcmp(tok -> name, "tertiarydef"))
+        if(tok -> type == SYMBOL &&
+           (!strcmp(tok -> name, "def") || !strcmp(tok -> name, "vardef") ||
+            !strcmp(tok -> name, "primarydef") ||
+            !strcmp(tok -> name, "secondarydef") ||
+            !strcmp(tok -> name, "tertiarydef")))
             depth ++;
-        else if(!strcmp(tok -> name, "enddef"))
+        else if(tok -> type == SYMBOL && !strcmp(tok -> name, "enddef"))
             depth --;
         // Adicionando token ao resultado:
-        if(tok -> type != NUMERIC){
-            name = (char *) Walloc_arena(arena, strlen(tok -> name) + 1);
-            if(name == NULL) goto error_no_memory;
-        }
         if(result != NULL){
-            current_token -> next = new_token(tok -> type,
-                                              tok -> value, name, arena);
+            current_token -> next = new_token(tok -> type, tok -> value,
+                                              tok -> name, arena);
             if(current_token -> next == NULL)
                 goto end_of_function;
             current_token -> next -> prev = current_token;
             current_token = current_token -> next;
         }
         else{
-            result = new_token(tok -> type, tok -> value, name, arena);
+            result = new_token(tok -> type, tok -> value, tok -> name, arena);
             if(result == NULL)
                 goto end_of_function;
             current_token = result;
@@ -2164,11 +2167,6 @@ end_of_function:
     else
         *token = tok;
     return result;
-error_no_memory:
-    fprintf(stderr, "ERROR: Not enough memory. Please, increase"
-            " the value of W_%s_MEMORY at conf/conf.h\n",
-            (arena == _user_arena)?"MAX":"INTERNAL");
-    return NULL;
 }
 @
 
@@ -2222,11 +2220,12 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")){
         mf_error(*mf, "Missing '=' or ':=' at macro definition.");
         return;
     }
+    statement = statement -> next;
     // Texto de substituição:
     new_macro -> replacement_text = replacement_text(*mf, &statement,
                                                      current_arena);
     // Armazena a macro
-    _insert_trie((*mf) -> macros, current_arena, VOID_P, name,
+    _insert_trie(scope -> macros, current_arena, VOID_P, name,
                  (void *) new_macro);
     // Checando pelo fim da declaração
     if(statement == NULL || statement -> type != SYMBOL ||
@@ -2257,4 +2256,102 @@ cabeçalho especial:
 \alinhanormal
 
 Note que todos os trechos acima já foram definidos previamente. Uma
-Variável Declarada foi definida na declaraçãod e variáveis.
+Variável Declarada foi definida na declaração de variáveis. O que tais
+definições fazem é criar uma variável que ao invés de ter um valor
+numérico, string ou de outro tipo simples, contém uma macro. É como
+levar um pouco do conceito de programação funcionalista onde funções
+são entidades de primeira-classe para uma linguagem sem funções onde
+macros passam a ser tratadas assim.
+
+O segundo tipo da declaração declara um número infinito de
+variáveis-macro, todas com o mesmo prefixo, e definidas de forma
+semelhante. No texto de substituição, pode-se referenciar o sufixo
+característico delas por meio do \monoespaco{@#}.
+
+Tais declarações no fim sempre devem ser avaliadas para uma
+variável. Então o texto de definição implicitamente é colocado dentro
+de um grupo. Mas não iremos diferenciar ambos os tipos na
+definição. Como para nós o \monoespaco{@#} é uma tag, não um spark,
+ele será armazenado no próprio nome da variável-macro. Na hora da
+substituição temos apenas que checar se o nome da variável-macro
+termina com tais caracteres.
+
+A definição de tal declaração é:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
+    struct macro *new_macro;
+    struct token *tok;
+    char variable_name[1024];
+    struct token *delimited_headers, *undelimited_header;
+    void *current_arena = _user_arena;
+    struct metafont *scope = *mf;
+    statement = statement -> next;
+    // Nome da variável-macro
+    variable_name[0] = '\0';
+    declared_variable(*mf, &statement, variable_name, 1024);
+    // Decidindo em que região de memória alocar
+    while(scope -> parent != NULL){
+        int dummy_result;
+        if(_search_trie(scope -> variable_types, INT,
+                        variable_name, &dummy_result)){
+            current_arena = metafont_arena;
+            break;
+        }
+        scope = scope -> parent;
+    }
+    // Parâmetros de cabeçalho
+    delimited_headers = delimited_parameters(*mf, &statement, current_arena);
+    undelimited_header = undelimited_parameters(*mf, &statement, current_arena);
+    new_macro = (struct macro *) Walloc_arena(current_arena, sizeof(struct macro));
+    if(new_macro == NULL){
+        fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+                "value of W_%s_MEMORY at conf/conf.h\n",
+                (current_arena == _user_arena)?"MAX":"INTERNAL");
+        exit(1);
+    }
+    new_macro -> parameters = undelimited_header;
+    if(new_macro -> parameters == NULL)
+        new_macro -> parameters = delimited_headers;
+    else
+        new_macro -> parameters -> next = delimited_headers;
+    if(delimited_headers != NULL)
+        delimited_headers -> prev = undelimited_header;
+    // Token = ou :=
+    if(statement == NULL || statement -> type != SYMBOL ||
+       (strcmp(statement -> name, "=") && strcmp(statement -> name, ":="))){
+        mf_error(*mf, "Missing '=' or ':=' at macro definition.");
+        return;
+    }
+    statement = statement -> next;
+    // Texto de substituição:
+    new_macro -> replacement_text = new_token(SYMBOL, 0.0, "begingroup",
+                                              current_arena);
+    if(new_macro -> replacement_text == NULL){
+        if(current_arena == _user_arena)
+            goto error_no_memory_user;
+        else
+            goto error_no_memory_internal;
+    }
+    new_macro -> replacement_text = replacement_text(*mf, &statement,
+                                                     current_arena);
+    tok = new_token(SYMBOL, 0.0, "endgroup", current_arena);
+    if(tok == NULL){
+        if(current_arena == _user_arena)
+            goto error_no_memory_user;
+        else
+            goto error_no_memory_internal;
+    }
+    concat_token(new_macro -> replacement_text, tok);
+    // Inserir a macro após construí-la:
+    _insert_trie(scope -> vardef, current_arena, VOID_P, variable_name,
+                (void *) new_macro);
+    // Checando pelo fim da declaração
+    if(statement == NULL || statement -> type != SYMBOL ||
+       strcmp(statement -> name, ";")){
+        mf_error(*mf, "Extra token after enddef");
+        return;
+    }
+    return;
+}
+@
