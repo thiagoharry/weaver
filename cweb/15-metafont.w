@@ -473,6 +473,7 @@ static struct token *next_token(struct metafont *mf){
                     buffer[buffer_position] = '\0';
                     return new_token_number(atof(buffer));
                 }
+                current_char = read_char(mf);
             }
         }
     case '"': // Regra 04: Strings
@@ -1743,8 +1744,24 @@ void declared_variable(struct metafont *mf, struct token **token,
         // Se um token não for uma tag ou '[' e ']', encerremos
         if(current_token -> type != SYMBOL ||
            (!is_tag(mf, current_token) &&
-	    (strcmp(current_token -> name, "[") ||
+	    (strcmp(current_token -> name, "[") &&
              strcmp(current_token -> name, "]")))){
+            current_token = current_token -> prev;
+            break;
+        }
+        // Se tivermos um '[' sem ter um ']' depois, também é erro:
+        if(!strcmp(current_token -> name, "[") &&
+           (current_token -> next == NULL ||
+            strcmp(current_token -> next -> name, "]"))){
+            mf_error(mf, "Illegal suffix at token declaration.");
+            current_token = current_token -> prev;
+            break;
+        }
+        // Se tivermos um ']' sem ser precedido por um '[', também:
+        if(!strcmp(current_token -> name, "]") &&
+           (current_token -> prev == NULL ||
+            strcmp(current_token -> prev -> name, "["))){
+            mf_error(mf, "Illegal suffix at token declaration.");
             current_token = current_token -> prev;
             break;
         }
@@ -1752,6 +1769,7 @@ void declared_variable(struct metafont *mf, struct token **token,
         strncpy(dst, first_token -> name, dst_size - 1);
         strcat(dst, " ");
         dst_size -= (strlen(current_token -> name) + 1);
+        current_token  = current_token -> next;
     }
     dst[dst_size - 1] = '\0';
     if(current_token == NULL && first_token -> prev == NULL)
@@ -2052,7 +2070,6 @@ static struct token *undelimited_parameters(struct metafont *mf,
                                             void *arena){
     struct token *tok = *token;
     int type = NOT_DECLARED;
-    char *name;
     if(tok != NULL && tok -> type == SYMBOL){
         if(!strcmp(tok -> name, "primary"))
             type = PRIMARY;
@@ -2075,15 +2092,8 @@ static struct token *undelimited_parameters(struct metafont *mf,
         mf_error(mf, "Missing symbolic token.");
         return NULL;
     }
-    name = (char *) Walloc_arena(arena, strlen(tok -> name) + 1);
-    if(name == NULL){
-        fprintf(stderr, "ERROR: Not enough memory. Please, increase"
-                " the value of W_%s_MEMORY at conf/conf.h\n",
-                (arena == _user_arena)?"MAX":"INTERNAL");
-        return NULL;
-    }
     *token = tok -> next;
-    return new_token(type, 0.0, name, arena);
+    return new_token(type, 0.0, tok -> name, arena);
 }
 @
 
@@ -2263,6 +2273,12 @@ levar um pouco do conceito de programação funcionalista onde funções
 são entidades de primeira-classe para uma linguagem sem funções onde
 macros passam a ser tratadas assim.
 
+Vamos então definir um novo tipo de variável além dos já vistos:
+
+@<Metafont: Inclui Cabeçalhos@>+=
+#define MACRO 7
+@
+
 O segundo tipo da declaração declara um número infinito de
 variáveis-macro, todas com o mesmo prefixo, e definidas de forma
 semelhante. No texto de substituição, pode-se referenciar o sufixo
@@ -2344,7 +2360,161 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
     }
     concat_token(new_macro -> replacement_text, tok);
     // Inserir a macro após construí-la:
+    _insert_trie(scope -> variable_types, current_arena, INT, variable_name,
+                 MACRO);
     _insert_trie(scope -> vardef, current_arena, VOID_P, variable_name,
+                (void *) new_macro);
+    // Checando pelo fim da declaração
+    if(statement == NULL || statement -> type != SYMBOL ||
+       strcmp(statement -> name, ";")){
+        mf_error(*mf, "Extra token after enddef");
+        return;
+    }
+    return;
+}
+@
+
+@*1 Definições do Tipo \monoespaco{leveldef}.
+
+O último tipo de definição serve para definir novos operadores por
+meio de macros. A gramática do cabeçalho de tais definições é:
+
+\alinhaverbatim
+<Cabeçalho leveldef> --> <leveldef><Token Simbólico><Token Simbólico>
+                         <Token Simbólico>
+<leveldef> --> primarydef | secondarydef | tertiarydef
+\alinhanormal
+
+Onde o primeiro token é um dentre três tipos dependendo da precedência
+do operador que se está definindo. Basicamente um
+\monoespaco{primarydef} tem uma precedência equivalente à
+multiplicação, um \monoespaco{secondarydef} tem precedência
+equivalente à uma soma e um \monoespaco{tertiarydef} tem precedência
+equivalente à operadores de comparação.
+
+O segundo token, pode ser qualquer token simbólico e é o primeiro
+operador. O terceiro token é o nome do operador. E o terceiro é o
+segundo operador. Todos os novos operadores definidos assim são
+operadores binários.
+
+Assim, primeiro vamos definir os três novos ``sparks'' na linguagem:
+
+@<Metafont: Declara Nova Spark@>=
+_insert_trie(primitive_sparks, _user_arena, INT, "primarydef", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "secondarydef", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "tertiarydef", 0);
+@
+
+Agora já podemos definir a declaração:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL &&
+   (!strcmp(statement -> name, "primarydef") ||
+    !strcmp(statement -> name, "secondarydef") ||
+    !strcmp(statement -> name, "tertiarydef"))){
+    struct _trie *destiny[3];
+    int precedence;
+    char *name;
+    struct token *arg1, *arg2;
+    struct metafont *scope = *mf;
+    void *current_arena = _user_arena;
+    struct macro *new_macro;
+    // Determina precedência
+    switch(statement -> name[0]){
+    case 'p':
+        precedence = 0;
+        break;
+    case 's':
+        precedence = 1;
+        break;
+    default:
+        precedence = 2;
+        break;
+    }
+    // Obtendo nome da macro
+    if(statement -> next == NULL){
+        mf_error(*mf, "Missing symbolic token.");
+        return;
+    }
+    statement = statement -> next -> next;
+    if(statement == NULL || statement -> type != SYMBOL){
+        mf_error(*mf, "Missing symbolic token.");
+        return;
+    }
+    name = statement -> name;
+    // Descobrindo o escopo
+    while(scope -> parent != NULL){
+        int dummy_result;
+        if(_search_trie(scope -> variable_types, INT,
+                        name, &dummy_result)){
+            current_arena = metafont_arena;
+            break;
+        }
+        scope = scope -> parent;
+    }
+    destiny[0] = scope -> primarydef;
+    destiny[1] = scope -> secondarydef;
+    destiny[2] = scope -> tertiarydef;
+    // Alocando a macro
+    new_macro = (struct macro *) Walloc_arena(current_arena,
+                                              sizeof(struct macro));
+    if(new_macro == NULL){
+        fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+                "value of W_%s_MEMORY at conf/conf.h\n",
+                (current_arena == _user_arena)?"MAX":"INTERNAL");
+        exit(1);
+    }
+    // Obtendo o primeiro argumento
+    statement = statement -> prev;
+    if(statement -> type != SYMBOL){
+        mf_error(*mf, "Missing symbolic token.");
+        return;
+    }
+    arg1 =  new_token(SYMBOL, 0.0, statement -> name, current_arena);
+    if(arg1 == NULL){
+        fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+                "value of W_%s_MEMORY at conf/conf.h\n",
+                (current_arena == _user_arena)?"MAX":"INTERNAL");
+        exit(1);
+    }
+    // Obtendo o segundo argumento
+    statement = statement -> next -> next;
+    if(statement -> type != SYMBOL){
+        mf_error(*mf, "Missing symbolic token.");
+        return;
+    }
+    arg2 =  new_token(SYMBOL, 0.0, statement -> name, current_arena);
+    if(arg1 == NULL){
+        fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+                "value of W_%s_MEMORY at conf/conf.h\n",
+                (current_arena == _user_arena)?"MAX":"INTERNAL");
+        exit(1);
+    }
+    arg1 -> next = arg2;
+    arg2 -> prev = arg1;
+    new_macro -> parameters = arg1;
+    // Token = ou :=
+    statement = statement -> next;
+    if(statement == NULL || statement -> type != SYMBOL ||
+       (strcmp(statement -> name, "=") && strcmp(statement -> name, ":="))){
+        mf_error(*mf, "Missing '=' or ':=' at macro definition.");
+        return;
+    }
+    statement = statement -> next;
+    // Texto de substituição:
+    new_macro -> replacement_text = new_token(SYMBOL, 0.0, "begingroup",
+                                              current_arena);
+    if(new_macro -> replacement_text == NULL){
+        if(current_arena == _user_arena)
+            goto error_no_memory_user;
+        else
+            goto error_no_memory_internal;
+    }
+    new_macro -> replacement_text = replacement_text(*mf, &statement,
+                                                     current_arena);
+    
+    // Inserir a macro após construí-la:
+    _insert_trie(destiny[precedence], current_arena, VOID_P, name,
                 (void *) new_macro);
     // Checando pelo fim da declaração
     if(statement == NULL || statement -> type != SYMBOL ||
