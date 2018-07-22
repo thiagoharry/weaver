@@ -31,6 +31,7 @@ seguintes arquivos:
 @<Metafont: Inclui Cabeçalhos@>
 @<Metafont: Variáveis Estáticas@>
 @<Metafont: Funções Estáticas@>
+@<Metafont: Eval@>
 @<Metafont: Parser@>
 @<Metafont: Definições@>
 @
@@ -391,6 +392,7 @@ struct token{
     int type;
     float value; // Para números
     char *name; // Para strings e identificadores
+    @<Metafont: Atributos de Token@>
     struct token *prev, *next; // Para listas duplamente encadeadas
 };
 @
@@ -409,22 +411,23 @@ Podemos criar os seguintes construtores para tais diferentes tokens:
 @<Metafont: Funções Estáticas@>+=
 static struct token *new_token(int type, float value, char *name,
                                void *memory_arena){
-    struct token *ret;
-    ret = (struct token *) Walloc_arena(memory_arena, sizeof(struct token));
-    if(ret == NULL)
+    struct token *token;
+    token = (struct token *) Walloc_arena(memory_arena, sizeof(struct token));
+    if(token == NULL)
         goto error_no_memory;
-    ret -> type = type;
-    ret -> value = value;
+    token -> type = type;
+    token -> value = value;
     if(name != NULL){
-        ret -> name = Walloc_arena(memory_arena, strlen(name) + 1);
-        if(ret -> name == NULL)
+        token -> name = Walloc_arena(memory_arena, strlen(name) + 1);
+        if(token -> name == NULL)
             goto error_no_memory;
-        strcpy(ret -> name, name);
+        strcpy(token -> name, name);
     }
     else
-        ret -> name = name;
-    ret -> prev = ret -> next = NULL;
-    return ret;
+        token -> name = name;
+    token -> prev = token -> next = NULL;
+    @<Metafont: Construção de Token@>
+    return token;
 error_no_memory:
     fprintf(stderr, "ERROR (0): Not enough memory to parse METAFONT "
             "source. Please, increase the value of %s "
@@ -639,10 +642,11 @@ sobressalentes para retornarmos depois, após os expandirmos também.
 Primeiro vamos criar uma estrutura METAFONT, que representa tudo o que
 é armazenado pelo nosso interpretador. Ali dentro podemos armazenar
 qualquer token já lido, e que está pendente para ser
-interpretado.:
+interpretado. Também armazenaremos em alguns casos tokens passados,
+caso tenhamos necessidade de armazená-los em alguns contextos:
 
 @<METAFONT: Estrutura METAFONT@>+=
-struct token *pending_tokens;
+struct token *pending_tokens, *past_tokens;
 @
 
 
@@ -650,6 +654,7 @@ Essa estrutura será inicializada por:
 
 @<METAFONT: Inicializa estrutura METAFONT@>=
 structure -> pending_tokens = NULL;
+structure -> past_tokens = NULL;
 @
 
 Agora vamos nos concentrar apenas na função que ficará responsável por
@@ -2643,18 +2648,19 @@ expressão começa com um grupo.
 
 @<Metafont: Prepara Retorno de Expressão Composta@>=
 {
+    struct token *new_tokens = (*mf) -> past_tokens;
     struct token *expression_result = eval(*mf, statement);
-    if((*mf) -> hint == HINT_ENDGROUP_EXPR){
+    if((*mf) -> hint == HINT_ENDGROUP_EXPR || (*mf) -> hint == HINT_ENDGROUP){
         if((*mf) -> parent == NULL){
             mf_error(*mf, "Extra 'endgroup' while not in 'begingroup'.");
             return;
         }
         if(expression_result != NULL){
-            if((*mf) -> parent -> pending_tokens == NULL)
-                (*mf) -> parent -> pending_tokens = expression_result;
+            if(new_tokens != NULL)
+                concat_token(new_tokens, expression_result);
             else
-                concat_token((*mf) -> parent -> pending_tokens,
-                             expression_result);
+                new_tokens = expression_result;
+            (*mf) -> parent -> pending_tokens = new_tokens;
         }
         *mf = (*mf) -> parent;
         Wtrash_arena(metafont_arena);
@@ -2663,7 +2669,10 @@ expressão começa com um grupo.
         // Se temos uma expressão solta, e ela é uma string,
         // então temos um título. Ignorar. Senão, gere erro.
         if(expression_result == NULL || expression_result -> type != STRING)
-            mf_error(*mf, "Isolated expressiosn.");
+            mf_error(*mf, "Isolated expression.");
+        else if(expression_result -> type == STRING){
+            ; // Se algum dia quiseros fazer algo com o título, inserir aqui
+        }
     }
     return;
 }
@@ -2674,7 +2683,7 @@ um token com o resultado da avaliação. Como o caso da expressão
 começar com \monoespaco{begingroup} já terminou de ser tratado agora,
 podemos definir tal função:
 
-@<Metafont: Funções Estáticas@>+=
+@<Metafont: Eval@>=
 @<Metafont: eval_string@>
 struct token *eval(struct metafont *mf, struct token *expression){
     struct token *aux = expression;
@@ -2690,7 +2699,7 @@ struct token *eval(struct metafont *mf, struct token *expression){
         return NULL;
     }
     if(aux -> type == STRING)
-        return eval_string(mf, expression);
+        return eval_string(mf, &expression);
     // Definindo se é uma variável:
     else if(aux -> type == SYMBOL){
         while(scope != NULL){
@@ -2702,29 +2711,239 @@ struct token *eval(struct metafont *mf, struct token *expression){
         }
         if(!is_variable){
             if(!strcmp(aux -> name, "jobname"))
-                return eval_string(mf, expression);
+                return eval_string(mf, &expression);
             if(!strcmp(aux -> name, "str"))
-                return eval_string(mf, expression);
+                return eval_string(mf, &expression);
             if(!strcmp(aux -> name, "char"))
-                return eval_string(mf, expression);
+                return eval_string(mf, &expression);
             if(!strcmp(aux -> name, "decimal"))
-                return eval_string(mf, expression);
+                return eval_string(mf, &expression);
             if(!strcmp(aux -> name, "substring"))
-                return eval_string(mf, expression);
+                return eval_string(mf, &expression);
         }
     }
     if(is_variable && type == STRING)
-        return eval_string(mf, expression);
+        return eval_string(mf, &expression);
     mf_error(mf, "Undetermined expression.");
     return NULL;
 }
 @
 
 Por enquanto a função de avaliação de string vai só retornar. Ela vai
-funcionar quando a função é só uma string literal:
+funcionar quando a função é só uma string literal. Definiremos em
+seguida os detalhes de como avaliar expressão:
 
 @<Metafont: eval_string@>=
-static struct token *eval_string(struct metafont *mf, struct token *expression){
-    return expression;
+static struct token *eval_string(struct metafont *mf, struct token **expression){
+    char default_delimiter[2];
+    char *delimiter = NULL;
+    struct metafont *scope = mf;
+    struct token *current_token = *expression;
+    // Primeiro a fazer: obter os delimitadores da string.
+    while(scope -> parent != NULL){
+        if(_search_trie(scope -> delimiters, VOID_P, (*expression) -> name,
+                        &delimiter))
+            break;
+        scope = scope -> parent;
+    }
+    if(delimiter == NULL){
+        default_delimiter[0] = ';';
+        default_delimiter[1] = '\0';
+        delimiter = default_delimiter;
+    }
+    // Percorre a expressão
+    while(strcmp(current_token -> name, delimiter)){
+        @<Metafont: String: Expressões Primárias@>
+        current_token = current_token -> next;
+    }
+    return *expression;
 }
 @
+
+@*1 Expressões de String Primárias.
+
+Quando formos avaliar uma expressão de string, a primeira coisa a
+fazer é sempre começar percorrendo ela avaliando as expressões
+primárias. Depois fazemos isso com as secundárias. E por fim as
+terciárias. No meio podemos ter que fazer uma expansão de tokens por
+causa de novos operadores definidos pelo usuário por meio das
+declarações \monoespaco{leveldef}.
+
+@*2 Variáveis String.
+
+Vamos começar definindo que forma terá uma variável string após ser
+armazenada. Obviamente, ela precisa possuir uma string com um valor
+conhecido. Mas além disso, daremos à ela um outro atributo booleano
+que nos diz se ela é uma variável determinística. Ou seja, se ela foi
+gerada envolvendo um número aleatório. Variáveis determinísticas
+possuem a propriedade de que toda vez que um mesmo programa METAFONT
+for executado, elas terão exatamente o mesmo valor. Podemos então usar
+um cache para elas:
+
+@<Metafont: Variáveis Estáticas@>+=
+struct string_variable{
+    char *name;
+    bool deterministic;
+};
+@
+
+Vamos precisar armazenar tais variáveis em um lugar:
+
+@<METAFONT: Estrutura METAFONT@>+=
+struct _trie *string_var;
+@
+
+@<METAFONT: Inicializa estrutura METAFONT@>=
+structure -> string_var = _new_trie(arena);
+@
+
+
+Com isso, nova variável string pode ser armazenada em uma estrutura
+METAFONT por meio da seguinte função:
+
+@<Metafont: Funções Estáticas@>+=
+void new_string_variable(char *var_name, char *string, bool deterministic,
+                         struct metafont *mf){
+    struct metafont *scope = mf;
+    int current_type = -1;
+    void *current_arena;
+    struct string_variable *new_variable;
+    while(scope != NULL){
+        if(_search_trie(scope -> variable_types, INT, var_name, &current_type))
+            break;
+        scope = scope -> parent;
+    }
+    //Checa por erro de tipo
+    switch(current_type){
+    case BOOLEAN:
+        mf_error(mf, "Equation cannot be performed (boolean=string).");
+        return;
+    case PATH:
+        mf_error(mf, "Equation cannot be performed (path=string).");
+        return;
+    case STRING:
+        // OK
+        break;
+    case PEN:
+        mf_error(mf, "Equation cannot be performed (pen=string).");
+        return;
+    case PICTURE:
+        mf_error(mf, "Equation cannot be performed (picture=string).");
+        return;
+    case TRANSFORM:
+        mf_error(mf, "Equation cannot be performed (transform=string).");
+        return;
+    case PAIR:
+        mf_error(mf, "Equation cannot be performed (pair=string).");
+        return;
+    default:
+        mf_error(mf, "Equation cannot be performed (numeric=string).");
+        return;
+    }
+    // Escolhendo arena de memória
+    if(scope -> parent == NULL)
+        current_arena = _user_arena;
+    else
+        current_arena = metafont_arena;
+    // Gerando a variável
+    new_variable = (struct string_variable *)
+                       Walloc_arena(current_arena,
+                                    sizeof(struct string_variable));
+    if(new_variable == NULL)
+        goto error_no_memory;
+    new_variable -> name = (char *) Walloc_arena(current_arena,
+                                                 strlen(string) + 1);
+    if(new_variable -> name == NULL)
+        goto error_no_memory;
+    strcpy(new_variable -> name, string);
+    new_variable -> deterministic = deterministic;
+    _insert_trie(scope -> string_var, current_arena, VOID_P, string,
+                 (void *) new_variable);
+    return;
+error_no_memory:
+    fprintf(stderr, "ERROR: Not enough memory. Please, increase "
+            "the value of W_%s_MEMORY at conf/conf.h.\n",
+            (current_arena == _user_arena)?"MAX":"INTERNAL");
+    exit(1);
+}
+@
+
+Vamos precisar também de uma função para ler uma variável
+armazenada, retornando um novo token equivalente no lugar:
+
+@<Metafont: Funções Estáticas@>+=
+struct token *read_var(char *var_name, struct metafont *mf){
+    struct metafont *scope = mf, *last_scope;
+    struct token *ret = NULL;
+    int type = NUMERIC;
+    while(scope != NULL){
+        if(_search_trie(scope -> variable_types, INT, var_name, type))
+            break;
+        last_scope = scope;
+        scope = scope -> parent;
+    }
+    if(scope == NULL)
+        scope = last_scope;
+    else{
+        if(type == STRING){
+            struct string_variable *var = NULL;
+            _search_trie(scope -> string_var, VOID_P, var_name, (void *) &var);
+            if(var != NULL){
+                ret = new_token_string(var -> name);
+                ret -> deterministic = var -> deterministic;
+            }
+        }
+    }
+    return ret;
+}
+@
+
+Isso também nos mostra que os próprios tokens também precisam ter duas
+informações: se eles são determinísticos ou se eles são conhecidos:
+
+@<Metafont: Atributos de Token@>=
+bool deterministic;
+int known; // -1: Unknown, 0: Not checked, 1: Known
+@
+
+No começo qualquer token gerado é determinístico e o fato dele ser
+conhecido não é checado:
+
+@<Metafont: Construção de Token@>=
+token -> deterministic = true;
+token -> known = 0;
+@
+
+Com isso já somos capazes de lidar com variáveis string em expressões
+de string:
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == SYMBOL){
+    struct token *replacement = read_var(current_token -> name, mf);
+    if(replacement == NULL)
+        current_token -> known = -1;
+    else{
+        replacement -> prev = current_token -> prev;
+        replacement -> next = current_token -> next;
+        if(current_token -> prev != NULL)
+            current_token -> prev -> next = replacement;
+        else
+            *expression = replacement;
+        if(current_token -> next != NULL)
+            current_token -> next -> prev = replacement;
+    }
+    continue;
+}
+@
+
+
+<String Primário> --> <Variável String>
+                  +-> <Token String>
+                  +-> jobname
+                  +-> ( <Expressão String> )
+                  +-> begingroup <Lista de Declarações> <Expressão String>
+                  |   endgroup
+                  +-> str <Sufixo>
+                  +-> char <Numérico Primário>
+                  +-> decimal <Numérico Primário>
+                  +-> substring <Par Primário> of <String Primário>
