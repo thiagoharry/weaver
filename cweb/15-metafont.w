@@ -176,15 +176,17 @@ struct metafont *_new_metafont(struct metafont *parent, char *filename){
         goto error_no_memory;
     structure -> parent = parent;
     strncpy(structure -> filename, filename, 255);
-    structure -> fp = fopen(filename, "r");
-    if(structure -> fp == NULL)
-        goto error_no_file;
-    else{
-        ret = fread(structure -> buffer, 1, 4095, structure -> fp);
-        structure -> buffer[ret] = '\0';
-        if(ret != 4095){
-            fclose(structure -> fp);
-            structure -> fp = NULL;
+    if(parent == NULL){
+        structure -> fp = fopen(filename, "r");
+        if(structure -> fp == NULL)
+            goto error_no_file;
+        else{
+            ret = fread(structure -> buffer, 1, 4095, structure -> fp);
+            structure -> buffer[ret] = '\0';
+            if(ret != 4095){
+                fclose(structure -> fp);
+                structure -> fp = NULL;
+            }
         }
     }
     structure -> buffer_position = 0;
@@ -221,8 +223,11 @@ isso é chamado de \monoespaco{read} e \monoespaco{peek}:
 
 @<Metafont: Funções Estáticas@>+=
 char read_char(struct metafont *mf){
-    char ret = mf -> buffer[mf -> buffer_position];
+    char ret;
     size_t size;
+    while(mf -> parent != NULL)
+        mf = mf -> parent;
+    ret = mf -> buffer[mf -> buffer_position];
     if(ret != '\0'){
         mf -> buffer_position ++;
     }
@@ -253,8 +258,11 @@ próximo caractere precisamos ler mais um bloco de dados do arquivo:
 
 @<Metafont: Funções Estáticas@>+=
 char peek_char(struct metafont *mf){
-    char ret = mf -> buffer[mf -> buffer_position];
+    char ret;
     size_t size;
+    while(mf -> parent != NULL)
+        mf = mf -> parent;
+    ret = mf -> buffer[mf -> buffer_position];
     if(ret == '\0'){
         if(mf -> fp != NULL){
             size = fread(mf -> buffer, 1, 4095, mf -> fp);
@@ -280,6 +288,8 @@ tipicamente o primeiro:
 
 @<Metafont: Funções Estáticas@>+=
 void mf_error(struct metafont *mf, char *message){
+    while(mf -> parent != NULL)
+        mf = mf -> parent;
     if(! mf -> error){
         fprintf(stderr, "ERROR: Metafont: %s:%d: %s\n",
                 mf -> filename, mf -> line, message);
@@ -300,6 +310,8 @@ E também uma função para finalizar o interpretador sem erros:
 @<Metafont: Funções Estáticas@>+=
 void mf_end(struct metafont *mf){
     // Finaliza a leitura de mais código:
+    while(mf -> parent != NULL)
+        mf = mf -> parent;
     if(mf -> fp != NULL){
         fclose(mf -> fp);
         mf -> fp = NULL;
@@ -736,8 +748,9 @@ void run_statements(struct metafont *mf){
         statement = get_statement(mf);
         if(statement == NULL)
             end_execution = true;
-        else
+        else{
             run_single_statement(&mf, statement);
+        }
         @<METAFONT: Imediatamente após executar declaração@>
         if(mf -> pending_tokens == NULL)
             _iWtrash();
@@ -760,6 +773,7 @@ void run_single_statement(struct metafont **mf, struct token *statement){
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
     @<Metafont: Executa Declaração@>
+    @<Metafont: Prepara Retorno de Expressão Composta@>
     mf_error(*mf, "Isolated expression. I couldn't find a = or := after it.");
     return;
 error_no_memory_user:
@@ -1121,7 +1135,6 @@ regra gramatical para isso é:
                           endgroup
 \alinhanormal
 
-
 Notar que a declaração final dentro do grupo que forma a declaração
 composta, além de não poder ser um título, não é terminada com
 ponto-e-vírgula. Embora a presença de um ponto-e-vírgula não faça
@@ -1186,9 +1199,11 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
 Já tratar o comando \monoespaco{endgroup} é mais complicado, pois ele
 aparece tipicamente na penúltima posição (antes de um
 ponto-e-vírgula), podendo aparecer na última caso o código esteja
-incorreto por estar incompleto. Sendo assim, vamos criar uma forma da
-fuinção que monta uma nova declaração avisar o nosso interpretador
-caso ela leia um \monoespaco{endgroup} na penúltima ou última posição:
+incorreto por estar incompleto. Outras vezes, podemos estar dentro de
+uma expressão, caso em que ele aparece no meio ou no começo da lista
+de tokens. Sendo assim, vamos criar uma forma da fuinção que monta uma
+nova declaração avisar o nosso interpretador caso ela leia um
+\monoespaco{endgroup} na penúltima ou última posição:
 
 @<METAFONT: Estrutura METAFONT@>=
 int hint;
@@ -1209,7 +1224,8 @@ Vamos chamar o caso de termos um \monoespaco{endgroup} na declaração
 atual como algo que será avisado por meio da seguinte definição:
 
 @<Metafont: Inclui Cabeçalhos@>+=
-#define HINT_ENDGROUP 1
+#define HINT_ENDGROUP      1
+#define HINT_ENDGROUP_EXPR 2
 @
 
 Quando somos avisados que temos que encerrar o grupo, após executarmos
@@ -1253,35 +1269,50 @@ declaração. Mas só devemos fazer isso se o primeiro token não é um
 se forem feitas separadamente.
 
 @<Metafont: Imediatamente após gerarmos uma declaração completa@>=
-// Curiosidade: a verdade é que nem sempre isso é uma declaração
-// completa. Nós apenas paramos no ';', mas construções patológicas na
-// linguagem podem usar o token ';' para outras coisas além de separar
-// declarações. Mas não importa, embora possamos nos enganar, podemos
-// nos recuperar destes enganos. O máximo que pode ocorrer é que
-// construções patológicas na linguagem podem nos induzir a retornar
-// mensagens de erro eradas.
-if(first_token -> type != SYMBOL ||
+if(first_token -> type == SYMBOL ||
      strcmp(first_token -> name, "begingroup")){
-    if(current_token -> type == SYMBOL &&
-       !strcmp(current_token -> name, "endgroup")){
-        if(current_token -> prev != NULL)
-            current_token -> prev -> next = NULL;
-        else
-            first_token = NULL;
-        mf -> hint = HINT_ENDGROUP;
-    }
-    else if(current_token -> prev != NULL &&
-            current_token -> prev -> type == SYMBOL &&
-            !strcmp(current_token -> prev -> name, "endgroup")){
-        if(current_token -> prev -> prev != NULL){
-            current_token -> prev -> prev -> next = current_token;
-            current_token -> prev = current_token -> prev -> prev;
+    int count = 0;
+    struct token *aux = current_token;
+    while(aux != NULL){
+        if(aux != NULL && aux -> type == SYMBOL &&
+           !strcmp(aux -> name, "endgroup")){
+            if(count == 0){
+                if(aux -> prev != NULL)
+                    aux -> prev -> next = NULL;
+                else
+                    first_token = NULL;
+                mf -> hint = HINT_ENDGROUP;
+                break;
+            }
+            else if(count == 1){
+                if(aux -> prev != NULL)
+                    aux -> prev -> next = aux -> next;
+                else
+                    first_token = aux -> next;
+                if(aux -> next != NULL)
+                    aux -> next -> prev = aux -> prev;
+                mf -> hint = HINT_ENDGROUP;
+                break;
+            }
+            else{
+                mf -> hint = HINT_ENDGROUP_EXPR;
+                // Remover o endgroup
+                if(aux -> prev != NULL)
+                    aux -> prev -> next = NULL;
+                else
+                    first_token = NULL;
+                // Devolver os tokens restantes
+                aux -> next -> prev = NULL;
+                if(mf -> pending_tokens == NULL)
+                    mf -> pending_tokens = aux -> next;
+                else
+                    concat_token(mf -> pending_tokens, aux -> next);
+                aux -> next = NULL;
+                break;
+            }
         }
-        else{
-            current_token -> prev = NULL;
-            first_token = current_token;
-        }
-        mf -> hint = HINT_ENDGROUP;
+        aux = aux -> prev;
+        count ++;
     }
 }
 @
@@ -1469,6 +1500,23 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
         return;
     }
     return;
+}
+@
+
+Vamos agora gerar apenas uma função auxiliar para obter o delimitador
+oposto d eum token, ou NULL se ele não for um delimitador:
+
+@<Metafont: Funções Estáticas@>+=
+static struct token *delimiter(struct metafont *mf, struct token *tok){
+    struct token *result = NULL;
+    while(mf != NULL){
+        bool ret = _search_trie(mf -> delimiters, VOID_P, tok -> name,
+                                (void *) &result);
+        if(ret)
+            return result;
+        mf = mf -> parent;
+    }
+    return NULL;
 }
 @
 
@@ -1783,7 +1831,7 @@ void declared_variable(struct metafont *mf, struct token **token,
         current_token -> prev = NULL;
     }
     else{
-        *token = current_token -> next;	
+        *token = current_token -> next;
 	current_token -> next -> prev = first_token -> prev;
 	first_token -> prev -> next = current_token -> next;
     }
@@ -2512,7 +2560,7 @@ if(statement -> type == SYMBOL &&
     }
     new_macro -> replacement_text = replacement_text(*mf, &statement,
                                                      current_arena);
-    
+
     // Inserir a macro após construí-la:
     _insert_trie(destiny[precedence], current_arena, VOID_P, name,
                 (void *) new_macro);
@@ -2523,5 +2571,160 @@ if(statement -> type == SYMBOL &&
         return;
     }
     return;
+}
+@
+
+@*1 Títulos.
+
+Títulos são como comentários, com o diferencial de que eles podem ser
+impressos na tela de acordo com os valores internos armazenados no
+METAFONT original. Mas no nosso caso, nós sempre iremos ignorá-los
+depois de tratá-los.
+
+Para um comando que não fará nada, ele será bastante complexo. Pois
+aqui começaremos a definir as expressões, as quais são centrais para o
+funcionamento do METAFONT.
+
+A gramática de um título é:
+
+\alinhaverbatim
+<Título> --> <Expressão String>
+<Expressão String> --> <String Terciário>
+                   +-> <Expressão String> & <String Terciário>
+<String Terciário> --> <String Secundário>
+<String Secundário> --> <String Primário>
+<String Primário> --> <Variável String>
+                  +-> <Token String>
+                  +-> jobname
+                  +-> ( <Expressão String> )
+                  +-> begingroup <Lista de Declarações> <Expressão String>
+                  |   endgroup
+                  +-> str <Sufixo>
+                  +-> char <Numérico Primário>
+                  +-> decimal <Numérico Primário>
+                  +-> substring <Par Primário> of <String Primário>
+\alinhanormal
+
+Nem tudo poderemos definir de maneira completa antes de completarmos a
+definição de outros tipos de expressão. Por exemplo, supostament
+teríamos que ter definição das expressões primárias de números e
+pares. Mas como tais definições são muito mais complexas, é melhor
+começarmos por strings, mesmo que não possamos finalizar elas ainda.
+
+Primeiro vamos declarar os novos ``sparks'' que temos aqui:
+
+@<Metafont: Declara Nova Spark@>=
+_insert_trie(primitive_sparks, _user_arena, INT, "&", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "jobname", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "str", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "char", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "decimal", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "substring", 0);
+@
+
+Na maioria das vezes nós sabemos que estamos dentro de uma expresão de
+string por estarmos diante de uma variável declarada como string, uma
+string literal ou algum de tais operadores listados acima coo primeiro
+token após os ``('' iniciais. A única exceção é quando começamos a
+expressão com um grupo, pois só descobriremos isso após avaliarmos o
+grupo. Se o \monoespaco{begingroup} aparece no começo de uma
+expressão, ele até já começou a ser tratado, pois este caso se
+confunde com uma declaração composta. Se aparece no meio, ainda temos
+que tratar.
+
+Para estes casos com grupos, de qualquer forma, precisamos tratar o
+caso de quando o grupo faz parte de uma expressão. Se nós estamos em
+um grupo, chegamos ao seu fim, mas não conseguimos detectar uma
+declaração para ser executada, devemos assumir estarmos diante de uma
+expressão que deve ser interpretada e o valor obtido deve ser
+armazenado para ser usado na continuação da expressão quando a
+expressão começa com um grupo.
+
+
+@<Metafont: Prepara Retorno de Expressão Composta@>=
+{
+    struct token *expression_result = eval(*mf, statement);
+    if((*mf) -> hint == HINT_ENDGROUP_EXPR){
+        if((*mf) -> parent == NULL){
+            mf_error(*mf, "Extra 'endgroup' while not in 'begingroup'.");
+            return;
+        }
+        if(expression_result != NULL){
+            if((*mf) -> parent -> pending_tokens == NULL)
+                (*mf) -> parent -> pending_tokens = expression_result;
+            else
+                concat_token((*mf) -> parent -> pending_tokens,
+                             expression_result);
+        }
+        *mf = (*mf) -> parent;
+        Wtrash_arena(metafont_arena);
+    }
+    else{
+        // Se temos uma expressão solta, e ela é uma string,
+        // então temos um título. Ignorar. Senão, gere erro.
+        if(expression_result == NULL || expression_result -> type != STRING)
+            mf_error(*mf, "Isolated expressiosn.");
+    }
+    return;
+}
+@
+
+A função \monoespaco{eval} é o que irá avaliar expressões e retornar
+um token com o resultado da avaliação. Como o caso da expressão
+começar com \monoespaco{begingroup} já terminou de ser tratado agora,
+podemos definir tal função:
+
+@<Metafont: Funções Estáticas@>+=
+@<Metafont: eval_string@>
+struct token *eval(struct metafont *mf, struct token *expression){
+    struct token *aux = expression;
+    struct metafont *scope = mf;
+    bool is_variable = false;
+    int type;
+    // Ignorando os delimitadores iniciais para definir o tipo
+    while(aux != NULL && aux -> type == SYMBOL && delimiter(mf, aux))
+        aux = aux -> next;
+    // Erro se não houver nada
+    if(aux == NULL){
+        mf_error(mf, "Missing expression.");
+        return NULL;
+    }
+    if(aux -> type == STRING)
+        return eval_string(mf, expression);
+    // Definindo se é uma variável:
+    else if(aux -> type == SYMBOL){
+        while(scope != NULL){
+            if(_search_trie(scope -> variable_types, INT, aux -> name, &type)){
+                is_variable = true;
+                break;
+            }
+            scope = scope -> parent;
+        }
+        if(!is_variable){
+            if(!strcmp(aux -> name, "jobname"))
+                return eval_string(mf, expression);
+            if(!strcmp(aux -> name, "str"))
+                return eval_string(mf, expression);
+            if(!strcmp(aux -> name, "char"))
+                return eval_string(mf, expression);
+            if(!strcmp(aux -> name, "decimal"))
+                return eval_string(mf, expression);
+            if(!strcmp(aux -> name, "substring"))
+                return eval_string(mf, expression);
+        }
+    }
+    if(is_variable && type == STRING)
+        return eval_string(mf, expression);
+    mf_error(mf, "Undetermined expression.");
+    return NULL;
+}
+@
+
+Por enquanto a função de avaliação de string vai só retornar. Ela vai
+funcionar quando a função é só uma string literal:
+
+@<Metafont: eval_string@>=
+static struct token *eval_string(struct metafont *mf, struct token *expression){
+    return expression;
 }
 @
