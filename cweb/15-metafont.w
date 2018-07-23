@@ -29,6 +29,7 @@ seguintes arquivos:
 @(project/src/weaver/metafont.c@>=
 #include "weaver.h"
 @<Metafont: Inclui Cabeçalhos@>
+@<Metafont: Funções Locais Declaradas@>
 @<Metafont: Variáveis Estáticas@>
 @<Metafont: Funções Estáticas@>
 @<Metafont: Eval@>
@@ -2683,7 +2684,14 @@ um token com o resultado da avaliação. Como o caso da expressão
 começar com \monoespaco{begingroup} já terminou de ser tratado agora,
 podemos definir tal função:
 
+@<Metafont: Funções Locais Declaradas@>=
+static struct token *eval(struct metafont *, struct token *);
+static struct token *eval_string(struct metafont *, struct token **);
+static struct token *eval_numeric(struct metafont *, struct token **);
+@
+
 @<Metafont: Eval@>=
+@<Metafont: eval_numeric@>
 @<Metafont: eval_string@>
 struct token *eval(struct metafont *mf, struct token *expression){
     struct token *aux = expression;
@@ -2868,8 +2876,144 @@ error_no_memory:
 }
 @
 
-Vamos precisar também de uma função para ler uma variável
-armazenada, retornando um novo token equivalente no lugar:
+Mas para poder usar tal função, precisamos obter o nome completo de
+uma variável, a qual pode ser formada por mais de um token ou
+números. A gramática completa para acessar uma variável em uma expressão é:
+
+\alinhaverbatim
+<Variável> --> <Tag Externa><Sufixo>
+           +-> <Quantidade Interna>
+<Sufixo> --> <Vazio>
+         +-> <Sufixo><Subscrito>
+         +-> <Sufixo><Tag>
+<Subscrito> --> <Token Numérico>
+            +-> <Expressão Numérica>
+\alinhanormal
+
+Uma quantidade interna não pode ter sufixos. Declarar variáveis
+internas é a primeira coisa que definimos na linguagem. Nos demais
+casos, o sufixo pode ser qualquer quantidade de tags e de números (na
+forma de expressões numéricas) delimitados ou não por ``['' e ``]''.
+
+Por hora tratemos as expressões numéricas como se fôssem compostas
+somente por números literais. Depois iremos expandir seu significado:
+
+@<Metafont: eval_numeric@>=
+static struct token *eval_numeric(struct metafont *mf,
+                                  struct token **expression){
+    return *expression;
+}
+@
+
+E agora o código que consome uma próxima variável, que pode ter nome
+composto, a consome e preenche uma string com seu nome, recebida como
+argumento:
+
+@<Metafont: Funções Estáticas@>=
+void variable(struct metafont *mf, struct token **token,
+              char *dst, int dst_size){
+    bool internal = false;
+    float dummy;
+    dst[0] = '\0';
+    int pos = 0, original_size = dst_size;
+    if(*token == NULL || (*token) -> type != SYMBOL)
+        return;
+    // Primeiro checamos se é uma quantidade interna
+    while(mf -> parent != NULL){
+        internal = _search_trie(mf -> internal_quantities, DOUBLE,
+                                                 (*token) -> name, &dummy);
+        if(internal)
+            break;
+        mf = mf -> parent;
+    }
+    internal = _search_trie(mf -> internal_quantities, DOUBLE,
+                            (*token) -> name, &dummy);
+    if(internal){
+        strncpy(dst, (*token) -> name, dst_size);
+        dst[dst_size - 1] = '\0';
+        if((*token) -> prev != NULL)
+            (*token) -> prev -> next = (*token) -> next;
+        if((*token) -> next != NULL)
+            (*token) -> next -> prev = (*token) -> prev;
+        *token = (*token) -> next;
+        return;
+    }
+    // Se não for, o primeiro token precisa ser uma tag
+    if(!is_tag(mf, *token))
+        return;
+    // Copiar nome do primeiro token
+    strncat(dst, (*token) -> name, dst_size);
+    pos += strlen((*token) -> name);
+    dst_size -= pos;
+    strncat(dst, " ", dst_size);
+    pos ++;
+    dst_size -= 1;
+    *token = (*token) -> next;
+    while(*token != NULL){
+        // Se o token atual for um símbolo, mas não uma tag ou [ ou ],
+        // encerramos
+        if((*token) -> type == SYMBOL &&
+           (!is_tag(mf, *token) &&
+	    strcmp((*token) -> name, "[") &&
+             strcmp((*token) -> name, "]"))){
+            break;
+        }
+        // Se for um '[', temos que checar que temos uma expressão numérica e
+        // um ']' logo em seguida
+        if((*token) -> type == SYMBOL && !strcmp((*token) -> name, "[")){
+            struct token *result;
+            *token = (*token) -> next;
+            result = eval_numeric(mf, token);
+            if(result == NULL || result -> type != NUMERIC){
+                mf_error(mf, "Undefined numeric expression after '['.");
+                return;
+            }
+            if(*token == NULL || (*token) -> type != SYMBOL ||
+               strcmp((*token) -> name, "]")){
+                mf_error(mf, "Missing ']' after '[' in variable name.");
+                return;
+            }
+            *token = (*token) -> next;
+            // Copiando o subscrito
+            snprintf(&(dst[pos]), dst_size, "%f ", result -> value);
+            pos = strlen(dst);
+            dst_size = original_size - pos;
+            continue;
+        }
+        // Se for um outro símbolo, copiamos seu nome
+        if((*token) -> type == SYMBOL){
+            strncat(dst, (*token) -> name, dst_size);
+            pos += strlen((*token) -> name);
+            dst_size -= pos;
+            strncat(dst, " ", dst_size);
+            pos ++;
+            dst_size -= 1;
+            *token = (*token) -> next;
+            continue;
+        }
+        // Se tivermos um número, ele é um subscrito e o copiamos
+        if((*token) -> type == NUMERIC){
+            snprintf(&(dst[pos]), dst_size, "%f ", (*token) -> value);
+            pos = strlen(dst);
+            dst_size = original_size - pos;
+            continue;
+        }
+        // Se não paramos em nenhum dos casos, é um token desconhecido e
+        // paramos.
+        break;
+    }
+    // Finalizando a string e saindo
+    if(dst_size > 0)
+        dst[pos - 1] = '\0';
+    else
+        dst[original_size - 1] = '\0';
+    return;
+}
+@
+
+
+Vamos precisar também de uma função para ler uma variável armazenada,
+retornando um novo token equivalente no lugar:
 
 @<Metafont: Funções Estáticas@>+=
 struct token *read_var(char *var_name, struct metafont *mf){
