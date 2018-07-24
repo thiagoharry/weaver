@@ -2330,7 +2330,7 @@ macros passam a ser tratadas assim.
 Vamos então definir um novo tipo de variável além dos já vistos:
 
 @<Metafont: Inclui Cabeçalhos@>+=
-#define MACRO 7
+#define MACRO 8
 @
 
 O segundo tipo da declaração declara um número infinito de
@@ -2795,17 +2795,6 @@ struct string_variable{
 };
 @
 
-Vamos precisar armazenar tais variáveis em um lugar:
-
-@<METAFONT: Estrutura METAFONT@>+=
-struct _trie *string_var;
-@
-
-@<METAFONT: Inicializa estrutura METAFONT@>=
-structure -> string_var = _new_trie(arena);
-@
-
-
 Com isso, nova variável string pode ser armazenada em uma estrutura
 METAFONT por meio da seguinte função:
 
@@ -2865,7 +2854,7 @@ void new_string_variable(char *var_name, char *string, bool deterministic,
         goto error_no_memory;
     strcpy(new_variable -> name, string);
     new_variable -> deterministic = deterministic;
-    _insert_trie(scope -> string_var, current_arena, VOID_P, string,
+    _insert_trie(scope -> vars[STRING], current_arena, VOID_P, string,
                  (void *) new_variable);
     return;
 error_no_memory:
@@ -2907,15 +2896,24 @@ static struct token *eval_numeric(struct metafont *mf,
 
 E agora o código que consome uma próxima variável, que pode ter nome
 composto, a consome e preenche uma string com seu nome, recebida como
-argumento:
+argumento e também armazena seu tipo no último argumento. Só para o
+caso do tipo ser de uma variável numérica interna, usaremos isso:
+
+@<Metafont: Inclui Cabeçalhos@>+=
+#define INTERNAL 9
+@
+
 
 @<Metafont: Funções Estáticas@>=
 void variable(struct metafont *mf, struct token **token,
-              char *dst, int dst_size){
+              char *dst, int dst_size, int *type){
+    struct metafont *scope = mf;
     bool internal = false;
     float dummy;
+    char type_name[1024];
     dst[0] = '\0';
-    int pos = 0, original_size = dst_size;
+    type_name[0] = '\0';
+    int pos = 0, type_pos = 0, original_size = dst_size;
     if(*token == NULL || (*token) -> type != SYMBOL)
         return;
     // Primeiro checamos se é uma quantidade interna
@@ -2936,11 +2934,15 @@ void variable(struct metafont *mf, struct token **token,
         if((*token) -> next != NULL)
             (*token) -> next -> prev = (*token) -> prev;
         *token = (*token) -> next;
+        *type = INTERNAL;
+        strncpy(type_name, dst, 1023);
         return;
     }
     // Se não for, o primeiro token precisa ser uma tag
-    if(!is_tag(mf, *token))
+    if(!is_tag(mf, *token)){
+        *type = NOT_DECLARED;
         return;
+    }
     // Copiar nome do primeiro token
     strncat(dst, (*token) -> name, dst_size);
     pos += strlen((*token) -> name);
@@ -2966,11 +2968,13 @@ void variable(struct metafont *mf, struct token **token,
             result = eval_numeric(mf, token);
             if(result == NULL || result -> type != NUMERIC){
                 mf_error(mf, "Undefined numeric expression after '['.");
+                *type = NOT_DECLARED;
                 return;
             }
             if(*token == NULL || (*token) -> type != SYMBOL ||
                strcmp((*token) -> name, "]")){
                 mf_error(mf, "Missing ']' after '[' in variable name.");
+                *type = NOT_DECLARED;
                 return;
             }
             *token = (*token) -> next;
@@ -2978,16 +2982,21 @@ void variable(struct metafont *mf, struct token **token,
             snprintf(&(dst[pos]), dst_size, "%f ", result -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
+            strncat(type_name, "[ ] ", 1023 - type_pos);
+            type_pos += 4;
             continue;
         }
         // Se for um outro símbolo, copiamos seu nome
         if((*token) -> type == SYMBOL){
+            int size = strlen((*token) -> name);
             strncat(dst, (*token) -> name, dst_size);
-            pos += strlen((*token) -> name);
+            pos += size;
             dst_size -= pos;
             strncat(dst, " ", dst_size);
             pos ++;
             dst_size -= 1;
+            strncat(type_name, (*token) -> name, 1024 - type_pos);
+            type_pos += size;
             *token = (*token) -> next;
             continue;
         }
@@ -2996,11 +3005,22 @@ void variable(struct metafont *mf, struct token **token,
             snprintf(&(dst[pos]), dst_size, "%f ", (*token) -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
+            strncat(type_name, "[ ] ", 1023 - type_pos);
+            type_pos += 4;
             continue;
         }
         // Se não paramos em nenhum dos casos, é um token desconhecido e
         // paramos.
         break;
+    }
+    // Tentando obter o tipo, se não acharmos ele é numérico:
+    *type = NUMERIC;
+    while(scope != NULL){
+        bool found = false;
+        found = _search_trie(scope -> variable_types, INT, type_name, type);
+	if(found)
+            break;
+        scope = scope -> parent;
     }
     // Finalizando a string e saindo
     if(dst_size > 0)
@@ -3013,32 +3033,23 @@ void variable(struct metafont *mf, struct token **token,
 
 
 Vamos precisar também de uma função para ler uma variável armazenada,
-retornando um novo token equivalente no lugar:
+dado seu tipo, retornando um novo token equivalente no lugar:
 
 @<Metafont: Funções Estáticas@>+=
-struct token *read_var(char *var_name, struct metafont *mf){
-    struct metafont *scope = mf, *last_scope;
+struct token *read_var(char *var_name, int type, struct metafont *mf){
+    struct metafont *scope = mf;
     struct token *ret = NULL;
-    int type = NUMERIC;
     while(scope != NULL){
-        if(_search_trie(scope -> variable_types, INT, var_name, type))
-            break;
-        last_scope = scope;
+        struct string_variable *var = NULL;
+        _search_trie(scope -> vars[type], VOID_P, var_name, (void *) &var);
+        if(var != NULL){
+            ret = new_token_string(var -> name);
+            ret -> deterministic = var -> deterministic;
+            return ret;
+        }
         scope = scope -> parent;
     }
-    if(scope == NULL)
-        scope = last_scope;
-    else{
-        if(type == STRING){
-            struct string_variable *var = NULL;
-            _search_trie(scope -> string_var, VOID_P, var_name, (void *) &var);
-            if(var != NULL){
-                ret = new_token_string(var -> name);
-                ret -> deterministic = var -> deterministic;
-            }
-        }
-    }
-    return ret;
+    return NULL;
 }
 @
 
@@ -3063,20 +3074,31 @@ de string:
 
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL){
-    struct token *replacement = read_var(current_token -> name, mf);
-    if(replacement == NULL)
-        current_token -> known = -1;
-    else{
-        replacement -> prev = current_token -> prev;
-        replacement -> next = current_token -> next;
-        if(current_token -> prev != NULL)
-            current_token -> prev -> next = replacement;
-        else
-            *expression = replacement;
-        if(current_token -> next != NULL)
-            current_token -> next -> prev = replacement;
+    char variable_name[1024];
+    int type;
+    struct token *replacement;
+    variable(mf, &current_token, variable_name, 1024, &type);
+    if(type != NOT_DECLARED){
+        // Se estamos aqui, é mesmo uma variável
+        if(type != STRING){
+            mf_error(mf, "Variable isn't a string.");
+            return NULL;
+        }
+        replacement = read_var(current_token -> name, type, mf);
+        if(replacement == NULL)
+            current_token -> known = -1;
+        else{
+            replacement -> prev = current_token -> prev;
+            replacement -> next = current_token -> next;
+            if(current_token -> prev != NULL)
+                current_token -> prev -> next = replacement;
+            else
+                *expression = replacement;
+            if(current_token -> next != NULL)
+                current_token -> next -> prev = replacement;
+        }
+        continue;
     }
-    continue;
 }
 @
 
