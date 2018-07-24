@@ -2650,7 +2650,7 @@ expressão começa com um grupo.
 @<Metafont: Prepara Retorno de Expressão Composta@>=
 {
     struct token *new_tokens = (*mf) -> past_tokens;
-    struct token *expression_result = eval(*mf, statement);
+    struct token *expression_result = eval(*mf, &statement);
     if((*mf) -> hint == HINT_ENDGROUP_EXPR || (*mf) -> hint == HINT_ENDGROUP){
         if((*mf) -> parent == NULL){
             mf_error(*mf, "Extra 'endgroup' while not in 'begingroup'.");
@@ -2685,7 +2685,7 @@ começar com \monoespaco{begingroup} já terminou de ser tratado agora,
 podemos definir tal função:
 
 @<Metafont: Funções Locais Declaradas@>=
-static struct token *eval(struct metafont *, struct token *);
+static struct token *eval(struct metafont *, struct token **);
 static struct token *eval_string(struct metafont *, struct token **);
 static struct token *eval_numeric(struct metafont *, struct token **);
 @
@@ -2693,8 +2693,8 @@ static struct token *eval_numeric(struct metafont *, struct token **);
 @<Metafont: Eval@>=
 @<Metafont: eval_numeric@>
 @<Metafont: eval_string@>
-struct token *eval(struct metafont *mf, struct token *expression){
-    struct token *aux = expression;
+struct token *eval(struct metafont *mf, struct token **expression){
+    struct token *aux = *expression;
     struct metafont *scope = mf;
     bool is_variable = false;
     int type;
@@ -2707,7 +2707,7 @@ struct token *eval(struct metafont *mf, struct token *expression){
         return NULL;
     }
     if(aux -> type == STRING)
-        return eval_string(mf, &expression);
+        return eval_string(mf, expression);
     // Definindo se é uma variável:
     else if(aux -> type == SYMBOL){
         while(scope != NULL){
@@ -2719,19 +2719,19 @@ struct token *eval(struct metafont *mf, struct token *expression){
         }
         if(!is_variable){
             if(!strcmp(aux -> name, "jobname"))
-                return eval_string(mf, &expression);
+                return eval_string(mf, expression);
             if(!strcmp(aux -> name, "str"))
-                return eval_string(mf, &expression);
+                return eval_string(mf, expression);
             if(!strcmp(aux -> name, "char"))
-                return eval_string(mf, &expression);
+                return eval_string(mf, expression);
             if(!strcmp(aux -> name, "decimal"))
-                return eval_string(mf, &expression);
+                return eval_string(mf, expression);
             if(!strcmp(aux -> name, "substring"))
-                return eval_string(mf, &expression);
+                return eval_string(mf, expression);
         }
     }
     if(is_variable && type == STRING)
-        return eval_string(mf, &expression);
+        return eval_string(mf, expression);
     mf_error(mf, "Undetermined expression.");
     return NULL;
 }
@@ -2765,6 +2765,12 @@ static struct token *eval_string(struct metafont *mf, struct token **expression)
         current_token = current_token -> next;
     }
     return *expression;
+error_no_memory_internal:
+    fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+            "value of W_INTERNAL_MEMORY at conf/conf.h\n");
+    exit(1);
+
+
 }
 @
 
@@ -3097,8 +3103,43 @@ if(current_token -> type == SYMBOL){
             if(current_token -> next != NULL)
                 current_token -> next -> prev = replacement;
         }
+        current_token = current_token -> next;
         continue;
     }
+}
+@
+
+@*2 Tokens String.
+
+Encontrar o token de uma string em uma expressão string é o caso mais
+simples. Nós apenas ignoramos ela e seguimos em frente, pois um token
+string é avaliado como sendo exatamente o que ele é:
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == STRING){
+    current_token = current_token -> next;
+    continue;
+}
+@
+
+@*2 Jobname.
+
+A expressão \monoespaco{jobname} é avaliada como sendo um token string
+cujo conteúdo é o nome do arquivo que está sendo lido:
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == SYMBOL &&
+   !strcmp(current_token -> name, "jobname")){
+    struct token *jobname = new_token_string(mf -> filename);
+    if(jobname == NULL)
+        goto error_no_memory_internal;
+    jobname -> prev = current_token -> prev;
+    jobname -> next = current_token -> next;
+    current_token = jobname;
+    if(current_token -> prev == NULL)
+        *expression = current_token;
+    current_token = current_token -> next;
+    continue;
 }
 @
 
