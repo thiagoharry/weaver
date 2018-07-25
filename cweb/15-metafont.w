@@ -1513,13 +1513,14 @@ Vamos agora gerar apenas uma função auxiliar para obter o delimitador
 oposto d eum token, ou NULL se ele não for um delimitador:
 
 @<Metafont: Funções Estáticas@>+=
-static struct token *delimiter(struct metafont *mf, struct token *tok){
-    struct token *result = NULL;
+static char  *delimiter(struct metafont *mf, struct token *tok){
+    char *result = NULL;
     while(mf != NULL){
         bool ret = _search_trie(mf -> delimiters, VOID_P, tok -> name,
                                 (void *) &result);
-        if(ret)
+        if(ret){
             return result;
+        }
         mf = mf -> parent;
     }
     return NULL;
@@ -2699,7 +2700,7 @@ struct token *eval(struct metafont *mf, struct token **expression){
     bool is_variable = false;
     int type;
     // Ignorando os delimitadores iniciais para definir o tipo
-    while(aux != NULL && aux -> type == SYMBOL && delimiter(mf, aux))
+    while(aux != NULL && aux -> type == SYMBOL && delimiter(mf, aux) != NULL)
         aux = aux -> next;
     // Erro se não houver nada
     if(aux == NULL){
@@ -2743,26 +2744,35 @@ seguida os detalhes de como avaliar expressão:
 
 @<Metafont: eval_string@>=
 static struct token *eval_string(struct metafont *mf, struct token **expression){
-    char default_delimiter[2];
-    char *delimiter = NULL;
-    struct metafont *scope = mf;
+    bool delimited = false;
     struct token *current_token = *expression;
-    // Primeiro a fazer: obter os delimitadores da string.
-    while(scope -> parent != NULL){
-        if(_search_trie(scope -> delimiters, VOID_P, (*expression) -> name,
-                        &delimiter))
-            break;
-        scope = scope -> parent;
-    }
-    if(delimiter == NULL){
-        default_delimiter[0] = ';';
-        default_delimiter[1] = '\0';
-        delimiter = default_delimiter;
+    char *delim = delimiter(mf, *expression);
+    if(delim != NULL){
+        current_token = current_token -> next;
+        delimited = true;
     }
     // Percorre a expressão
-    while(strcmp(current_token -> name, delimiter)){
+    while(current_token != NULL &&
+          ((delimited && strcmp(current_token -> name, delim)) ||
+           (!delimited && strcmp(current_token -> name, ";")))){
         @<Metafont: String: Expressões Primárias@>
         current_token = current_token -> next;
+    }
+    // Removendo parênteses se após avaliarmos expressão ficarmos com
+    // algo como "(resultado)"
+    if(delimited){
+        if(*expression != NULL && (*expression) -> next != NULL &&
+           (*expression) -> next -> next != NULL &&
+           !strcmp((*expression) -> next -> next -> name,
+                   delim)){
+            *expression = (*expression) -> next;
+            (*expression) -> prev = (*expression) -> prev -> prev;
+            if((*expression) -> prev != NULL)
+                (*expression) -> prev -> next = *expression;
+            (*expression) -> next = (*expression) -> next -> next;
+            if((*expression) -> next != NULL)
+                (*expression) -> next -> prev = *expression;
+        }
     }
     return *expression;
 error_no_memory_internal:
@@ -2962,7 +2972,7 @@ void variable(struct metafont *mf, struct token **token,
         // encerramos
         if((*token) -> type == SYMBOL &&
            (!is_tag(mf, *token) &&
-	    strcmp((*token) -> name, "[") &&
+            strcmp((*token) -> name, "[") &&
              strcmp((*token) -> name, "]"))){
             break;
         }
@@ -3024,7 +3034,7 @@ void variable(struct metafont *mf, struct token **token,
     while(scope != NULL){
         bool found = false;
         found = _search_trie(scope -> variable_types, INT, type_name, type);
-	if(found)
+        if(found)
             break;
         scope = scope -> parent;
     }
@@ -3143,6 +3153,22 @@ if(current_token -> type == SYMBOL &&
 }
 @
 
+@*2 Expressões com parênteses.
+
+Para tratar expressões com parênteses, basta chamarmos recursivamente
+a função de avaliar strings, pois ela já trata corretamente o começo e
+o fim de delimitadores para saber a extensão de até onde ela deve
+avaliar:
+
+@<Metafont: String: Expressões Primárias@>=
+{
+    char *current_delim = delimiter(mf, current_token);
+    if(current_delim != NULL){
+        eval_string(mf, &current_token);
+        continue;
+    }
+}
+@
 
 <String Primário> --> <Variável String>
                   +-> <Token String>
