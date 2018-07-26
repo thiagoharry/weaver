@@ -2651,7 +2651,7 @@ expressão começa com um grupo.
 @<Metafont: Prepara Retorno de Expressão Composta@>=
 {
     struct token *new_tokens = (*mf) -> past_tokens;
-    struct token *expression_result = eval(*mf, &statement);
+    struct token *expression_result = eval(mf, &statement);
     if((*mf) -> hint == HINT_ENDGROUP_EXPR || (*mf) -> hint == HINT_ENDGROUP){
         if((*mf) -> parent == NULL){
             mf_error(*mf, "Extra 'endgroup' while not in 'begingroup'.");
@@ -2686,25 +2686,25 @@ começar com \monoespaco{begingroup} já terminou de ser tratado agora,
 podemos definir tal função:
 
 @<Metafont: Funções Locais Declaradas@>=
-static struct token *eval(struct metafont *, struct token **);
-static struct token *eval_string(struct metafont *, struct token **);
-static struct token *eval_numeric(struct metafont *, struct token **);
+static struct token *eval(struct metafont **, struct token **);
+static struct token *eval_string(struct metafont **, struct token **);
+static struct token *eval_numeric(struct metafont **, struct token **);
 @
 
 @<Metafont: Eval@>=
 @<Metafont: eval_numeric@>
 @<Metafont: eval_string@>
-struct token *eval(struct metafont *mf, struct token **expression){
+struct token *eval(struct metafont **mf, struct token **expression){
     struct token *aux = *expression;
-    struct metafont *scope = mf;
+    struct metafont *scope = *mf;
     bool is_variable = false;
     int type;
     // Ignorando os delimitadores iniciais para definir o tipo
-    while(aux != NULL && aux -> type == SYMBOL && delimiter(mf, aux) != NULL)
+    while(aux != NULL && aux -> type == SYMBOL && delimiter(*mf, aux) != NULL)
         aux = aux -> next;
     // Erro se não houver nada
     if(aux == NULL){
-        mf_error(mf, "Missing expression.");
+        mf_error(*mf, "Missing expression.");
         return NULL;
     }
     if(aux -> type == STRING)
@@ -2733,7 +2733,7 @@ struct token *eval(struct metafont *mf, struct token **expression){
     }
     if(is_variable && type == STRING)
         return eval_string(mf, expression);
-    mf_error(mf, "Undetermined expression.");
+    mf_error(*mf, "Undetermined expression.");
     return NULL;
 }
 @
@@ -2743,10 +2743,10 @@ funcionar quando a função é só uma string literal. Definiremos em
 seguida os detalhes de como avaliar expressão:
 
 @<Metafont: eval_string@>=
-static struct token *eval_string(struct metafont *mf, struct token **expression){
+static struct token *eval_string(struct metafont **mf, struct token **expression){
     bool delimited = false;
     struct token *current_token = *expression;
-    char *delim = delimiter(mf, *expression);
+    char *delim = delimiter(*mf, *expression);
     if(delim != NULL){
         current_token = current_token -> next;
         delimited = true;
@@ -2904,7 +2904,7 @@ Por hora tratemos as expressões numéricas como se fôssem compostas
 somente por números literais. Depois iremos expandir seu significado:
 
 @<Metafont: eval_numeric@>=
-static struct token *eval_numeric(struct metafont *mf,
+static struct token *eval_numeric(struct metafont **mf,
                                   struct token **expression){
     return *expression;
 }
@@ -2921,9 +2921,9 @@ caso do tipo ser de uma variável numérica interna, usaremos isso:
 
 
 @<Metafont: Funções Estáticas@>=
-void variable(struct metafont *mf, struct token **token,
+void variable(struct metafont **mf, struct token **token,
               char *dst, int dst_size, int *type){
-    struct metafont *scope = mf;
+    struct metafont *scope = *mf;
     bool internal = false;
     float dummy;
     char type_name[1024];
@@ -2933,14 +2933,14 @@ void variable(struct metafont *mf, struct token **token,
     if(*token == NULL || (*token) -> type != SYMBOL)
         return;
     // Primeiro checamos se é uma quantidade interna
-    while(mf -> parent != NULL){
-        internal = _search_trie(mf -> internal_quantities, DOUBLE,
+    while((*mf) -> parent != NULL){
+        internal = _search_trie((*mf) -> internal_quantities, DOUBLE,
                                                  (*token) -> name, &dummy);
         if(internal)
             break;
-        mf = mf -> parent;
+        *mf = (*mf) -> parent;
     }
-    internal = _search_trie(mf -> internal_quantities, DOUBLE,
+    internal = _search_trie((*mf) -> internal_quantities, DOUBLE,
                             (*token) -> name, &dummy);
     if(internal){
         strncpy(dst, (*token) -> name, dst_size);
@@ -2955,7 +2955,7 @@ void variable(struct metafont *mf, struct token **token,
         return;
     }
     // Se não for, o primeiro token precisa ser uma tag
-    if(!is_tag(mf, *token)){
+    if(!is_tag(*mf, *token)){
         *type = NOT_DECLARED;
         return;
     }
@@ -2971,7 +2971,7 @@ void variable(struct metafont *mf, struct token **token,
         // Se o token atual for um símbolo, mas não uma tag ou [ ou ],
         // encerramos
         if((*token) -> type == SYMBOL &&
-           (!is_tag(mf, *token) &&
+           (!is_tag(*mf, *token) &&
             strcmp((*token) -> name, "[") &&
              strcmp((*token) -> name, "]"))){
             break;
@@ -2983,13 +2983,13 @@ void variable(struct metafont *mf, struct token **token,
             *token = (*token) -> next;
             result = eval_numeric(mf, token);
             if(result == NULL || result -> type != NUMERIC){
-                mf_error(mf, "Undefined numeric expression after '['.");
+                mf_error(*mf, "Undefined numeric expression after '['.");
                 *type = NOT_DECLARED;
                 return;
             }
             if(*token == NULL || (*token) -> type != SYMBOL ||
                strcmp((*token) -> name, "]")){
-                mf_error(mf, "Missing ']' after '[' in variable name.");
+                mf_error(*mf, "Missing ']' after '[' in variable name.");
                 *type = NOT_DECLARED;
                 return;
             }
@@ -3097,10 +3097,10 @@ if(current_token -> type == SYMBOL){
     if(type != NOT_DECLARED){
         // Se estamos aqui, é mesmo uma variável
         if(type != STRING){
-            mf_error(mf, "Variable isn't a string.");
+            mf_error(*mf, "Variable isn't a string.");
             return NULL;
         }
-        replacement = read_var(current_token -> name, type, mf);
+        replacement = read_var(current_token -> name, type, *mf);
         if(replacement == NULL)
             current_token -> known = -1;
         else{
@@ -3140,7 +3140,7 @@ cujo conteúdo é o nome do arquivo que está sendo lido:
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "jobname")){
-    struct token *jobname = new_token_string(mf -> filename);
+    struct token *jobname = new_token_string((*mf) -> filename);
     if(jobname == NULL)
         goto error_no_memory_internal;
     jobname -> prev = current_token -> prev;
@@ -3162,11 +3162,46 @@ avaliar:
 
 @<Metafont: String: Expressões Primárias@>=
 {
-    char *current_delim = delimiter(mf, current_token);
+    char *current_delim = delimiter(*mf, current_token);
     if(current_delim != NULL){
         eval_string(mf, &current_token);
         continue;
     }
+}
+@
+
+@*2 Expressões com \monoespaco{begingroup}.
+
+Essas expressões são as mais complexas. O modo que usaremos para
+tratá-las é quebrar a lista de tokens bem no seu começo, colocar os
+tokens que vieram antes em \monoespaco{past\_tokens} na estrutura
+METAFONT e os que vem depois são colocados de volta na lista de tokens
+pendentes. Em seguida, iniciamos um novo escopo para variáveis e
+seguimos executando como se estivéssemos em um grupo comum.
+
+Depois que o grupo for executado, ele irá automaticamente reconstruir
+a expresão juntando os tokens do passado com os pendentes formando de
+volta a expressão, mas desta vez sem o \monoespaco{begingroup}:
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == SYMBOL &&
+   !strcmp(current_token -> name, "begingroup")){
+    if(current_token -> prev != NULL){
+        current_token -> prev -> next = NULL;
+        current_token -> prev = NULL;
+    }
+    Wbreakpoint_arena(metafont_arena);
+    *mf = _new_metafont(*mf, (*mf) -> filename);
+    (*mf) -> past_tokens = *expression;
+    (*mf) -> pending_tokens = current_token -> next;
+    if(current_token -> next != NULL)
+        concat_token((*mf) -> pending_tokens,
+                     (*mf) -> parent -> pending_tokens);
+    else
+        (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
+    (*mf) -> parent -> pending_tokens = NULL;
+    // Deixamos pra lá a avaliação da expressão, ela será feita depois
+    return NULL;
 }
 @
 
