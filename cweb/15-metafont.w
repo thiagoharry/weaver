@@ -778,6 +778,7 @@ nosso interpretador METAFONT não fazer nada:
 void run_single_statement(struct metafont **mf, struct token *statement){
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
+    @<Metafont: Remover e Tratar token endgroup@>
     @<Metafont: Executa Declaração@>
     @<Metafont: Prepara Retorno de Expressão Composta@>
     mf_error(*mf, "Isolated expression. I couldn't find a = or := after it.");
@@ -1231,14 +1232,31 @@ atual como algo que será avisado por meio da seguinte definição:
 
 @<Metafont: Inclui Cabeçalhos@>+=
 #define HINT_ENDGROUP      1
-#define HINT_ENDGROUP_EXPR 2
 @
 
-Quando somos avisados que temos que encerrar o grupo, após executarmos
-a última declaração (da qual nós removeremos o token
-\monoespaco{endgroup} antes), cuidaremos de remover a estrutura
-METAFONT filha atual e voltarmos para a estrutura pai, restaurando o
-escopo anterior:
+Quando somos avisados que temos que encerrar o grupo, antes de
+executarmos a declaração devemos remover o token de 'endgroup'
+existente:
+
+@<Metafont: Remover e Tratar token endgroup@>=
+{
+    struct token *aux = statement;
+    while(aux != NULL){
+        if(aux -> type == SYMBOL && !strcmp(aux -> name, "endgroup")){
+            if(aux -> prev != NULL)
+                aux -> prev -> next = aux -> next;
+            else
+                statement = aux -> next;
+            if(aux -> next != NULL)
+                aux -> next -> prev = aux -> prev;
+            break;
+        }
+        aux = aux -> next;
+    }
+}
+@
+
+E após executarmos a declaração, iremos encerrar o grupo.
 
 @<METAFONT: Imediatamente após executar declaração@>=
 if(mf -> hint == HINT_ENDGROUP){
@@ -1275,47 +1293,17 @@ declaração. Mas só devemos fazer isso se o primeiro token não é um
 se forem feitas separadamente.
 
 @<Metafont: Imediatamente após gerarmos uma declaração completa@>=
-if(first_token -> type == SYMBOL ||
-     strcmp(first_token -> name, "begingroup")){
+{
     int count = 0;
     struct token *aux = current_token;
     while(aux != NULL){
-        if(aux != NULL && aux -> type == SYMBOL &&
+        if(aux -> type == SYMBOL &&
            !strcmp(aux -> name, "endgroup")){
-            if(count == 0){
-                if(aux -> prev != NULL)
-                    aux -> prev -> next = NULL;
-                else
-                    first_token = NULL;
-                mf -> hint = HINT_ENDGROUP;
-                break;
-            }
-            else if(count == 1){
-                if(aux -> prev != NULL)
-                    aux -> prev -> next = aux -> next;
-                else
-                    first_token = aux -> next;
-                if(aux -> next != NULL)
-                    aux -> next -> prev = aux -> prev;
-                mf -> hint = HINT_ENDGROUP;
-                break;
-            }
-            else{
-                mf -> hint = HINT_ENDGROUP_EXPR;
-                // Remover o endgroup
-                if(aux -> prev != NULL)
-                    aux -> prev -> next = NULL;
-                else
-                    first_token = NULL;
-                // Devolver os tokens restantes
-                aux -> next -> prev = NULL;
-                if(mf -> pending_tokens == NULL)
-                    mf -> pending_tokens = aux -> next;
-                else
-                    concat_token(mf -> pending_tokens, aux -> next);
-                aux -> next = NULL;
-                break;
-            }
+            mf -> hint = HINT_ENDGROUP;
+        }
+        else if(aux -> type == SYMBOL &&
+           !strcmp(aux -> name, "begingroup")){
+           mf -> hint = 0;
         }
         aux = aux -> prev;
         count ++;
@@ -2231,6 +2219,8 @@ end_of_function:
     }
     else
         *token = tok;
+    // Ignorar se existe um endgroup aqui dentro
+    mf -> hint = 0;
     return result;
 }
 @
@@ -2652,7 +2642,7 @@ expressão começa com um grupo.
 {
     struct token *new_tokens = (*mf) -> past_tokens;
     struct token *expression_result = eval(mf, &statement);
-    if((*mf) -> hint == HINT_ENDGROUP_EXPR || (*mf) -> hint == HINT_ENDGROUP){
+    if((*mf) -> hint == HINT_ENDGROUP){
         if((*mf) -> parent == NULL){
             mf_error(*mf, "Extra 'endgroup' while not in 'begingroup'.");
             return;
@@ -2711,6 +2701,26 @@ struct token *eval(struct metafont **mf, struct token **expression){
         return eval_string(mf, expression);
     // Definindo se é uma variável:
     else if(aux -> type == SYMBOL){
+        if(!strcmp(aux -> name, "begingroup")){
+            // Começo de uma expressão composta com grupo
+            // Primeiro rompemos a cadeia de tokens antes:
+            aux -> prev -> next = NULL;
+            aux -> prev = NULL;
+            aux -> next -> prev = NULL;
+            // Criamos novo contexto
+            Wbreakpoint_arena(metafont_arena);
+            *mf = _new_metafont(*mf, (*mf) -> filename);
+            (*mf) -> past_tokens = *expression;
+            (*mf) -> pending_tokens = aux -> next;
+            if(aux -> next != NULL)
+                concat_token((*mf) -> pending_tokens,
+                             (*mf) -> parent -> pending_tokens);
+            else
+                (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
+            (*mf) -> parent -> pending_tokens = NULL;
+            // Saímos sem avaliar, avaliaremos depois de obter o valor do grupo
+            return NULL;
+        }
         while(scope != NULL){
             if(_search_trie(scope -> variable_types, INT, aux -> name, &type)){
                 is_variable = true;
