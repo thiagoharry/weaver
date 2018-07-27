@@ -2659,8 +2659,10 @@ expressão começa com um grupo.
     }
     else{
         // Se temos uma expressão solta, e ela é uma string,
-        // então temos um título. Ignorar. Senão, gere erro.
-        if(expression_result == NULL || expression_result -> type != STRING)
+        // então temos um título. Se for NULL, ignore e continue
+        if(expression_result == NULL)
+            return;
+        if(expression_result -> type != STRING)
             mf_error(*mf, "Isolated expression.");
         else if(expression_result -> type == STRING){
             ; // Se algum dia quiseros fazer algo com o título, inserir aqui
