@@ -2593,6 +2593,7 @@ A gramática de um título é:
 <String Primário> --> <Variável String>
                   +-> <Token String>
                   +-> jobname
+                  +-> readstring
                   +-> ( <Expressão String> )
                   +-> begingroup <Lista de Declarações> <Expressão String>
                   |   endgroup
@@ -2613,6 +2614,7 @@ Primeiro vamos declarar os novos ``sparks'' que temos aqui:
 @<Metafont: Declara Nova Spark@>=
 _insert_trie(primitive_sparks, _user_arena, INT, "&", 0);
 _insert_trie(primitive_sparks, _user_arena, INT, "jobname", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "readstring", 0);
 _insert_trie(primitive_sparks, _user_arena, INT, "str", 0);
 _insert_trie(primitive_sparks, _user_arena, INT, "char", 0);
 _insert_trie(primitive_sparks, _user_arena, INT, "decimal", 0);
@@ -2732,6 +2734,8 @@ struct token *eval(struct metafont **mf, struct token **expression){
         }
         if(!is_variable){
             if(!strcmp(aux -> name, "jobname"))
+                return eval_string(mf, expression);
+            if(!strcmp(aux -> name, "readstring"))
                 return eval_string(mf, expression);
             if(!strcmp(aux -> name, "str"))
                 return eval_string(mf, expression);
@@ -3158,8 +3162,12 @@ if(current_token -> type == SYMBOL &&
     jobname -> prev = current_token -> prev;
     jobname -> next = current_token -> next;
     current_token = jobname;
-    if(current_token -> prev == NULL)
+    if(current_token -> prev != NULL)
+        current_token -> prev -> next = current_token;
+    else
         *expression = current_token;
+    if(current_token -> next != NULL)
+        current_token -> next -> prev = NULL;
     current_token = current_token -> next;
     continue;
 }
@@ -3214,6 +3222,43 @@ if(current_token -> type == SYMBOL &&
     (*mf) -> parent -> pending_tokens = NULL;
     // Deixamos pra lá a avaliação da expressão, ela será feita depois
     return NULL;
+}
+@
+
+@*2 Expressões \monoespaco{readstring}.
+
+Elas lêem uma linha da entrada padrão, removem todo o espaço no começo
+e no fim, e avaliam como sendo a string resultante:
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == SYMBOL &&
+   !strcmp(current_token -> name, "readstring")){
+    struct token *token;
+    char *buffer = NULL, *begin;
+    size_t size;
+    getline(&buffer, &size, stdin);
+    if(buffer == NULL){
+        fprintf(stderr, "ERROR: Not enough memory.\n");
+        exit(1);
+    }
+    begin = buffer;
+    while(isspace(*begin))
+        begin ++;
+    while(size != 0 && (buffer[size] == '\n' || isspace(buffer[size])))
+        size --;
+    buffer[size + 1] = '\0';
+    token = new_token_string(begin);
+    free(buffer);
+    token -> next = current_token -> next;
+    token -> prev = current_token -> prev;
+    if(token -> prev == NULL)
+        *expression = token;
+    else
+        token -> prev -> next = token;
+    if(token -> next != NULL)
+        token -> next -> prev = token;
+    current_token = token -> next;
+    continue;
 }
 @
 
