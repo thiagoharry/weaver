@@ -2908,7 +2908,7 @@ números. A gramática completa para acessar uma variável em uma expressão é:
          +-> <Sufixo><Subscrito>
          +-> <Sufixo><Tag>
 <Subscrito> --> <Token Numérico>
-            +-> <Expressão Numérica>
+            +-> [ <Expressão Numérica> ]
 \alinhanormal
 
 Uma quantidade interna não pode ter sufixos. Declarar variáveis
@@ -3258,6 +3258,75 @@ if(current_token -> type == SYMBOL &&
     if(token -> next != NULL)
         token -> next -> prev = token;
     current_token = token -> next;
+    continue;
+}
+@
+
+@*2 Expressões \monoespaco{str}.
+
+Esta expressão é sempre seguida por um sufixo. Ou seja, um conjunto de
+tags e de expressões numéricas delimitadas por ``['' e ``]''. Ela é
+avaliada se tornando uma string com uma representação do sufixo
+lido.
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == SYMBOL &&
+   !strcmp(current_token -> name, "str")){
+    char buffer[2048];
+    buffer[0] = '\0';
+    int remaining_size = 2047;
+    struct token *last_token = current_token -> next, *new_result;
+    while(last_token != NULL){
+        if(last_token -> type == SYMBOL && !strcmp(last_token -> name, "[")){
+            char buffer_number[16];
+            struct token *result;
+            strncat(buffer, "[", remaining_size);
+            remaining_size --;
+            last_token = last_token -> next;
+            if(last_token == NULL){
+                mf_error(*mf, "Missing numeric expression.");
+                return NULL;
+            }
+            result = eval_numeric(mf, &last_token);
+            if(result == NULL)
+                return NULL;
+            if(result -> type != NUMERIC){
+                mf_error(*mf, "Undefined numeric expression.");
+                return NULL;
+            }
+            snprintf(buffer_number, 16, "%f", result -> value);
+            strncat(buffer, buffer_number, remaining_size);
+            remaining_size -= strlen(buffer_number);
+            if(last_token == NULL || last_token -> type != SYMBOL ||
+               strcmp(last_token -> name, "]")){
+                mf_error(*mf, "Missing ']'.");
+                return NULL;
+            }
+            strncat(buffer, "]", remaining_size);
+            remaining_size --;
+        }
+        if(last_token -> type == SYMBOL && !is_tag(*mf, last_token))
+            break;
+        if(last_token -> type == SYMBOL && is_tag(*mf, last_token)){
+            if(buffer[0] != '\0'){
+                strncat(buffer, ".", remaining_size);
+                remaining_size --;
+            }
+            strncat(buffer, last_token -> name, remaining_size);
+            remaining_size -= strlen(last_token -> name);
+        }
+        last_token = last_token -> next;
+    }
+    new_result = new_token_string(buffer);
+    new_result -> prev = current_token -> prev;
+    if(new_result -> prev == NULL)
+        *expression = new_result;
+    else
+        new_result -> prev -> next = new_result;
+    new_result -> next = last_token;
+    if(new_result -> next != NULL)
+        new_result -> next -> prev = new_result;
+    current_token = new_result -> next;
     continue;
 }
 @
