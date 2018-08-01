@@ -3236,8 +3236,7 @@ if(current_token -> type == SYMBOL &&
     struct token *token;
     char *buffer = NULL, *begin;
     size_t size;
-    getline(&buffer, &size, stdin);
-    if(buffer == NULL){
+    if(getline(&buffer, &size, stdin) == -1 || buffer == NULL){
         fprintf(stderr, "ERROR: Not enough memory.\n");
         exit(1);
     }
@@ -3327,6 +3326,76 @@ if(current_token -> type == SYMBOL &&
     if(new_result -> next != NULL)
         new_result -> next -> prev = new_result;
     current_token = new_result -> next;
+    continue;
+}
+@
+
+@*2 Expressões \monoespaco{char}.
+
+A expressão \monoespaco{char} lê um primário numérico e o converte
+para uma string de um único caractere, usando a representação ASCII. O
+valor numérico é sempre antes arredondado para o inteiro mais próximo.
+
+Nós iremos nos distanciar um pouco do METAFONT original, pois para nós
+o importante não é o código ASCII, mas o código UTF-8.Então o número
+que podemos passar não irá variar somente entre 0 e 255. Isso quebrará
+a compatibilidade, pois o METAFONT original tratava valores menores
+que 0 e maiores que 255 aplicando o módulo 256. Posteriormente deve
+ser avaliado se devemos manter essa incompatibilidade ou se devemos
+retomar para o mesmo tratamento que o METAFONT original dá para tais
+valores.
+
+A principal utilidade desta expressão é que ela fotrnece uma forma de
+gerar uma string com aspas, algo que sem isso seria impossível.
+
+Para avaliar ela, precisaríamos primeiro ver qual a definição
+gramatical para um primário numérico. Mas por hora, iremos apenas
+assumir ser sempre um token numérico:
+
+@<Metafont: Funções Estáticas@>+=
+struct token *primary_numeric(struct metafont **mf, struct token **token){
+    struct token *result;
+    if(token == NULL){
+        mf_error(*mf, "ERROR: Missing primary numeric.");
+	return NULL;
+    }
+    if((*token) -> type == NUMERIC){
+        if((*token) -> next != NULL)
+            (*token) -> next -> prev = (*token) -> prev;
+        if((*token) -> prev != NULL)
+            (*token) -> prev -> next = (*token) -> next;
+	result = *token;
+	result -> next = NULL;
+	result -> prev = NULL;
+        *token = (*token) -> next;
+	return result;
+    }
+    mf_error(*mf, "ERROR: Unknown primary numeric.");
+    return NULL;
+}
+@
+
+E com isso escrevemos a implementação de nossa nova expressão:
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == SYMBOL &&
+   !strcmp(current_token -> name, "char")){
+    char buffer[5] = {0x00, 0x00, 0x00, 0x00};
+    unsigned long number;
+    struct token *result = primary_numeric(mf, &(current_token -> next));
+    if(result == NULL)
+        return NULL;
+    number = (unsigned long) round(result -> value);
+    memcpy(buffer, &number, 4);
+    result = new_token_string(buffer);
+    result -> next = current_token -> next;
+    if(result -> next != NULL)
+        result -> next -> prev = result;
+    if(result -> prev != NULL)
+        result -> prev -> next = result;
+    else
+        *expression = result;
+    current_token = result -> next;
     continue;
 }
 @
