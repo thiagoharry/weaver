@@ -3309,6 +3309,8 @@ if(current_token -> type == SYMBOL &&
             }
             strncat(buffer, "]", remaining_size);
             remaining_size --;
+            last_token = last_token -> next;
+            continue;
         }
         if(last_token -> type == SYMBOL && !is_tag(*mf, last_token))
             break;
