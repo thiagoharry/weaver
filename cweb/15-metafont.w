@@ -3345,6 +3345,69 @@ ser avaliado se devemos manter essa incompatibilidade ou se devemos
 retomar para o mesmo tratamento que o METAFONT original dá para tais
 valores.
 
+Converter um número de 32 bits para uma string de 1
+caractere em UTF-8 dentro de um buffer de 5 caracteres é feito pela
+seguinte função:
+
+@<Metafont: Funções Estáticas@>+=
+void number2utf8(uint32_t number, char *result){
+  int endian_probe_x = 1;
+  char *number_probe = (char *) & number;
+  char *little_endian = (char *) & endian_probe_x;
+  if(number <= 127){
+    result[0] = (char) number;
+    result[1] = '\0';
+    return;
+  }
+  if(number <= 2047){
+    if(*little_endian){
+      result[0] = number_probe[1];
+      result[1] = number_probe[0];
+      result[2] = '\0';
+      return;
+    }
+    else{
+      result[0] = number_probe[2];
+      result[1] = number_probe[3];
+      result[2] = '\0';
+      return;
+    }
+  }
+  if(number <= 65535){
+    if(*little_endian){
+      result[0] = number_probe[2];
+      result[1] = number_probe[1];
+      result[2] = number_probe[0];
+      result[3] = '\0';
+      return;
+    }
+    else{
+      result[0] = number_probe[1];
+      result[1] = number_probe[2];
+      result[2] = number_probe[3];
+      result[3] = '\0';
+      return;
+    }
+  }
+  if(*little_endian){
+    result[0] = number_probe[3];
+    result[1] = number_probe[2];
+    result[2] = number_probe[1];
+    result[3] = number_probe[0];
+    result[4] = '\0';
+    return;
+  }
+  else{
+    result[0] = number_probe[0];
+    result[1] = number_probe[1];
+    result[2] = number_probe[2];
+    result[3] = number_probe[3];
+    result[4] = '\0';
+    return;
+  }
+}
+@
+
 A principal utilidade desta expressão é que ela fotrnece uma forma de
 gerar uma string com aspas, algo que sem isso seria impossível.
 
@@ -3386,7 +3449,7 @@ if(current_token -> type == SYMBOL &&
     if(result == NULL)
         return NULL;
     number = (unsigned long) round(result -> value);
-    memcpy(buffer, &number, 4);
+    number2utf8((uint32_t) number, buffer);
     result = new_token_string(buffer);
     result -> next = current_token -> next;
     if(result -> next != NULL)
