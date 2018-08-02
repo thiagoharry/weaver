@@ -2922,7 +2922,13 @@ somente por números literais. Depois iremos expandir seu significado:
 @<Metafont: eval_numeric@>=
 static struct token *eval_numeric(struct metafont **mf,
                                   struct token **expression){
-    return *expression;
+  struct token *ret = *expression;
+  if(ret -> next != NULL)
+    ret -> next -> prev = ret -> prev;
+  if(ret -> prev != NULL)
+    ret -> prev -> next = ret -> next;
+  *expression = ret -> next;
+  return ret;
 }
 @
 
@@ -2998,7 +3004,7 @@ void variable(struct metafont **mf, struct token **token,
             struct token *result;
             *token = (*token) -> next;
             result = eval_numeric(mf, token);
-            if(result == NULL || result -> type != NUMERIC){
+            if(result == NULL || result -> type != NUMBER){
                 mf_error(*mf, "Undefined numeric expression after '['.");
                 *type = NOT_DECLARED;
                 return;
@@ -3033,7 +3039,7 @@ void variable(struct metafont **mf, struct token **token,
             continue;
         }
         // Se tivermos um número, ele é um subscrito e o copiamos
-        if((*token) -> type == NUMERIC){
+        if((*token) -> type == NUMBER){
             snprintf(&(dst[pos]), dst_size, "%f ", (*token) -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
@@ -3289,7 +3295,7 @@ if(current_token -> type == SYMBOL &&
             result = eval_numeric(mf, &last_token);
             if(result == NULL)
                 return NULL;
-            if(result -> type != NUMERIC){
+            if(result -> type != NUMBER){
                 mf_error(*mf, "Undefined numeric expression.");
                 return NULL;
             }
@@ -3422,7 +3428,7 @@ struct token *primary_numeric(struct metafont **mf, struct token **token){
         mf_error(*mf, "ERROR: Missing primary numeric.");
 	return NULL;
     }
-    if((*token) -> type == NUMERIC){
+    if((*token) -> type == NUMBER){
         if((*token) -> next != NULL)
             (*token) -> next -> prev = (*token) -> prev;
         if((*token) -> prev != NULL)
