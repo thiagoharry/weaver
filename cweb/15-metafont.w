@@ -3113,7 +3113,7 @@ de string:
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL){
     char variable_name[1024];
-    int type;
+    int type = NOT_DECLARED;
     struct token *replacement;
     variable(mf, &current_token, variable_name, 1024, &type);
     if(type != NOT_DECLARED){
@@ -3431,15 +3431,15 @@ struct token *primary_numeric(struct metafont **mf, struct token **token){
 	return NULL;
     }
     if((*token) -> type == NUMBER){
-        if((*token) -> next != NULL)
-            (*token) -> next -> prev = (*token) -> prev;
-        if((*token) -> prev != NULL)
-            (*token) -> prev -> next = (*token) -> next;
-	result = *token;
-	result -> next = NULL;
-	result -> prev = NULL;
-        *token = (*token) -> next;
-	return result;
+      result = new_token_number((*token) -> value);
+      result -> next = (*token) -> next;
+      if((*token) -> next != NULL)
+        (*token) -> next -> prev = result;
+      result -> prev = (*token) -> prev;
+      if((*token) -> prev != NULL)
+        (*token) -> prev -> next = result;
+      *token = (*token) -> next;
+      return result;
     }
     mf_error(*mf, "ERROR: Unknown primary numeric.");
     return NULL;
@@ -3453,13 +3453,23 @@ if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "char")){
     char buffer[5] = {0x00, 0x00, 0x00, 0x00};
     unsigned long number;
-    struct token *result = primary_numeric(mf, &(current_token -> next));
+    struct token *result;
+    if(current_token -> next == NULL){
+      mf_error(*mf, "Missing primary numeric.");
+      return NULL;
+    }
+    result = primary_numeric(mf, &(current_token -> next));
     if(result == NULL)
         return NULL;
+    if(result -> type != NUMBER){
+      mf_error(*mf, "Not recognized primary numeric.");
+      return NULL;
+    }
     number = (unsigned long) round(result -> value);
     number2utf8((uint32_t) number, buffer);
     result = new_token_string(buffer);
     result -> next = current_token -> next;
+    result -> prev = current_token -> prev;
     if(result -> next != NULL)
         result -> next -> prev = result;
     if(result -> prev != NULL)

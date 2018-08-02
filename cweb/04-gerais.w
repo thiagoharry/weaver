@@ -133,7 +133,7 @@ void _insert_trie(struct _trie *tree, void *arena, int type, char *name, ...){
     va_start(arguments, name);
     struct _trie *current_prefix = tree;
     char *match = name, *p = current_prefix -> string;
-    while(*match != '\0' || *p != '\0'){
+    while(*match != '\0'){
         if(*p == '\0'){
             // Ramo atual é um prefixo, ir para próximo
             if(current_prefix -> child[(int) *match] != NULL){
@@ -221,6 +221,8 @@ void _split_trie(void *arena, struct _trie **origin, char *divergence,
         old_way -> child[i] = (*origin) -> child[i];
         (*origin) -> child[i] = NULL;
     }
+    old_way -> leaf = (*origin) -> leaf;
+    (*origin) -> leaf = false;
     (*origin) -> child[(int) *divergence] = old_way;
     (*origin) -> child[(int) *remaining_match] = new_way;
     *divergence = '\0';
@@ -245,7 +247,7 @@ bool _search_trie(struct _trie *tree, int type, char *name, ...){
     va_start(arguments, name);
     struct _trie *current_prefix = tree;
     char *match = name, *p = current_prefix -> string;
-    while(*match != '\0' || *p != '\0'){
+    while(*match != '\0'){
         if(*p == '\0'){
             // Ramo atual é um prefixo, ir para próximo
             if(current_prefix -> child[(int) *match] != NULL){
@@ -262,7 +264,7 @@ bool _search_trie(struct _trie *tree, int type, char *name, ...){
         else
             return false;
     }
-    if(!(current_prefix -> leaf))
+    if(*p != '\0' || !(current_prefix -> leaf))
         return false;
     switch(type){
         int *ret;
@@ -296,7 +298,7 @@ void _remove_trie(struct _trie *tree, char *name);
 void _remove_trie(struct _trie *tree, char *name){
     struct _trie *current_prefix = tree;
     char *match = name, *p = current_prefix -> string;
-    while(*match != '\0' || *p != '\0'){
+    while(*match != '\0'){
         if(*p == '\0'){
             // Ramo atual é um prefixo, ir para próximo
             if(current_prefix -> child[(int) *match] != NULL){
