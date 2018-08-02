@@ -3481,6 +3481,57 @@ if(current_token -> type == SYMBOL &&
 }
 @
 
+@*2 Expressões \monoespaco{decimal}.
+
+Estas expressões também consomem o próximo numérico primário presente
+e irão retornar uma representação em string dele, no formato
+decimal. Se o número for negativo, sua representação começa com
+``-''. Ele será representado com 6 casas decimais, removendo as casas
+decimais ao final cujo valor seja zero:
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == SYMBOL &&
+   !strcmp(current_token -> name, "decimal")){
+    struct token *result;
+    char buffer[32];
+    int n;
+    if(current_token -> next == NULL){
+      mf_error(*mf, "Missing primary numeric.");
+      return NULL;
+    }
+    result = primary_numeric(mf, &(current_token -> next));
+    if(result == NULL)
+        return NULL;
+    if(result -> type != NUMBER){
+      mf_error(*mf, "Not recognized primary numeric.");
+      return NULL;
+    }
+    snprintf(buffer, 32, "%f", result -> value);
+    // Removing trainling zeros:
+    for(n = 0; buffer[n] != '\0'; n ++);
+    n --;
+    while(buffer[n] == '0' && n >= 0){
+        buffer[n] = '\0';
+        n --;
+    }
+    if(n >= 0 && buffer[n] == '.')
+        buffer[n] = '\0';
+    // Creating string token
+    result = new_token_string(buffer);
+    result -> next = current_token -> next;
+    result -> prev = current_token -> prev;
+    if(result -> next != NULL)
+        result -> next -> prev = result;
+    if(result -> prev != NULL)
+        result -> prev -> next = result;
+    else
+        *expression = result;
+    current_token = result -> next;
+    continue;
+}
+@
+
+
 <String Primário> --> <Variável String>
                   +-> <Token String>
                   +-> jobname
