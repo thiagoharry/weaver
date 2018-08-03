@@ -386,9 +386,9 @@ estrutura:
 
 @<Metafont: Variáveis Estáticas@>+=
 // Tipo de token
-#define NUMBER 1
-#define STRING 2
-#define SYMBOL 3
+#define NUMERIC 1
+#define STRING  2
+#define SYMBOL  3
 struct token{
     int type;
     float value; // Para números
@@ -437,7 +437,7 @@ error_no_memory:
             "W_INTERNAL_MEMORY");
     return NULL;
 }
-#define new_token_number(a) new_token(NUMBER, a, NULL, _internal_arena)
+#define new_token_number(a) new_token(NUMERIC, a, NULL, _internal_arena)
 #define new_token_string(a) new_token(STRING, 0.0, a, _internal_arena)
 #define new_token_symbol(a) new_token(SYMBOL, 0.0, a, _internal_arena)
 @
@@ -1334,12 +1334,12 @@ dentre os seguintes tipos de variáveis mais comuns:
 #define NOT_DECLARED -1
 #define BOOLEAN       0
 #define PATH          1
-//#define STRING        2 // Já definido
-#define PEN           3
-#define PICTURE       4
-#define TRANSFORM     5
-#define PAIR          6
-#define NUMERIC       7
+//#define STRING      2 // Já definido
+//#define NUMERIC     3 // Já definido
+#define PEN           4
+#define PICTURE       5
+#define TRANSFORM     6
+#define PAIR          7
 @
 
 Cada estrutura METAFONT representa um escopo. E cada escopo terá a sua
@@ -3004,7 +3004,7 @@ void variable(struct metafont **mf, struct token **token,
             struct token *result;
             *token = (*token) -> next;
             result = eval_numeric(mf, token);
-            if(result == NULL || result -> type != NUMBER){
+            if(result == NULL || result -> type != NUMERIC){
                 mf_error(*mf, "Undefined numeric expression after '['.");
                 *type = NOT_DECLARED;
                 return;
@@ -3039,7 +3039,7 @@ void variable(struct metafont **mf, struct token **token,
             continue;
         }
         // Se tivermos um número, ele é um subscrito e o copiamos
-        if((*token) -> type == NUMBER){
+        if((*token) -> type == NUMERIC){
             snprintf(&(dst[pos]), dst_size, "%f ", (*token) -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
@@ -3286,7 +3286,7 @@ if(current_token -> type == SYMBOL &&
             result = eval_numeric(mf, &last_token);
             if(result == NULL)
                 return NULL;
-            if(result -> type != NUMBER){
+            if(result -> type != NUMERIC){
                 mf_error(*mf, "Undefined numeric expression.");
                 return NULL;
             }
@@ -3420,7 +3420,7 @@ struct token *numeric_primary(struct metafont **mf, struct token **token){
         mf_error(*mf, "ERROR: Missing numeric primary.");
 	return NULL;
     }
-    if((*token) -> type == NUMBER){
+    if((*token) -> type == NUMERIC){
       result = new_token_number((*token) -> value);
       result -> next = (*token) -> next;
       if((*token) -> next != NULL)
@@ -3451,7 +3451,7 @@ if(current_token -> type == SYMBOL &&
     result = numeric_primary(mf, &(current_token -> next));
     if(result == NULL)
         return NULL;
-    if(result -> type != NUMBER){
+    if(result -> type != NUMERIC){
       mf_error(*mf, "Not recognized numeric primary.");
       return NULL;
     }
@@ -3490,7 +3490,7 @@ if(current_token -> type == SYMBOL &&
     result = numeric_primary(mf, &(current_token -> next));
     if(result == NULL)
         return NULL;
-    if(result -> type != NUMBER){
+    if(result -> type != NUMERIC){
       mf_error(*mf, "Not recognized numeric primary.");
       return NULL;
     }
@@ -3575,7 +3575,7 @@ struct token *pair_primary(struct metafont **mf, struct token **token){
     n1 = eval_numeric(mf, &tok);
     if(n1 == NULL)
       return NULL;
-    if(n1 -> type != NUMBER){
+    if(n1 -> type != NUMERIC){
       mf_error(*mf, "Unknown numeric expression result.");
       return NULL;
     }
@@ -3591,7 +3591,7 @@ struct token *pair_primary(struct metafont **mf, struct token **token){
     n2 = eval_numeric(mf, &tok);
     if(n2 == NULL)
       return NULL;
-    if(n2 -> type != NUMBER){
+    if(n2 -> type != NUMERIC){
       mf_error(*mf, "Unknown numeric expression result.");
       return NULL;
     }
@@ -3652,7 +3652,7 @@ a substring $(b, a)$ invertida, se $a < 0$, assumimos que ela é igual
 $(a, n)$.
 
 @<Metafont: String: Expressões Primárias@>=
-if(current_token != NULL && current_token -> prev != NULL &&
+while(current_token != NULL && current_token -> prev != NULL &&
    current_token -> prev -> prev != NULL &&
    current_token -> prev -> prev -> prev != NULL &&
    current_token -> prev -> prev -> prev -> type == SYMBOL &&
@@ -3716,6 +3716,7 @@ if(current_token != NULL && current_token -> prev != NULL &&
     *expression = result;
   if(result -> next != NULL)
     result -> next -> prev = result;
+  current_token = result;
 }
 @
 
