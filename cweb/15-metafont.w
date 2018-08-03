@@ -1998,12 +1998,12 @@ armazenados dentro de definições de macros.
 
 @<Metafont: Variáveis Estáticas@>+=
 // Tipo de token
-#define PRIMARY   4
-#define SECONDARY 5
-#define TERTIARY  6
-#define EXPR      7
-#define SUFFIX    8
-#define TEXT      9
+#define PRIMARY    4
+#define SECONDARY  5
+#define TERTIARY   7
+#define EXPR       8
+#define SUFFIX     9
+#define TEXT      10
 @
 
 E uma macro em si é apenas uma estrutura formada por uma lista de
@@ -3135,8 +3135,10 @@ if(current_token -> type == SYMBOL){
             if(current_token -> next != NULL)
                 current_token -> next -> prev = replacement;
         }
-        current_token = current_token -> next;
-        continue;
+        if(replacement != NULL){
+          current_token = replacement;
+          continue;
+        }
     }
 }
 @
@@ -3145,14 +3147,8 @@ if(current_token -> type == SYMBOL){
 
 Encontrar o token de uma string em uma expressão string é o caso mais
 simples. Nós apenas ignoramos ela e seguimos em frente, pois um token
-string é avaliado como sendo exatamente o que ele é:
-
-@<Metafont: String: Expressões Primárias@>=
-if(current_token -> type == STRING){
-    current_token = current_token -> next;
-    continue;
-}
-@
+string é avaliado como sendo exatamente o que ele é. Não precisamos
+fazer nada para isso.
 
 @*2 Jobname.
 
@@ -3174,8 +3170,6 @@ if(current_token -> type == SYMBOL &&
         *expression = current_token;
     if(current_token -> next != NULL)
         current_token -> next -> prev = NULL;
-    current_token = current_token -> next;
-    continue;
 }
 @
 
@@ -3191,7 +3185,6 @@ avaliar:
     char *current_delim = delimiter(*mf, current_token);
     if(current_delim != NULL){
         eval_string(mf, &current_token);
-        continue;
     }
 }
 @
@@ -3262,8 +3255,6 @@ if(current_token -> type == SYMBOL &&
         token -> prev -> next = token;
     if(token -> next != NULL)
         token -> next -> prev = token;
-    current_token = token -> next;
-    continue;
 }
 @
 
@@ -3333,8 +3324,7 @@ if(current_token -> type == SYMBOL &&
     new_result -> next = last_token;
     if(new_result -> next != NULL)
         new_result -> next -> prev = new_result;
-    current_token = new_result -> next;
-    continue;
+    current_token = new_result;
 }
 @
 
@@ -3424,10 +3414,10 @@ gramatical para um primário numérico. Mas por hora, iremos apenas
 assumir ser sempre um token numérico:
 
 @<Metafont: Funções Estáticas@>+=
-struct token *primary_numeric(struct metafont **mf, struct token **token){
+struct token *numeric_primary(struct metafont **mf, struct token **token){
     struct token *result;
     if(token == NULL){
-        mf_error(*mf, "ERROR: Missing primary numeric.");
+        mf_error(*mf, "ERROR: Missing numeric primary.");
 	return NULL;
     }
     if((*token) -> type == NUMBER){
@@ -3441,7 +3431,7 @@ struct token *primary_numeric(struct metafont **mf, struct token **token){
       *token = (*token) -> next;
       return result;
     }
-    mf_error(*mf, "ERROR: Unknown primary numeric.");
+    mf_error(*mf, "ERROR: Unknown numeric primary.");
     return NULL;
 }
 @
@@ -3455,14 +3445,14 @@ if(current_token -> type == SYMBOL &&
     unsigned long number;
     struct token *result;
     if(current_token -> next == NULL){
-      mf_error(*mf, "Missing primary numeric.");
+      mf_error(*mf, "Missing numeric primary.");
       return NULL;
     }
-    result = primary_numeric(mf, &(current_token -> next));
+    result = numeric_primary(mf, &(current_token -> next));
     if(result == NULL)
         return NULL;
     if(result -> type != NUMBER){
-      mf_error(*mf, "Not recognized primary numeric.");
+      mf_error(*mf, "Not recognized numeric primary.");
       return NULL;
     }
     number = (unsigned long) round(result -> value);
@@ -3476,8 +3466,6 @@ if(current_token -> type == SYMBOL &&
         result -> prev -> next = result;
     else
         *expression = result;
-    current_token = result -> next;
-    continue;
 }
 @
 
@@ -3496,14 +3484,14 @@ if(current_token -> type == SYMBOL &&
     char buffer[32];
     int n;
     if(current_token -> next == NULL){
-      mf_error(*mf, "Missing primary numeric.");
+      mf_error(*mf, "Missing numeric primary.");
       return NULL;
     }
-    result = primary_numeric(mf, &(current_token -> next));
+    result = numeric_primary(mf, &(current_token -> next));
     if(result == NULL)
         return NULL;
     if(result -> type != NUMBER){
-      mf_error(*mf, "Not recognized primary numeric.");
+      mf_error(*mf, "Not recognized numeric primary.");
       return NULL;
     }
     snprintf(buffer, 32, "%f", result -> value);
@@ -3526,11 +3514,210 @@ if(current_token -> type == SYMBOL &&
         result -> prev -> next = result;
     else
         *expression = result;
-    current_token = result -> next;
-    continue;
 }
 @
 
+@*2 Expressões \monoespaco{substring}.
+
+Estas expressões consomem um par, o símbolo \monoespaco{of} e uma
+outra expressão primária de string. A primeira coisa que temos a fazer
+é definir como iremos representar um par. Vamos criar um novo tipo de
+token para eles. Tal token nunca será lido de um arquivo, ele sempre
+será o resultado de uma avaliação. E o tipo dele será:
+
+@<Metafont: Variáveis Estáticas@>+=
+// Tipo de token (já deifnido)
+//#define PAIR   6
+@
+
+Um par é como um número, ms eles armazenam dois valores numéricos ao
+invés de um. Vamos então criar a variável onde eles irão colocar este
+segundo número:
+
+@<Metafont: Atributos de Token@>+=
+float value2;
+@
+
+Que será inicializado sempre como zero no construtor normal de tokens:
+
+@<Metafont: Construção de Token@>+=
+token -> value2 = 0.0;
+@
+
+Agora, assim como temos uma função \monoespaco{numeric\_primary} que
+consome um primário numérico e retorna seu resultado,, criaremos um
+\monoespaco{pair\_primary}. Da mesma forma, por hora deixaremos a
+definição desta função incopmpleta até começarmos a tratar os pares de
+maneira mais completa. Por hora, só iremos reconhecer pares na forma:
+
+\alinhaverbatim
+<Par Primário> --> ( <Expressão Numérica> , <Expressão Numérica> )
+\alinhanormal
+
+Assim, nossa definição de função será:
+
+@<Metafont: Funções Estáticas@>+=
+struct token *pair_primary(struct metafont **mf, struct token **token){
+  struct token *result, *tok = *token;
+  if(tok == NULL){
+    mf_error(*mf, "ERROR: Missing pair primary.");
+    return NULL;
+  }
+  if(tok -> type == SYMBOL && !strcmp(tok -> name, "(") &&
+     tok -> next != NULL && (tok -> next -> type != SYMBOL ||
+                             strcmp(tok -> next -> name, "("))){
+    struct token *n1, *n2;
+    tok = tok -> next;
+    if(tok == NULL){
+      mf_error(*mf, "Missing numeric expression.");
+      return NULL;
+    }
+    n1 = eval_numeric(mf, &tok);
+    if(n1 == NULL)
+      return NULL;
+    if(n1 -> type != NUMBER){
+      mf_error(*mf, "Unknown numeric expression result.");
+      return NULL;
+    }
+    if(tok == NULL || tok -> type != SYMBOL || strcmp(tok -> name, ",")){
+      mf_error(*mf, "Missing ',' at pair.");
+      return NULL;
+    }
+    tok = tok -> next;
+    if(tok == NULL){
+      mf_error(*mf, "Missing numeric expression.");
+      return NULL;
+    }
+    n2 = eval_numeric(mf, &tok);
+    if(n2 == NULL)
+      return NULL;
+    if(n2 -> type != NUMBER){
+      mf_error(*mf, "Unknown numeric expression result.");
+      return NULL;
+    }
+    if(tok == NULL || tok -> type != SYMBOL || strcmp(tok -> name, ")")){
+      mf_error(*mf, "Missing ')' at pair.");
+      return NULL;
+    }
+    result = new_token_number(n1 -> value);
+    result -> type = PAIR;
+    result -> value2 = n2 -> value;
+    if((*token) -> prev != NULL)
+      (*token) -> prev -> next = tok -> next;
+    if(tok -> next != NULL)
+      tok -> next -> prev = (*token) -> prev;
+    *token = tok -> next;
+    return result;
+  }
+  mf_error(*mf, "ERROR: Unknown numeric primary.");
+  return NULL;
+}
+@
+
+Com isso já podemos tratar a expressão de substrings. Se encontramos
+uma, devemos primeiro avaliar a expressão primária de par que vem logo
+em seguida. Depois disso, seguimos adiante sem fazer o restante. Mas
+depois de resolvermos qualquer expressão primária, devemos checar se
+temos antes de nós um par w uma operação de substring. Se tivermos, aí
+sim realizamos a operação.
+
+Então primeiro tratamos apenas o par:
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token -> type == SYMBOL &&
+   !strcmp(current_token -> name, "substring")){
+  struct token *pair, *substring_token;
+  substring_token = current_token;
+  current_token = current_token -> next;
+  pair = pair_primary(mf, &current_token);
+  if(pair == NULL){
+    return NULL;
+  }
+  pair -> next = current_token;
+  pair -> prev = substring_token;
+  substring_token -> next = pair;
+  if(current_token != NULL)
+    current_token -> prev = pair;
+}
+@
+
+Agora depois de tratar todos os casos de expressão primária, nós
+checamos antes de continuar no loop se podemos avaliar uma expressão
+substring. Definimos uma string como tendo seus bytes com coordenadas
+que variam entre 0 e n. E ums substring $(a, b)$ são os caracteres
+entre as coordenadas $(round(a), round(b))$ (obtidas após arredondar
+os valores), incluindo elas próprias. Contudo, se $a>b$, o resultado é
+a substring $(b, a)$ invertida, se $a < 0$, assumimos que ela é igual
+à substring $(0, b)$ e se $b> n$ assumimos que ela é igual à substring
+$(a, n)$.
+
+@<Metafont: String: Expressões Primárias@>=
+if(current_token != NULL && current_token -> prev != NULL &&
+   current_token -> prev -> prev != NULL &&
+   current_token -> prev -> prev -> prev != NULL &&
+   current_token -> prev -> prev -> prev -> type == SYMBOL &&
+   !strcmp(current_token -> prev -> prev -> prev -> name, "substring")){
+  struct token *result;
+  int i;
+  long n1, n2, max_size;
+  char *buffer;
+  bool reversed;
+  if(current_token -> type != STRING){
+    mf_error(*mf, "Can't get substring from an unknown string.");
+    return NULL;
+  }
+  if(current_token -> prev -> type != SYMBOL ||
+     strcmp(current_token -> prev -> name, "of")){
+    mf_error(*mf, "Missing 'of' in substring expression.");
+    return NULL;
+  }
+  if(current_token -> prev -> prev -> type != PAIR){
+    mf_error(*mf, "Unknown pair after substring expression.");
+    return NULL;
+  }
+  max_size = (long) strlen(current_token -> name);
+  n1 = (long) round(current_token -> prev -> prev -> value);
+  if(n1 < 0)
+    n1 = 0;
+  if(n1 > max_size)
+    n1 = max_size;
+  n2 = (long) round(current_token -> prev -> prev -> value2);
+  if(n2 > max_size)
+    n2 = max_size;
+  if(n2 < 0)
+    n2 = 0;
+  if(n1 > n2){
+    reversed = true;
+    max_size = n1 - n2 + 1;
+  }
+  else{
+    reversed = false;
+    max_size = n2 - n1 + 1;
+  }
+  buffer = (char *) Walloc_arena(_internal_arena, max_size);
+  if(buffer == NULL){
+    fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+            "value of W_INTERNAL_MEMORY at conf/conf.h.\n");
+    exit(1);
+  }
+  if(!reversed)
+    for(i = 0; i < max_size - 1; i ++)
+      buffer[i] = current_token -> name[n1 + i];
+  else
+    for(i = 0; i < max_size - 1; i ++)
+      buffer[i] = current_token -> name[n1 - i - 1];
+  buffer[max_size - 1] = '\0';
+  result = new_token_string(buffer);
+  result -> prev = current_token -> prev -> prev -> prev -> prev;
+  result -> next = current_token -> next;
+  if(result -> prev != NULL)
+    result -> prev -> next = result;
+  else
+    *expression = result;
+  if(result -> next != NULL)
+    result -> next -> prev = result;
+}
+@
 
 <String Primário> --> <Variável String>
                   +-> <Token String>
