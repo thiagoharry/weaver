@@ -2419,6 +2419,53 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
 }
 @
 
+Caso nos vejamos diante de uma variável que pode ser um
+\monoespaco{vardef}, checar a sua expansão pode ser umpouco
+trabalhoso. Além de procurar pela declaração nos escoçpos existentes,
+temos que checar se não estamos diante de uma destas declarações que
+contém sufixo. Iremos fornecer uma função que faz isso. Ela recebe
+como argumento um nome de variável cmo string e retorna uma macro
+vardef correspondente se existir.
+
+@<Metafont: Funções Estáticas@>+=
+static struct token *get_vardef(struct metafont *mf, char *var){
+    struct metafont *scope = mf;
+    struct macro *mc = NULL;
+    char *buffer;
+    int end = strlen(var), i = end;
+    buffer = Walloc_arena(_internal_arena, end + 2);
+    if(buffer == NULL){
+      fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+              "value of W_INTERNAL_ARENA at conf/conf.h.\n");
+      exit(1);
+    }
+    // Checando por vardef simples
+    while(scope != NULL){
+      if(_search_trie(scope -> vardef, VOID_P,
+                      var, &mc))
+        break;
+      scope = scope -> parent;
+    }
+    while(scope == NULL && i >= 0){
+      strcpy(buffer, var);
+      for(i = end; i >= 0 && buffer[i] != ' '; i --);
+      if(i == 0)
+        break;
+      strcpy(&(buffer[i + 1]), "@@#");
+      scope = mf;
+      while(scope != NULL){
+        if(_search_trie(scope -> vardef, VOID_P,
+                        buffer, &mc))
+          break;
+        scope = scope -> parent;
+      }
+      if(scope != NULL)
+        break;
+    }
+    return mc;
+}
+@
+
 @*1 Definições do Tipo \monoespaco{leveldef}.
 
 O último tipo de definição serve para definir novos operadores por
