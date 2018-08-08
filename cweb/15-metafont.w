@@ -1787,7 +1787,7 @@ void declared_variable(struct metafont *mf, struct token **token,
         // Se um token não for uma tag ou '[' e ']', encerremos
         if(current_token -> type != SYMBOL ||
            (!is_tag(mf, current_token) &&
-	    (strcmp(current_token -> name, "[") &&
+               (strcmp(current_token -> name, "[") &&
              strcmp(current_token -> name, "]")))){
             current_token = current_token -> prev;
             break;
@@ -1808,7 +1808,7 @@ void declared_variable(struct metafont *mf, struct token **token,
             current_token = current_token -> prev;
             break;
         }
-	// Se não, apenas incrementa o contador do tamanho do nome do token
+        // Se não, apenas incrementa o contador do tamanho do nome do token
         strncpy(dst, first_token -> name, dst_size - 1);
         strcat(dst, " ");
         dst_size -= (strlen(current_token -> name) + 1);
@@ -1819,7 +1819,7 @@ void declared_variable(struct metafont *mf, struct token **token,
         *token = NULL;
     else if(current_token == NULL){
         first_token -> prev -> next = NULL;
-	*token = NULL;
+        *token = NULL;
     }
     else if(first_token -> prev == NULL){
         *token = current_token -> next;
@@ -1827,8 +1827,8 @@ void declared_variable(struct metafont *mf, struct token **token,
     }
     else{
         *token = current_token -> next;
-	current_token -> next -> prev = first_token -> prev;
-	first_token -> prev -> next = current_token -> next;
+        current_token -> next -> prev = first_token -> prev;
+        first_token -> prev -> next = current_token -> next;
     }
     return;
 }
@@ -1914,11 +1914,11 @@ if(statement -> type == SYMBOL &&
 	                 buffer);
 	// Armazenando nova variável
         _insert_trie(scope -> variable_types, current_arena, INT, buffer, type);
-	// Se o token atual agora é um ';', terminamos de inserir tudo:
-	if(statement != NULL && statement -> type == SYMBOL &&
-	   !strcmp(statement -> name, ";"))
-	    break;
-	// Se for um ',', apenas o consumimos e continuamos
+        // Se o token atual agora é um ';', terminamos de inserir tudo:
+        if(statement != NULL && statement -> type == SYMBOL &&
+           !strcmp(statement -> name, ";"))
+          break;
+        // Se for um ',', apenas o consumimos e continuamos
 	if(statement != NULL && statement -> type == SYMBOL &&
 	   !strcmp(statement -> name, ",")){
 	    statement = statement -> next;
@@ -2310,6 +2310,12 @@ cabeçalho especial:
 
 \alinhanormal
 
+Isso nos trás um novo ``spark'':
+
+@<Metafont: Declara Nova Spark@>=
+_insert_trie(primitive_sparks, _user_arena, INT, "@@#", 0);
+@
+
 Note que todos os trechos acima já foram definidos previamente. Uma
 Variável Declarada foi definida na declaração de variáveis. O que tais
 definições fazem é criar uma variável que ao invés de ter um valor
@@ -2331,20 +2337,15 @@ característico delas por meio do \monoespaco{@#}.
 
 Tais declarações no fim sempre devem ser avaliadas para uma
 variável. Então o texto de definição implicitamente é colocado dentro
-de um grupo. Mas não iremos diferenciar ambos os tipos na
-definição. Como para nós o \monoespaco{@#} é uma tag, não um spark,
-ele será armazenado no próprio nome da variável-macro. Na hora da
-substituição temos apenas que checar se o nome da variável-macro
-termina com tais caracteres.
-
-A definição de tal declaração é:
+de um grupo. A definição de tal declaração é:
 
 @<Metafont: Executa Declaração@>=
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
     struct macro *new_macro;
     struct token *tok;
     char variable_name[1024];
-    struct token *delimited_headers, *undelimited_header;
+    struct token *delimited_headers = NULL, *undelimited_header = NULL,
+      *suffix_header = NULL;
     void *current_arena = _user_arena;
     struct metafont *scope = *mf;
     statement = statement -> next;
@@ -2361,6 +2362,12 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
         }
         scope = scope -> parent;
     }
+    // Checando ocorrência de '@#':
+    if(statement != NULL && statement -> type == SYMBOL &&
+       !strcmp(statement -> name, "@@#")){
+      suffix_header = new_token(SUFFIX, 0.0, "@@#", current_arena);
+      statement = statement -> next;
+    }
     // Parâmetros de cabeçalho
     delimited_headers = delimited_parameters(*mf, &statement, current_arena);
     undelimited_header = undelimited_parameters(*mf, &statement, current_arena);
@@ -2371,13 +2378,17 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
                 (current_arena == _user_arena)?"MAX":"INTERNAL");
         exit(1);
     }
-    new_macro -> parameters = undelimited_header;
+    new_macro -> parameters = suffix_header;
     if(new_macro -> parameters == NULL)
+      new_macro -> parameters = undelimited_header;
+    else if(undelimited_header != NULL)
+      concat_token(new_macro -> parameters, undelimited_header);
+    if(delimited_headers != NULL){
+      if(new_macro -> parameters != NULL)
+        concat_token(new_macro -> parameters, delimited_headers);
+      else
         new_macro -> parameters = delimited_headers;
-    else
-        new_macro -> parameters -> next = delimited_headers;
-    if(delimited_headers != NULL)
-        delimited_headers -> prev = undelimited_header;
+    }
     // Token = ou :=
     if(statement == NULL || statement -> type != SYMBOL ||
        (strcmp(statement -> name, "=") && strcmp(statement -> name, ":="))){
@@ -2428,7 +2439,7 @@ como argumento um nome de variável cmo string e retorna uma macro
 vardef correspondente se existir.
 
 @<Metafont: Funções Estáticas@>+=
-static struct token *get_vardef(struct metafont *mf, char *var){
+static struct macro *get_vardef(struct metafont *mf, char *var){
     struct metafont *scope = mf;
     struct macro *mc = NULL;
     char *buffer;
