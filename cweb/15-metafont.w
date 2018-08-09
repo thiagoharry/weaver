@@ -2430,53 +2430,6 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
 }
 @
 
-Caso nos vejamos diante de uma variável que pode ser um
-\monoespaco{vardef}, checar a sua expansão pode ser umpouco
-trabalhoso. Além de procurar pela declaração nos escoçpos existentes,
-temos que checar se não estamos diante de uma destas declarações que
-contém sufixo. Iremos fornecer uma função que faz isso. Ela recebe
-como argumento um nome de variável cmo string e retorna uma macro
-vardef correspondente se existir.
-
-@<Metafont: Funções Estáticas@>+=
-static struct macro *get_vardef(struct metafont *mf, char *var){
-    struct metafont *scope = mf;
-    struct macro *mc = NULL;
-    char *buffer;
-    int end = strlen(var), i = end;
-    buffer = Walloc_arena(_internal_arena, end + 2);
-    if(buffer == NULL){
-      fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
-              "value of W_INTERNAL_ARENA at conf/conf.h.\n");
-      exit(1);
-    }
-    // Checando por vardef simples
-    while(scope != NULL){
-      if(_search_trie(scope -> vardef, VOID_P,
-                      var, &mc))
-        break;
-      scope = scope -> parent;
-    }
-    while(scope == NULL && i >= 0){
-      strcpy(buffer, var);
-      for(i = end; i >= 0 && buffer[i] != ' '; i --);
-      if(i == 0)
-        break;
-      strcpy(&(buffer[i + 1]), "@@#");
-      scope = mf;
-      while(scope != NULL){
-        if(_search_trie(scope -> vardef, VOID_P,
-                        buffer, &mc))
-          break;
-        scope = scope -> parent;
-      }
-      if(scope != NULL)
-        break;
-    }
-    return mc;
-}
-@
-
 @*1 Definições do Tipo \monoespaco{leveldef}.
 
 O último tipo de definição serve para definir novos operadores por
@@ -2817,7 +2770,8 @@ funcionar quando a função é só uma string literal. Definiremos em
 seguida os detalhes de como avaliar expressão:
 
 @<Metafont: eval_string@>=
-static struct token *eval_string(struct metafont **mf, struct token **expression){
+static struct token *eval_string(struct metafont **mf,
+                                 struct token **expression){
     bool delimited = false;
     struct token *current_token = *expression;
     char *delim = delimiter(*mf, *expression);
@@ -2825,12 +2779,22 @@ static struct token *eval_string(struct metafont **mf, struct token **expression
         current_token = current_token -> next;
         delimited = true;
     }
-    // Percorre a expressão
+    // Percorre a expressão avaliando expressões primárias
     while(current_token != NULL &&
           ((delimited && strcmp(current_token -> name, delim)) ||
            (!delimited && strcmp(current_token -> name, ";")))){
         @<Metafont: String: Expressões Primárias@>
         current_token = current_token -> next;
+    }
+    // Percorre a expressão avaliando expressões quaternárias
+    current_token = *expression;
+    if(delim != NULL)
+      current_token = current_token -> next;
+    while(current_token != NULL &&
+          ((delimited && strcmp(current_token -> name, delim)) ||
+           (!delimited && strcmp(current_token -> name, ";")))){
+      @<Metafont: String: Expressões Quaternárias@>
+      current_token = current_token -> next;
     }
     // Removendo parênteses se após avaliarmos expressão ficarmos com
     // algo como "(resultado)"
@@ -3329,6 +3293,7 @@ if(current_token -> type == SYMBOL &&
     char buffer[2048];
     buffer[0] = '\0';
     int remaining_size = 2047;
+    bool deterministic = true;
     struct token *last_token = current_token -> next, *new_result;
     while(last_token != NULL){
         if(last_token -> type == SYMBOL && !strcmp(last_token -> name, "[")){
@@ -3348,6 +3313,7 @@ if(current_token -> type == SYMBOL &&
                 mf_error(*mf, "Undefined numeric expression.");
                 return NULL;
             }
+            deterministic = deterministic && result -> deterministic;
             snprintf(buffer_number, 16, "%f", result -> value);
             strncat(buffer, buffer_number, remaining_size);
             remaining_size -= strlen(buffer_number);
@@ -3374,6 +3340,7 @@ if(current_token -> type == SYMBOL &&
         last_token = last_token -> next;
     }
     new_result = new_token_string(buffer);
+    new_result -> deterministic = deterministic;
     new_result -> prev = current_token -> prev;
     if(new_result -> prev == NULL)
         *expression = new_result;
@@ -3501,6 +3468,7 @@ if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "char")){
     char buffer[5] = {0x00, 0x00, 0x00, 0x00};
     unsigned long number;
+    bool deterministic;
     struct token *result;
     if(current_token -> next == NULL){
       mf_error(*mf, "Missing numeric primary.");
@@ -3513,9 +3481,11 @@ if(current_token -> type == SYMBOL &&
       mf_error(*mf, "Not recognized numeric primary.");
       return NULL;
     }
+    deterministic = result -> deterministic;
     number = (unsigned long) round(result -> value);
     number2utf8((uint32_t) number, buffer);
     result = new_token_string(buffer);
+    result -> deterministic = deterministic;
     result -> next = current_token -> next;
     result -> prev = current_token -> prev;
     if(result -> next != NULL)
@@ -3540,6 +3510,7 @@ if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "decimal")){
     struct token *result;
     char buffer[32];
+    bool deterministic;
     int n;
     if(current_token -> next == NULL){
       mf_error(*mf, "Missing numeric primary.");
@@ -3552,6 +3523,7 @@ if(current_token -> type == SYMBOL &&
       mf_error(*mf, "Not recognized numeric primary.");
       return NULL;
     }
+    deterministic = result -> deterministic;
     snprintf(buffer, 32, "%f", result -> value);
     // Removing trainling zeros:
     for(n = 0; buffer[n] != '\0'; n ++);
@@ -3564,6 +3536,7 @@ if(current_token -> type == SYMBOL &&
         buffer[n] = '\0';
     // Creating string token
     result = new_token_string(buffer);
+    result -> deterministic = deterministic;
     result -> next = current_token -> next;
     result -> prev = current_token -> prev;
     if(result -> next != NULL)
@@ -3617,6 +3590,7 @@ Assim, nossa definição de função será:
 @<Metafont: Funções Estáticas@>+=
 struct token *pair_primary(struct metafont **mf, struct token **token){
   struct token *result, *tok = *token;
+  bool deterministic = true;
   if(tok == NULL){
     mf_error(*mf, "ERROR: Missing pair primary.");
     return NULL;
@@ -3633,6 +3607,7 @@ struct token *pair_primary(struct metafont **mf, struct token **token){
     n1 = eval_numeric(mf, &tok);
     if(n1 == NULL)
       return NULL;
+    deterministic = deterministic && n1 -> deterministic;
     if(n1 -> type != NUMERIC){
       mf_error(*mf, "Unknown numeric expression result.");
       return NULL;
@@ -3649,6 +3624,7 @@ struct token *pair_primary(struct metafont **mf, struct token **token){
     n2 = eval_numeric(mf, &tok);
     if(n2 == NULL)
       return NULL;
+    deterministic = deterministic && n2 -> deterministic;
     if(n2 -> type != NUMERIC){
       mf_error(*mf, "Unknown numeric expression result.");
       return NULL;
@@ -3659,6 +3635,7 @@ struct token *pair_primary(struct metafont **mf, struct token **token){
     }
     result = new_token_number(n1 -> value);
     result -> type = PAIR;
+    result -> deterministic = deterministic;
     result -> value2 = n2 -> value;
     if((*token) -> prev != NULL)
       (*token) -> prev -> next = tok -> next;
@@ -3719,11 +3696,12 @@ while(current_token != NULL && current_token -> prev != NULL &&
   int i;
   long n1, n2, max_size;
   char *buffer;
-  bool reversed;
+  bool reversed, deterministic = true;
   if(current_token -> type != STRING){
     mf_error(*mf, "Can't get substring from an unknown string.");
     return NULL;
   }
+  deterministic = deterministic && current_token -> deterministic;
   if(current_token -> prev -> type != SYMBOL ||
      strcmp(current_token -> prev -> name, "of")){
     mf_error(*mf, "Missing 'of' in substring expression.");
@@ -3733,6 +3711,8 @@ while(current_token != NULL && current_token -> prev != NULL &&
     mf_error(*mf, "Unknown pair after substring expression.");
     return NULL;
   }
+  deterministic = deterministic &&
+    current_token -> prev -> prev -> deterministic;
   max_size = (long) strlen(current_token -> name);
   n1 = (long) round(current_token -> prev -> prev -> value);
   if(n1 < 0)
@@ -3766,6 +3746,7 @@ while(current_token != NULL && current_token -> prev != NULL &&
       buffer[i] = current_token -> name[n1 - i - 1];
   buffer[max_size - 1] = '\0';
   result = new_token_string(buffer);
+  result -> deterministic = deterministic;
   result -> prev = current_token -> prev -> prev -> prev -> prev;
   result -> next = current_token -> next;
   if(result -> prev != NULL)
@@ -3777,6 +3758,61 @@ while(current_token != NULL && current_token -> prev != NULL &&
   current_token = result;
 }
 @
+
+@*2 Concatenação de Strings.
+
+A concatenação de string é feita usando o operador ``&''. Vamos
+adicioná-lo à lista de ``sparks'':
+
+@<Metafont: Declara Nova Spark@>+=
+_insert_trie(primitive_sparks, _user_arena, INT, "&", 0);
+@
+
+Como o operador de concatenação é um operador terciário, ele é
+avaliado quando avaliamos uma expressão quaternária:
+
+@<Metafont: String: Expressões Quaternárias@>=
+if(current_token -> type == SYMBOL &&
+   !strcmp(current_token -> name, "&")){
+  int new_string_size;
+  char *buffer;
+  struct token *result;
+  // O token anterior deve ser uma string:
+  if(current_token -> prev == NULL || current_token -> prev -> type != STRING){
+    mf_error(*mf, "Missing known string before '&'.");
+    return NULL;
+  }
+  // O próximo token deve ser uma string:
+  if(current_token -> next == NULL || current_token -> next -> type != STRING){
+    mf_error(*mf, "Missing known string after '&'.");
+    return NULL;
+  }
+  new_string_size = strlen(current_token -> prev -> name) +
+    strlen(current_token -> next -> name) + 1;
+  buffer = Walloc_arena(_internal_arena, new_string_size);
+  if(buffer == NULL){
+    fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
+            "value of W_INTERNAL_MEMORY at conf/conf.h.\n");
+    exit(1);
+  }
+  strcpy(buffer, current_token -> prev -> name);
+  strcat(buffer, current_token -> next -> name);
+  result = new_token_string(buffer);
+  result -> deterministic = current_token -> next -> deterministic &&
+    current_token -> prev -> deterministic;
+  result -> prev = current_token -> prev -> prev;
+  result -> next = current_token -> next -> next;
+  if(result -> prev != NULL)
+    result -> prev -> next = result;
+  else
+    *expression = result;
+  if(result -> next != NULL)
+    result -> next -> prev = result;
+  current_token = result;
+}
+@
+
+E isso conclui a definição de concatenação de strings.
 
 <String Primário> --> <Variável String>
                   +-> <Token String>
