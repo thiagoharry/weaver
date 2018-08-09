@@ -942,7 +942,7 @@ comandos são:
           |-> <Comando de Proteção>
           |-> <Comando everyjob>
           |-> <Comando show>
-          |-> <Comando message>
+          |-> <Comando de Mensagem>
           |-> <Comando de Modo>
           |-> <Comando de Imagem>
           |-> <Comando de Visualização>
@@ -3813,6 +3813,64 @@ if(current_token -> type == SYMBOL &&
 @
 
 E isso conclui a definição de concatenação de strings.
+
+@*1 Comandos de Mensagem.
+
+Os Comandos de Mensagem tem a seguinte gramática:
+
+\alinhaverbatim
+<Comando de Mensagem> --> <Operador Mensagem> <Expressão String>
+<Operador Mensagem> --> message | errmessage | errhelp
+\alinhanormal
+
+O primeiro imprime o resultado da expressão na saída padrão. O segundo
+na saída de erro. O terceiro será ignorado, mas no METAFONT original
+ajustaria a mensagem a ser exibida caso o usuário pedisse ajuda no
+modo interativo após um erro ocorrer.
+
+Primeiro vamos registrar estes novos ``sparks'':
+
+@<Metafont: Declara Nova Spark@>+=
+_insert_trie(primitive_sparks, _user_arena, INT, "message", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "errmessage", 0);
+_insert_trie(primitive_sparks, _user_arena, INT, "errhelp", 0);
+@
+
+E agora vamos implementar estes comandos:
+
+@<Metafont: Executa Declaração@>=
+if(statement -> type == SYMBOL && (!strcmp(statement -> name, "message") ||
+                                   !strcmp(statement -> name, "errmessage") ||
+                                   !strcmp(statement -> name, "errhelp"))){
+    struct token *expr_result;
+    // Deve haver uma expressão de string pós o comando
+    if(statement -> next == NULL){
+        mf_error(*mf, "Missing string expression.");
+        return;
+    }
+    expr_result = eval_string(mf, &(statement -> next));
+    if(expr_result == NULL){
+        if(!(*mf) -> error){
+            if((*mf) -> pending_tokens == NULL)
+                (*mf) -> pending_tokens = statement;
+            else
+                concat_token((*mf) -> pending_tokens, statement);
+        }
+        return;
+    }
+    if(expr_result -> type != STRING){
+        mf_error(*mf, "Tried to print unknown string.");
+        return;
+    }
+    if(statement -> name[0] == 'm')
+        printf("%s\n", expr_result -> name);
+    else if(statement -> name[3] == 'm')
+        fprintf(stderr, "%s\n", expr_result -> name);
+    return;
+}
+@
+
+
 
 <String Primário> --> <Variável String>
                   +-> <Token String>
