@@ -2176,8 +2176,17 @@ static struct token *replacement_text(struct metafont *mf, struct token **token,
             mf_error(mf, "Forbidden token at macro.");
             return NULL;
         }
+        // Não tratando de forma especial algo que vem após um token
+        // 'quote':
+        if(tok -> type == SYMBOL && !strcmp(tok -> name, "quote")){
+          if(tok -> next == NULL){
+            mf_error(mf, "Missing token after 'quote'.");
+            return NULL;
+          }
+          current_token = current_token -> next;
+        }
         // Contagem de sub-macros
-        if(tok -> type == SYMBOL &&
+        else if(tok -> type == SYMBOL &&
            (!strcmp(tok -> name, "def") || !strcmp(tok -> name, "vardef") ||
             !strcmp(tok -> name, "primarydef") ||
             !strcmp(tok -> name, "secondarydef") ||
@@ -3870,6 +3879,63 @@ if(statement -> type == SYMBOL && (!strcmp(statement -> name, "message") ||
 }
 @
 
+@*1 Expansão de Macros.
+
+Vamos enfim começar a tratar a função de expansão de macros, ao menos
+o necessário para tratar alguns casos.
+
+@*2 Macros sem Argumentos.
+
+Estas são as macros que consistem apenas em substituição. Não
+precisamos ler argumentos para elas e nem substituir os seus
+parâmetros pelos argumentos lidos. Tratar o caso mais simples nos
+permitirá gerar a versão inicial da função de expandir macros. Esta
+função deve receber como argumento uma macro e um ponteiro para um
+token, o qual representa o próximo token da lista a ser interpretada,
+após a macro. Se a macro tivesse argumentos, ele seria o primeiro
+argumento. Como ela não tem, ele é o próximo caractere a ser lido após
+a macro:
+
+@<Metafont: Funções Estáticas@>+=
+void expand_macro(struct metafont *mf, struct macro *mc,
+                  struct token **tok){
+  struct token *expansion, *current_token = NULL, *replacement;
+  replacement = mc -> replacement_text;
+  while(replacement != NULL){
+    if(current_token != NULL){
+      current_token -> next = new_token(replacement -> type,
+                                        replacement -> value,
+                                        replacement -> name,
+                                        _internal_arena);
+      if(current_token -> next == NULL)
+        goto error_no_memory;
+      current_token -> next -> prev = current_token;
+      current_token = current_token -> next;
+    }
+    else{
+      current_token = new_token(replacement -> type,
+                                replacement -> value,
+                                replacement -> name,
+                                _internal_arena);
+      if(current_token == NULL)
+        goto error_no_memory;
+      expansion = current_token;
+      expansion -> prev = (*tok) -> prev;
+      expansion-> prev -> next = expansion;
+    }
+    replacement = replacement -> next;
+  }
+  if(current_token != NULL){
+    current_token -> next = *tok;
+    (*tok) -> prev = current_token;
+  }
+  return;
+ error_no_memory:
+  fprintf(stderr, "ERROR: Not enough memory. Please increase the value of "
+          "W_INTERNAL_MEMORY at conf/conf.h.\n");
+  exit(1);
+}
+@
 
 
 <String Primário> --> <Variável String>
