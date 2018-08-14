@@ -29,8 +29,8 @@ seguintes arquivos:
 @(project/src/weaver/metafont.c@>=
 #include "weaver.h"
 @<Metafont: Inclui Cabeçalhos@>
-@<Metafont: Funções Locais Declaradas@>
 @<Metafont: Variáveis Estáticas@>
+@<Metafont: Funções Locais Declaradas@>
 @<Metafont: Funções Estáticas@>
 @<Metafont: Eval@>
 @<Metafont: Parser@>
@@ -2977,9 +2977,10 @@ caso do tipo ser de uma variável numérica interna, usaremos isso:
 void variable(struct metafont **mf, struct token **token,
               char *dst, int dst_size, int *type){
     struct metafont *scope = *mf;
-    bool internal = false;
+    bool internal = false, vardef = false;
     float dummy;
     char type_name[1024];
+    struct macro *mc = NULL;
     dst[0] = '\0';
     type_name[0] = '\0';
     int pos = 0, type_pos = 0, original_size = dst_size;
@@ -2993,8 +2994,9 @@ void variable(struct metafont **mf, struct token **token,
             break;
         *mf = (*mf) -> parent;
     }
-    internal = _search_trie((*mf) -> internal_quantities, DOUBLE,
-                            (*token) -> name, &dummy);
+    if(!internal)
+        internal = _search_trie((*mf) -> internal_quantities, DOUBLE,
+                                (*token) -> name, &dummy);
     if(internal){
         strncpy(dst, (*token) -> name, dst_size);
         dst[dst_size - 1] = '\0';
@@ -3012,15 +3014,31 @@ void variable(struct metafont **mf, struct token **token,
         *type = NOT_DECLARED;
         return;
     }
-    // Copiar nome do primeiro token
-    strncat(dst, (*token) -> name, dst_size);
-    pos += strlen((*token) -> name);
-    dst_size -= pos;
-    strncat(dst, " ", dst_size);
-    pos ++;
-    dst_size -= 1;
-    *token = (*token) -> next;
     while(*token != NULL){
+        printf("DEBUG: Var LOOP %s\n", (*token) -> name);
+        { // Sempre começamos checando se o que temos não é um vardef:
+            scope = *mf;
+            while(scope != NULL){
+                printf("DEBUG: Buscar vardef %s...\n", type_name);
+                vardef = _search_trie(scope -> vardef, VOID_P,
+                                      type_name, (void *) mc);
+                if(vardef){
+                    printf("DEBUG: vardef identificado\n");
+                    // Se for um vardef, já fazemos a substituição com função a
+                    // ser definida e retornamos:
+                    if((*token) -> prev != NULL)
+                        (*token) -> prev -> next = (*token) -> next;
+                    if((*token) -> next != NULL)
+                        (*token) -> next -> prev = (*token) -> prev;
+                    *token = (*token) -> next;
+                    *type = MACRO;
+                    expand_macro(*mf, mc, token);
+                    return;
+                }
+                scope = scope -> parent;
+            }
+            printf("DEBUG: Não é vardef.\n");
+        }
         // Se o token atual for um símbolo, mas não uma tag ou [ ou ],
         // encerramos
         if((*token) -> type == SYMBOL &&
@@ -3051,19 +3069,23 @@ void variable(struct metafont **mf, struct token **token,
             snprintf(&(dst[pos]), dst_size, "%f ", result -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
-            strncat(type_name, "[ ] ", 1023 - type_pos);
+            strncat(type_name, " [ ]", 1023 - type_pos);
             type_pos += 4;
             continue;
         }
         // Se for um outro símbolo, copiamos seu nome
         if((*token) -> type == SYMBOL){
             int size = strlen((*token) -> name);
+            if(dst[0] != '\0'){
+                strncat(dst, " ", dst_size);
+                strncat(type_name, " ", 1024 - type_pos);
+                type_pos ++;
+                pos ++;
+                dst_size -= 1;
+            }
             strncat(dst, (*token) -> name, dst_size);
             pos += size;
             dst_size -= pos;
-            strncat(dst, " ", dst_size);
-            pos ++;
-            dst_size -= 1;
             strncat(type_name, (*token) -> name, 1024 - type_pos);
             type_pos += size;
             *token = (*token) -> next;
@@ -3074,7 +3096,7 @@ void variable(struct metafont **mf, struct token **token,
             snprintf(&(dst[pos]), dst_size, "%f ", (*token) -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
-            strncat(type_name, "[ ] ", 1023 - type_pos);
+            strncat(type_name, " [ ]", 1023 - type_pos);
             type_pos += 4;
             continue;
         }
@@ -3082,8 +3104,10 @@ void variable(struct metafont **mf, struct token **token,
         // paramos.
         break;
     }
+    printf("DEBUG: End loop\n");
     // Tentando obter o tipo, se não acharmos ele é numérico:
     *type = NUMERIC;
+    scope = *mf;
     while(scope != NULL){
         bool found = false;
         found = _search_trie(scope -> variable_types, INT, type_name, type);
@@ -3147,6 +3171,8 @@ if(current_token -> type == SYMBOL){
     int type = NOT_DECLARED;
     struct token *replacement;
     variable(mf, &current_token, variable_name, 1024, &type);
+    if(type == MACRO) // vardef substituído
+        return NULL;
     if(type != NOT_DECLARED){
         // Se estamos aqui, é mesmo uma variável
         if(type != STRING){
@@ -3896,12 +3922,17 @@ após a macro. Se a macro tivesse argumentos, ele seria o primeiro
 argumento. Como ela não tem, ele é o próximo caractere a ser lido após
 a macro:
 
+@<Metafont: Funções Locais Declaradas@>+=
+static void expand_macro(struct metafont *, struct macro *, struct token **);
+@
 @<Metafont: Funções Estáticas@>+=
-void expand_macro(struct metafont *mf, struct macro *mc,
-                  struct token **tok){
+static void expand_macro(struct metafont *mf, struct macro *mc,
+                         struct token **tok){
+    printf("DEBUG: Expand macro\n");
   struct token *expansion, *current_token = NULL, *replacement;
   replacement = mc -> replacement_text;
   while(replacement != NULL){
+    @<Metafont: expand_macro: Expande Argumento@>
     if(current_token != NULL){
       current_token -> next = new_token(replacement -> type,
                                         replacement -> value,
@@ -3937,6 +3968,56 @@ void expand_macro(struct metafont *mf, struct macro *mc,
 }
 @
 
+Mas e como iremos tratar os argumentos? Por padrão, uma lista de todos
+os argumentos pode ser encontrada na própria macro na forma de uma
+lista duplamente encadeada. Contudo, à medida quer lemos os argumentos
+deixaremos que ela deixe de ser uma lista duplamente encadeada e
+torne-se simplesmente encadeada. O ponteiro que seria usado para
+apontar para a posição anterior será usado para armazenar o
+argumento. Desta forma, durante a expansão poderemos tratar os
+argumentos assim:
+
+@<Metafont: expand_macro: Expande Argumento@>=
+{
+/*    struct token *arg = mc -> parameters;
+    while(arg != NULL){
+        if(replacement -> type == SYMBOL && !strcmp(replacement -> name,
+                                                    arg -> name)){
+            // É um parâmetro a ser substituído
+            arg = arg -> prev;
+            while(arg != NULL){
+                if(current_token != NULL){
+                    current_token -> next = new_token(arg -> type,
+                                                      arg -> value,
+                                                      arg -> name,
+                                                      _internal_arena);
+                    if(current_token -> next == NULL)
+                        goto error_no_memory;
+                    current_token -> next -> prev = current_token;
+                    current_token = current_token -> next;
+                }
+                else{
+                    current_token = new_token(arg -> type,
+                                              arg -> value,
+                                              arg -> name,
+                                              _internal_arena);
+                    if(current_token == NULL)
+                        goto error_no_memory;
+                    expansion = current_token;
+                    expansion -> prev = (*tok) -> prev;
+                    expansion-> prev -> next = expansion;
+                }
+                arg = arg -> next;
+            }
+            replacement = replacement -> next;
+            break;
+        }
+        arg = arg -> next;
+    }
+    if(arg != NULL) // Se ocorreu substituição
+    continue;*/
+}
+@
 
 <String Primário> --> <Variável String>
                   +-> <Token String>
