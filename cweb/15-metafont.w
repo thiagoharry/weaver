@@ -1809,12 +1809,12 @@ void declared_variable(struct metafont *mf, struct token **token,
             break;
         }
         // Se não, apenas incrementa o contador do tamanho do nome do token
-        strncpy(dst, first_token -> name, dst_size - 1);
+        strncpy(dst, current_token -> name, dst_size - 1);
         strcat(dst, " ");
         dst_size -= (strlen(current_token -> name) + 1);
         current_token  = current_token -> next;
     }
-    dst[dst_size - 1] = '\0';
+    dst[strlen(dst) - 1] = '\0';
     if(current_token == NULL && first_token -> prev == NULL)
         *token = NULL;
     else if(current_token == NULL){
@@ -2414,8 +2414,10 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
         else
             goto error_no_memory_internal;
     }
-    new_macro -> replacement_text = replacement_text(*mf, &statement,
-                                                     current_arena);
+    new_macro -> replacement_text -> next = replacement_text(*mf, &statement,
+                                                             current_arena);
+    if(new_macro -> replacement_text -> next != NULL)
+      new_macro -> replacement_text -> next = new_macro -> replacement_text;
     tok = new_token(SYMBOL, 0.0, "endgroup", current_arena);
     if(tok == NULL){
         if(current_arena == _user_arena)
@@ -3015,15 +3017,12 @@ void variable(struct metafont **mf, struct token **token,
         return;
     }
     while(*token != NULL){
-        printf("DEBUG: Var LOOP %s\n", (*token) -> name);
         { // Sempre começamos checando se o que temos não é um vardef:
             scope = *mf;
             while(scope != NULL){
-                printf("DEBUG: Buscar vardef %s...\n", type_name);
                 vardef = _search_trie(scope -> vardef, VOID_P,
-                                      type_name, (void *) mc);
+                                      type_name, (void *) &mc);
                 if(vardef){
-                    printf("DEBUG: vardef identificado\n");
                     // Se for um vardef, já fazemos a substituição com função a
                     // ser definida e retornamos:
                     if((*token) -> prev != NULL)
@@ -3033,11 +3032,11 @@ void variable(struct metafont **mf, struct token **token,
                     *token = (*token) -> next;
                     *type = MACRO;
                     expand_macro(*mf, mc, token);
+                    eval(*mf, token);
                     return;
                 }
                 scope = scope -> parent;
             }
-            printf("DEBUG: Não é vardef.\n");
         }
         // Se o token atual for um símbolo, mas não uma tag ou [ ou ],
         // encerramos
@@ -3104,7 +3103,6 @@ void variable(struct metafont **mf, struct token **token,
         // paramos.
         break;
     }
-    printf("DEBUG: End loop\n");
     // Tentando obter o tipo, se não acharmos ele é numérico:
     *type = NUMERIC;
     scope = *mf;
@@ -3262,6 +3260,7 @@ volta a expressão, mas desta vez sem o \monoespaco{begingroup}:
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "begingroup")){
+  printf("DEBUG: Eval begingroup.\n");
     if(current_token -> prev != NULL){
         current_token -> prev -> next = NULL;
         current_token -> prev = NULL;
@@ -3932,6 +3931,7 @@ static void expand_macro(struct metafont *mf, struct macro *mc,
   struct token *expansion, *current_token = NULL, *replacement;
   replacement = mc -> replacement_text;
   while(replacement != NULL){
+    printf("DEBUG: replacement: '%s'\n", replacement -> name);
     @<Metafont: expand_macro: Expande Argumento@>
     if(current_token != NULL){
       current_token -> next = new_token(replacement -> type,
@@ -3944,22 +3944,32 @@ static void expand_macro(struct metafont *mf, struct macro *mc,
       current_token = current_token -> next;
     }
     else{
+      printf("DEBUG: 1o token replacement.\n");
       current_token = new_token(replacement -> type,
                                 replacement -> value,
                                 replacement -> name,
                                 _internal_arena);
+      printf("[1]\n");
       if(current_token == NULL)
         goto error_no_memory;
+      printf("[1.1]\n");
       expansion = current_token;
-      expansion -> prev = (*tok) -> prev;
-      expansion-> prev -> next = expansion;
+      printf("[1.2]\n");
+      if(*tok != NULL)
+        current_token -> prev = (*tok) -> prev;
+      printf("[2]\n");
+      if(expansion -> prev != NULL)
+        expansion-> prev -> next = expansion;
+      printf("[3]\n");
     }
     replacement = replacement -> next;
   }
+  printf("DEBUG: Endof replacement.\n");
   if(current_token != NULL){
     current_token -> next = *tok;
     (*tok) -> prev = current_token;
   }
+  printf("DEBUG: OK\n");
   return;
  error_no_memory:
   fprintf(stderr, "ERROR: Not enough memory. Please increase the value of "
