@@ -809,7 +809,9 @@ Com isso, podemos enfim fazer cada estrutura Metafont executar logo
 após sua inicialização:
 
 @<METAFONT: Executa Arquivo de Inicialização@>=
-run_statements(structure);
+if(parent == NULL){
+  run_statements(structure);
+}
 @
 
 @*1 Quantidades Internas.
@@ -2715,6 +2717,8 @@ struct token *eval(struct metafont **mf, struct token **expression){
     struct metafont *scope = *mf;
     bool is_variable = false;
     int type;
+    if((*expression) -> type == SYMBOL && !strcmp((*expression) -> name, ";"))
+      return NULL; // Expressão vacuosa 
     // Ignorando os delimitadores iniciais para definir o tipo
     while(aux != NULL && aux -> type == SYMBOL && delimiter(*mf, aux) != NULL)
         aux = aux -> next;
@@ -2771,6 +2775,7 @@ struct token *eval(struct metafont **mf, struct token **expression){
     }
     if(is_variable && type == STRING)
         return eval_string(mf, expression);
+    printf("DEBUG: %s\n", (*expression) -> name);
     mf_error(*mf, "Undetermined expression.");
     return NULL;
 }
@@ -3032,7 +3037,7 @@ void variable(struct metafont **mf, struct token **token,
                     *token = (*token) -> next;
                     *type = MACRO;
                     expand_macro(*mf, mc, token);
-                    eval(*mf, token);
+                    eval(mf, token);
                     return;
                 }
                 scope = scope -> parent;
@@ -3260,7 +3265,6 @@ volta a expressão, mas desta vez sem o \monoespaco{begingroup}:
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "begingroup")){
-  printf("DEBUG: Eval begingroup.\n");
     if(current_token -> prev != NULL){
         current_token -> prev -> next = NULL;
         current_token -> prev = NULL;
@@ -3927,11 +3931,9 @@ static void expand_macro(struct metafont *, struct macro *, struct token **);
 @<Metafont: Funções Estáticas@>+=
 static void expand_macro(struct metafont *mf, struct macro *mc,
                          struct token **tok){
-    printf("DEBUG: Expand macro\n");
   struct token *expansion, *current_token = NULL, *replacement;
   replacement = mc -> replacement_text;
   while(replacement != NULL){
-    printf("DEBUG: replacement: '%s'\n", replacement -> name);
     @<Metafont: expand_macro: Expande Argumento@>
     if(current_token != NULL){
       current_token -> next = new_token(replacement -> type,
