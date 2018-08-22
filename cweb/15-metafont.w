@@ -1243,7 +1243,8 @@ existente:
 @<Metafont: Remover e Tratar token endgroup@>=
 {
     struct token *aux = statement;
-    while(aux != NULL){
+    if((*mf) -> hint == HINT_ENDGROUP){
+      while(aux != NULL){
         if(aux -> type == SYMBOL && !strcmp(aux -> name, "endgroup")){
             if(aux -> prev != NULL)
                 aux -> prev -> next = aux -> next;
@@ -1254,6 +1255,7 @@ existente:
             break;
         }
         aux = aux -> next;
+      }
     }
 }
 @
@@ -2666,13 +2668,14 @@ expressão começa com um grupo.
 
 @<Metafont: Prepara Retorno de Expressão Composta@>=
 {
-    struct token *new_tokens = (*mf) -> past_tokens;
+    struct token *new_tokens = NULL;
     struct token *expression_result = eval(mf, &statement);
     if((*mf) -> hint == HINT_ENDGROUP){
         if((*mf) -> parent == NULL){
             mf_error(*mf, "Extra 'endgroup' while not in 'begingroup'.");
             return;
         }
+        new_tokens = (*mf) -> parent -> past_tokens;
         if(expression_result != NULL){
             if(new_tokens != NULL)
                 concat_token(new_tokens, expression_result);
@@ -2740,6 +2743,8 @@ struct token *eval(struct metafont **mf, struct token **expression){
             // Criamos novo contexto
             Wbreakpoint_arena(metafont_arena);
             *mf = _new_metafont(*mf, (*mf) -> filename);
+            while((*expression) != NULL && (*expression) -> prev != NULL)
+                *expression = (*expression) -> prev;
             (*mf) -> past_tokens = *expression;
             (*mf) -> pending_tokens = aux -> next;
             if(aux -> next != NULL)
@@ -2775,7 +2780,6 @@ struct token *eval(struct metafont **mf, struct token **expression){
     }
     if(is_variable && type == STRING)
         return eval_string(mf, expression);
-    printf("DEBUG: %s\n", (*expression) -> name);
     mf_error(*mf, "Undetermined expression.");
     return NULL;
 }
@@ -3265,20 +3269,28 @@ volta a expressão, mas desta vez sem o \monoespaco{begingroup}:
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "begingroup")){
+    while((*expression) != NULL && (*expression) -> prev != NULL)
+         *expression = (*expression) -> prev;
+    if(*expression != NULL){
+      (*mf) -> past_tokens = *expression;
+    }
     if(current_token -> prev != NULL){
         current_token -> prev -> next = NULL;
         current_token -> prev = NULL;
     }
     Wbreakpoint_arena(metafont_arena);
     *mf = _new_metafont(*mf, (*mf) -> filename);
-    (*mf) -> past_tokens = *expression;
     (*mf) -> pending_tokens = current_token -> next;
     if(current_token -> next != NULL)
         concat_token((*mf) -> pending_tokens,
                      (*mf) -> parent -> pending_tokens);
     else
         (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
-    (*mf) -> parent -> pending_tokens = NULL;
+    if(current_token -> next != NULL){
+      current_token -> next -> prev = NULL;
+      current_token -> next = NULL;
+    }
+    (*mf) -> parent -> pending_tokens = NULL;    
     // Deixamos pra lá a avaliação da expressão, ela será feita depois
     return NULL;
 }
@@ -3888,12 +3900,6 @@ if(statement -> type == SYMBOL && (!strcmp(statement -> name, "message") ||
     }
     expr_result = eval_string(mf, &(statement -> next));
     if(expr_result == NULL){
-        if(!(*mf) -> error){
-            if((*mf) -> pending_tokens == NULL)
-                (*mf) -> pending_tokens = statement;
-            else
-                concat_token((*mf) -> pending_tokens, statement);
-        }
         return;
     }
     if(expr_result -> type != STRING){
@@ -3946,32 +3952,24 @@ static void expand_macro(struct metafont *mf, struct macro *mc,
       current_token = current_token -> next;
     }
     else{
-      printf("DEBUG: 1o token replacement.\n");
       current_token = new_token(replacement -> type,
                                 replacement -> value,
                                 replacement -> name,
                                 _internal_arena);
-      printf("[1]\n");
       if(current_token == NULL)
         goto error_no_memory;
-      printf("[1.1]\n");
       expansion = current_token;
-      printf("[1.2]\n");
       if(*tok != NULL)
         current_token -> prev = (*tok) -> prev;
-      printf("[2]\n");
       if(expansion -> prev != NULL)
         expansion-> prev -> next = expansion;
-      printf("[3]\n");
     }
     replacement = replacement -> next;
   }
-  printf("DEBUG: Endof replacement.\n");
   if(current_token != NULL){
     current_token -> next = *tok;
     (*tok) -> prev = current_token;
   }
-  printf("DEBUG: OK\n");
   return;
  error_no_memory:
   fprintf(stderr, "ERROR: Not enough memory. Please increase the value of "
