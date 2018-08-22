@@ -1189,7 +1189,7 @@ filha, passamos para ela os tokens pendentes que antes estavam em seu
 pai.
 
 @<Metafont: Executa Declaração@>=
-if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
+  if(statement -> type == SYMBOL && !strcmp(statement -> name, "begingroup")){
     Wbreakpoint_arena(metafont_arena);
     *mf = _new_metafont(*mf, (*mf) -> filename);
     statement = statement -> next;
@@ -2676,6 +2676,7 @@ expressão começa com um grupo.
             return;
         }
         new_tokens = (*mf) -> parent -> past_tokens;
+        (*mf) -> parent -> past_tokens = NULL;
         if(expression_result != NULL){
             if(new_tokens != NULL)
                 concat_token(new_tokens, expression_result);
