@@ -703,8 +703,9 @@ static struct token *get_statement(struct metafont *mf){
             break;
         // Se não saímos do loop, temos que ir para o próximo token
         if(current_token -> next == NULL){
-            if(mf -> pending_tokens == NULL)
+            if(mf -> pending_tokens == NULL){
                 current_token -> next = next_token(mf);
+            }
             else{
                 current_token -> next = mf -> pending_tokens;
                 mf -> pending_tokens = mf -> pending_tokens -> next;
@@ -730,6 +731,7 @@ static struct token *get_statement(struct metafont *mf){
     return first_token;
 source_incomplete_or_with_error:
     mf_error(mf, "Source with error or incomplete, aborting.");
+    printf("current: %s first: %s\n", current_token -> name, first_token -> name);
     return NULL;
 }
 @
@@ -1247,11 +1249,14 @@ existente:
       while(aux != NULL){
         if(aux -> type == SYMBOL && !strcmp(aux -> name, "endgroup")){
             if(aux -> prev != NULL)
-                aux -> prev -> next = aux -> next;
+              aux -> prev -> next = NULL;
             else
                 statement = aux -> next;
-            if(aux -> next != NULL)
-                aux -> next -> prev = aux -> prev;
+            if(aux -> next != NULL){
+                concat_token(aux -> next, (*mf) -> pending_tokens);
+                (*mf) -> pending_tokens = aux -> next;
+                aux -> next -> prev = NULL;
+            }
             break;
         }
         aux = aux -> next;
@@ -2671,6 +2676,7 @@ expressão começa com um grupo.
     struct token *new_tokens = NULL;
     struct token *expression_result = eval(mf, &statement);
     if((*mf) -> hint == HINT_ENDGROUP){
+      if(expression_result != NULL)
         if((*mf) -> parent == NULL){
             mf_error(*mf, "Extra 'endgroup' while not in 'begingroup'.");
             return;
@@ -2682,6 +2688,7 @@ expressão começa com um grupo.
                 concat_token(new_tokens, expression_result);
             else
                 new_tokens = expression_result;
+            concat_token(new_tokens, (*mf) -> pending_tokens);
             (*mf) -> parent -> pending_tokens = new_tokens;
         }
         *mf = (*mf) -> parent;
