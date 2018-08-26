@@ -493,25 +493,17 @@ extensão de texto puro:
 {
   unsigned char buffer[256];
   bool read_error = false;
-  unsigned int size;
-  if(fread(&size, 1, 1, fp) != 1)
-    read_error = true;
+
 #ifdef W_DEBUG_GIF
   printf("   [Extension: Comment (");
 #endif
-  while(buffer[0] != 0){
-    if(fread(buffer, 1, size, fp) != size)
+  do{
+    if(fread(buffer, 1, 1, fp) != 1)
       read_error = true;
 #ifdef W_DEBUG_GIF
-    {
-      unsigned int i;
-      for(i = 0; i < size; i ++)
-        printf("%c", buffer[i]);
-    }
+    printf("%c", buffer[0]);
 #endif
-    if(fread(&size, 1, 1, fp) != 1)
-      read_error = true;
-  }
+  }while(buffer[0] != 0);
 #ifdef W_DEBUG_GIF
   printf(")]\n");
 #endif
