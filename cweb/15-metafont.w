@@ -2702,6 +2702,9 @@ expressão começa com um grupo.
         if(expression_result -> type != STRING)
             mf_error(*mf, "Isolated expression.");
         else if(expression_result -> type == STRING){
+          if(statement -> next -> type != SYMBOL ||
+             strcmp(statement -> next -> name, ";"))
+            mf_error(*mf, "Missing ';' after title.");
             ; // Se algum dia quiseros fazer algo com o título, inserir aqui
         }
     }
@@ -2743,6 +2746,7 @@ struct token *eval(struct metafont **mf, struct token **expression){
     // Definindo se é uma variável:
     else if(aux -> type == SYMBOL){
         if(!strcmp(aux -> name, "begingroup")){
+            struct token *expr_begin = *expression;
             // Começo de uma expressão composta com grupo
             // Primeiro rompemos a cadeia de tokens antes:
             aux -> prev -> next = NULL;
@@ -2751,9 +2755,9 @@ struct token *eval(struct metafont **mf, struct token **expression){
             // Criamos novo contexto
             Wbreakpoint_arena(metafont_arena);
             *mf = _new_metafont(*mf, (*mf) -> filename);
-            while((*expression) != NULL && (*expression) -> prev != NULL)
-                *expression = (*expression) -> prev;
-            (*mf) -> past_tokens = *expression;
+            while(expr_begin != NULL && expr_begin -> prev != NULL)
+                expr_begin = expr_begin -> prev;
+            (*mf) -> past_tokens = expr_begin;
             (*mf) -> pending_tokens = aux -> next;
             if(aux -> next != NULL)
                 concat_token((*mf) -> pending_tokens,
@@ -3277,10 +3281,11 @@ volta a expressão, mas desta vez sem o \monoespaco{begingroup}:
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "begingroup")){
-    while((*expression) != NULL && (*expression) -> prev != NULL)
-         *expression = (*expression) -> prev;
-    if(*expression != NULL){
-      (*mf) -> past_tokens = *expression;
+    struct token *expr_begin = *expression;
+    while(expr_begin != NULL && expr_begin -> prev != NULL)
+         expr_begin = expr_begin -> prev;
+    if(expr_begin != NULL){
+      (*mf) -> past_tokens = expr_begin;
     }
     if(current_token -> prev != NULL){
         current_token -> prev -> next = NULL;
