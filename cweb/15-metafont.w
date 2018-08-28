@@ -3051,7 +3051,6 @@ void variable(struct metafont **mf, struct token **token,
                         (*token) -> prev -> next = (*token) -> next;
                     if((*token) -> next != NULL)
                         (*token) -> next -> prev = (*token) -> prev;
-                    *token = (*token) -> next;
                     *type = MACRO;
                     expand_macro(*mf, mc, token);
                     eval(mf, token);
@@ -3982,7 +3981,9 @@ static void expand_macro(struct metafont *mf, struct macro *mc,
   }
   if(current_token != NULL){
     current_token -> next = *tok;
-    (*tok) -> prev = current_token;
+    if(*tok != NULL){
+        (*tok) -> prev = current_token;
+    }
   }
   return;
  error_no_memory:
