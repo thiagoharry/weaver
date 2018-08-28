@@ -2426,7 +2426,8 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
     new_macro -> replacement_text -> next = replacement_text(*mf, &statement,
                                                              current_arena);
     if(new_macro -> replacement_text -> next != NULL)
-      new_macro -> replacement_text -> next = new_macro -> replacement_text;
+      new_macro -> replacement_text -> next -> prev =
+          new_macro -> replacement_text;
     tok = new_token(SYMBOL, 0.0, "endgroup", current_arena);
     if(tok == NULL){
         if(current_arena == _user_arena)
@@ -2732,7 +2733,7 @@ struct token *eval(struct metafont **mf, struct token **expression){
     bool is_variable = false;
     int type;
     if((*expression) -> type == SYMBOL && !strcmp((*expression) -> name, ";"))
-      return NULL; // Expressão vacuosa 
+      return NULL; // Expressão vacuosa
     // Ignorando os delimitadores iniciais para definir o tipo
     while(aux != NULL && aux -> type == SYMBOL && delimiter(*mf, aux) != NULL)
         aux = aux -> next;
@@ -3303,7 +3304,7 @@ if(current_token -> type == SYMBOL &&
       current_token -> next -> prev = NULL;
       current_token -> next = NULL;
     }
-    (*mf) -> parent -> pending_tokens = NULL;    
+    (*mf) -> parent -> pending_tokens = NULL;
     // Deixamos pra lá a avaliação da expressão, ela será feita depois
     return NULL;
 }
