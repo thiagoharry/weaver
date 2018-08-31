@@ -2685,12 +2685,12 @@ expressão começa com um grupo.
         new_tokens = (*mf) -> parent -> past_tokens;
         (*mf) -> parent -> past_tokens = NULL;
         if(expression_result != NULL){
-            if(new_tokens != NULL)
-                concat_token(new_tokens, expression_result);
-            else
-                new_tokens = expression_result;
-            concat_token(new_tokens, (*mf) -> pending_tokens);
-            (*mf) -> parent -> pending_tokens = new_tokens;
+          if(new_tokens != NULL)
+            concat_token(new_tokens, expression_result);
+          else
+            new_tokens = expression_result;
+          concat_token(new_tokens, (*mf) -> pending_tokens);
+          (*mf) -> parent -> pending_tokens = new_tokens;
         }
         *mf = (*mf) -> parent;
         Wtrash_arena(metafont_arena);
@@ -2748,23 +2748,30 @@ struct token *eval(struct metafont **mf, struct token **expression){
     else if(aux -> type == SYMBOL){
         if(!strcmp(aux -> name, "begingroup")){
             struct token *expr_begin = *expression;
+            while(expr_begin != NULL && expr_begin -> prev != NULL)
+              expr_begin = expr_begin -> prev;
+            if(expr_begin != NULL){
+              (*mf) -> past_tokens = expr_begin;
+            }
             // Começo de uma expressão composta com grupo
             // Primeiro rompemos a cadeia de tokens antes:
-            aux -> prev -> next = NULL;
-            aux -> prev = NULL;
-            aux -> next -> prev = NULL;
+            if(aux -> prev != NULL){
+              aux -> prev -> next = NULL;
+              aux -> prev = NULL;
+            }
             // Criamos novo contexto
             Wbreakpoint_arena(metafont_arena);
             *mf = _new_metafont(*mf, (*mf) -> filename);
-            while(expr_begin != NULL && expr_begin -> prev != NULL)
-                expr_begin = expr_begin -> prev;
-            (*mf) -> past_tokens = expr_begin;
             (*mf) -> pending_tokens = aux -> next;
             if(aux -> next != NULL)
                 concat_token((*mf) -> pending_tokens,
                              (*mf) -> parent -> pending_tokens);
             else
                 (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
+            if(aux -> next != NULL){
+              aux -> next -> prev = NULL;
+              aux -> next = NULL;
+            }
             (*mf) -> parent -> pending_tokens = NULL;
             // Saímos sem avaliar, avaliaremos depois de obter o valor do grupo
             return NULL;
@@ -3053,6 +3060,9 @@ void variable(struct metafont **mf, struct token **token,
                         (*token) -> next -> prev = (*token) -> prev;
                     *type = MACRO;
                     expand_macro(*mf, mc, token);
+                    (*token) -> prev = (*token) -> prev -> prev;
+                    if((*token) -> prev -> prev != NULL)
+                      (*token) -> prev -> prev -> next = (*token);
                     eval(mf, token);
                     return;
                 }
