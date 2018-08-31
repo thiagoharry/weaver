@@ -3950,7 +3950,7 @@ static void expand_macro(struct metafont *, struct macro *, struct token **);
 @<Metafont: Funções Estáticas@>+=
 static void expand_macro(struct metafont *mf, struct macro *mc,
                          struct token **tok){
-  struct token *expansion, *current_token = NULL, *replacement;
+  struct token *expansion = NULL, *current_token = NULL, *replacement;
   replacement = mc -> replacement_text;
   while(replacement != NULL){
     @<Metafont: expand_macro: Expande Argumento@>
@@ -3984,6 +3984,8 @@ static void expand_macro(struct metafont *mf, struct macro *mc,
     if(*tok != NULL){
         (*tok) -> prev = current_token;
     }
+    if(expansion != NULL)
+      *tok = expansion;
   }
   return;
  error_no_memory:
