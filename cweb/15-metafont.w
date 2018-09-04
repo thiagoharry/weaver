@@ -145,7 +145,7 @@ struct metafont{
     int buffer_position; // Onde estamos lendo no buffer acima
     int line; // O número da linha atual do arquivo fonte lido
     bool error; // Encontramos um erro?
-    struct metafont *parent;
+    struct metafont *parent, *child;
     @<METAFONT: Estrutura METAFONT@>
 };
 @
@@ -199,6 +199,10 @@ struct metafont *_new_metafont(struct metafont *parent, char *filename){
     structure -> error = false;
     @<METAFONT: Inicializa estrutura METAFONT@>
     @<METAFONT: Executa Arquivo de Inicialização@>
+    if(parent != NULL)
+        parent -> child = structure;
+    else
+        structure -> child = NULL;
     return structure;
 error_no_file:
     fprintf(stderr, "ERROR (0): File %s don't exist.\n", filename);
@@ -535,7 +539,7 @@ static struct token *next_token(struct metafont *mf){
             }
             buffer[buffer_position] = current_char;
             buffer_position = (buffer_position + 1) % 512;
-	    current_char = read_char(mf);
+            current_char = read_char(mf);
         }
         buffer[buffer_position] = '\0';
         return new_token_string(buffer);
@@ -824,10 +828,12 @@ void run_single_statement(struct metafont **mf, struct token *statement){
             depth ++;
         }
         printf("METAFONT: Statement:  (Depth: %d)\n", depth);
-        printf("                     ");
-        if((*mf) -> parent != NULL)
-            debug_token_list((*mf) -> parent -> past_tokens);
-        printf("\n");
+        while(p != *mf){
+            printf("                     ");
+            debug_token_list(p -> past_tokens);
+            printf("\n");
+            p = p -> child;
+        }
         printf("                  -> ");
         debug_token_list(statement);
         printf("\n");
@@ -1358,7 +1364,6 @@ se forem feitas separadamente.
 
 @<Metafont: Imediatamente após gerarmos uma declaração completa@>=
 {
-    int count = 0;
     struct token *aux = current_token;
     while(aux != NULL){
         if(aux -> type == SYMBOL &&
@@ -1370,7 +1375,6 @@ se forem feitas separadamente.
            mf -> hint = 0;
         }
         aux = aux -> prev;
-        count ++;
     }
 }
 @
@@ -1945,54 +1949,54 @@ if(statement -> type == SYMBOL &&
     statement = statement -> next;
     while(1){
         bool already_declared = false;
-	int current_type_if_already_declared;
-	void *current_arena;
+        int current_type_if_already_declared;
+        void *current_arena;
         struct metafont *scope = *mf;
         // Obtém nome da variável declarada
         declared_variable(*mf, &statement, buffer, 1024);
-	if(!strcmp(buffer, "")){
-	    mf_error(*mf, "Missing symbolic token.");
-	    return;
-	}
-	// Descobre seu escopo
-	if(scope -> parent == NULL)
+        if(!strcmp(buffer, "")){
+            mf_error(*mf, "Missing symbolic token.");
+            return;
+        }
+        // Descobre seu escopo
+        if(scope -> parent == NULL)
             already_declared = _search_trie(scope -> variable_types, INT,
-	                                    buffer,
-					    &current_type_if_already_declared);
+                                            buffer,
+                                            &current_type_if_already_declared);
         while(scope -> parent != NULL){
             already_declared = _search_trie(scope -> variable_types, INT,
-	                                    buffer,
-					    &current_type_if_already_declared);
+                                            buffer,
+                                            &current_type_if_already_declared);
             if(already_declared)
                 break;
             scope = scope -> parent;
         }
-	// Determina sua arena de memória
+        // Determina sua arena de memória
         if(scope -> parent == NULL)
             current_arena = _user_arena;
         else
             current_arena = metafont_arena;
-	// Removendo variável se já existe
+        // Removendo variável se já existe
         if(already_declared && current_type_if_already_declared != NOT_DECLARED)
             _remove_trie(scope -> vars[current_type_if_already_declared],
-	                 buffer);
-	// Armazenando nova variável
+                         buffer);
+        // Armazenando nova variável
         _insert_trie(scope -> variable_types, current_arena, INT, buffer, type);
         // Se o token atual agora é um ';', terminamos de inserir tudo:
         if(statement != NULL && statement -> type == SYMBOL &&
            !strcmp(statement -> name, ";"))
           break;
         // Se for um ',', apenas o consumimos e continuamos
-	if(statement != NULL && statement -> type == SYMBOL &&
-	   !strcmp(statement -> name, ",")){
-	    statement = statement -> next;
-	    continue;
-	}
-	// Senão, temos algo estranho:
-	else{
-	    mf_error(*mf, "Illegal suffix or missing symbolic token.");
-	    return;
-	}
+        if(statement != NULL && statement -> type == SYMBOL &&
+           !strcmp(statement -> name, ",")){
+            statement = statement -> next;
+            continue;
+        }
+        // Senão, temos algo estranho:
+        else{
+            mf_error(*mf, "Illegal suffix or missing symbolic token.");
+            return;
+        }
     }
     return;
 }
