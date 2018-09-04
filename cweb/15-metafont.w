@@ -179,6 +179,9 @@ struct metafont *_new_metafont(struct metafont *parent, char *filename){
     structure -> parent = parent;
     strncpy(structure -> filename, filename, 255);
     if(parent == NULL){
+#ifdef W_DEBUG_METAFONT
+      printf("METAFONT: Opening file '%s'.\n", filename);
+#endif
         structure -> fp = fopen(filename, "r");
         if(structure -> fp == NULL)
             goto error_no_file;
@@ -440,6 +443,34 @@ error_no_memory:
 #define new_token_number(a) new_token(NUMERIC, a, NULL, _internal_arena)
 #define new_token_string(a) new_token(STRING, 0.0, a, _internal_arena)
 #define new_token_symbol(a) new_token(SYMBOL, 0.0, a, _internal_arena)
+@
+
+Caso queiramos imprimir uma lista de tokens para fins de depuração,
+criaremos:
+
+@<Metafont: Funções Estáticas@>+=
+#ifdef W_DEBUG_METAFONT
+void debug_token_list(struct token *list){
+  struct token *tok = list;
+  while(tok != NULL){
+    switch(tok -> type){
+    case SYMBOL:
+      printf(" [%s] ", tok -> name);
+      break;
+    case STRING:
+      printf(" \"%s\" ", tok -> name);
+      break;
+    case NUMERIC:
+      printf(" %f ", tok -> value);
+      break;
+    }
+    if(tok -> next != NULL)
+      if(tok -> next -> prev != tok)
+        printf("\033[0;31mX\033[0m");
+    tok = tok -> next;
+  }
+}
+#endif
 @
 
 Com base nisso já podemos escrever a nossa função de analizador
@@ -783,6 +814,11 @@ nosso interpretador METAFONT não fazer nada:
 
 @<Metafont: Função run_single_statement@>=
 void run_single_statement(struct metafont **mf, struct token *statement){
+#ifdef W_DEBUG_METAFONT
+  printf("METAFONT: Statement:");
+  debug_token_list(statement);
+  printf("\n");
+#endif
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
     @<Metafont: Remover e Tratar token endgroup@>
@@ -3265,41 +3301,13 @@ avaliar:
 
 @*2 Expressões com \monoespaco{begingroup}.
 
-Essas expressões são as mais complexas. O modo que usaremos para
-tratá-las é quebrar a lista de tokens bem no seu começo, colocar os
-tokens que vieram antes em \monoespaco{past\_tokens} na estrutura
-METAFONT e os que vem depois são colocados de volta na lista de tokens
-pendentes. Em seguida, iniciamos um novo escopo para variáveis e
-seguimos executando como se estivéssemos em um grupo comum.
-
-Depois que o grupo for executado, ele irá automaticamente reconstruir
-a expresão juntando os tokens do passado com os pendentes formando de
-volta a expressão, mas desta vez sem o \monoespaco{begingroup}:
+Em tais casos, apenas invocamos o código que já foi feito na
+função \monoespaco{eval}:
 
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "begingroup")){
-    struct token *expr_begin = *expression;
-    while(expr_begin != NULL && expr_begin -> prev != NULL)
-         expr_begin = expr_begin -> prev;
-    if(expr_begin != NULL){
-      (*mf) -> past_tokens = expr_begin;
-    }
-    if(current_token -> prev != NULL){
-        current_token -> prev -> next = NULL;
-        current_token -> prev = NULL;
-    }
-    Wbreakpoint_arena(metafont_arena);
-    *mf = _new_metafont(*mf, (*mf) -> filename);
-    (*mf) -> pending_tokens = current_token -> next;
-    concat_token(&((*mf) -> pending_tokens),
-                 (*mf) -> parent -> pending_tokens);
-    if(current_token -> next != NULL){
-      current_token -> next -> prev = NULL;
-      current_token -> next = NULL;
-    }
-    (*mf) -> parent -> pending_tokens = NULL;
-    // Deixamos pra lá a avaliação da expressão, ela será feita depois
+    eval(mf, &current_token);
     return NULL;
 }
 @
