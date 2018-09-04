@@ -464,6 +464,7 @@ void debug_token_list(struct token *list){
       printf(" %f ", tok -> value);
       break;
     }
+    // Warn if linked list is broken
     if(tok -> next != NULL)
       if(tok -> next -> prev != tok)
         printf("\033[0;31mX\033[0m");
@@ -815,9 +816,25 @@ nosso interpretador METAFONT não fazer nada:
 @<Metafont: Função run_single_statement@>=
 void run_single_statement(struct metafont **mf, struct token *statement){
 #ifdef W_DEBUG_METAFONT
-  printf("METAFONT: Statement:");
-  debug_token_list(statement);
-  printf("\n");
+    {
+        int depth = 0;
+        struct metafont *p = *mf;
+        while(p -> parent != NULL){
+            p = p -> parent;
+            depth ++;
+        }
+        printf("METAFONT: Statement:  (Depth: %d)\n", depth);
+        printf("                     ");
+        if((*mf) -> parent != NULL)
+            debug_token_list((*mf) -> parent -> past_tokens);
+        printf("\n");
+        printf("                  -> ");
+        debug_token_list(statement);
+        printf("\n");
+        printf("                     ");
+        debug_token_list((*mf) -> pending_tokens);
+        printf("\n");
+    }
 #endif
     if(statement -> type == SYMBOL && !strcmp(statement -> name, ";"))
         return;
@@ -3078,15 +3095,17 @@ void variable(struct metafont **mf, struct token **token,
                 if(vardef){
                     // Se for um vardef, já fazemos a substituição com função a
                     // ser definida e retornamos:
-                    if((*token) -> prev != NULL)
-                        (*token) -> prev -> next = (*token) -> next;
+                    if((*token) -> prev -> prev != NULL){
+                        (*token) -> prev -> prev -> next = (*token) -> next;
+                        (*token) -> prev = (*token) -> prev -> prev;
+                    }
                     if((*token) -> next != NULL)
                         (*token) -> next -> prev = (*token) -> prev;
                     *type = MACRO;
                     expand_macro(*mf, mc, token);
-                    (*token) -> prev = (*token) -> prev -> prev;
+                    /*(*token) -> prev = (*token) -> prev -> prev;
                     if((*token) -> prev -> prev != NULL)
-                      (*token) -> prev -> prev -> next = (*token);
+                    (*token) -> prev -> prev -> next = (*token);*/
                     eval(mf, token);
                     return;
                 }
