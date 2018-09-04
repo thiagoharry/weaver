@@ -585,13 +585,18 @@ outra:
 
 @<Metafont: Funções Estáticas@>+=
 // Coloca sequência de tokens 'after' após a sequência de tokens 'before'
-static void concat_token(struct token *before, struct token *after){
-    if(after == NULL)
-        return;
-    while(before -> next != NULL)
-        before = before -> next;
-    before -> next = after;
-    after -> prev = before;
+static void concat_token(struct token **before, struct token *after){
+  struct token *head = *before;
+  if(*before == NULL){
+    *before = after;
+    return;
+  }
+  if(after == NULL)
+    return;
+  while(head -> next != NULL)
+    head = head -> next;
+  head -> next = after;
+  after -> prev = head;
 }
 @
 
@@ -724,7 +729,7 @@ static struct token *get_statement(struct metafont *mf){
         if(mf -> pending_tokens == NULL)
             mf -> pending_tokens = current_token -> next;
         else
-            concat_token(mf -> pending_tokens, current_token -> next);
+            concat_token(&(mf -> pending_tokens), current_token -> next);
     }
     current_token -> next = NULL;
     @<Metafont: Imediatamente após gerarmos uma declaração completa@>
@@ -1197,11 +1202,8 @@ pai.
     statement = statement -> next;
     statement -> prev = NULL;
     (*mf) -> pending_tokens = statement;
-    if(statement != NULL)
-        concat_token((*mf) -> pending_tokens,
-                     (*mf) -> parent -> pending_tokens);
-    else
-        (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
+    concat_token(&((*mf) -> pending_tokens),
+                 (*mf) -> parent -> pending_tokens);
     (*mf) -> parent -> pending_tokens = NULL;
     return;
 }
@@ -1252,8 +1254,8 @@ existente:
               aux -> prev -> next = NULL;
             else
                 statement = aux -> next;
+            concat_token(&(aux -> next), (*mf) -> pending_tokens);
             if(aux -> next != NULL){
-                concat_token(aux -> next, (*mf) -> pending_tokens);
                 (*mf) -> pending_tokens = aux -> next;
                 aux -> next -> prev = NULL;
             }
@@ -2397,16 +2399,8 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
         exit(1);
     }
     new_macro -> parameters = suffix_header;
-    if(new_macro -> parameters == NULL)
-      new_macro -> parameters = undelimited_header;
-    else if(undelimited_header != NULL)
-      concat_token(new_macro -> parameters, undelimited_header);
-    if(delimited_headers != NULL){
-      if(new_macro -> parameters != NULL)
-        concat_token(new_macro -> parameters, delimited_headers);
-      else
-        new_macro -> parameters = delimited_headers;
-    }
+    concat_token(&(new_macro -> parameters), undelimited_header);
+    concat_token(&(new_macro -> parameters), delimited_headers);
     // Token = ou :=
     if(statement == NULL || statement -> type != SYMBOL ||
        (strcmp(statement -> name, "=") && strcmp(statement -> name, ":="))){
@@ -2435,7 +2429,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
         else
             goto error_no_memory_internal;
     }
-    concat_token(new_macro -> replacement_text, tok);
+    concat_token(&(new_macro -> replacement_text), tok);
     // Inserir a macro após construí-la:
     _insert_trie(scope -> variable_types, current_arena, INT, variable_name,
                  MACRO);
@@ -2685,11 +2679,8 @@ expressão começa com um grupo.
         new_tokens = (*mf) -> parent -> past_tokens;
         (*mf) -> parent -> past_tokens = NULL;
         if(expression_result != NULL){
-          if(new_tokens != NULL)
-            concat_token(new_tokens, expression_result);
-          else
-            new_tokens = expression_result;
-          concat_token(new_tokens, (*mf) -> pending_tokens);
+          concat_token(&new_tokens, expression_result);
+          concat_token(&new_tokens, (*mf) -> pending_tokens);
           (*mf) -> parent -> pending_tokens = new_tokens;
         }
         *mf = (*mf) -> parent;
@@ -2763,11 +2754,8 @@ struct token *eval(struct metafont **mf, struct token **expression){
             Wbreakpoint_arena(metafont_arena);
             *mf = _new_metafont(*mf, (*mf) -> filename);
             (*mf) -> pending_tokens = aux -> next;
-            if(aux -> next != NULL)
-                concat_token((*mf) -> pending_tokens,
-                             (*mf) -> parent -> pending_tokens);
-            else
-                (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
+            concat_token(&((*mf) -> pending_tokens),
+                         (*mf) -> parent -> pending_tokens);
             if(aux -> next != NULL){
               aux -> next -> prev = NULL;
               aux -> next = NULL;
@@ -3304,11 +3292,8 @@ if(current_token -> type == SYMBOL &&
     Wbreakpoint_arena(metafont_arena);
     *mf = _new_metafont(*mf, (*mf) -> filename);
     (*mf) -> pending_tokens = current_token -> next;
-    if(current_token -> next != NULL)
-        concat_token((*mf) -> pending_tokens,
-                     (*mf) -> parent -> pending_tokens);
-    else
-        (*mf) -> pending_tokens = (*mf) -> parent -> pending_tokens;
+    concat_token(&((*mf) -> pending_tokens),
+                 (*mf) -> parent -> pending_tokens);
     if(current_token -> next != NULL){
       current_token -> next -> prev = NULL;
       current_token -> next = NULL;
