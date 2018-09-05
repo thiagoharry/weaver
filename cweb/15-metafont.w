@@ -831,7 +831,7 @@ void run_single_statement(struct metafont **mf, struct token *statement){
         while(p != *mf){
             printf("                     ");
             debug_token_list(p -> past_tokens);
-            printf("\n");
+            printf(" [begingroup]\n");
             p = p -> child;
         }
         printf("                  -> ");
@@ -3063,15 +3063,15 @@ void variable(struct metafont **mf, struct token **token,
     if(*token == NULL || (*token) -> type != SYMBOL)
         return;
     // Primeiro checamos se é uma quantidade interna
-    while((*mf) -> parent != NULL){
-        internal = _search_trie((*mf) -> internal_quantities, DOUBLE,
+    while(scope -> parent != NULL){
+        internal = _search_trie(scope -> internal_quantities, DOUBLE,
                                                  (*token) -> name, &dummy);
         if(internal)
             break;
-        *mf = (*mf) -> parent;
+        scope = scope -> parent;
     }
     if(!internal)
-        internal = _search_trie((*mf) -> internal_quantities, DOUBLE,
+        internal = _search_trie(scope -> internal_quantities, DOUBLE,
                                 (*token) -> name, &dummy);
     if(internal){
         strncpy(dst, (*token) -> name, dst_size);
