@@ -4013,6 +4013,7 @@ static void expand_macro(struct metafont *mf, struct macro *mc,
     if(expansion != NULL)
       *tok = expansion;
   }
+  @<Metafont: expand_macro: Restaura Macro@>
   return;
  error_no_memory:
   fprintf(stderr, "ERROR: Not enough memory. Please increase the value of "
@@ -4069,6 +4070,22 @@ argumentos assim:
     }
     if(arg != NULL) // Se ocorreu substituição
       continue;
+}
+@
+
+Naturalmente, isso significa que a lista duplamente encadeada de
+argumentos da macro depois deve ser restaurada:
+
+@<Metafont: expand_macro: Restaura Macro@>=
+{
+    struct token *arg = mc -> parameters;
+    if(arg != NULL){
+        arg -> prev = NULL;
+        while(arg -> next != NULL){
+            arg -> next -> prev = arg;
+            arg = arg -> next;
+        }
+    }
 }
 @
 
