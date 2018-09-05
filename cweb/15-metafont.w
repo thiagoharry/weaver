@@ -4032,7 +4032,7 @@ argumentos assim:
 
 @<Metafont: expand_macro: Expande Argumento@>=
 {
-/*    struct token *arg = mc -> parameters;
+    struct token *arg = mc -> parameters;
     while(arg != NULL){
         if(replacement -> type == SYMBOL && !strcmp(replacement -> name,
                                                     arg -> name)){
@@ -4068,7 +4068,7 @@ argumentos assim:
         arg = arg -> next;
     }
     if(arg != NULL) // Se ocorreu substituição
-    continue;*/
+      continue;
 }
 @
 
