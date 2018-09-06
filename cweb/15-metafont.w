@@ -28,6 +28,7 @@ seguintes arquivos:
 
 @(project/src/weaver/metafont.c@>=
 #include "weaver.h"
+#include <stdarg.h>
 @<Metafont: Inclui Cabeçalhos@>
 @<Metafont: Variáveis Estáticas@>
 @<Metafont: Funções Locais Declaradas@>
@@ -296,12 +297,16 @@ sinalizado, não iremos sinalizar outros, pois o erro relevante é
 tipicamente o primeiro:
 
 @<Metafont: Funções Estáticas@>+=
-void mf_error(struct metafont *mf, char *message){
+void mf_error(struct metafont *mf, char *message, ...){
+    va_list args;
+    va_start(args, message);
     while(mf -> parent != NULL)
         mf = mf -> parent;
     if(! mf -> error){
-        fprintf(stderr, "ERROR: Metafont: %s:%d: %s\n",
+        fprintf(stderr, "ERROR: Metafont: %s:%d: ",
                 mf -> filename, mf -> line, message);
+        vfprintf(stderr, message, args);
+        fprintf(stderr, "\n");
         mf -> error = true;
         // Finaliza a leitura de mais código:
         if(mf -> fp != NULL){
@@ -311,8 +316,10 @@ void mf_error(struct metafont *mf, char *message){
         mf -> buffer_position = 0;
         mf -> buffer[mf -> buffer_position] = '\0';
     }
+    va_end(args);
 }
 @
+
 
 E também uma função para finalizar o interpretador sem erros:
 
@@ -2412,6 +2419,14 @@ variáveis-macro, todas com o mesmo prefixo, e definidas de forma
 semelhante. No texto de substituição, pode-se referenciar o sufixo
 característico delas por meio do \monoespaco{@#}.
 
+Vamos precisar também de um novo tipo de argumento de macro para
+representar tais sufixos:
+
+@<Metafont: Variáveis Estáticas@>+=
+// Tipo de token
+#define VARDEF_ARG 11
+@
+
 Tais declarações no fim sempre devem ser avaliadas para uma
 variável. Então o texto de definição implicitamente é colocado dentro
 de um grupo. A definição de tal declaração é:
@@ -2442,7 +2457,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
     // Checando ocorrência de '@#':
     if(statement != NULL && statement -> type == SYMBOL &&
        !strcmp(statement -> name, "@@#")){
-      suffix_header = new_token(SUFFIX, 0.0, "@@#", current_arena);
+      suffix_header = new_token(VARDEF_ARG, 0.0, "@@#", current_arena);
       statement = statement -> next;
     }
     // Parâmetros de cabeçalho
@@ -3252,7 +3267,7 @@ if(current_token -> type == SYMBOL){
     if(type != NOT_DECLARED){
         // Se estamos aqui, é mesmo uma variável
         if(type != STRING){
-            mf_error(*mf, "Variable isn't a string.");
+            mf_error(*mf, "Variable %sisn't a string.", variable_name);
             return NULL;
         }
         replacement = read_var(current_token -> name, type, *mf);
@@ -3532,7 +3547,7 @@ struct token *numeric_primary(struct metafont **mf, struct token **token){
     struct token *result;
     if(token == NULL){
         mf_error(*mf, "ERROR: Missing numeric primary.");
-	return NULL;
+        return NULL;
     }
     if((*token) -> type == NUMERIC){
       result = new_token_number((*token) -> value);
@@ -3978,6 +3993,13 @@ static void expand_macro(struct metafont *mf, struct macro *mc,
                          struct token **tok){
   struct token *expansion = NULL, *current_token = NULL, *replacement;
   replacement = mc -> replacement_text;
+  { // Lendo os argumentos
+      struct token *arg = mc -> parameters;
+      while(arg != NULL){
+          @<Metafont: expand_macro: Lê Argumentos@>
+          arg = arg -> next;
+      }
+  }
   while(replacement != NULL){
     @<Metafont: expand_macro: Expande Argumento@>
     if(current_token != NULL){
@@ -4089,13 +4111,27 @@ argumentos da macro depois deve ser restaurada:
 }
 @
 
-<String Primário> --> <Variável String>
-                  +-> <Token String>
-                  +-> jobname
-                  +-> ( <Expressão String> )
-                  +-> begingroup <Lista de Declarações> <Expressão String>
-                  |   endgroup
-                  +-> str <Sufixo>
-                  +-> char <Numérico Primário>
-                  +-> decimal <Numérico Primário>
-                  +-> substring <Par Primário> of <String Primário>
+Com relação aos argumentos de macros, vamos começar por hora tratando
+apenas um caso. O caso no qual nosso argumento é o sufixo de uma
+macro \monoespaco{vardef}. Neste caso, devemos simplesmente formar o
+nosso argumento pegando todos os tokens que não forem ``sparks'' e que
+sejam simbólicos:
+
+@<Metafont: expand_macro: Lê Argumentos@>=
+{
+    // Rompemos encadeamento para armazenar expansão
+    arg -> prev = NULL;
+    if(arg -> type == VARDEF_ARG){
+        while(*tok != NULL && is_tag(mf, *tok)){
+            struct token *next_token = (*tok) -> next;
+            if((*tok) -> prev != NULL)
+                (*tok) -> prev -> next = (*tok) -> next;
+            if((*tok) -> next != NULL)
+                (*tok) -> next -> prev = (*tok) -> prev;
+            (*tok) -> prev = (*tok) -> next = NULL;
+            concat_token(&(arg -> prev), *tok);
+            *tok = next_token;
+        }
+    }
+}
+@
