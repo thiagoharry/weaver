@@ -111,8 +111,8 @@ struct _trie *_new_trie(void *arena){
     return ret;
 no_memory_error:
     fprintf(stderr, "ERROR: No memory enough. Please increase the value of "
-	    "%s at conf/conf.h.\n", (arena == _user_arena)?"W_MAX_MEMORY":
-	    "W_INTERNAL_MEMORY");
+        "%s at conf/conf.h.\n", (arena == _user_arena)?"W_MAX_MEMORY":
+            "W_INTERNAL_MEMORY");
     return NULL;
 }
 @
@@ -143,14 +143,14 @@ void _insert_trie(struct _trie *tree, void *arena, int type, char *name, ...){
             else{
                 // Criando novo nodo, pois o que buscamos não existe
                 current_prefix -> child[(int) *match] =
-		  _new_node(arena, match, current_prefix);
+                                 _new_node(arena, match, current_prefix);
                 current_prefix = current_prefix -> child[(int) *match];
                 break;
             }
         }
         else if(*p != *match){
             // Ramo atual não é um prefixo, deve ser desmembrado
-	    _split_trie(arena, &current_prefix, p, match);
+                _split_trie(arena, &current_prefix, p, match);
             break;
         }
         else{
@@ -317,4 +317,32 @@ void _remove_trie(struct _trie *tree, char *name){
     }
     current_prefix -> leaf = false;
 }
+@
+
+O último recurso que forneceremos será imprimir o valor de cada uma
+das strings armazenadas em uma árvore trie. Isso só será efetivamente
+definido caso estejamos em modo de depuração. Não será um código que
+estamos esperando usar em modo de produção:
+
+@<Trie: Declarações@>+=
+#if W_DEBUG_LEVEL >= 1
+void _debug_trie_values(char *prefix, struct _trie *tree);
+#endif
+@
+
+@<Trie: Definições@>+=
+#if W_DEBUG_LEVEL >= 1
+void _debug_trie_values(char *prefix, struct _trie *tree){
+    int i;
+    if(tree -> leaf)
+        printf(" '%s%s'", prefix, tree -> string);
+    for(i = 0; i < 256; i ++)
+        if(tree -> child[i] != NULL){
+            char buffer[1024];
+            strncpy(buffer, prefix, 1024);
+            strncat(buffer, tree -> string, 1024 - strlen(prefix));
+            _debug_trie_values(buffer, tree -> child[i]);
+        }
+}
+#endif
 @

@@ -19,6 +19,9 @@ seguintes arquivos:
 #endif
 #include "weaver.h"
 @<Inclui Cabeçalho de Configuração@>
+#if W_DEBUG_LEVEL == 0 && defined(W_DEBUG_METAFONT)
+#error "Use W_DEBUG_METAFONT only with W_DABUG_LEVEL > 0"
+#endif
 @<Metafont: Declarações@>
 #ifdef __cplusplus
   }
@@ -304,7 +307,7 @@ void mf_error(struct metafont *mf, char *message, ...){
         mf = mf -> parent;
     if(! mf -> error){
         fprintf(stderr, "ERROR: Metafont: %s:%d: ",
-                mf -> filename, mf -> line, message);
+                mf -> filename, mf -> line);
         vfprintf(stderr, message, args);
         fprintf(stderr, "\n");
         mf -> error = true;
@@ -834,6 +837,9 @@ void run_single_statement(struct metafont **mf, struct token *statement){
             p = p -> parent;
             depth ++;
         }
+        printf("Global vardefs:");
+        _debug_trie_values("", p -> vardef);
+        printf("\n");
         printf("METAFONT: Statement:  (Depth: %d)\n", depth);
         while(p != *mf){
             printf("                     ");
@@ -1835,6 +1841,11 @@ preenchermos tal árvore:
     _insert_trie(primitive_sparks, _user_arena, INT, "pair", 0);
     _insert_trie(primitive_sparks, _user_arena, INT, "numeric", 0);
     @<Metafont: Declara Nova Spark@>
+#ifdef W_DEBUG_METAFONT
+        printf("METAFONT Sparks:");
+        _debug_trie_values("", primitive_sparks);
+        printf("\n");
+#endif
 @
 
 A definição acima conta com todas as sparks que já definimos em nossa
@@ -1856,14 +1867,13 @@ void declared_variable(struct metafont *mf, struct token **token,
     }
     current_token = first_token -> next;
     strncpy(dst, first_token -> name, dst_size - 1);
-    strcat(dst, " ");
-    dst_size -= (strlen(first_token -> name) + 1);
     while(current_token != NULL){
         // Se um token não for uma tag ou '[' e ']', encerremos
         if(current_token -> type != SYMBOL ||
            (!is_tag(mf, current_token) &&
-               (strcmp(current_token -> name, "[") &&
+            (strcmp(current_token -> name, "[") &&
              strcmp(current_token -> name, "]")))){
+            // Não tá pegando o sufixo vardef aqui... :-/
             current_token = current_token -> prev;
             break;
         }
@@ -1884,12 +1894,11 @@ void declared_variable(struct metafont *mf, struct token **token,
             break;
         }
         // Se não, apenas incrementa o contador do tamanho do nome do token
-        strncpy(dst, current_token -> name, dst_size - 1);
         strcat(dst, " ");
+        strncat(dst, current_token -> name, dst_size - 1);
         dst_size -= (strlen(current_token -> name) + 1);
         current_token  = current_token -> next;
     }
-    dst[strlen(dst) - 1] = '\0';
     if(current_token == NULL && first_token -> prev == NULL)
         *token = NULL;
     else if(current_token == NULL){
@@ -3267,7 +3276,7 @@ if(current_token -> type == SYMBOL){
     if(type != NOT_DECLARED){
         // Se estamos aqui, é mesmo uma variável
         if(type != STRING){
-            mf_error(*mf, "Variable %sisn't a string.", variable_name);
+            mf_error(*mf, "Variable '%s' isn't a string.", variable_name);
             return NULL;
         }
         replacement = read_var(current_token -> name, type, *mf);
