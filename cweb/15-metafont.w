@@ -3110,6 +3110,7 @@ void variable(struct metafont **mf, struct token **token,
         return;
     }
     // Se não for, o primeiro token precisa ser uma tag
+    //printf("Primeiro token: %s\n", (*token) -> name);
     if(!is_tag(*mf, *token)){
         *type = NOT_DECLARED;
         return;

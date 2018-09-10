@@ -338,8 +338,20 @@ void _debug_trie_values(char *prefix, struct _trie *tree);
 #if W_DEBUG_LEVEL >= 1
 void _debug_trie_values(char *prefix, struct _trie *tree){
     int i;
-    if(tree -> leaf)
-        printf(" '%s%s'", prefix, tree -> string);
+    if(tree -> leaf){
+        bool error;
+        int dummy;
+        strncat(prefix, tree -> string, 1024 - strlen(prefix));
+        error = !_search_trie(tree, INT, prefix, &dummy);
+        // Marca como erro se existir, mas não for encontrável
+        printf(" '");
+        if(error)
+            printf("\033[0;31m");
+        printf("%s", prefix);
+        if(error)
+            printf("\033[0m");
+        printf("'");
+    }
     for(i = 0; i < 256; i ++)
         if(tree -> child[i] != NULL){
             char buffer[1024];
