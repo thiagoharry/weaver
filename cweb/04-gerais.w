@@ -124,7 +124,7 @@ valor. Neste caso, ou iremos inserir um novo ramo ou iremos desmembrar
 outro ramo já existente em dois e inserir lá:
 
 @<Trie: Declarações@>+=
-  void _insert_trie(struct _trie *tree, void *arena, int type, char *name, ...);
+void _insert_trie(struct _trie *tree, void *arena, int type, char *name, ...);
 @
 
 @<Trie: Definições@>+=
@@ -157,6 +157,10 @@ void _insert_trie(struct _trie *tree, void *arena, int type, char *name, ...){
             // Checando ramo atual
             p ++;
             match ++;
+            if(*match == '\0' && *p != '\0'){
+                _split_trie(arena, &current_prefix, p, match);
+                break;
+            }
         }
     }
     // Estamos posicionados no nodo certo. Inserir.
