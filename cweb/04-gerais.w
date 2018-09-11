@@ -133,7 +133,7 @@ void _insert_trie(struct _trie *tree, void *arena, int type, char *name, ...){
     va_start(arguments, name);
     struct _trie *current_prefix = tree;
     char *match = name, *p = current_prefix -> string;
-    while(*match != '\0'){
+    while(*match != '\0' || *p != '\0'){
         if(*p == '\0'){
             // Ramo atual é um prefixo, ir para próximo
             if(current_prefix -> child[(int) *match] != NULL){
@@ -150,17 +150,13 @@ void _insert_trie(struct _trie *tree, void *arena, int type, char *name, ...){
         }
         else if(*p != *match){
             // Ramo atual não é um prefixo, deve ser desmembrado
-                _split_trie(arena, &current_prefix, p, match);
+            _split_trie(arena, &current_prefix, p, match);
             break;
         }
         else{
             // Checando ramo atual
             p ++;
             match ++;
-            if(*match == '\0' && *p != '\0'){
-                _split_trie(arena, &current_prefix, p, match);
-                break;
-            }
         }
     }
     // Estamos posicionados no nodo certo. Inserir.
@@ -193,8 +189,7 @@ portanto não terá filhos. E não terá um valor, pois não é uma folha:
     ret -> string = (char *) Walloc_arena(arena, size + 1);
     if(ret -> string == NULL)
         goto no_memory_error;
-    strncpy(ret -> string, string, size);
-    ret -> string[size] = '\0';
+    strcpy(ret -> string, string);
     ret -> leaf = false;
     for(i = 0; i < 256; i ++)
         ret -> child[i] = NULL;
@@ -202,8 +197,8 @@ portanto não terá filhos. E não terá um valor, pois não é uma folha:
     return ret;
 no_memory_error:
     fprintf(stderr, "ERROR (0): No memory enough. Please increase the value of "
-	    "%s at conf/conf.h.\n",(arena==_user_arena)?"W_MAX_MEMORY":
-	    "W_INTERNAL_MEMORY");
+            "%s at conf/conf.h.\n",(arena==_user_arena)?"W_MAX_MEMORY":
+            "W_INTERNAL_MEMORY");
     return NULL;
 }
 @
@@ -214,25 +209,55 @@ tem em comum, e fazer ele divergir em dois ramos. Um vai herdar todas
 as características do ramo antigo e o outro será um ramo-folha que
 receberá o novo valor.
 
+Em suma, ela recebe como argumento uma arena, só para saber de onde
+deve alocar memória que precisar, e recebe como argumento um nodo de
+árvore trie (passado por referência, pois vamos querer saltar dele
+para outro). Essa função será chamada quando queremos inserir uma
+string qualquer ABD, e já temos inserido ABCX, sendo que BC está no
+mesmo nodo da árvore. Neste caso, a divergência entre as strings será
+a substring C e o resto do que devemos casar (último argumento) será
+D.  Nossa missão será separar o nodo BC trocando ele por B, e fazendo
+com que D e C sejam seus filhos (sendo que C também é pai de X).
+
+O novo nodo B será uma folha somente se BC era uma folha e C era
+vazio. O novo nodo C será uma folha somente se BC era uma folha e
+C não era vazio. O nodo D semre será uma folha, desde que D
+não seja vazio.
+
 @<Trie: Funções Estáticas@>+=
-void _split_trie(void *arena, struct _trie **origin, char *divergence,
-		 char *remaining_match){
-    struct _trie *old_way, *new_way;
+/*
+  A --> BC --> X
+  (após split_trie(BC, C, D)):
+  A --> B --> C --> X
+          +-> D
+*/
+void _split_trie(void *arena, struct _trie **origin, char *C,
+                 char *D){
+    struct _trie *node_C, *node_D;
     int i;
-    old_way = _new_node(arena, divergence, *origin);
-    new_way = _new_node(arena, remaining_match, *origin);
-    for(i = 0; i < 256; i ++){
-        old_way -> child[i] = (*origin) -> child[i];
-        (*origin) -> child[i] = NULL;
+    bool BC_was_a_leaf = (*origin) -> leaf;
+    (*origin) -> leaf = (*C == '\0') && BC_was_a_leaf;
+    if(*C != '\0'){
+        node_C = _new_node(arena, C, *origin);
+        // Todos os CX existentes são mantidos:
+        for(i = 0; i < 256; i ++){
+            node_C -> child[i] = (*origin) -> child[i];
+            (*origin) -> child[i] = NULL;
+        }
+        node_C -> leaf = BC_was_a_leaf;
+        (*origin) -> child[(int) *C] = node_C;
+        *C = '\0';
     }
-    old_way -> leaf = (*origin) -> leaf;
-    (*origin) -> leaf = false;
-    (*origin) -> child[(int) *divergence] = old_way;
-    (*origin) -> child[(int) *remaining_match] = new_way;
-    *divergence = '\0';
-    *origin = new_way;
+    if(*D != '\0'){
+        node_D = _new_node(arena, D, *origin);
+        node_D -> leaf = true;
+        (*origin) -> child[(int) *D] = node_D;
+        *origin = node_D;
+    }
 }
 @
+
+
 
 Por fim, temos que ler um valor armazenado em uma trie. Isso é muito
 semelhante ao código de armazenar nela, com a diferença de que assim
@@ -251,12 +276,13 @@ bool _search_trie(struct _trie *tree, int type, char *name, ...){
     va_start(arguments, name);
     struct _trie *current_prefix = tree;
     char *match = name, *p = current_prefix -> string;
-    while(*match != '\0'){
+    while(*match != '\0' || *p != '\0' || !(current_prefix -> leaf)){
         if(*p == '\0'){
             // Ramo atual é um prefixo, ir para próximo
             if(current_prefix -> child[(int) *match] != NULL){
                 current_prefix = current_prefix -> child[(int) *match];
                 p = current_prefix -> string;
+                continue;
             }
             else
                 return false;
@@ -265,11 +291,10 @@ bool _search_trie(struct _trie *tree, int type, char *name, ...){
             p ++;
             match ++;
         }
-        else
+        else{
             return false;
+        }
     }
-    if(*p != '\0' || !(current_prefix -> leaf))
-        return false;
     switch(type){
         int *ret;
         double *ret2;
@@ -289,6 +314,26 @@ bool _search_trie(struct _trie *tree, int type, char *name, ...){
     }
 }
 @
+
+O loop da função acima se baseia no invariante de que todos os valores
+anteriores de \monoespaco{match} e \monoespaco{p} casam entre si. Mas
+temos que levar em conta que \monoespaco{p} não é uma cadeia contínua
+de caracteres, mas caracteres na árvore trie. Já \monoespaco{match} é
+uma cadeia de caracteres.
+
+Inicialmente \monoespaco{match} é o começo da string que estamos
+buscando e \monoespaco{p} é uma árvore trie onde fazer a busca. O loop
+irá parar somente quando tanto \monoespaco{p} como \monoespaco{match}
+forem o final de uma string ou se eles forem diferentes. No primeiro
+caso, achamos o valor buscado, e no segundo ele não existe, graças à
+invariante que mantemos.
+
+Em cada iteração do loop, se \monoespaco{p} é o fim da sequência de
+caracteres, mas ainda existir texto para buscar, tentamos passar para
+um filho de \monoespaco{p} para continuar a casar caracteres. Se não
+existir, então não existe a string buscada. Isso é necessário devido à
+natureza de \monoespaco{p}. Do contrário, apenas vamos passando para
+os próximos caracteres de \monoespaco{p} e \monoespaco{match}.
 
 A tarefa de remover um valor de uma trie é muito semelhante à tarefa
 de consultar o valor. A diferença é que quando o encontramos, nós
@@ -338,25 +383,27 @@ void _debug_trie_values(char *prefix, struct _trie *tree);
 #if W_DEBUG_LEVEL >= 1
 void _debug_trie_values(char *prefix, struct _trie *tree){
     int i;
+    char buffer[1024];
+    strncpy(buffer, prefix, 1024);
+    strncat(buffer, tree -> string, 1024 - strlen(prefix));
     if(tree -> leaf){
         bool error;
         int dummy;
-        strncat(prefix, tree -> string, 1024 - strlen(prefix));
-        error = !_search_trie(tree, INT, prefix, &dummy);
+        struct _trie *parent = tree;
+        while(parent -> parent != NULL)
+            parent = parent -> parent;
+        error = !_search_trie(parent, INT, buffer, &dummy);
         // Marca como erro se existir, mas não for encontrável
         printf(" '");
         if(error)
             printf("\033[0;31m");
-        printf("%s", prefix);
+        printf("%s", buffer);
         if(error)
             printf("\033[0m");
         printf("'");
     }
     for(i = 0; i < 256; i ++)
         if(tree -> child[i] != NULL){
-            char buffer[1024];
-            strncpy(buffer, prefix, 1024);
-            strncat(buffer, tree -> string, 1024 - strlen(prefix));
             _debug_trie_values(buffer, tree -> child[i]);
         }
 }
