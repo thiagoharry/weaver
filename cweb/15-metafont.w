@@ -2955,6 +2955,7 @@ um cache para elas:
 struct string_variable{
     char *name;
     bool deterministic;
+    @<Metafont: Variável String: Campos@>
 };
 @
 
@@ -3017,6 +3018,7 @@ void new_string_variable(char *var_name, char *string, bool deterministic,
         goto error_no_memory;
     strcpy(new_variable -> name, string);
     new_variable -> deterministic = deterministic;
+    @<Metafont: Variável String: Inicialização@>
     _insert_trie(scope -> vars[STRING], current_arena, VOID_P, string,
                  (void *) new_variable);
     return;
@@ -4145,3 +4147,61 @@ sejam simbólicos:
     }
 }
 @
+
+@*1 Equações e Atribuições.
+
+As Equações e Atribuições são declarações METAFONT. As duas cosias são
+muito semelhantes. A sintaxe delas é:
+
+\alinhaverbatim
+<Equação> --> <Expressão> = <Lado Direito>
+<Atribuição> --> <Variável> := <Lado Direito>
+<Lado Direito> --> <Equação>
+               +-> <Atribuição>
+               +-> <Expressão>
+\alinhanormal
+
+Isso significa que podemos ter uma declaração com
+vários \monoespaco{=} juntos formando uma equação que possui várias
+sub-equações internas.  E tudo isso pode ser o lado direito de uma
+atribuição.
+
+Tanto equações como atribuições servem para definir valores para
+variáveis, pois elas criam relações de igualdade. Uma equação declara
+queduas expressões tem resultados idênticos, e METAFONT deve
+interpretá-los e assim tirar suas conclusões. Desta forma, podemos
+escrever:
+
+\alinhaverbatim
+string a, b, c;
+a = b = c;
+"Teste" = c;
+\alinhanormal
+
+E com isso METAFONT saberá que \monoespaco{a="Teste"}. Mas uma vez que
+definimos algo com uma equação, é um erro criar uma equação que
+contradiga a anterior. Se uma variável é igual a uma coisa, ela não
+pode ser igual à outra diferente, isso é uma contradição. Então se
+quisermos mudar o valor de uma variável, devemos usar a atribuição,
+não uma equação.
+
+Como saberemos que uma variável é igual à outra? Simples, faremos as
+variáveis string terem em sua estrutura um ponteiro para outra
+variável que deve ser um sinônimo. Se o valor deste ponteiro for nulo,
+então significa que não conhecemos nenhum sinônimo para ela:
+
+@<Metafont: Variável String: Campos@>=
+struct string_variable *alias;
+@
+
+Por padrão, inicializaremos este campo como nulo:
+
+@<Metafont: Variável String: Inicialização@>=
+new_variable -> alias = NULL;
+@
+
+Agora que temso uma forma de dizer que $a=b$, e não apenas que
+$a=$``Teste'', podemos implementar estes que são um dos últimos tipos
+de declaração. Para isso primeiro devemos observar que equações e
+atribuições, se junts na mesma declaração, devem ser sempre
+interpretados da direita para a esquerda.
