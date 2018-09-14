@@ -4205,3 +4205,89 @@ $a=$``Teste'', podemos implementar estes que são um dos últimos tipos
 de declaração. Para isso primeiro devemos observar que equações e
 atribuições, se junts na mesma declaração, devem ser sempre
 interpretados da direita para a esquerda.
+
+O plano para tratar equações e atribuições então será o seguinte:
+primeiro percorremos toda a declaração que recebemos. Só faremos isso
+depois de checar se não estamos diante de qualquer outro tipo de
+declaração. Logo, só poderemos estar diante ou de uma
+equação/atribuilção ou de uma expressão isolada (que só faz sentido no
+final de um bloco de declarações). O que diferencia uma coisa da outra
+é justamente a presença de \monoespaco{=} e \monoespaco{:=}. Então
+devemos percorrer tudo até o final até achar um destes tokens. Se não
+achamos, então não é euqação/atribuição e continuamos em frente. Se
+for, a cada um dos \monoespaco{=} e \monoespaco{:=} que encontrarmos,
+vamos memorizar qual foi o último e vamos romper a lista duplamente
+encadeada, fazendo com que o ponteiro para o anterior deles sempre
+aponte para este tipo de token que veio antes, não para o token
+anterior de verdade.
+
+Feito isso, para cada token \monoespaco{=} e \monoespaco{:=} que
+iremos percorrer, faremos o seguinte:
+
+1. Usamos o \monoespaco{eval} no que está à direita dele. Se o
+resultado for nulo, ou entramos em um grupo ou achamos um erro. De
+qualquer forma interrompemos tudo e retornamos nulo. Caso contrário,
+enquanto o token que temos memorizado por último for um \monoespaco{=}
+ao invés de um \monoespaco{:=}, iremos usar \monoespaco{eval} no quê
+está antes também.
+
+2. Feito isso, temos que checar o que obtemos em cada lado da
+avaliação. Se ambos não forem tags, para o caso deles serem iguais,
+geramos erro de equação redundante. Para o caso de serem diferentes,
+geramos erro de equação inconsistente. Se ambos forem tags, checamos
+se são variáveis de mesmo tipo. Em caso afirmativo, estabelecemos que
+uma é sinônimo para a outra. E se uma for variável e a outra não for,
+realizamos a tribuição pedida. Mas se estamos diante de um
+\monoespaco{=}, temos que fazer uma checagem para garantir que a
+variável já não tem um valor prévio. Caso no qual temos uma equação
+redundante ou inconsistente.
+
+3. Depois de fazer isso, fazemos a substituição necessária e vamos
+para o próximo \monoespaco{=} ou \monoespaco{:=}. Quando e se
+chegarmos em um \monoespaco{:=}, ao avaliar o lado esquerdo, teremos
+sempre uma variável, não uma expressão. Devemos usar as funções
+adequadas para tratar isso.
+
+Então, vamos ao código:
+
+@<Metafont: Executa Declaração@>=
+{
+  struct token *tok = statement, *last_separator = NULL;
+  while(tok != NULL){
+    if(tok -> type == SYMBOL &&
+       (!strcmp(tok -> name, ":=") || !strcmp(tok -> name, "="))){
+      tok -> prev = last_separator;
+      last_separator = tok;
+    }
+    tok = tok -> next;
+  }
+  while(last_separator != NULL){
+    struct token *left, *right = eval(*mf, &(last_separator -> next));
+    if(right == NULL){ // Erro ou begingroup encontrado:
+      for(tok = statement; tok -> next != NULL; tok = tok -> next)
+        tok -> next -> prev = tok;
+      return NULL;
+    }
+    if(last_separator -> name[0] == ':'){
+      if(last_separator -> prev != NULL){
+        mf_error(*mf, "Not a variable before ':='.");
+        return NULL;
+      }
+      if(last_separator -> prev != NULL)
+        begin = last_separator -> prev -> next;
+      else
+        begin = statement;
+      {
+        char variable_name[1024];
+        declared_variable(*mf, &begin, variable_name, 1024);
+        if(right -> type == STRING)
+          new_string_variable(variable_name, right -> name,
+                              right -> deterministic, mf);
+        else{
+          // XXX: Criar função para criar alias entre variáveis
+        }
+    }
+    separator = separator -> prev;
+  }
+}
+@
