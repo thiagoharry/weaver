@@ -4200,7 +4200,41 @@ Por padrão, inicializaremos este campo como nulo:
 new_variable -> alias = NULL;
 @
 
-Agora que temso uma forma de dizer que $a=b$, e não apenas que
+Vamos então criar uma função que declara que duas variáveis, dado os
+seus nomes e uma estrutura METAFONT são iguais. Se uma delas for
+definida, a outra passará a ter o seu valor. Se ambas forem
+indefinidas, uma será marcada como sinônimo da outra. Se ambas forem
+definidas, uma flag indicará se iremos sobrescrever o valor da
+primeira ou gerar um erro:
+
+@<Metafont: Funções Estáticas@>+=
+static void equal_variables(struct metafont *mf, char *var1, char *var2,
+                            bool overwrite){
+    int var1_type = NOT_DECLARED, var2_type = NOT_DECLARED;
+    struct metafont *scope1, *scope2;
+    char types[8][10] = {"boolean", "path", "string", "numeric", "pen",
+                         "picture", "transform", "pair"};
+    for(scope1 = mf; scope1 -> parent != NULL; scope1 = scope1 -> parent)
+        if(_search_trie(scope1 -> variable_types, INT, var1, &var1_type))
+            break;
+    _search_trie(scope1 -> variable_types, INT, var1, &var1_type);
+    if(var1_type == NOT_DECLARED)
+        var1_type = NUMERIC;
+    for(scope2 = mf; scope2 -> parent != NULL; scope2 = scope2 -> parent)
+        if(_search_trie(scope2 -> variable_types, INT, var2, &var2_type))
+            break;
+    _search_trie(scope2 -> variable_types, INT, var2, &var2_type);
+    if(var2_type == NOT_DECLARED)
+        var2_type = NUMERIC;
+    if(var1_type != var2_type){
+        mf_error(mf, "Equation cannot be performed (%s=%s).", types[var1_type],
+            types[var2_type]);
+        return;
+    }
+}
+@
+
+Agora que temos uma forma de dizer que $a=b$, e não apenas que
 $a=$``Teste'', podemos implementar estes que são um dos últimos tipos
 de declaração. Para isso primeiro devemos observar que equações e
 atribuições, se junts na mesma declaração, devem ser sempre
