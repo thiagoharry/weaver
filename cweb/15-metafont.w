@@ -2949,28 +2949,46 @@ que nos diz se ela é uma variável determinística. Ou seja, se ela foi
 gerada envolvendo um número aleatório. Variáveis determinísticas
 possuem a propriedade de que toda vez que um mesmo programa METAFONT
 for executado, elas terão exatamente o mesmo valor. Podemos então usar
-um cache para elas:
+um cache para elas. Por fim, uma variável pode ser indefinida, mas
+podemos saber outras informações sobre ela. Por exemplo, ela pode
+fazer parte de uma lista duplamente encadeada de variáveis indefinidas
+que são iguais. Se os ponteiros da lista são nulos, a variável é
+conhecida e tem um valor armazenado em \monoespaco{name}. Se não, seu
+valor não é conhecido, mas temos a lsita duplamente encadeada de
+valores que são iguais aos dela:
 
 @<Metafont: Variáveis Estáticas@>+=
 struct string_variable{
     char *name;
     bool deterministic;
-    @<Metafont: Variável String: Campos@>
+    struct string_variable *prev, *next;
 };
 @
 
 Com isso, nova variável string pode ser armazenada em uma estrutura
-METAFONT por meio da seguinte função:
+METAFONT por meio da seguinte função. Ela simulará comandos
+como \monoespaco{var=string} ou \monoespaco{var:=string}. O nome da
+variável é o nome ao qual nos refereimos para tratar dela. O nome do
+tipo é o nome com o qual ela foi declarada. Muitas vezes ambos serão
+iguais, mas no caso de uma variável ``var1'', sua declaração tem a
+forma ``var[]''. A última flag da função a seguir determina se estamos
+usando o operador ``='' ou ``:='' para setar o valor da variável. O
+primeiro é para variáveis indefinidas e faz com que ela e todas as
+outras variáveis da lista de variáveis iguais passem a ter o valor da
+string passado. O segundo é para qualquer variável e faz com que
+somente ela passe a ter o valor indicado, sendo removida da lista de
+igualdades se estiver em uma:
 
 @<Metafont: Funções Estáticas@>+=
-void new_string_variable(char *var_name, char *string, bool deterministic,
-                         struct metafont *mf){
+void new_defined_string_variable(char *var_name, char *type_name,
+                                 struct token *string_token,
+                                 struct metafont *mf, bool overwrite){
     struct metafont *scope = mf;
     int current_type = -1;
     void *current_arena;
-    struct string_variable *new_variable;
+    struct string_variable *new_variable = NULL;
     while(scope != NULL){
-        if(_search_trie(scope -> variable_types, INT, var_name, &current_type))
+        if(_search_trie(scope -> variable_types, INT, type_name, &current_type))
             break;
         scope = scope -> parent;
     }
@@ -3006,22 +3024,79 @@ void new_string_variable(char *var_name, char *string, bool deterministic,
         current_arena = _user_arena;
     else
         current_arena = metafont_arena;
-    // Gerando a variável
-    new_variable = (struct string_variable *)
-                       Walloc_arena(current_arena,
-                                    sizeof(struct string_variable));
-    if(new_variable == NULL)
-        goto error_no_memory;
-    new_variable -> name = (char *) Walloc_arena(current_arena,
-                                                 strlen(string) + 1);
-    if(new_variable -> name == NULL)
-        goto error_no_memory;
-    strcpy(new_variable -> name, string);
-    new_variable -> deterministic = deterministic;
-    @<Metafont: Variável String: Inicialização@>
-    _insert_trie(scope -> vars[STRING], current_arena, VOID_P, string,
-                 (void *) new_variable);
-    return;
+    // Checando se ela já existe:
+    _search_trie(scope -> vars[STRING], VOID_P, var_name,
+                 & (void *)new_variable);
+    if(new_variable == NULL){
+        // Não existe, gerando a variável
+        new_variable = (struct string_variable *)
+            Walloc_arena(current_arena,
+                         sizeof(struct string_variable));
+        if(new_variable == NULL)
+            goto error_no_memory;
+        new_variable -> name =
+            (char *) Walloc_arena(current_arena,
+                                  strlen(string_token -> name) + 1);
+        if(new_variable -> name == NULL)
+            goto error_no_memory;
+        strcpy(new_variable -> name, string);
+        new_variable -> deterministic = string_token -> deterministic;
+        new_variabel -> prev = new_variable -> next = NULL;
+        _insert_trie(scope -> vars[STRING], current_arena, VOID_P, string,
+                     (void *) new_variable);
+        return;
+    }
+    else{
+        // Existe.
+        if(overwrite){
+            if(new_variable -> prev != NULL)
+                new_variable -> prev -> next = new_variable -> next;
+            if(new_variable -> next != NULL)
+                new_variable -> next -> prev = new_variable -> prev;
+            new_variable -> name = (char *) Walloc_arena(current_arena,
+                                                         strlen(string) + 1);
+            if(new_variable -> name == NULL)
+                goto error_no_memory;
+            strcpy(new_variable -> name, string_token -> name);
+            new_variable -> deterministic = string_token -> deterministic;
+            new_variabel -> prev = new_variable -> next = NULL;
+        }
+        else{
+            // Checamos se é definido, se for, é um erro:
+            if(new_variable -> prev == NULL && new_variable -> next == NULL)
+                if(!strcmp(new_variable -> name, string_token -> name)){
+                    mf_error(mf, "Redundant equation (%s=%s).",
+                             new_variable -> name, string_token -> name);
+                    return;
+                }
+                else{
+                    mf_error(mf, "Inconsistent equation (%s=%s).",
+                             new_variable -> name, string_token -> name);
+                    return;
+                }
+            // Sendo uma variável indefinida, percorreremos a
+            // lista. Primeiro vamos ao começo:
+            while(new_variable -> prev != NULL)
+                new_variable = new_variable -> prev;
+            while(new_variable != NULL){
+                struct string_variable *next_var;
+                // Rompe conexão com anterior
+                new_variable -> prev = NULL;
+                // Gera o novo nome para a variável
+                new_variable -> name =
+                    (char *) Walloc_arena(current_arena,
+                                          strlen(string_token -> name) + 1);
+                if(new_variable -> name == NULL)
+                    goto error_no_memory;
+                strcpy(new_variable -> name, string_token -> name);
+                new_variable -> deterministic = string_token -> deterministic;
+                // Rompe conexão com próximo e vai até ele
+                next_var = new_variable -> next;
+                new_variable -> next = NULL;
+                new_variable = next_variable;
+            }
+        }
+    }
 error_no_memory:
     fprintf(stderr, "ERROR: Not enough memory. Please, increase "
             "the value of W_%s_MEMORY at conf/conf.h.\n",
@@ -4201,35 +4276,130 @@ new_variable -> alias = NULL;
 @
 
 Vamos então criar uma função que declara que duas variáveis, dado os
-seus nomes e uma estrutura METAFONT são iguais. Se uma delas for
-definida, a outra passará a ter o seu valor. Se ambas forem
-indefinidas, uma será marcada como sinônimo da outra. Se ambas forem
-definidas, uma flag indicará se iremos sobrescrever o valor da
-primeira ou gerar um erro:
+seus nomes, seus nomes como declarados e uma estrutura METAFONT são
+iguais. Se uma delas for definida, a outra passará a ter o seu
+valor. Se ambas forem indefinidas, uma será marcada como sinônimo da
+outra. Se ambas forem definidas, uma flag indicará se iremos
+sobrescrever o valor da primeira ou gerar um erro:
 
 @<Metafont: Funções Estáticas@>+=
-static void equal_variables(struct metafont *mf, char *var1, char *var2,
+static void equal_variables(struct metafont *mf, char *name1, char *name2,
+                            char *declared1, char *declared2,
                             bool overwrite){
+    void *arena1 = _user_arena, *arena2 = _user_arena;
     int var1_type = NOT_DECLARED, var2_type = NOT_DECLARED;
     struct metafont *scope1, *scope2;
     char types[8][10] = {"boolean", "path", "string", "numeric", "pen",
                          "picture", "transform", "pair"};
     for(scope1 = mf; scope1 -> parent != NULL; scope1 = scope1 -> parent)
-        if(_search_trie(scope1 -> variable_types, INT, var1, &var1_type))
+        if(_search_trie(scope1 -> variable_types, INT, declared1, &var1_type)){
+            arena1 = metafont_arena;
             break;
-    _search_trie(scope1 -> variable_types, INT, var1, &var1_type);
+        }
+    if(arena1 != metafont_arena)
+        _search_trie(scope1 -> variable_types, INT, declared1, &var1_type);
     if(var1_type == NOT_DECLARED)
         var1_type = NUMERIC;
     for(scope2 = mf; scope2 -> parent != NULL; scope2 = scope2 -> parent)
-        if(_search_trie(scope2 -> variable_types, INT, var2, &var2_type))
+        if(_search_trie(scope2 -> variable_types, INT, declared2, &var2_type)){
+            arena2 = metafont_arena;
             break;
-    _search_trie(scope2 -> variable_types, INT, var2, &var2_type);
+        }
+    if(arena2 != metafont_arena)
+        _search_trie(scope2 -> variable_types, INT, var2, &var2_type);
     if(var2_type == NOT_DECLARED)
         var2_type = NUMERIC;
     if(var1_type != var2_type){
         mf_error(mf, "Equation cannot be performed (%s=%s).", types[var1_type],
             types[var2_type]);
         return;
+    }
+    // Elas tem o mesmo tipo. Obter o valor delas:
+    if(var1_type == STRING){
+        struct string_variable *var1 = NULL, *var2 = NULL, *var2_inicial;
+        _search_trie(scope -> vars[STRING], VOID_P, name1, &var1);
+        _search_trie(scope -> vars[STRING], VOID_P, name2, &var2);
+        var2_inicial = var2;
+        if(var2 != NULL && var2 -> alias != NULL){
+            // A segunda variável deve olhar além dos alias
+            var2 = var2 -> alias;
+            while(var2 != NULL && var2 -> alias != NULL && var2 != var2_inicial)
+                var2 = var2 -> alias;
+        }
+        if(var2 == NULL && var1 == NULL){
+            // Nenhuma das variáveis é definida: crie as duas, uma com
+            // alias para a outra:
+            var2 = (struct string_variable *)
+                Walloc_arena(arena2, sizeof(struct string_variable));
+            var1 = (struct string_variable *)
+                Walloc_arena(arena1, sizeof(struct string_variable));
+            var1 -> name == var2 -> name = NULL;
+            var1 -> deterministic == var2 -> deterministic = true;
+            var1 -> alias = var2;
+            var2 -> alias = var1;
+            _insert_trie(scope -> vars[STRING], arena1, VOID_P, name1,
+                        (void *) var1);
+            _insert_trie(scope -> vars[STRING], arena2, VOID_P, name2,
+                         (void *) var2);
+            return;
+        }
+        else if(var2 == NULL && var1 != NULL){
+            // A variavel direita não foi definida, a esquerda sim. Se
+            // não marcamos para sobrescrever, só tornamos elas iguais
+            // ao criar a da direita ou criamos um alias. Se marcamos
+            // para sobrescrever, então precisamos criar a da direita
+            // e fazer a esquerda virar um alias para a direita:
+            var2 = (struct string_variable *)
+                Walloc_arena(arena2, sizeof(struct string_variable));
+            var2 -> name = NULL;
+            var2 -> deterministic = true;
+            var2 -> alias = NULL;
+            if(overwrite){ // var1 := var2
+                if(var1 -> alias == NULL)
+                    var1 -> alias = var2;
+                var2 -> alias = var1;
+            }
+            else if(var1 -> alias != NULL) // var1 = var2
+                var2 -> alias = var1;
+            else{ // var1 = var2 (var1 definido)
+                var2 -> name = (char *)
+                    Walloc_arena(arena2, strlen(var1 -> name) + 1);
+                strcpy(var2 -> name, var1 -> name);
+            }
+            return;
+        }
+        else if(var2 != NULL && var1 == NULL){
+            // var1 é indefinido, var2 é definido em var1 = var2
+            // = e := são exatamente iguais neste caso
+            var1 = (struct string_variable *)
+                Walloc_arena(arena2, sizeof(struct string_variable));
+            var1 -> name = NULL;
+            var1 -> deterministic = true;
+            var1 -> alias = NULL;
+            if(var2 -> alias != NULL)
+                var1 -> alias = var2;
+            else{
+                var1 -> name = (char *)
+                    Walloc_arena(arena1, strlen(var2 -> name) + 1);
+                strcpy(var1 -> name, var2 -> name);
+            }
+            return;
+        }
+        else{
+            // Agora o caso onde ambos não são indefinidos
+            if(overwrite){
+                if(var2 -> alias != NULL)
+                    var1 -> alias = var2;
+                else{
+                    var1 -> name = (char *)
+                        Walloc_arena(arena1, strlen(var2 -> name) + 1);
+                    strcpy(var1 -> name, var2 -> name);
+                }
+            }
+            else{
+
+            }
+        }
     }
 }
 @
