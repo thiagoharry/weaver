@@ -2891,7 +2891,9 @@ static struct token *eval_string(struct metafont **mf,
     // Percorre a expressão avaliando expressões primárias
     while(current_token != NULL &&
           ((delimited && strcmp(current_token -> name, delim)) ||
-           (!delimited && strcmp(current_token -> name, ";")))){
+           (!delimited && strcmp(current_token -> name, ";")) ||
+           (!delimited && strcmp(current_token -> name, "=")) ||
+           (!delimited && strcmp(current_token -> name, ":=")))){
         @<Metafont: String: Expressões Primárias@>
         current_token = current_token -> next;
     }
@@ -3149,7 +3151,6 @@ caso do tipo ser de uma variável numérica interna, usaremos isso:
 #define INTERNAL 9
 @
 
-
 @<Metafont: Funções Estáticas@>=
 void variable(struct metafont **mf, struct token **token,
               char *dst, int dst_size, int *type){
@@ -3304,7 +3305,8 @@ void variable(struct metafont **mf, struct token **token,
 
 
 Vamos precisar também de uma função para ler uma variável armazenada,
-dado seu tipo, retornando um novo token equivalente no lugar:
+dado seu tipo, retornando um novo token equivalente no lugar se ela
+for definida:
 
 @<Metafont: Funções Estáticas@>+=
 struct token *read_var(char *var_name, int type, struct metafont *mf){
@@ -3314,6 +3316,8 @@ struct token *read_var(char *var_name, int type, struct metafont *mf){
         struct string_variable *var = NULL;
         _search_trie(scope -> vars[type], VOID_P, var_name, (void *) &var);
         if(var != NULL){
+            if(var -> prev != NULL || var -> next != NULL)
+                return NULL; // Variável com valor indefinido
             ret = new_token_string(var -> name);
             ret -> deterministic = var -> deterministic;
             return ret;
@@ -4277,10 +4281,12 @@ new_variable -> alias = NULL;
 
 Vamos então criar uma função que declara que duas variáveis, dado os
 seus nomes, seus nomes como declarados e uma estrutura METAFONT são
-iguais. Se uma delas for definida, a outra passará a ter o seu
-valor. Se ambas forem indefinidas, uma será marcada como sinônimo da
-outra. Se ambas forem definidas, uma flag indicará se iremos
-sobrescrever o valor da primeira ou gerar um erro:
+iguais. A segunda variável sempre é indefinida. A flag passada por
+último define se queremos sobrescrever o valor da primeira variável,
+removendo ela de sua lista encadeada de igualdades (ou seja, estamos
+usando com um \monoespaco{:=}). Se ela for falsa, estamos apenas
+definindo uma igualdade, o que significa que estamos aumentando uma
+lista encadeada de igualdades ou definindo o valor dela
 
 @<Metafont: Funções Estáticas@>+=
 static void equal_variables(struct metafont *mf, char *name1, char *name2,
@@ -4316,88 +4322,82 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
     }
     // Elas tem o mesmo tipo. Obter o valor delas:
     if(var1_type == STRING){
-        struct string_variable *var1 = NULL, *var2 = NULL, *var2_inicial;
+        struct string_variable *var1 = NULL, *var2 = NULL;
         _search_trie(scope -> vars[STRING], VOID_P, name1, &var1);
         _search_trie(scope -> vars[STRING], VOID_P, name2, &var2);
-        var2_inicial = var2;
-        if(var2 != NULL && var2 -> alias != NULL){
-            // A segunda variável deve olhar além dos alias
-            var2 = var2 -> alias;
-            while(var2 != NULL && var2 -> alias != NULL && var2 != var2_inicial)
-                var2 = var2 -> alias;
-        }
-        if(var2 == NULL && var1 == NULL){
-            // Nenhuma das variáveis é definida: crie as duas, uma com
-            // alias para a outra:
+        // Se var2 não existir, criamos ele
+        if(var2 == NULL){
             var2 = (struct string_variable *)
                 Walloc_arena(arena2, sizeof(struct string_variable));
-            var1 = (struct string_variable *)
-                Walloc_arena(arena1, sizeof(struct string_variable));
-            var1 -> name == var2 -> name = NULL;
-            var1 -> deterministic == var2 -> deterministic = true;
-            var1 -> alias = var2;
-            var2 -> alias = var1;
-            _insert_trie(scope -> vars[STRING], arena1, VOID_P, name1,
-                        (void *) var1);
+            var2 -> name = NULL;
+            var2 -> deterministic = true;
+            var2 -> prev = var2 -> next = NULL;
             _insert_trie(scope -> vars[STRING], arena2, VOID_P, name2,
                          (void *) var2);
+        }
+        if(var1 == NULL){
+            // var1 não é definido e precisa ser criado
+            var1 = (struct string_variable *)
+                Walloc_arena(arena1, sizeof(struct string_variable));
+            var1 -> name = NULL;
+            var1 -> deterministic = var2 -> deterministic;
+            var1 -> prev = NULL;
+            var1 -> next = var2;
+            if(var2 -> prev != NULL)
+                var2 -> prev -> next = var1;
+            var2 -> prev = var1;
+            _insert_trie(scope -> vars[STRING], arena1, VOID_P, name1,
+                        (void *) var1);
             return;
         }
-        else if(var2 == NULL && var1 != NULL){
+        else if(var1 != NULL){
+            // var1 (existente) <- var2 (indefinido)
             // A variavel direita não foi definida, a esquerda sim. Se
             // não marcamos para sobrescrever, só tornamos elas iguais
             // ao criar a da direita ou criamos um alias. Se marcamos
             // para sobrescrever, então precisamos criar a da direita
             // e fazer a esquerda virar um alias para a direita:
-            var2 = (struct string_variable *)
-                Walloc_arena(arena2, sizeof(struct string_variable));
-            var2 -> name = NULL;
-            var2 -> deterministic = true;
-            var2 -> alias = NULL;
-            if(overwrite){ // var1 := var2
-                if(var1 -> alias == NULL)
-                    var1 -> alias = var2;
-                var2 -> alias = var1;
+            if(var1 -> prev != NULL || var1 -> next != NULL){
+                // var1 é existente e indefinido, concatenamos duas
+                // listas de igualdade
+                while(var1 -> next != NULL)
+                    var1 = var1 -> next;
+                while(var2 -> prev != NULL)
+                    var2 = var2 -> prev;
+                var1 -> next = var2;
+                var2 -> prev = var1;
+                // Aumentada lista de igualdade
+                return;
             }
-            else if(var1 -> alias != NULL) // var1 = var2
-                var2 -> alias = var1;
-            else{ // var1 = var2 (var1 definido)
-                var2 -> name = (char *)
-                    Walloc_arena(arena2, strlen(var1 -> name) + 1);
-                strcpy(var2 -> name, var1 -> name);
-            }
-            return;
-        }
-        else if(var2 != NULL && var1 == NULL){
-            // var1 é indefinido, var2 é definido em var1 = var2
-            // = e := são exatamente iguais neste caso
-            var1 = (struct string_variable *)
-                Walloc_arena(arena2, sizeof(struct string_variable));
-            var1 -> name = NULL;
-            var1 -> deterministic = true;
-            var1 -> alias = NULL;
-            if(var2 -> alias != NULL)
-                var1 -> alias = var2;
             else{
-                var1 -> name = (char *)
-                    Walloc_arena(arena1, strlen(var2 -> name) + 1);
-                strcpy(var1 -> name, var2 -> name);
-            }
-            return;
-        }
-        else{
-            // Agora o caso onde ambos não são indefinidos
-            if(overwrite){
-                if(var2 -> alias != NULL)
-                    var1 -> alias = var2;
-                else{
-                    var1 -> name = (char *)
-                        Walloc_arena(arena1, strlen(var2 -> name) + 1);
-                    strcpy(var1 -> name, var2 -> name);
+                if(overwite){
+                    // var1 torna-se indefinido e igual à var2,
+                    // independente das flags
+                    var1 -> next = var2;
+                    var1 -> prev = var2 -> prev;
+                    if(var2 -> prev != NULL)
+                        var2 -> prev -> next = var1;
+                    var2 -> prev = var1;
+                    return;
                 }
-            }
-            else{
-
+                else{
+                    int tamanho = strlen(var1 -> name);
+                    // Todos os valores da lista de igualdades de var2
+                    // ficam igual a var1
+                    while(var2 -> prev != NULL)
+                        var2 = var2 -> prev;
+                    while(var2 != NULL){
+                        struct string_variable *next_var;
+                        var2 -> prev = NULL;
+                        var2 -> name = (char *) Walloc_arena(arena2,
+                                                             tamanho + 1);
+                        strcpy(var1 -> name, var2 -> name);
+                        next -> var = var2 -> next;
+                        var2 -> next = NULL;
+                        var2 = next_var;
+                    }
+                    return;
+                }
             }
         }
     }
