@@ -3028,7 +3028,7 @@ void new_defined_string_variable(char *var_name, char *type_name,
         current_arena = metafont_arena;
     // Checando se ela já existe:
     _search_trie(scope -> vars[STRING], VOID_P, var_name,
-                 & (void *)new_variable);
+                  (void *) & new_variable);
     if(new_variable == NULL){
         // Não existe, gerando a variável
         new_variable = (struct string_variable *)
@@ -3041,11 +3041,11 @@ void new_defined_string_variable(char *var_name, char *type_name,
                                   strlen(string_token -> name) + 1);
         if(new_variable -> name == NULL)
             goto error_no_memory;
-        strcpy(new_variable -> name, string);
+        strcpy(new_variable -> name, string_token -> name);
         new_variable -> deterministic = string_token -> deterministic;
-        new_variabel -> prev = new_variable -> next = NULL;
-        _insert_trie(scope -> vars[STRING], current_arena, VOID_P, string,
-                     (void *) new_variable);
+        new_variable -> prev = new_variable -> next = NULL;
+        _insert_trie(scope -> vars[STRING], current_arena, VOID_P,
+                     string_token -> name, (void *) new_variable);
         return;
     }
     else{
@@ -3055,17 +3055,17 @@ void new_defined_string_variable(char *var_name, char *type_name,
                 new_variable -> prev -> next = new_variable -> next;
             if(new_variable -> next != NULL)
                 new_variable -> next -> prev = new_variable -> prev;
-            new_variable -> name = (char *) Walloc_arena(current_arena,
-                                                         strlen(string) + 1);
+            new_variable -> name = (char *)
+                Walloc_arena(current_arena, strlen(string_token -> name) + 1);
             if(new_variable -> name == NULL)
                 goto error_no_memory;
             strcpy(new_variable -> name, string_token -> name);
             new_variable -> deterministic = string_token -> deterministic;
-            new_variabel -> prev = new_variable -> next = NULL;
+            new_variable -> prev = new_variable -> next = NULL;
         }
         else{
             // Checamos se é definido, se for, é um erro:
-            if(new_variable -> prev == NULL && new_variable -> next == NULL)
+            if(new_variable -> prev == NULL && new_variable -> next == NULL){
                 if(!strcmp(new_variable -> name, string_token -> name)){
                     mf_error(mf, "Redundant equation (%s=%s).",
                              new_variable -> name, string_token -> name);
@@ -3076,6 +3076,7 @@ void new_defined_string_variable(char *var_name, char *type_name,
                              new_variable -> name, string_token -> name);
                     return;
                 }
+            }
             // Sendo uma variável indefinida, percorreremos a
             // lista. Primeiro vamos ao começo:
             while(new_variable -> prev != NULL)
@@ -3095,7 +3096,7 @@ void new_defined_string_variable(char *var_name, char *type_name,
                 // Rompe conexão com próximo e vai até ele
                 next_var = new_variable -> next;
                 new_variable -> next = NULL;
-                new_variable = next_variable;
+                new_variable = next_var;
             }
         }
     }
@@ -3144,8 +3145,11 @@ static struct token *eval_numeric(struct metafont **mf,
 
 E agora o código que consome uma próxima variável, que pode ter nome
 composto, a consome e preenche uma string com seu nome, recebida como
-argumento e também armazena seu tipo no último argumento. Só para o
-caso do tipo ser de uma variável numérica interna, usaremos isso:
+argumento e também armazena seu tipo no último argumento. Armazena
+em \monoespaco{type\_name} o nome da variável conforme foi declarado.
+Assim o nome declarado da variável de nome \monoespaco{a1}
+é \monoespaco{a[]}. Para o caso do tipo ser de uma variável numérica
+interna, usaremos isso:
 
 @<Metafont: Inclui Cabeçalhos@>+=
 #define INTERNAL 9
@@ -3153,14 +3157,15 @@ caso do tipo ser de uma variável numérica interna, usaremos isso:
 
 @<Metafont: Funções Estáticas@>=
 void variable(struct metafont **mf, struct token **token,
-              char *dst, int dst_size, int *type){
+              char *dst, int dst_size,
+              char *type_name, int *type){
     struct metafont *scope = *mf;
     bool internal = false, vardef = false;
     float dummy;
-    char type_name[1024];
     struct macro *mc = NULL;
     dst[0] = '\0';
     type_name[0] = '\0';
+    int type_size = dst_size;
     int pos = 0, type_pos = 0, original_size = dst_size;
     if(*token == NULL || (*token) -> type != SYMBOL)
         return;
@@ -3184,7 +3189,7 @@ void variable(struct metafont **mf, struct token **token,
             (*token) -> next -> prev = (*token) -> prev;
         *token = (*token) -> next;
         *type = INTERNAL;
-        strncpy(type_name, dst, 1023);
+        strncpy(type_name, dst, type_size);
         return;
     }
     // Se não for, o primeiro token precisa ser uma tag
@@ -3249,8 +3254,8 @@ void variable(struct metafont **mf, struct token **token,
             snprintf(&(dst[pos]), dst_size, "%f ", result -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
-            strncat(type_name, " [ ]", 1023 - type_pos);
-            type_pos += 4;
+            strncat(type_name, " [ ]", type_size - type_pos);
+            type_pos = type_pos + 4;
             continue;
         }
         // Se for um outro símbolo, copiamos seu nome
@@ -3258,7 +3263,7 @@ void variable(struct metafont **mf, struct token **token,
             int size = strlen((*token) -> name);
             if(dst[0] != '\0'){
                 strncat(dst, " ", dst_size);
-                strncat(type_name, " ", 1024 - type_pos);
+                strncat(type_name, " ", type_size - type_pos);
                 type_pos ++;
                 pos ++;
                 dst_size -= 1;
@@ -3266,7 +3271,7 @@ void variable(struct metafont **mf, struct token **token,
             strncat(dst, (*token) -> name, dst_size);
             pos += size;
             dst_size -= pos;
-            strncat(type_name, (*token) -> name, 1024 - type_pos);
+            strncat(type_name, (*token) -> name, type_size - type_pos);
             type_pos += size;
             *token = (*token) -> next;
             continue;
@@ -3276,7 +3281,7 @@ void variable(struct metafont **mf, struct token **token,
             snprintf(&(dst[pos]), dst_size, "%f ", (*token) -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
-            strncat(type_name, " [ ]", 1023 - type_pos);
+            strncat(type_name, " [ ]", type_size - type_pos);
             type_pos += 4;
             continue;
         }
@@ -3349,10 +3354,10 @@ de string:
 
 @<Metafont: String: Expressões Primárias@>=
 if(current_token -> type == SYMBOL){
-    char variable_name[1024];
+    char variable_name[1024], type_name[1024];
     int type = NOT_DECLARED;
     struct token *replacement;
-    variable(mf, &current_token, variable_name, 1024, &type);
+    variable(mf, &current_token, variable_name, 1024, type_name, &type);
     if(type == MACRO) // vardef substituído
         return NULL;
     if(type != NOT_DECLARED){
@@ -4292,6 +4297,7 @@ lista encadeada de igualdades ou definindo o valor dela
 static void equal_variables(struct metafont *mf, char *name1, char *name2,
                             char *declared1, char *declared2,
                             bool overwrite){
+    struct string_variable *var1 = NULL, *var2 = NULL;
     void *arena1 = _user_arena, *arena2 = _user_arena;
     int var1_type = NOT_DECLARED, var2_type = NOT_DECLARED;
     struct metafont *scope1, *scope2;
@@ -4303,7 +4309,8 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
             break;
         }
     if(arena1 != metafont_arena)
-        _search_trie(scope1 -> variable_types, INT, declared1, &var1_type);
+        _search_trie(scope1 -> variable_types, INT, declared1,
+                     &var1_type);
     if(var1_type == NOT_DECLARED)
         var1_type = NUMERIC;
     for(scope2 = mf; scope2 -> parent != NULL; scope2 = scope2 -> parent)
@@ -4312,7 +4319,7 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
             break;
         }
     if(arena2 != metafont_arena)
-        _search_trie(scope2 -> variable_types, INT, var2, &var2_type);
+        _search_trie(scope2 -> variable_types, INT, declared2, &var2_type);
     if(var2_type == NOT_DECLARED)
         var2_type = NUMERIC;
     if(var1_type != var2_type){
@@ -4322,9 +4329,8 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
     }
     // Elas tem o mesmo tipo. Obter o valor delas:
     if(var1_type == STRING){
-        struct string_variable *var1 = NULL, *var2 = NULL;
-        _search_trie(scope -> vars[STRING], VOID_P, name1, &var1);
-        _search_trie(scope -> vars[STRING], VOID_P, name2, &var2);
+        _search_trie(scope1 -> vars[STRING], VOID_P, name1, (void *) &var1);
+        _search_trie(scope2 -> vars[STRING], VOID_P, name2, (void *) &var2);
         // Se var2 não existir, criamos ele
         if(var2 == NULL){
             var2 = (struct string_variable *)
@@ -4332,7 +4338,7 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
             var2 -> name = NULL;
             var2 -> deterministic = true;
             var2 -> prev = var2 -> next = NULL;
-            _insert_trie(scope -> vars[STRING], arena2, VOID_P, name2,
+            _insert_trie(scope2 -> vars[STRING], arena2, VOID_P, name2,
                          (void *) var2);
         }
         if(var1 == NULL){
@@ -4346,7 +4352,7 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
             if(var2 -> prev != NULL)
                 var2 -> prev -> next = var1;
             var2 -> prev = var1;
-            _insert_trie(scope -> vars[STRING], arena1, VOID_P, name1,
+            _insert_trie(scope1 -> vars[STRING], arena1, VOID_P, name1,
                         (void *) var1);
             return;
         }
@@ -4370,7 +4376,7 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
                 return;
             }
             else{
-                if(overwite){
+                if(overwrite){
                     // var1 torna-se indefinido e igual à var2,
                     // independente das flags
                     var1 -> next = var2;
@@ -4392,7 +4398,7 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
                         var2 -> name = (char *) Walloc_arena(arena2,
                                                              tamanho + 1);
                         strcpy(var1 -> name, var2 -> name);
-                        next -> var = var2 -> next;
+                        next_var = var2 -> next;
                         var2 -> next = NULL;
                         var2 = next_var;
                     }
@@ -4414,7 +4420,7 @@ O plano para tratar equações e atribuições então será o seguinte:
 primeiro percorremos toda a declaração que recebemos. Só faremos isso
 depois de checar se não estamos diante de qualquer outro tipo de
 declaração. Logo, só poderemos estar diante ou de uma
-equação/atribuilção ou de uma expressão isolada (que só faz sentido no
+equação/atribuição ou de uma expressão isolada (que só faz sentido no
 final de um bloco de declarações). O que diferencia uma coisa da outra
 é justamente a presença de \monoespaco{=} e \monoespaco{:=}. Então
 devemos percorrer tudo até o final até achar um destes tokens. Se não
@@ -4433,30 +4439,29 @@ resultado for nulo, ou entramos em um grupo ou achamos um erro. De
 qualquer forma interrompemos tudo e retornamos nulo. Caso contrário,
 enquanto o token que temos memorizado por último for um \monoespaco{=}
 ao invés de um \monoespaco{:=}, iremos usar \monoespaco{eval} no quê
-está antes também.
+está antes também. Caso contrário, é só ler como variável o que está
+lá obtendo seu nome e seu nome conforme declarado.
 
 2. Feito isso, temos que checar o que obtemos em cada lado da
-avaliação. Se ambos não forem tags, para o caso deles serem iguais,
-geramos erro de equação redundante. Para o caso de serem diferentes,
-geramos erro de equação inconsistente. Se ambos forem tags, checamos
-se são variáveis de mesmo tipo. Em caso afirmativo, estabelecemos que
-uma é sinônimo para a outra. E se uma for variável e a outra não for,
-realizamos a tribuição pedida. Mas se estamos diante de um
-\monoespaco{=}, temos que fazer uma checagem para garantir que a
-variável já não tem um valor prévio. Caso no qual temos uma equação
-redundante ou inconsistente.
+avaliação. Se do lado direito temos uma string, usamos a função que
+criamos quando introduzimos variáveis de string para armazenar a
+string à direita na variável à esquerda. Se não for uma string, temos
+uma variável indefinida.Usaremos a função que acabamos de definir logo
+acima.
 
 3. Depois de fazer isso, fazemos a substituição necessária e vamos
-para o próximo \monoespaco{=} ou \monoespaco{:=}. Quando e se
-chegarmos em um \monoespaco{:=}, ao avaliar o lado esquerdo, teremos
-sempre uma variável, não uma expressão. Devemos usar as funções
-adequadas para tratar isso.
+para o próximo \monoespaco{=} ou \monoespaco{:=}. Se acabamos de sair
+de um \monoespaco{:=}, então só temos que checar se não há mais
+equações ou atribuições, ou sinalizamos erro. Se acabaram os tokens de
+atribuição e equação, então terminamos.
 
 Então, vamos ao código:
 
 @<Metafont: Executa Declaração@>=
 {
   struct token *tok = statement, *last_separator = NULL;
+  int type = -1;
+  // Ligamos os tokens = e := uns nos outros:
   while(tok != NULL){
     if(tok -> type == SYMBOL &&
        (!strcmp(tok -> name, ":=") || !strcmp(tok -> name, "="))){
@@ -4465,33 +4470,79 @@ Então, vamos ao código:
     }
     tok = tok -> next;
   }
+  // Enquanto temos um destes tokens para tratar:
   while(last_separator != NULL){
-    struct token *left, *right = eval(*mf, &(last_separator -> next));
+    char left_var[1024], left_var_type[1024];
+    char right_var[1024], right_var_type[1024];
+    struct token *left, *right = eval(mf, &(last_separator -> next));
     if(right == NULL){ // Erro ou begingroup encontrado:
       for(tok = statement; tok -> next != NULL; tok = tok -> next)
         tok -> next -> prev = tok;
-      return NULL;
+      return;
     }
     if(last_separator -> name[0] == ':'){
       if(last_separator -> prev != NULL){
         mf_error(*mf, "Not a variable before ':='.");
-        return NULL;
+        return;
       }
-      if(last_separator -> prev != NULL)
-        begin = last_separator -> prev -> next;
-      else
-        begin = statement;
-      {
-        char variable_name[1024];
-        declared_variable(*mf, &begin, variable_name, 1024);
-        if(right -> type == STRING)
-          new_string_variable(variable_name, right -> name,
-                              right -> deterministic, mf);
+      variable(mf, &statement, left_var, 1024, left_var_type, &type);
+      if(statement -> type != SYMBOL || (strcmp(statement -> name, "=") &&
+                                         strcmp(statement -> name, ":="))){
+        mf_error(*mf, "Not a variable before ':='.");
+        return;
+      }
+      if(right -> type == SYMBOL){
+          // O lado direito não avaliou para um literal
+          variable(mf, &right, right_var, 1024, right_var_type, &type);
+          equal_variables(*mf, left_var, right_var, left_var_type,
+                          right_var_type, true);
+
+      }
+      else{
+          // O lado direito é um literal
+          if(right -> type == STRING)
+              new_defined_string_variable(left_var, left_var_type, right, *mf,
+                                          true);
+      }
+      return; // Acabamos, depois de um ':=' não há mais nada
+    }
+    else{
+        // Estamos em um '=', não ':='
+        if(last_separator -> prev != NULL)
+            left = eval(mf, &(last_separator -> prev -> next));
+        else
+            left = eval(mf, &statement);
+        if(right -> type == SYMBOL && left -> type == SYMBOL){
+          variable(mf, &left, left_var, 1024, left_var_type, &type);
+          variable(mf, &right, right_var, 1024, right_var_type, &type);
+          equal_variables(*mf, left_var, right_var, left_var_type,
+                          right_var_type, false);
+        }
+        else if(right -> type == SYMBOL){
+          variable(mf, &right, right_var, 1024, right_var_type, &type);
+          new_defined_string_variable(right_var, right_var_type, left, *mf,
+                                      false);
+        }
+        else if(left -> type == SYMBOL){
+          variable(mf, &left, left_var, 1024, left_var_type, &type);
+          new_defined_string_variable(left_var, left_var_type, right, *mf,
+                                      false);
+
+        }
         else{
-          // XXX: Criar função para criar alias entre variáveis
+            // Igualdade entre dois literais, isso é um erro:
+          if(left -> type == right -> type && !strcmp(left -> name,
+                                                      right -> name)){
+            mf_error(*mf, "Redundant equation.");
+            return;
+          }
+          else{
+            mf_error(*mf, "Inconsistent equation.");
+            return;
+          }
         }
     }
-    separator = separator -> prev;
+    last_separator = last_separator -> prev;
   }
 }
 @
