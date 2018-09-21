@@ -2985,6 +2985,7 @@ igualdades se estiver em uma:
 void new_defined_string_variable(char *var_name, char *type_name,
                                  struct token *string_token,
                                  struct metafont *mf, bool overwrite){
+  printf("DEBUG: %s (%s) <- %s\n", var_name, type_name, string_token -> name);
     struct metafont *scope = mf;
     int current_type = -1;
     void *current_arena;
@@ -3030,6 +3031,7 @@ void new_defined_string_variable(char *var_name, char *type_name,
     _search_trie(scope -> vars[STRING], VOID_P, var_name,
                   (void *) & new_variable);
     if(new_variable == NULL){
+      printf("DEBUG: Variável nã existe. Criar.\n");
         // Não existe, gerando a variável
         new_variable = (struct string_variable *)
             Walloc_arena(current_arena,
@@ -3045,7 +3047,9 @@ void new_defined_string_variable(char *var_name, char *type_name,
         new_variable -> deterministic = string_token -> deterministic;
         new_variable -> prev = new_variable -> next = NULL;
         _insert_trie(scope -> vars[STRING], current_arena, VOID_P,
-                     string_token -> name, (void *) new_variable);
+                     var_name, (void *) new_variable);
+        printf("DEBUG: Inserido: '%s' como '%s'\n", var_name,
+               new_variable -> name);
         return;
     }
     else{
@@ -3182,7 +3186,6 @@ void variable(struct metafont **mf, struct token **token,
                                 (*token) -> name, &dummy);
     if(internal){
         strncpy(dst, (*token) -> name, dst_size);
-        dst[dst_size - 1] = '\0';
         if((*token) -> prev != NULL)
             (*token) -> prev -> next = (*token) -> next;
         if((*token) -> next != NULL)
@@ -3301,7 +3304,7 @@ void variable(struct metafont **mf, struct token **token,
     }
     // Finalizando a string e saindo
     if(dst_size > 0)
-        dst[pos - 1] = '\0';
+        dst[pos] = '\0';
     else
         dst[original_size - 1] = '\0';
     return;
@@ -3317,6 +3320,7 @@ for definida:
 struct token *read_var(char *var_name, int type, struct metafont *mf){
     struct metafont *scope = mf;
     struct token *ret = NULL;
+    printf("Tentando ler '%s'\n", var_name);
     while(scope != NULL){
         struct string_variable *var = NULL;
         _search_trie(scope -> vars[type], VOID_P, var_name, (void *) &var);
@@ -3325,6 +3329,7 @@ struct token *read_var(char *var_name, int type, struct metafont *mf){
                 return NULL; // Variável com valor indefinido
             ret = new_token_string(var -> name);
             ret -> deterministic = var -> deterministic;
+            printf("DEBUG: Achou '%s'\n", ret -> name);
             return ret;
         }
         scope = scope -> parent;
@@ -3366,7 +3371,7 @@ if(current_token -> type == SYMBOL){
             mf_error(*mf, "Variable '%s' isn't a string.", variable_name);
             return NULL;
         }
-        replacement = read_var(current_token -> name, type, *mf);
+        replacement = read_var(variable_name, type, *mf);
         if(replacement == NULL)
             current_token -> known = -1;
         else{
