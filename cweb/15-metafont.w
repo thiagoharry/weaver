@@ -4460,6 +4460,7 @@ Então, vamos ao código:
 @<Metafont: Executa Declaração@>=
 {
   struct token *tok = statement, *last_separator = NULL;
+  bool found_equation_or_attribution = false;
   int type = -1;
   // Ligamos os tokens = e := uns nos outros:
   while(tok != NULL){
@@ -4467,6 +4468,7 @@ Então, vamos ao código:
        (!strcmp(tok -> name, ":=") || !strcmp(tok -> name, "="))){
       tok -> prev = last_separator;
       last_separator = tok;
+      found_equation_or_attribution = true;
     }
     tok = tok -> next;
   }
@@ -4544,5 +4546,7 @@ Então, vamos ao código:
     }
     last_separator = last_separator -> prev;
   }
+  if(found_equation_or_attribution)
+    return;
 }
 @
