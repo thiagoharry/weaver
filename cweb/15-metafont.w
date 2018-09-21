@@ -2985,7 +2985,6 @@ igualdades se estiver em uma:
 void new_defined_string_variable(char *var_name, char *type_name,
                                  struct token *string_token,
                                  struct metafont *mf, bool overwrite){
-  printf("DEBUG: %s (%s) <- %s\n", var_name, type_name, string_token -> name);
     struct metafont *scope = mf;
     int current_type = -1;
     void *current_arena;
@@ -3031,7 +3030,6 @@ void new_defined_string_variable(char *var_name, char *type_name,
     _search_trie(scope -> vars[STRING], VOID_P, var_name,
                   (void *) & new_variable);
     if(new_variable == NULL){
-      printf("DEBUG: Variável nã existe. Criar.\n");
         // Não existe, gerando a variável
         new_variable = (struct string_variable *)
             Walloc_arena(current_arena,
@@ -3048,8 +3046,6 @@ void new_defined_string_variable(char *var_name, char *type_name,
         new_variable -> prev = new_variable -> next = NULL;
         _insert_trie(scope -> vars[STRING], current_arena, VOID_P,
                      var_name, (void *) new_variable);
-        printf("DEBUG: Inserido: '%s' como '%s'\n", var_name,
-               new_variable -> name);
         return;
     }
     else{
@@ -3320,7 +3316,6 @@ for definida:
 struct token *read_var(char *var_name, int type, struct metafont *mf){
     struct metafont *scope = mf;
     struct token *ret = NULL;
-    printf("Tentando ler '%s'\n", var_name);
     while(scope != NULL){
         struct string_variable *var = NULL;
         _search_trie(scope -> vars[type], VOID_P, var_name, (void *) &var);
@@ -3329,7 +3324,6 @@ struct token *read_var(char *var_name, int type, struct metafont *mf){
                 return NULL; // Variável com valor indefinido
             ret = new_token_string(var -> name);
             ret -> deterministic = var -> deterministic;
-            printf("DEBUG: Achou '%s'\n", ret -> name);
             return ret;
         }
         scope = scope -> parent;
@@ -3362,6 +3356,7 @@ if(current_token -> type == SYMBOL){
     char variable_name[1024], type_name[1024];
     int type = NOT_DECLARED;
     struct token *replacement;
+    bool begin_expr = (current_token == *expression);
     variable(mf, &current_token, variable_name, 1024, type_name, &type);
     if(type == MACRO) // vardef substituído
         return NULL;
@@ -3376,13 +3371,13 @@ if(current_token -> type == SYMBOL){
             current_token -> known = -1;
         else{
             replacement -> prev = current_token -> prev;
-            replacement -> next = current_token -> next;
+            replacement -> next = current_token;
             if(current_token -> prev != NULL)
                 current_token -> prev -> next = replacement;
-            else
+            if(begin_expr)
                 *expression = replacement;
-            if(current_token -> next != NULL)
-                current_token -> next -> prev = replacement;
+            if(current_token != NULL)
+                current_token -> prev = replacement;
         }
         if(replacement != NULL){
           current_token = replacement;
@@ -4058,7 +4053,8 @@ if(statement -> type == SYMBOL && (!strcmp(statement -> name, "message") ||
         return;
     }
     if(expr_result -> type != STRING){
-        mf_error(*mf, "Tried to print unknown string.");
+        mf_error(*mf, "Tried to print unknown string (%s).",
+                 expr_result -> name);
         return;
     }
     if(statement -> name[0] == 'm')
