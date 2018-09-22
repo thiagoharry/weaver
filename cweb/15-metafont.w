@@ -3100,6 +3100,7 @@ void new_defined_string_variable(char *var_name, char *type_name,
             }
         }
     }
+    return;
 error_no_memory:
     fprintf(stderr, "ERROR: Not enough memory. Please, increase "
             "the value of W_%s_MEMORY at conf/conf.h.\n",
