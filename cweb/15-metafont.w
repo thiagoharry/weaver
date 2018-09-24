@@ -4459,6 +4459,7 @@ Então, vamos ao código:
 @<Metafont: Executa Declaração@>=
 {
   struct token *tok = statement, *last_separator = NULL;
+  struct token *last_semicolon;
   bool found_equation_or_attribution = false;
   int type = -1;
   struct token *token_stack[512];
@@ -4472,6 +4473,7 @@ Então, vamos ao código:
       last_separator = tok;
       found_equation_or_attribution = true;
     }
+    last_semicolon = tok;
     tok = tok -> next;
   }
   // Enquanto temos um destes tokens para tratar:
@@ -4546,6 +4548,8 @@ Então, vamos ao código:
           }
         }
     }
+    last_separator -> prev -> next = last_semicolon;
+    last_semicolon -> prev = last_separator -> prev;
     token_stack_position --;
     if(token_stack_position >= 0)
       last_separator = token_stack[token_stack_position];
