@@ -4428,10 +4428,7 @@ final de um bloco de declarações). O que diferencia uma coisa da outra
 devemos percorrer tudo até o final até achar um destes tokens. Se não
 achamos, então não é euqação/atribuição e continuamos em frente. Se
 for, a cada um dos \monoespaco{=} e \monoespaco{:=} que encontrarmos,
-vamos memorizar qual foi o último e vamos romper a lista duplamente
-encadeada, fazendo com que o ponteiro para o anterior deles sempre
-aponte para este tipo de token que veio antes, não para o token
-anterior de verdade.
+vamos armazenar em um array para irmos percorrendo como uma pilha.
 
 Feito isso, para cada token \monoespaco{=} e \monoespaco{:=} que
 iremos percorrer, faremos o seguinte:
@@ -4464,11 +4461,14 @@ Então, vamos ao código:
   struct token *tok = statement, *last_separator = NULL;
   bool found_equation_or_attribution = false;
   int type = -1;
+  struct token *token_stack[512];
+  int token_stack_position = -1;
   // Ligamos os tokens = e := uns nos outros:
   while(tok != NULL){
     if(tok -> type == SYMBOL &&
        (!strcmp(tok -> name, ":=") || !strcmp(tok -> name, "="))){
-      tok -> prev = last_separator;
+      token_stack_position ++;
+      token_stack[token_stack_position] = tok;
       last_separator = tok;
       found_equation_or_attribution = true;
     }
@@ -4485,7 +4485,7 @@ Então, vamos ao código:
       return;
     }
     if(last_separator -> name[0] == ':'){
-      if(last_separator -> prev != NULL){
+      if(token_stack_position > 0){
         mf_error(*mf, "Not a variable before ':='.");
         return;
       }
@@ -4512,8 +4512,8 @@ Então, vamos ao código:
     }
     else{
         // Estamos em um '=', não ':='
-        if(last_separator -> prev != NULL)
-            left = eval(mf, &(last_separator -> prev -> next));
+        if(token_stack_position > 0)
+            left = eval(mf, &(token_stack[token_stack_position - 1] -> next));
         else
             left = eval(mf, &statement);
         if(right -> type == SYMBOL && left -> type == SYMBOL){
@@ -4546,7 +4546,11 @@ Então, vamos ao código:
           }
         }
     }
-    last_separator = last_separator -> prev;
+    token_stack_position --;
+    if(token_stack_position >= 0)
+      last_separator = token_stack[token_stack_position];
+    else
+      last_separator = NULL;
   }
   if(found_equation_or_attribution)
     return;
