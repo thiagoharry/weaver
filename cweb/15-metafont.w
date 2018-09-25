@@ -1348,6 +1348,7 @@ if(mf -> hint == HINT_ENDGROUP){
     if(mf -> parent == NULL)
         mf_error(mf, "Extra 'endgroup' while not in 'begingroup'.");
     else{
+        end_scope(mf);
         mf = mf -> parent;
         Wtrash_arena(metafont_arena);
     }
@@ -1360,6 +1361,7 @@ a nossa memória antes de encerrar:
 
 @<Metafont: Após terminar de interpretar um código@>=
 while(mf -> parent != NULL){
+    end_scope(mf);
     mf = mf -> parent;
     Wtrash_arena(metafont_arena);
 }
@@ -2764,6 +2766,7 @@ expressão começa com um grupo.
           concat_token(&new_tokens, (*mf) -> pending_tokens);
           (*mf) -> parent -> pending_tokens = new_tokens;
         }
+        end_scope(*mf);
         *mf = (*mf) -> parent;
         Wtrash_arena(metafont_arena);
     }
@@ -4558,5 +4561,44 @@ Então, vamos ao código:
   }
   if(found_equation_or_attribution)
     return;
+}
+@
+
+Por fim, existe uma última preocupação que devemos ter. Uma variável
+pode estar em uma lista encadeada de igualdade. Contudo, ela pode ser
+ua variável local a um bloco, e que será desalocada assim que sairmos
+deste bloco. Isso significa que quando acabamos com um escopo,
+precisamos percorrer todas as variáveis de string locais à ele e
+removê-las da lista de igualdade na qual estão.
+
+O modo de remover uma variável string é por meio da função:
+
+@<Metafont: Funções Locais Declaradas@>+=
+static void remove_string_variable_from_equalty_list(void *string_var);
+@
+
+@<Metafont: Funções Estáticas@>+=
+static void remove_string_variable_from_equalty_list(void *string_var){
+    struct string_variable *string = (struct string_variable *) string_var;
+    if(string -> prev != NULL)
+        string -> prev -> next = string -> next;
+    if(string -> next != NULL)
+        string -> next -> prev = string -> prev;
+}
+@
+
+E agora vamos declarar e definir uma função que já usamos em alguns
+códigos prévios, devido à sua utilidade ser aparente pelo nome. A
+função que finaliza um escopo atual antes de destruir suas
+estruturas. Essa função é a que removerá todas as strings locais que
+existirem de qualquer lista de igualdade antes de desalocá-las:
+
+@<Metafont: Funções Locais Declaradas@>+=
+static void end_scope(struct metafont *mf);
+@
+
+@<Metafont: Funções Estáticas@>+=
+static void end_scope(struct metafont *mf){
+    _map_trie(remove_string_variable_from_equalty_list, mf -> vars[STRING]);
 }
 @

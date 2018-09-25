@@ -368,6 +368,28 @@ void _remove_trie(struct _trie *tree, char *name){
 }
 @
 
+Um outro recurso que forneceremos é executar uma função arbitrária
+sobre todos os elementos que estão armazenados em uma árvore trie:
+
+@<Trie: Declarações@>+=
+void _map_trie(void (*f)(void *), struct _trie *tree);
+@
+
+O que ela faz é aplicar a função \monoespaco{f} sobre todos os
+elementos existentes na árvore, sempre usando casting para
+transformá-los em ponteiros do tipo \monoespaco{void}:
+
+@<Trie: Definições@>+=
+void _map_trie(void (*f)(void *), struct _trie *tree){
+    int i;
+    if(tree -> leaf)
+        f(tree -> value.generic);
+    for(i = 0; i < 256; i ++)
+        if(tree -> child[i] != NULL)
+            _map_trie(f, tree -> child[i]);
+}
+@
+
 O último recurso que forneceremos será imprimir o valor de cada uma
 das strings armazenadas em uma árvore trie. Isso só será efetivamente
 definido caso estejamos em modo de depuração. Não será um código que
