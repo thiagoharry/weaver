@@ -245,6 +245,8 @@ void _split_trie(void *arena, struct _trie **origin, char *C,
             (*origin) -> child[i] = NULL;
         }
         node_C -> leaf = BC_was_a_leaf;
+        if(BC_was_a_leaf)
+            node_C -> value = (*origin) -> value;
         (*origin) -> child[(int) *C] = node_C;
         *C = '\0';
     }

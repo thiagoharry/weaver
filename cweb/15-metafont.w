@@ -840,6 +840,9 @@ void run_single_statement(struct metafont **mf, struct token *statement){
         printf("Global vardefs:");
         _debug_trie_values("", p -> vardef);
         printf("\n");
+        printf("Global declared vars:");
+        _debug_trie_values("", p -> variable_types);
+        printf("\n");
         printf("METAFONT: Statement:  (Depth: %d)\n", depth);
         while(p != *mf){
             printf("                     ");
