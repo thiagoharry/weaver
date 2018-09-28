@@ -840,7 +840,12 @@ void run_single_statement(struct metafont **mf, struct token *statement){
         printf("Global vardefs:");
         _debug_trie_values("", p -> vardef);
         printf("\n");
-        printf("Global declared vars:");
+        printf("Declared variables:");
+        p = *mf;
+        while(p -> parent != NULL){
+          _debug_trie_values("", p -> variable_types);
+          p = p -> parent;
+        }
         _debug_trie_values("", p -> variable_types);
         printf("\n");
         printf("METAFONT: Statement:  (Depth: %d)\n", depth);
@@ -3320,13 +3325,19 @@ dado seu tipo, retornando um novo token equivalente no lugar se ela
 for definida:
 
 @<Metafont: Funções Estáticas@>+=
-struct token *read_var(char *var_name, int type, struct metafont *mf){
+struct token *read_var(char *var_name, char *type_name, struct metafont *mf){
     struct metafont *scope = mf;
     struct token *ret = NULL;
+    int current_type = -1;
     while(scope != NULL){
         struct string_variable *var = NULL;
-        _search_trie(scope -> vars[type], VOID_P, var_name, (void *) &var);
-        if(var != NULL){
+        _search_trie(scope -> variable_types, INT, type_name,
+                     &current_type);
+        if(current_type != -1){
+            _search_trie(scope -> vars[current_type], VOID_P, var_name,
+                         (void *) &var);
+            if(var == NULL)
+              return NULL;
             if(var -> prev != NULL || var -> next != NULL)
                 return NULL; // Variável com valor indefinido
             ret = new_token_string(var -> name);
@@ -3373,7 +3384,7 @@ if(current_token -> type == SYMBOL){
             mf_error(*mf, "Variable '%s' isn't a string.", variable_name);
             return NULL;
         }
-        replacement = read_var(variable_name, type, *mf);
+        replacement = read_var(variable_name, type_name, *mf);
         if(replacement == NULL)
             current_token -> known = -1;
         else{
@@ -4549,7 +4560,8 @@ Então, vamos ao código:
             return;
           }
           else{
-            mf_error(*mf, "Inconsistent equation.");
+            mf_error(*mf, "Inconsistent equation (%s = %s).", left -> name,
+                     right -> name);
             return;
           }
         }
