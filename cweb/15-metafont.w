@@ -1863,7 +1863,7 @@ gramática. Outras ainda serão inseridas.
 
 Com isso vamos escrever agora um código para interpretar e consumir
 uma variável declarada e armazena em 'dst' uma string com o nome dela,
-com cada sufixo separado pore espaços:
+com cada sufixo separado por espaços:
 
 @<Metafont: Funções Estáticas@>=
 void declared_variable(struct metafont *mf, struct token **token,
@@ -2812,10 +2812,8 @@ static struct token *eval_numeric(struct metafont **, struct token **);
 @<Metafont: eval_string@>
 struct token *eval(struct metafont **mf, struct token **expression){
     struct token *aux = *expression;
-    //struct metafont *scope = *mf;
-    //bool is_variable = false;
-    //int type;
-    //char var_name[1024], type_name[1024];
+    int type = -1;
+    char var_name[1024], type_name[1024];
     if((*expression) -> type == SYMBOL && !strcmp((*expression) -> name, ";"))
       return NULL; // Expressão vacuosa
     // Ignorando os delimitadores iniciais para definir o tipo
@@ -2858,43 +2856,41 @@ struct token *eval(struct metafont **mf, struct token **expression){
             return NULL;
         }
         // Checando se é um operador conhecido
-        while(aux != NULL && aux -> type == SYMBOL){
-          if(!strcmp(aux -> name, "jobname"))
+        if(!strcmp(aux -> name, "jobname"))
             return eval_string(mf, expression);
-          if(!strcmp(aux -> name, "readstring"))
+        if(!strcmp(aux -> name, "readstring"))
             return eval_string(mf, expression);
-          if(!strcmp(aux -> name, "str"))
+        if(!strcmp(aux -> name, "str"))
             return eval_string(mf, expression);
-          if(!strcmp(aux -> name, "char"))
+        if(!strcmp(aux -> name, "char"))
             return eval_string(mf, expression);
-          if(!strcmp(aux -> name, "decimal"))
+        if(!strcmp(aux -> name, "decimal"))
             return eval_string(mf, expression);
-          if(!strcmp(aux -> name, "substring"))
+        if(!strcmp(aux -> name, "substring"))
             return eval_string(mf, expression);
-          if(!strcmp(aux -> name, "&"))
-            return eval_string(mf, expression);
-          aux = aux -> next;
-        }
-    }
-        /*  // Não determinado. Tentando ler como variável XXX
-        {
-          struct token *possible_var = aux;
-          variable(mf, &aux, var_name, 1024, type_name, &type);
-          if(possible_var != aux){
+          // Não determinado. Tentando ler como variável XXX
+        struct token *possible_var = aux;
+        variable(mf, &aux, var_name, 1024, type_name, &type);
+        if(possible_var != aux){
             // Restaurar variável
-            
-          }
+            if(aux -> prev == NULL)
+                *expression = possible_var;
+            else
+                aux -> prev -> next = possible_var;
+            while(possible_var -> next != aux && possible_var -> next != NULL &&
+                  possible_var -> next != possible_var){
+                possible_var = possible_var -> next;
+            }
+            aux -> prev = possible_var;
+            possible_var -> next = aux;
         }
-        while(scope != NULL){
-            if(_search_trie(scope -> variable_types, INT, type_name, &type)){
-                is_variable = true;
-                break;
-            }
-            scope = scope -> parent;
-            }
+
+        if(type == STRING){
+            struct token *teste = eval_string(mf, expression);
+            return teste;
+        }
+
     }
-    if(is_variable && type == STRING)
-    return eval_string(mf, expression);*/
     mf_error(*mf, "Undetermined expression.");
     return NULL;
 }
@@ -2916,10 +2912,11 @@ static struct token *eval_string(struct metafont **mf,
     }
     // Percorre a expressão avaliando expressões primárias
     while(current_token != NULL &&
-          ((delimited && strcmp(current_token -> name, delim)) ||
-           (!delimited && strcmp(current_token -> name, ";")) ||
-           (!delimited && strcmp(current_token -> name, "=")) ||
-           (!delimited && strcmp(current_token -> name, ":=")))){
+          (current_token -> type != SYMBOL ||
+           (strcmp(current_token -> name, ";") &&
+            strcmp(current_token -> name, "=") &&
+            strcmp(current_token -> name, ":="))) &&
+          (!delimited || strcmp(current_token -> name, delim))){
         @<Metafont: String: Expressões Primárias@>
         current_token = current_token -> next;
     }
@@ -3187,6 +3184,7 @@ void variable(struct metafont **mf, struct token **token,
               char *dst, int dst_size,
               char *type_name, int *type){
     struct metafont *scope = *mf;
+    struct token *previous_token;
     bool internal = false, vardef = false;
     float dummy;
     struct macro *mc = NULL;
@@ -3196,6 +3194,7 @@ void variable(struct metafont **mf, struct token **token,
     int pos = 0, type_pos = 0, original_size = dst_size;
     if(*token == NULL || (*token) -> type != SYMBOL)
         return;
+    previous_token = (*token) -> prev;
     // Primeiro checamos se é uma quantidade interna
     while(scope -> parent != NULL){
         internal = _search_trie(scope -> internal_quantities, DOUBLE,
@@ -3214,6 +3213,7 @@ void variable(struct metafont **mf, struct token **token,
         if((*token) -> next != NULL)
             (*token) -> next -> prev = (*token) -> prev;
         *token = (*token) -> next;
+        (*token) -> prev = previous_token;
         *type = INTERNAL;
         strncpy(type_name, dst, type_size);
         return;
@@ -3245,6 +3245,7 @@ void variable(struct metafont **mf, struct token **token,
                     if((*token) -> prev -> prev != NULL)
                     (*token) -> prev -> prev -> next = (*token);*/
                     eval(mf, token);
+                    (*token) -> prev = previous_token;
                     return;
                 }
                 scope = scope -> parent;
@@ -3267,12 +3268,14 @@ void variable(struct metafont **mf, struct token **token,
             if(result == NULL || result -> type != NUMERIC){
                 mf_error(*mf, "Undefined numeric expression after '['.");
                 *type = NOT_DECLARED;
+                (*token) -> prev = previous_token;
                 return;
             }
             if(*token == NULL || (*token) -> type != SYMBOL ||
                strcmp((*token) -> name, "]")){
                 mf_error(*mf, "Missing ']' after '[' in variable name.");
                 *type = NOT_DECLARED;
+                (*token) -> prev = previous_token;
                 return;
             }
             *token = (*token) -> next;
@@ -3309,6 +3312,7 @@ void variable(struct metafont **mf, struct token **token,
             dst_size = original_size - pos;
             strncat(type_name, " [ ]", type_size - type_pos);
             type_pos += 4;
+            *token = (*token) -> next;
             continue;
         }
         // Se não paramos em nenhum dos casos, é um token desconhecido e
@@ -3330,6 +3334,7 @@ void variable(struct metafont **mf, struct token **token,
         dst[pos] = '\0';
     else
         dst[original_size - 1] = '\0';
+    (*token) -> prev = previous_token;
     return;
 }
 @
@@ -3388,8 +3393,10 @@ de string:
 if(current_token -> type == SYMBOL){
     char variable_name[1024], type_name[1024];
     int type = NOT_DECLARED;
-    struct token *replacement;
+    struct token *replacement = NULL;
     bool begin_expr = (current_token == *expression);
+
+    struct token *possible_var = current_token;
     variable(mf, &current_token, variable_name, 1024, type_name, &type);
     if(type == MACRO) // vardef substituído
         return NULL;
@@ -3400,9 +3407,7 @@ if(current_token -> type == SYMBOL){
             return NULL;
         }
         replacement = read_var(variable_name, type_name, *mf);
-        if(replacement == NULL)
-            current_token -> known = -1;
-        else{
+        if(replacement != NULL){
             replacement -> prev = current_token -> prev;
             replacement -> next = current_token;
             if(current_token -> prev != NULL)
@@ -3411,11 +3416,24 @@ if(current_token -> type == SYMBOL){
                 *expression = replacement;
             if(current_token != NULL)
                 current_token -> prev = replacement;
+            current_token = replacement;
+            continue;
         }
-        if(replacement != NULL){
-          current_token = replacement;
-          continue;
+    }
+    if(replacement == NULL || type == NOT_DECLARED){
+        // Restaurar variável
+        if(current_token -> prev == NULL)
+            *expression = possible_var;
+        else
+            current_token -> prev -> next = possible_var;
+        while(possible_var -> next != current_token &&
+              possible_var -> next != NULL &&
+              possible_var -> next != possible_var){
+            printf(".");
+            possible_var = possible_var -> next;
         }
+        current_token -> prev = possible_var;
+        possible_var -> next = current_token;
     }
 }
 @
@@ -4562,10 +4580,25 @@ Então, vamos ao código:
                                       false);
         }
         else if(left -> type == SYMBOL){
-          variable(mf, &left, left_var, 1024, left_var_type, &type);
-          new_defined_string_variable(left_var, left_var_type, right, *mf,
-                                      false);
-
+            // Obtém variável como string e depois a restaura
+            struct token *possible_var = left;
+            variable(mf, &left, left_var, 1024, left_var_type, &type);
+            if(possible_var != left){
+                // Restaurar variável
+                if(left -> prev == NULL)
+                    statement = possible_var;
+                else
+                    left -> prev -> next = possible_var;
+                while(possible_var -> next != left &&
+                      possible_var -> next != NULL &&
+                      possible_var -> next != possible_var){
+                    possible_var = possible_var -> next;
+                }
+                left -> prev = possible_var;
+                possible_var -> next = left;
+            }
+            new_defined_string_variable(left_var, left_var_type, right, *mf,
+                                        false);
         }
         else{
             // Igualdade entre dois literais, isso é um erro:
