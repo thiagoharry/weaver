@@ -2812,9 +2812,10 @@ static struct token *eval_numeric(struct metafont **, struct token **);
 @<Metafont: eval_string@>
 struct token *eval(struct metafont **mf, struct token **expression){
     struct token *aux = *expression;
-    struct metafont *scope = *mf;
-    bool is_variable = false;
-    int type;
+    //struct metafont *scope = *mf;
+    //bool is_variable = false;
+    //int type;
+    //char var_name[1024], type_name[1024];
     if((*expression) -> type == SYMBOL && !strcmp((*expression) -> name, ";"))
       return NULL; // Expressão vacuosa
     // Ignorando os delimitadores iniciais para definir o tipo
@@ -2856,30 +2857,44 @@ struct token *eval(struct metafont **mf, struct token **expression){
             // Saímos sem avaliar, avaliaremos depois de obter o valor do grupo
             return NULL;
         }
+        // Checando se é um operador conhecido
+        while(aux != NULL && aux -> type == SYMBOL){
+          if(!strcmp(aux -> name, "jobname"))
+            return eval_string(mf, expression);
+          if(!strcmp(aux -> name, "readstring"))
+            return eval_string(mf, expression);
+          if(!strcmp(aux -> name, "str"))
+            return eval_string(mf, expression);
+          if(!strcmp(aux -> name, "char"))
+            return eval_string(mf, expression);
+          if(!strcmp(aux -> name, "decimal"))
+            return eval_string(mf, expression);
+          if(!strcmp(aux -> name, "substring"))
+            return eval_string(mf, expression);
+          if(!strcmp(aux -> name, "&"))
+            return eval_string(mf, expression);
+          aux = aux -> next;
+        }
+    }
+        /*  // Não determinado. Tentando ler como variável XXX
+        {
+          struct token *possible_var = aux;
+          variable(mf, &aux, var_name, 1024, type_name, &type);
+          if(possible_var != aux){
+            // Restaurar variável
+            
+          }
+        }
         while(scope != NULL){
-            if(_search_trie(scope -> variable_types, INT, aux -> name, &type)){
+            if(_search_trie(scope -> variable_types, INT, type_name, &type)){
                 is_variable = true;
                 break;
             }
             scope = scope -> parent;
-        }
-        if(!is_variable){
-            if(!strcmp(aux -> name, "jobname"))
-                return eval_string(mf, expression);
-            if(!strcmp(aux -> name, "readstring"))
-                return eval_string(mf, expression);
-            if(!strcmp(aux -> name, "str"))
-                return eval_string(mf, expression);
-            if(!strcmp(aux -> name, "char"))
-                return eval_string(mf, expression);
-            if(!strcmp(aux -> name, "decimal"))
-                return eval_string(mf, expression);
-            if(!strcmp(aux -> name, "substring"))
-                return eval_string(mf, expression);
-        }
+            }
     }
     if(is_variable && type == STRING)
-        return eval_string(mf, expression);
+    return eval_string(mf, expression);*/
     mf_error(*mf, "Undetermined expression.");
     return NULL;
 }
