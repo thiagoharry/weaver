@@ -2884,7 +2884,6 @@ struct token *eval(struct metafont **mf, struct token **expression){
             aux -> prev = possible_var;
             possible_var -> next = aux;
         }
-
         if(type == STRING){
             struct token *teste = eval_string(mf, expression);
             return teste;
@@ -2925,8 +2924,11 @@ static struct token *eval_string(struct metafont **mf,
     if(delim != NULL)
       current_token = current_token -> next;
     while(current_token != NULL &&
-          ((delimited && strcmp(current_token -> name, delim)) ||
-           (!delimited && strcmp(current_token -> name, ";")))){
+          (current_token -> type != SYMBOL ||
+           (strcmp(current_token -> name, ";") &&
+            strcmp(current_token -> name, "=") &&
+            strcmp(current_token -> name, ":="))) &&
+          (!delimited || strcmp(current_token -> name, delim))){
       @<Metafont: String: Expressões Quaternárias@>
       current_token = current_token -> next;
     }
@@ -3307,7 +3309,7 @@ void variable(struct metafont **mf, struct token **token,
         }
         // Se tivermos um número, ele é um subscrito e o copiamos
         if((*token) -> type == NUMERIC){
-            snprintf(&(dst[pos]), dst_size, "%f ", (*token) -> value);
+            snprintf(&(dst[pos]), dst_size, "%f", (*token) -> value);
             pos = strlen(dst);
             dst_size = original_size - pos;
             strncat(type_name, " [ ]", type_size - type_pos);
@@ -3429,11 +3431,11 @@ if(current_token -> type == SYMBOL){
         while(possible_var -> next != current_token &&
               possible_var -> next != NULL &&
               possible_var -> next != possible_var){
-            printf(".");
             possible_var = possible_var -> next;
         }
         current_token -> prev = possible_var;
         possible_var -> next = current_token;
+        continue;
     }
 }
 @
