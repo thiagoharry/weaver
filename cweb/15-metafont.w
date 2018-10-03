@@ -2868,22 +2868,8 @@ struct token *eval(struct metafont **mf, struct token **expression){
             return eval_string(mf, expression);
         if(!strcmp(aux -> name, "substring"))
             return eval_string(mf, expression);
-          // Não determinado. Tentando ler como variável XXX
-        struct token *possible_var = aux;
-        variable(mf, &aux, var_name, 1024, type_name, &type);
-        if(possible_var != aux){
-            // Restaurar variável
-            if(aux -> prev == NULL)
-                *expression = possible_var;
-            else
-                aux -> prev -> next = possible_var;
-            while(possible_var -> next != aux && possible_var -> next != NULL &&
-                  possible_var -> next != possible_var){
-                possible_var = possible_var -> next;
-            }
-            aux -> prev = possible_var;
-            possible_var -> next = aux;
-        }
+          // Não determinado. Tentando ler como variável
+        variable(mf, &aux, var_name, 1024, type_name, &type, false);
         if(type == STRING){
             struct token *teste = eval_string(mf, expression);
             return teste;
@@ -3170,12 +3156,14 @@ static struct token *eval_numeric(struct metafont **mf,
 @
 
 E agora o código que consome uma próxima variável, que pode ter nome
-composto, a consome e preenche uma string com seu nome, recebida como
-argumento e também armazena seu tipo no último argumento. Armazena
+composto, e preenche uma string com seu nome, recebida como argumento
+e também armazena seu tipo no último argumento. Armazena
 em \monoespaco{type\_name} o nome da variável conforme foi declarado.
 Assim o nome declarado da variável de nome \monoespaco{a1}
-é \monoespaco{a[]}. Para o caso do tipo ser de uma variável numérica
-interna, usaremos isso:
+é \monoespaco{a[]}. Para as vezes em que queremos extrair somente o
+nome da variável, e não consumir ela da lista de tokens, passaremos
+como como último parâmetro a flag falsa. Para o caso do tipo ser de uma
+variável numérica interna, usaremos isso:
 
 @<Metafont: Inclui Cabeçalhos@>+=
 #define INTERNAL 9
@@ -3184,9 +3172,10 @@ interna, usaremos isso:
 @<Metafont: Funções Estáticas@>=
 void variable(struct metafont **mf, struct token **token,
               char *dst, int dst_size,
-              char *type_name, int *type){
+              char *type_name, int *type, bool consume){
     struct metafont *scope = *mf;
     struct token *previous_token;
+    struct token *old_token = *token;
     bool internal = false, vardef = false;
     float dummy;
     struct macro *mc = NULL;
@@ -3218,10 +3207,9 @@ void variable(struct metafont **mf, struct token **token,
         (*token) -> prev = previous_token;
         *type = INTERNAL;
         strncpy(type_name, dst, type_size);
-        return;
+        goto restore_token_if_not_consume_and_exit;
     }
     // Se não for, o primeiro token precisa ser uma tag
-    //printf("Primeiro token: %s\n", (*token) -> name);
     if(!is_tag(*mf, *token)){
         *type = NOT_DECLARED;
         return;
@@ -3337,6 +3325,19 @@ void variable(struct metafont **mf, struct token **token,
     else
         dst[original_size - 1] = '\0';
     (*token) -> prev = previous_token;
+  restore_token_if_not_consume_and_exit:
+    if(!consume && old_token != *token){
+      // Restaurar variável
+      if((*token) -> prev != NULL)
+        (*token) -> prev -> next = old_token;
+      while(old_token -> next != (*token) &&
+            old_token -> next != NULL &&
+            old_token -> next != old_token){
+        old_token = old_token -> next;
+      }
+      (*token) -> prev = old_token;
+      old_token -> next = *token;
+    }
     return;
 }
 @
@@ -3399,7 +3400,7 @@ if(current_token -> type == SYMBOL){
     bool begin_expr = (current_token == *expression);
 
     struct token *possible_var = current_token;
-    variable(mf, &current_token, variable_name, 1024, type_name, &type);
+    variable(mf, &current_token, variable_name, 1024, type_name, &type, true);
     if(type == MACRO) // vardef substituído
         return NULL;
     if(type != NOT_DECLARED){
@@ -4536,6 +4537,7 @@ Então, vamos ao código:
     if(right == NULL){ // Erro ou begingroup encontrado:
       for(tok = statement; tok -> next != NULL; tok = tok -> next)
         tok -> next -> prev = tok;
+      printf("A sair, deu null\n");
       return;
     }
     if(last_separator -> name[0] == ':'){
@@ -4543,7 +4545,7 @@ Então, vamos ao código:
         mf_error(*mf, "Not a variable before ':='.");
         return;
       }
-      variable(mf, &statement, left_var, 1024, left_var_type, &type);
+      variable(mf, &statement, left_var, 1024, left_var_type, &type, true);
       if(statement -> type != SYMBOL || (strcmp(statement -> name, "=") &&
                                          strcmp(statement -> name, ":="))){
         mf_error(*mf, "Not a variable before ':='.");
@@ -4551,7 +4553,7 @@ Então, vamos ao código:
       }
       if(right -> type == SYMBOL){
           // O lado direito não avaliou para um literal
-          variable(mf, &right, right_var, 1024, right_var_type, &type);
+        variable(mf, &right, right_var, 1024, right_var_type, &type, true);
           equal_variables(*mf, left_var, right_var, left_var_type,
                           right_var_type, true);
 
@@ -4571,34 +4573,19 @@ Então, vamos ao código:
         else
             left = eval(mf, &statement);
         if(right -> type == SYMBOL && left -> type == SYMBOL){
-          variable(mf, &left, left_var, 1024, left_var_type, &type);
-          variable(mf, &right, right_var, 1024, right_var_type, &type);
+          variable(mf, &left, left_var, 1024, left_var_type, &type, false);
+          variable(mf, &right, right_var, 1024, right_var_type, &type, false);
           equal_variables(*mf, left_var, right_var, left_var_type,
                           right_var_type, false);
         }
         else if(right -> type == SYMBOL){
-          variable(mf, &right, right_var, 1024, right_var_type, &type);
+          variable(mf, &right, right_var, 1024, right_var_type, &type, false);
           new_defined_string_variable(right_var, right_var_type, left, *mf,
                                       false);
         }
         else if(left -> type == SYMBOL){
             // Obtém variável como string e depois a restaura
-            struct token *possible_var = left;
-            variable(mf, &left, left_var, 1024, left_var_type, &type);
-            if(possible_var != left){
-                // Restaurar variável
-                if(left -> prev == NULL)
-                    statement = possible_var;
-                else
-                    left -> prev -> next = possible_var;
-                while(possible_var -> next != left &&
-                      possible_var -> next != NULL &&
-                      possible_var -> next != possible_var){
-                    possible_var = possible_var -> next;
-                }
-                left -> prev = possible_var;
-                possible_var -> next = left;
-            }
+            variable(mf, &left, left_var, 1024, left_var_type, &type, false);
             new_defined_string_variable(left_var, left_var_type, right, *mf,
                                         false);
         }
