@@ -797,7 +797,7 @@ void run_statements(struct metafont *mf){
     struct token *statement;
     bool end_execution = false, first_loop = (mf -> parent == NULL);
     while(!end_execution){
-        if(mf -> pending_tokens == NULL)
+        if(mf -> pending_tokens == NULL && mf -> parent == NULL)
             _iWbreakpoint();
         if(first_loop){
             @<Metafont: Antes de Obter a Primeira Declaração@>
@@ -811,7 +811,7 @@ void run_statements(struct metafont *mf){
             run_single_statement(&mf, statement);
         }
         @<METAFONT: Imediatamente após executar declaração@>
-        if(mf -> pending_tokens == NULL)
+        if(mf -> pending_tokens == NULL && mf -> parent == NULL)
             _iWtrash();
     }
     @<Metafont: Após terminar de interpretar um código@>
@@ -3324,18 +3324,20 @@ void variable(struct metafont **mf, struct token **token,
         dst[pos] = '\0';
     else
         dst[original_size - 1] = '\0';
-    (*token) -> prev = previous_token;
+    if(*token != NULL)
+        (*token) -> prev = previous_token;
   restore_token_if_not_consume_and_exit:
     if(!consume && old_token != *token){
       // Restaurar variável
-      if((*token) -> prev != NULL)
+      if(*token != NULL && (*token) -> prev != NULL)
         (*token) -> prev -> next = old_token;
       while(old_token -> next != (*token) &&
             old_token -> next != NULL &&
             old_token -> next != old_token){
         old_token = old_token -> next;
       }
-      (*token) -> prev = old_token;
+      if(*token != NULL)
+          (*token) -> prev = old_token;
       old_token -> next = *token;
     }
     return;
@@ -3411,11 +3413,12 @@ if(current_token -> type == SYMBOL){
         }
         replacement = read_var(variable_name, type_name, *mf);
         if(replacement != NULL){
-            replacement -> prev = current_token -> prev;
+            if(current_token != NULL)
+                replacement -> prev = current_token -> prev;
             replacement -> next = current_token;
-            if(current_token -> prev != NULL)
+            if(current_token != NULL && current_token -> prev != NULL)
                 current_token -> prev -> next = replacement;
-            if(begin_expr)
+            else
                 *expression = replacement;
             if(current_token != NULL)
                 current_token -> prev = replacement;
@@ -4537,7 +4540,6 @@ Então, vamos ao código:
     if(right == NULL){ // Erro ou begingroup encontrado:
       for(tok = statement; tok -> next != NULL; tok = tok -> next)
         tok -> next -> prev = tok;
-      printf("A sair, deu null\n");
       return;
     }
     if(last_separator -> name[0] == ':'){
