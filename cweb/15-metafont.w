@@ -1499,6 +1499,65 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "save")){
 }
 @
 
+Isso nos trás então a necessidade de responder: dado um nome de tipo
+de variável, qual é o escopo dele? Para isso precisamos de uma função
+que retorna uma estrutura METAFONT (um escopo) após receber uma
+estrutura Metafont (o escopo atual) e uma string (um nome de tipo de
+variável):
+
+@<Metafont: Funções Locais Declaradas@>+=
+struct metafont *get_scope(struct metafont *mf, char *type_name);
+@
+
+A função vai funcionar primeiro obtendo o prefixo, se aplicável. Se o
+prefixo for diferente do nome completo a ser buscado, começamos
+buscando somente por ele. O escopo da variável é então o mesmo do
+prefixo. Caso contrário, buscamos então pelo nome completo. Se nada
+for encontrado, então o prefixo será a estrutura Metafont inicial.
+
+@<Metafont: Funções Estáticas@>+=
+struct metafont *get_scope(struct metafont *mf, char *type_name){
+  // Obter o prefixo:
+  bool got_prefix = false;
+  char *p = type_name;
+  struct metafont *scope = mf, *last_scope = mf;
+  void *dummy_result;
+  while(*p != '\0'){
+    if(*p == ' '){
+      got_prefix = true;
+      *p = '\0';
+      break;
+    }
+    p ++;
+  }
+  if(got_prefix){
+    while(scope != NULL){
+      if(_search_trie(scope -> variable_types, VOID_P,
+                      type_name, &dummy_result)){
+        *p = ' ';
+        return scope;
+      }
+      scope = scope -> parent;
+    }
+  }
+  // No prefix found
+  if(got_prefix){
+    *p = ' ';
+    scope = mf;
+  }
+  while(scope != NULL){
+    if(_search_trie(scope -> variable_types, VOID_P,
+                    type_name, &dummy_result)){
+      return scope;
+    }
+    last_scope = scope;
+    scope = scope -> parent;
+  }
+  return last_scope;
+}
+@
+
+
 @*1 O Comando \monoespaco{delimiters}.
 
 Nas equações e atribuições que ainda serão criadas na linguagem, é
@@ -3399,8 +3458,6 @@ if(current_token -> type == SYMBOL){
     char variable_name[1024], type_name[1024];
     int type = NOT_DECLARED;
     struct token *replacement = NULL;
-    bool begin_expr = (current_token == *expression);
-
     struct token *possible_var = current_token;
     variable(mf, &current_token, variable_name, 1024, type_name, &type, true);
     if(type == MACRO) // vardef substituído
