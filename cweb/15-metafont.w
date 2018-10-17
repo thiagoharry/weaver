@@ -1613,13 +1613,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
         mf_error(*mf, "Missing symbolic token.");
         return;
     }
-    while(scope -> parent != NULL){
-        void *result;
-        if(_search_trie(scope -> variable_types, VOID_P,
-                        statement -> name, &result))
-            break;
-        scope = scope -> parent;
-    }
+    scope = get_scope(*mf, statement -> name);
     current_arena = (scope -> parent == NULL)?_user_arena:metafont_arena;
     statement = statement -> next;
     if(statement == NULL || statement -> type != SYMBOL){
@@ -1710,14 +1704,7 @@ if(statement -> type == SYMBOL &&
     // Executa o comando
     while(list != NULL){
         void *current_arena;
-        struct metafont *scope = (*mf);
-        while(scope -> parent != NULL){
-            int dummy_result;
-            if(_search_trie(scope -> variable_types, INT,
-                            list -> name, &dummy_result))
-                break;
-            scope = scope -> parent;
-        }
+        struct metafont *scope = get_scope(*mf, list -> name);
         current_arena = (scope -> parent == NULL)?_user_arena:metafont_arena;
         if(inner_command)
             _remove_trie((*mf) -> outer_tokens, list -> name);
@@ -2048,14 +2035,10 @@ if(statement -> type == SYMBOL &&
             already_declared = _search_trie(scope -> variable_types, INT,
                                             buffer,
                                             &current_type_if_already_declared);
-        while(scope -> parent != NULL){
-            already_declared = _search_trie(scope -> variable_types, INT,
-                                            buffer,
-                                            &current_type_if_already_declared);
-            if(already_declared)
-                break;
-            scope = scope -> parent;
-        }
+        scope = get_scope(*mf, buffer);
+        already_declared = _search_trie(scope -> variable_types, INT,
+                                        buffer,
+                                        &current_type_if_already_declared);
         // Determina sua arena de memória
         if(scope -> parent == NULL)
             current_arena = _user_arena;
@@ -2405,15 +2388,9 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")){
     }
     name = statement -> name;
     // Decidindo em que região de memória alocar
-    while(scope -> parent != NULL){
-        int dummy_result;
-        if(_search_trie(scope -> variable_types, INT,
-                        name, &dummy_result)){
-            current_arena = metafont_arena;
-            break;
-        }
-        scope = scope -> parent;
-    }
+    scope = get_scope(*mf, name);
+    if(scope -> parent != NULL)
+      current_arena = metafont_arena;
     statement = statement -> next;
     delimited_headers = delimited_parameters(*mf, &statement, current_arena);
     undelimited_header = undelimited_parameters(*mf, &statement, current_arena);
@@ -2523,15 +2500,9 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
     variable_name[0] = '\0';
     declared_variable(*mf, &statement, variable_name, 1024);
     // Decidindo em que região de memória alocar
-    while(scope -> parent != NULL){
-        int dummy_result;
-        if(_search_trie(scope -> variable_types, INT,
-                        variable_name, &dummy_result)){
-            current_arena = metafont_arena;
-            break;
-        }
-        scope = scope -> parent;
-    }
+    scope = get_scope(*mf, variable_name);
+    if(scope -> parent != NULL)
+      current_arena = metafont_arena;
     // Checando ocorrência de '@#':
     if(statement != NULL && statement -> type == SYMBOL &&
        !strcmp(statement -> name, "@@#")){
@@ -2664,15 +2635,9 @@ if(statement -> type == SYMBOL &&
     }
     name = statement -> name;
     // Descobrindo o escopo
-    while(scope -> parent != NULL){
-        int dummy_result;
-        if(_search_trie(scope -> variable_types, INT,
-                        name, &dummy_result)){
-            current_arena = metafont_arena;
-            break;
-        }
-        scope = scope -> parent;
-    }
+    scope = get_scope(*mf, name);
+    if(scope -> parent != NULL)
+      current_arena = metafont_arena;
     destiny[0] = scope -> primarydef;
     destiny[1] = scope -> secondarydef;
     destiny[2] = scope -> tertiarydef;
@@ -3059,11 +3024,7 @@ void new_defined_string_variable(char *var_name, char *type_name,
     int current_type = -1;
     void *current_arena;
     struct string_variable *new_variable = NULL;
-    while(scope != NULL){
-        if(_search_trie(scope -> variable_types, INT, type_name, &current_type))
-            break;
-        scope = scope -> parent;
-    }
+    scope = get_scope(mf, type_name);
     //Checa por erro de tipo
     switch(current_type){
     case BOOLEAN:
@@ -3370,14 +3331,7 @@ void variable(struct metafont **mf, struct token **token,
     }
     // Tentando obter o tipo, se não acharmos ele é numérico:
     *type = NUMERIC;
-    scope = *mf;
-    while(scope != NULL){
-        bool found = false;
-        found = _search_trie(scope -> variable_types, INT, type_name, type);
-        if(found)
-            break;
-        scope = scope -> parent;
-    }
+    scope = get_scope(*mf, type_name);
     // Finalizando a string e saindo
     if(dst_size > 0)
         dst[pos] = '\0';
@@ -3413,22 +3367,19 @@ struct token *read_var(char *var_name, char *type_name, struct metafont *mf){
     struct metafont *scope = mf;
     struct token *ret = NULL;
     int current_type = -1;
-    while(scope != NULL){
-        struct string_variable *var = NULL;
-        _search_trie(scope -> variable_types, INT, type_name,
-                     &current_type);
-        if(current_type != -1){
-            _search_trie(scope -> vars[current_type], VOID_P, var_name,
-                         (void *) &var);
-            if(var == NULL)
-              return NULL;
-            if(var -> prev != NULL || var -> next != NULL)
-                return NULL; // Variável com valor indefinido
-            ret = new_token_string(var -> name);
-            ret -> deterministic = var -> deterministic;
-            return ret;
-        }
-        scope = scope -> parent;
+    struct string_variable *var = NULL;
+    scope = get_scope(mf, type_name);
+    _search_trie(scope -> variable_types, INT, type_name, &current_type);
+    if(current_type != -1){
+      _search_trie(scope -> vars[current_type], VOID_P, var_name,
+                   (void *) &var);
+      if(var == NULL)
+        return NULL;
+      if(var -> prev != NULL || var -> next != NULL)
+        return NULL; // Variável com valor indefinido
+      ret = new_token_string(var -> name);
+      ret -> deterministic = var -> deterministic;
+      return ret;
     }
     return NULL;
 }
@@ -4418,25 +4369,18 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
     struct metafont *scope1, *scope2;
     char types[8][10] = {"boolean", "path", "string", "numeric", "pen",
                          "picture", "transform", "pair"};
-    for(scope1 = mf; scope1 -> parent != NULL; scope1 = scope1 -> parent)
-        if(_search_trie(scope1 -> variable_types, INT, declared1, &var1_type)){
-            arena1 = metafont_arena;
-            break;
-        }
-    if(arena1 != metafont_arena)
-        _search_trie(scope1 -> variable_types, INT, declared1,
-                     &var1_type);
+    scope1 = get_scope(mf, declared1);
+    if(scope1 -> parent != NULL)
+      arena1 = metafont_arena;
+    _search_trie(scope1 -> variable_types, INT, declared1, &var1_type);
     if(var1_type == NOT_DECLARED)
         var1_type = NUMERIC;
-    for(scope2 = mf; scope2 -> parent != NULL; scope2 = scope2 -> parent)
-        if(_search_trie(scope2 -> variable_types, INT, declared2, &var2_type)){
-            arena2 = metafont_arena;
-            break;
-        }
-    if(arena2 != metafont_arena)
-        _search_trie(scope2 -> variable_types, INT, declared2, &var2_type);
+    scope2 = get_scope(mf, declared2);
+    if(scope2 -> parent != NULL)
+      arena2 = metafont_arena;
+    _search_trie(scope2 -> variable_types, INT, declared2, &var2_type);
     if(var2_type == NOT_DECLARED)
-        var2_type = NUMERIC;
+      var2_type = NUMERIC;
     if(var1_type != var2_type){
         mf_error(mf, "Equation cannot be performed (%s=%s).", types[var1_type],
             types[var2_type]);
