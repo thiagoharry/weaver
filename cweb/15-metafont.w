@@ -3025,6 +3025,7 @@ void new_defined_string_variable(char *var_name, char *type_name,
     void *current_arena;
     struct string_variable *new_variable = NULL;
     scope = get_scope(mf, type_name);
+    _search_trie(scope -> variable_types, INT, type_name, &current_type);
     //Checa por erro de tipo
     switch(current_type){
     case BOOLEAN:
@@ -3332,6 +3333,7 @@ void variable(struct metafont **mf, struct token **token,
     // Tentando obter o tipo, se não acharmos ele é numérico:
     *type = NUMERIC;
     scope = get_scope(*mf, type_name);
+    _search_trie(scope -> variable_types, INT, type_name, type);
     // Finalizando a string e saindo
     if(dst_size > 0)
         dst[pos] = '\0';
