@@ -2241,7 +2241,14 @@ error_no_memory:
 }
 @
 
-E agora uma versão desta função apenas para parâmetros não-delimitados:
+E agora uma versão desta função apenas para parâmetros
+não-delimitados. Tais parâmetros podem ter os seguintes tipos novos:
+
+@<Metafont: Variáveis Estáticas@>+=
+#define UNDELIMITED_EXPR   11
+#define UNDELIMITED_SUFFIX 12
+#define UNDELIMITED_TEXT   13
+@
 
 @<Metafont: Funções Estáticas@>+=
 static struct token *undelimited_parameters(struct metafont *mf,
@@ -2259,11 +2266,11 @@ static struct token *undelimited_parameters(struct metafont *mf,
         else if(!strcmp(tok -> name, "tertiary"))
             type = TERTIARY;
         else if(!strcmp(tok -> name, "expr"))
-            type = EXPR;
+            type = UNDELIMITED_EXPR;
         else if(!strcmp(tok -> name, "suffix"))
-            type = SUFFIX;
+            type = UNDELIMITED_SUFFIX;
         else if(!strcmp(tok -> name, "text"))
-            type = TEXT;
+            type = UNDELIMITED_TEXT;
         else return NULL;
     }
     tok = tok -> next;
