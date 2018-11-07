@@ -1642,10 +1642,10 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
 @
 
 Vamos agora gerar apenas uma função auxiliar para obter o delimitador
-oposto d eum token, ou NULL se ele não for um delimitador:
+oposto de um token, ou NULL se ele não for um delimitador:
 
 @<Metafont: Funções Estáticas@>+=
-static char  *delimiter(struct metafont *mf, struct token *tok){
+static char *delimiter(struct metafont *mf, struct token *tok){
     char *result = NULL;
     while(mf != NULL){
         bool ret = _search_trie(mf -> delimiters, VOID_P, tok -> name,
@@ -4304,6 +4304,7 @@ sejam simbólicos:
             *tok = next_token;
         }
     }
+    @<Metafont: expand_macro: Lê Expressão Delimitada@>
 }
 @
 
@@ -4666,3 +4667,69 @@ static void end_scope(struct metafont *mf){
     _map_trie(remove_string_variable_from_equalty_list, mf -> vars[STRING]);
 }
 @
+
+@*1 Parâmetros de Expressões.
+
+A utilidade do \monoespaco{vardef} que declaramos não é apenas
+declarar um número potencialmente infinito de variáveis cujo valor é
+deduzido por meio de expressões mais complexas e soficticadas baseadas
+no nome. Devido à ordem em que elas são avaliadas, isso faz com que
+elas sejam a forma correta de declarar novos operadores unários, os
+quais podem receber parâmetros.
+
+O primeiro tipo de parâmetros são expressões, os quais podem ser
+delimitados ou não-delimitados. Se esperamos um parâmetro delimitado,
+então devemos ler:
+
+\alinhaverbatim
+( <Expressão> )
+\alinhanormal
+
+Onde o delimitador não precisa ser necessariamente o parênteses, mas
+qualquer coisa que tenha sido definida como delimitador. Ao invés de
+fechar o parênteses, podemos ter depois uma vírgula e outros
+parâmetros. Em tais casos, se não lemos o último parâmetro, apenas
+substituímos a vírcula por \monoespaco{)(}, ou qualquer que seja o
+delimitador.
+
+@<Metafont: expand_macro: Lê Expressão Delimitada@>=
+else if(arg -> type == EXPR){
+  struct token *begin_delim, *end_delim;
+  struct token *next_token = (*tok) -> next;
+  char *delim;
+  int number_of_delimiters = 0;
+  // Primeiro temos que ler o delimitador
+  begin_delim = next_token;
+  delim = delimiter(begin_delim, mf);
+  if(delim == NULL){
+    mf_error(mf, "Missing argument.");
+    return;
+  }
+  // Achar o fim do delimitador
+  number_of_delimiters ++;
+  end_delim = begin_delim -> next;
+  while(end_delim != NULL){
+    if(end_delim -> type == SYMBOL && !strcmp(end_delim -> name, delim))
+      break;
+    end_delim = end_delim -> next;
+  }
+  if(end_delim == NULL || end_delim == begin_delim -> next){
+    mf_error(mf, "Missing or invalid argument.");
+    return;
+  }
+  
+    while(*tok != NULL && is_tag(mf, *tok)){
+      struct token *next_token = (*tok) -> next;
+      if((*tok) -> prev != NULL)
+        (*tok) -> prev -> next = (*tok) -> next;
+      if((*tok) -> next != NULL)
+        (*tok) -> next -> prev = (*tok) -> prev;
+      (*tok) -> prev = (*tok) -> next = NULL;
+      concat_token(&(arg -> prev), *tok);
+      *tok = next_token;
+    }
+}
+@
+
+Caso não seja uma expressão delimitada, devemos ler a maior expresão
+possível, sem a ajuda de delimitadores para ajudar.
