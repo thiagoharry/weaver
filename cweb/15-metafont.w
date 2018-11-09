@@ -4692,10 +4692,21 @@ parâmetros. Em tais casos, se não lemos o último parâmetro, apenas
 substituímos a vírcula por \monoespaco{)(}, ou qualquer que seja o
 delimitador.
 
+Alternativamente, se não estamos no último argumento, podemos ter que
+ler:
+
+\alinhaverbatim
+( <Expressão> ,
+\alinhanormal
+
+onde depois da vírgula teremos mais argumentos antes do fechamento de
+parêntesis.
+
 @<Metafont: expand_macro: Lê Expressão Delimitada@>=
 else if(arg -> type == EXPR){
   struct token *begin_delim, *end_delim;
   struct token *next_token = (*tok) -> next;
+  bool last_arg = (arg -> next != NULL);
   char *delim;
   int number_of_delimiters = 0;
   // Primeiro temos que ler o delimitador
@@ -4717,17 +4728,17 @@ else if(arg -> type == EXPR){
     mf_error(mf, "Missing or invalid argument.");
     return;
   }
-  
-    while(*tok != NULL && is_tag(mf, *tok)){
-      struct token *next_token = (*tok) -> next;
-      if((*tok) -> prev != NULL)
-        (*tok) -> prev -> next = (*tok) -> next;
-      if((*tok) -> next != NULL)
-        (*tok) -> next -> prev = (*tok) -> prev;
-      (*tok) -> prev = (*tok) -> next = NULL;
-      concat_token(&(arg -> prev), *tok);
-      *tok = next_token;
-    }
+  next_token = begin_delim -> next;
+  arg -> prev = eval(mf, &next_token);
+  if(!last_arg && next_token -> next != NULL &&
+     next_token -> next -> type == SYMBOL &&
+     !strcmp(next_token -> next -> name, ",")){
+    // Trocando a vírgula por novo '('
+    begin_delim -> next = next_token -> next -> next;
+    next_token -> next -> next -> prev = begin_delim;
+  }
+  else
+    *tok = end_delim;
 }
 @
 
