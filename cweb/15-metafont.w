@@ -4711,7 +4711,7 @@ else if(arg -> type == EXPR){
   int number_of_delimiters = 0;
   // Primeiro temos que ler o delimitador
   begin_delim = next_token;
-  delim = delimiter(begin_delim, mf);
+  delim = delimiter(mf, begin_delim);
   if(delim == NULL){
     mf_error(mf, "Missing argument.");
     return;
@@ -4729,7 +4729,7 @@ else if(arg -> type == EXPR){
     return;
   }
   next_token = begin_delim -> next;
-  arg -> prev = eval(mf, &next_token);
+  arg -> prev = eval(&mf, &next_token);
   if(!last_arg && next_token -> next != NULL &&
      next_token -> next -> type == SYMBOL &&
      !strcmp(next_token -> next -> name, ",")){
