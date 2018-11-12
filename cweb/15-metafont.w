@@ -3204,6 +3204,7 @@ void variable(struct metafont **mf, struct token **token,
     struct metafont *scope = *mf;
     struct token *previous_token;
     struct token *old_token = *token;
+    
     bool internal = false, vardef = false;
     float dummy;
     struct macro *mc = NULL;
@@ -3443,21 +3444,23 @@ if(current_token -> type == SYMBOL){
             continue;
         }
     }
-    if(replacement == NULL || type == NOT_DECLARED){
-        // Restaurar variável
-        if(current_token -> prev == NULL)
-            *expression = possible_var;
-        else
-            current_token -> prev -> next = possible_var;
-        while(possible_var -> next != current_token &&
-              possible_var -> next != NULL &&
-              possible_var -> next != possible_var){
-            possible_var = possible_var -> next;
+    // É necessário tratar o caso de restaurar se não lemos nada?
+    /*if(replacement == NULL || type == NOT_DECLARED){
+        if(current_token != possible_var){
+            // Restaurar variável
+            if(current_token -> prev == NULL)
+              *expression = possible_var;
+            else
+              current_token -> prev -> next = possible_var;
+            while(possible_var -> next != current_token &&
+                  possible_var -> next != NULL &&
+                  possible_var -> next != possible_var){
+              possible_var = possible_var -> next;
+            }
+            current_token -> prev = possible_var;
+            possible_var -> next = current_token;
         }
-        current_token -> prev = possible_var;
-        possible_var -> next = current_token;
-        continue;
-    }
+        }*/
 }
 @
 
