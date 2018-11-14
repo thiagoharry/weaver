@@ -3421,8 +3421,9 @@ if(current_token -> type == SYMBOL){
     struct token *replacement = NULL;
     struct token *possible_var = current_token;
     variable(mf, &current_token, variable_name, 1024, type_name, &type, true);
-    if(type == MACRO) // vardef substituído
+    if(type == MACRO){ // vardef substituído
         return NULL;
+    }
     if(type != NOT_DECLARED){
         // Se estamos aqui, é mesmo uma variável
         if(type != STRING){
@@ -3444,10 +3445,9 @@ if(current_token -> type == SYMBOL){
             continue;
         }
     }
-    // É necessário tratar o caso de restaurar se não lemos nada?
-    /*if(replacement == NULL || type == NOT_DECLARED){
+    if(replacement == NULL || type == NOT_DECLARED){
         if(current_token != possible_var){
-            // Restaurar variável
+            // Restaurar variável se foi consumida mas é vazia
             if(current_token -> prev == NULL)
               *expression = possible_var;
             else
@@ -3460,7 +3460,7 @@ if(current_token -> type == SYMBOL){
             current_token -> prev = possible_var;
             possible_var -> next = current_token;
         }
-        }*/
+    }
 }
 @
 
@@ -4713,7 +4713,7 @@ else if(arg -> type == EXPR){
   char *delim;
   int number_of_delimiters = 0;
   // Primeiro temos que ler o delimitador
-  begin_delim = next_token;
+  begin_delim = *tok;
   delim = delimiter(mf, begin_delim);
   if(delim == NULL){
     mf_error(mf, "Missing argument.");
@@ -4731,6 +4731,7 @@ else if(arg -> type == EXPR){
     mf_error(mf, "Missing or invalid argument.");
     return;
   }
+  end_delim -> prev -> next = NULL;
   next_token = begin_delim -> next;
   arg -> prev = eval(&mf, &next_token);
   if(!last_arg && next_token -> next != NULL &&
@@ -4740,8 +4741,11 @@ else if(arg -> type == EXPR){
     begin_delim -> next = next_token -> next -> next;
     next_token -> next -> next -> prev = begin_delim;
   }
-  else
-    *tok = end_delim;
+  else{
+    *tok = end_delim -> next;
+    begin_delim -> prev -> next = end_delim -> next;
+    end_delim -> next -> prev = begin_delim -> prev;
+  }
 }
 @
 
