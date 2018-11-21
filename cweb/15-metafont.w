@@ -2931,6 +2931,7 @@ static struct token *eval_string(struct metafont **mf,
           (current_token -> type != SYMBOL ||
            (strcmp(current_token -> name, ";") &&
             strcmp(current_token -> name, "=") &&
+            strcmp(current_token -> name, ",") &&
             strcmp(current_token -> name, ":="))) &&
           (!delimited || strcmp(current_token -> name, delim))){
         @<Metafont: String: Expressões Primárias@>
@@ -2944,6 +2945,7 @@ static struct token *eval_string(struct metafont **mf,
           (current_token -> type != SYMBOL ||
            (strcmp(current_token -> name, ";") &&
             strcmp(current_token -> name, "=") &&
+            strcmp(current_token -> name, ",") &&
             strcmp(current_token -> name, ":="))) &&
           (!delimited || strcmp(current_token -> name, delim))){
       @<Metafont: String: Expressões Quaternárias@>
@@ -4709,7 +4711,7 @@ parêntesis.
 else if(arg -> type == EXPR){
   struct token *begin_delim, *end_delim;
   struct token *next_token = (*tok) -> next;
-  bool last_arg = (arg -> next != NULL);
+  bool last_arg = (arg -> next == NULL);
   char *delim;
   int number_of_delimiters = 0;
   // Primeiro temos que ler o delimitador
@@ -4734,12 +4736,14 @@ else if(arg -> type == EXPR){
   end_delim -> prev -> next = NULL;
   next_token = begin_delim -> next;
   arg -> prev = eval(&mf, &next_token);
+  end_delim -> prev -> next = end_delim;
   if(!last_arg && next_token -> next != NULL &&
      next_token -> next -> type == SYMBOL &&
      !strcmp(next_token -> next -> name, ",")){
     // Trocando a vírgula por novo '('
     begin_delim -> next = next_token -> next -> next;
     next_token -> next -> next -> prev = begin_delim;
+    *tok = begin_delim;
   }
   else{
     *tok = end_delim -> next;
