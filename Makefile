@@ -1,6 +1,6 @@
 SHELL := /bin/bash
-INSTALL_BIN_DIR=/usr/bin/
-INSTALL_SHARE_DIR=/usr/share/weaver
+INSTALL_BIN_DIR=/usr/local/bin/
+INSTALL_SHARE_DIR=/usr/local/share/weaver
 PROJECT_SHARE=${INSTALL_SHARE_DIR}/project
 W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w cweb/03-numeros.w\
 	cweb/04-gerais.w\
@@ -25,6 +25,9 @@ diagram: cweb/diagrams/project_dir.dot cweb/diagrams/estados.dot cweb/diagrams/e
 	@dot -Teps cweb/diagrams/estados.dot -o cweb/diagrams/estados.eps
 	@dot -Teps cweb/diagrams/estados2.dot -o cweb/diagrams/estados2.eps
 program: test_tangle test_cc preprocess make-program
+bsd: test_tangle test_cc preprocess
+	@if [ -e .error ]; then	rm .error; \
+	else make -j 1 -f bsd.Makefile; fi
 make-program: preprocess
 	@if [ -e .error ]; then	rm .error; \
 	else make --no-print-directory -j ${CORES} -f Makefile.prog; fi

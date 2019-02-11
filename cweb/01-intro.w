@@ -452,7 +452,7 @@ O comportamento de Weaver deve depender das seguintes variáveis:
 
 |shared_dir|: Deverá armazenar o caminho para o diretório onde
   estão os arquivos compartilhados da instalação de Weaver. Por
-  padrão, será igual à "\monoespaco{/usr/share/weaver}", mas caso exista a
+  padrão, será igual à "\monoespaco{/usr/local/share/weaver}", mas caso exista a
   variável de ambiente \monoespaco{WEAVER\_DIR}, então este será
   considerado o endereço dos arquivos compartilhados.
 
@@ -670,7 +670,12 @@ char *concatenate(char *string, ...){
   va_start(arguments, string);
   new_string = (char *) malloc(current_size);
   if(new_string == NULL) return NULL;
-  strcpy(new_string, string); // Copia primeira string
+   // Copia primeira string de acordo com o indicado pelo sistema operacional
+#ifdef __OpenBSD__
+  strlcpy(new_string, string, current_size);
+#else
+  strcpy(new_string, string);
+#endif
   while(current_string[0] != '\0'){ // Pára quando copiamos o ""
     current_string = va_arg(arguments, char *);
     current_size += strlen(current_string);
@@ -680,7 +685,12 @@ char *concatenate(char *string, ...){
       return NULL;
     }
     new_string = realloc_return;
-    strcat(new_string, current_string); // Copia próxima string
+     // Copia próxima string de acordo com o recomendado pelo sistema
+#ifdef __OpenBSD__
+    strlcat(new_string, current_string, current_size);
+#else
+    strcat(new_string, current_string);
+#endif
   }
   return new_string;
 }
@@ -710,20 +720,27 @@ diretório \monoespaco{.weaver/} no diretório examinado. E no fim do
 loop, sempre vamos para o diretório-pai do qual estamos:
 
 @<Inicialização@>+=
-while(strcmp(complete_path, "/.weaver")){ // Testa se chegamos ao fim
-  if(directory_exist(complete_path) == EXISTE_E_EH_DIRETORIO){
-    inside_weaver_directory = true;
-    complete_path[strlen(complete_path)-7] = '\0'; // Apaga o '.weaver'
-    project_path = concatenate(complete_path, "");
-    if(project_path == NULL){ free(complete_path); ERROR(); }
-    break;
+{
+  size_t tmp_size = strlen(complete_path);
+  while(strcmp(complete_path, "/.weaver")){ // Testa se chegamos ao fim
+    if(directory_exist(complete_path) == EXISTE_E_EH_DIRETORIO){
+      inside_weaver_directory = true;
+      complete_path[strlen(complete_path) - 7] = '\0'; // Apaga o '.weaver'
+      project_path = concatenate(complete_path, "");
+      if(project_path == NULL){ free(complete_path); ERROR(); }
+      break;
+    }
+    else{
+      path_up(complete_path);
+#ifdef __OpenBSD__
+      strlcat(complete_path, "/.weaver", tmp_size);
+#else
+      strcat(complete_path, "/.weaver");
+#endif
+    }
   }
-  else{
-    path_up(complete_path);
-    strcat(complete_path, "/.weaver");
-  }
+  free(complete_path);
 }
-free(complete_path);
 @
 
 Como alocamos memória para |project_path| armazenar o endereço do
@@ -817,13 +834,13 @@ if(have_arg){
 A variável |shared_dir| deverá conter onde estão os arquivos
 compartilhados da instalação de Weaver. Se existir a variável de
 ambiente \monoespaco{WEAVER\_DIR}, este será o caminho. Caso contrário,
-assumiremos o valor padrão de \monoespaco{/usr/share/weaver}.
+assumiremos o valor padrão de \monoespaco{/usr/local/share/weaver}.
 
 @<Inicialização@>+=
 {
   char *weaver_dir = getenv("WEAVER_DIR");
   if(weaver_dir == NULL){
-    shared_dir = concatenate("/usr/share/weaver/", "");
+    shared_dir = concatenate("/usr/local/share/weaver/", "");
     if(shared_dir == NULL) ERROR();
   }
   else{
@@ -1041,7 +1058,11 @@ login como sendo o nome:
   size = strlen(string_to_copy);
   author_name = (char *) malloc(size + 1);
   if(author_name == NULL) ERROR();
+#ifdef __OpenBSD__
+  strlcpy(author_name, string_to_copy, size + 1);
+#else
   strcpy(author_name, string_to_copy);
+#endif
 }
 @
 
@@ -1653,6 +1674,7 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     int i, number, number_of_files = 0, err;
     char *buffer, *buffer2;
     bool *exists;
+    size_t tmp_size;
     // Primeiro vamos iterar dentro do diretório de shaders apenas
     // para contar o número de diretórios:
     shader_dir = opendir("shaders/");
@@ -1711,11 +1733,11 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
     }
     number = i + 1; // Este é o número do novo shader
     // Criando diretório do shader:
-    buffer = (char *) malloc(strlen("shaders/") +
-                             number / 10 + 2 + strlen(argument2));
+    tmp_size = strlen("shaders/") + number / 10 + 2 + strlen(argument2);
+    buffer = (char *) malloc(tmp_size);
     if(buffer == NULL) ERROR();
     buffer[0] = '\0';
-    sprintf(buffer, "shaders/%d-%s", number, argument2);
+    snprintf(buffer, tmp_size, "shaders/%d-%s", number, argument2);
     err = mkdir(buffer, S_IRWXU | S_IRWXG | S_IROTH);
     if(err == -1) ERROR();
     // Escrevendo o shader de vértice:
