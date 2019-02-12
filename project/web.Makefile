@@ -1,4 +1,4 @@
-SHELL := /bin/bash
+SHELL := /bin/sh
 EMCC=emcc
 PROG=$(shell cat .weaver/name)
 BC=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).bc; done)

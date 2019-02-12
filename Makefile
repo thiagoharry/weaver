@@ -1,14 +1,15 @@
-SHELL := /bin/bash
+SHELL := /bin/sh
 INSTALL_BIN_DIR=/usr/local/bin/
 INSTALL_SHARE_DIR=/usr/local/share/weaver
 PROJECT_SHARE=${INSTALL_SHARE_DIR}/project
+MAKE=$(shell if which gmake > /dev/null; then echo gmake; else echo make; fi)
 W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w cweb/03-numeros.w\
 	cweb/04-gerais.w\
         cweb/05-janela.w cweb/06-entrada.w cweb/07-plugins.w\
 	cweb/08-shaders.w cweb/09-resolucao.w cweb/10-som.w cweb/11-gifs.w \
 	cweb/12-imagens.w cweb/13-arquivos.w cweb/14-musica.w \
 	cweb/15-metafont.w cweb/99-fim.w
-CORES=$(shell grep -c ^processor /proc/cpuinfo)
+CORES=$(shell grep -c ^processor /proc/cpuinfo 2> /dev/null || sysctl hw.ncpu | grep -E -o "[0-9]+")
 
 main: program
 all: doc program
@@ -19,18 +20,15 @@ preprocess: ${W_FILES}
 doc: test_cweave test_dot test_latex make-doc
 make-doc: preprocess diagram
 	@if [ -e .error ]; then	rm .error; \
-	else make --no-print-directory -j ${CORES} -f Makefile.doc; fi
+	else ${MAKE} --no-print-directory -j ${CORES} -f Makefile.doc; fi
 diagram: cweb/diagrams/project_dir.dot cweb/diagrams/estados.dot cweb/diagrams/estados2.dot
 	@dot -Teps cweb/diagrams/project_dir.dot -o cweb/diagrams/project_dir.eps
 	@dot -Teps cweb/diagrams/estados.dot -o cweb/diagrams/estados.eps
 	@dot -Teps cweb/diagrams/estados2.dot -o cweb/diagrams/estados2.eps
 program: test_tangle test_cc preprocess make-program
-bsd: test_tangle test_cc preprocess
-	@if [ -e .error ]; then	rm .error; \
-	else make -j 1 -f bsd.Makefile; fi
 make-program: preprocess
 	@if [ -e .error ]; then	rm .error; \
-	else make --no-print-directory -j ${CORES} -f Makefile.prog; fi
+	else ${MAKE} --no-print-directory -j ${CORES} -f Makefile.prog; fi
 test_cweave: .build/have_cweave
 .build/have_cweave:
 	@echo -n "Testing CWEAVE..............."

@@ -1,8 +1,8 @@
-SHELL := /bin/bash
+SHELL := /bin/sh
 PROG=$(shell cat .weaver/name)
 CORES=$(shell grep -c ^processor /proc/cpuinfo)
 
-TARGET_TEST=$(shell grep "\#define[ \t]\+W_TARGET[ \t]\+W_" conf/conf.h | grep -o "\(W_WEB\|W_ELF\)")
+TARGET_TEST=$(shell egrep "\#define[ \t]+W_TARGET[ \t]+W_" conf/conf.h | egrep -o "(W_WEB|W_ELF)")
 INSTALL_DATA_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_DATA[ \t]\+" conf/conf.h | grep -o "\".*\"")
 INSTALL_PROG_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_PROG[ \t]\+" conf/conf.h | grep -o "\".*\"")
 DEBUG_LEVEL=$(shell grep "\#define[ \t]\+W_DEBUG_LEVEL[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
@@ -33,7 +33,8 @@ else ifeq ($(strip $(TARGET_TEST)),W_ELF)
 prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd ${TEST_PNG} ${TEST_MP3} shader_data make-prog
 else
 err:
-	$(error Invalid W_TARGET in conf/conf.h)
+	echo "--"${TARGET_TEST}"--"
+#	$(error Invalid W_TARGET in conf/conf.h)
 endif
 make-prog:
 	@if [ -e .error ]; then	rm .error; \
