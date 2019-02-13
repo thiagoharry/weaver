@@ -1,6 +1,13 @@
-SHELL := /bin/sh
+SHELL := /usr/bin/env bash
+MAKE=$(shell if which gmake > /dev/null; then echo gmake; else echo make; fi)
 PROG=$(shell cat .weaver/name)
-CORES=$(shell grep -c ^processor /proc/cpuinfo)
+CORES=$(shell grep -c ^processor /proc/cpuinfo 2> /dev/null)
+
+XLIB=$(shell pkg-config --cflags --libs x11)
+GL=$(shell pkg-config --cflags --libs gl glew)
+AL=$(shell pkg-config --cflags --libs openal)
+PNG=$(shell pkg-config --cflags --libs libpng)
+MPG123=$(shell pkg-config --cflags --libs libmpg123)
 
 TARGET_TEST=$(shell egrep "\#define[ \t]+W_TARGET[ \t]+W_" conf/conf.h | egrep -o "(W_WEB|W_ELF)")
 INSTALL_DATA_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_DATA[ \t]\+" conf/conf.h | grep -o "\".*\"")
@@ -8,6 +15,10 @@ INSTALL_PROG_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_PROG[ \t]\+" conf/conf.h
 DEBUG_LEVEL=$(shell grep "\#define[ \t]\+W_DEBUG_LEVEL[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
 DONT_USE_PNG=$(shell grep "^\#define[ \t]\+W_DISABLE_PNG" conf/conf.h)
 DONT_USE_MP3=$(shell grep "^\#define[ \t]\+W_DISABLE_MP3" conf/conf.h)
+
+ifeq ($(CORES),)
+CORES := $(shell sysctl hw.ncpu | grep -E -o "[0-9]+")
+endif
 
 ifeq ($(INSTALL_DATA_DIR),)
 INSTALL_DATA_DIR := "/usr/share/games/"$(PROG)
@@ -33,15 +44,14 @@ else ifeq ($(strip $(TARGET_TEST)),W_ELF)
 prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd ${TEST_PNG} ${TEST_MP3} shader_data make-prog
 else
 err:
-	echo "--"${TARGET_TEST}"--"
-#	$(error Invalid W_TARGET in conf/conf.h)
+	$(error Invalid W_TARGET in conf/conf.h)
 endif
 make-prog:
 	@if [ -e .error ]; then	rm .error; \
-	else make --no-print-directory -j ${CORES} -f prog.Makefile; fi
+	else ${MAKE} --no-print-directory -j ${CORES} -f prog.Makefile; fi
 make-web:
 	@if [ -e .error ]; then	rm .error; \
-	else make --no-print-directory -j ${CORES} -f web.Makefile; fi
+	else ${MAKE} --no-print-directory -j ${CORES} -f web.Makefile; fi
 shader_data: src/weaver/vertex_interface.data\
 		src/weaver/fragment_interface.data\
 		src/weaver/fragment_interface_texture.data\
@@ -105,9 +115,9 @@ test_cc: .weaver/have_cc
 	@echo "#include <X11/Xlib.h>" > .weaver/dummy.c
 	@echo "#include <X11/XKBlib.h>" >> .weaver/dummy.c
 	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
-	@(gcc .weaver/dummy.c -o .weaver/a.out -lX11 &> /dev/null && \
+	@(gcc .weaver/dummy.c -o .weaver/a.out ${XLIB} &> /dev/null && \
 	touch .weaver/have_xlib) || \
-	(clang .weaver/dummy.c -o .weaver/a.out -lX11 &> /dev/null && \
+	(clang .weaver/dummy.c -o .weaver/a.out ${XLIB} -lX11 &> /dev/null && \
 	touch .weaver/have_xlib) ||true
 	@if [ -e .weaver/have_xlib ]; then \
 	echo "OK";  \
@@ -122,9 +132,9 @@ test_cc: .weaver/have_cc
 	@echo "#include <GL/gl.h>" >> .weaver/dummy.c
 	@echo "#include <GL/glx.h>" >> .weaver/dummy.c
 	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
-	@(gcc .weaver/dummy.c -o .weaver/a.out -lX11 -lGL -lGLEW &> /dev/null && \
+	@(gcc .weaver/dummy.c -o .weaver/a.out ${XLIB} ${GL} &> /dev/null && \
 	touch .weaver/have_opengl) || \
-	(clang .weaver/dummy.c -o .weaver/a.out -lX11 -lGL -lGLEW &> /dev/null && \
+	(clang .weaver/dummy.c -o .weaver/a.out ${XLIB} ${GL} &> /dev/null && \
 	touch .weaver/have_opengl) ||true
 	@if [ -e .weaver/have_opengl ]; then \
 	echo "OK";  \
@@ -137,9 +147,9 @@ test_cc: .weaver/have_cc
 	@echo "#include <X11/Xlib.h>" > .weaver/dummy.c
 	@echo "#include <X11/extensions/Xrandr.h>" >> .weaver/dummy.c
 	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
-	@(gcc .weaver/dummy.c -o .weaver/a.out -lX11 -lXrandr &> /dev/null && \
+	@(gcc .weaver/dummy.c -o .weaver/a.out ${XLIB} -lXrandr &> /dev/null && \
 	touch .weaver/have_xrandr) || \
-	(clang .weaver/dummy.c -o .weaver/a.out -lX11 -lXrandr &> /dev/null && \
+	(clang .weaver/dummy.c -o .weaver/a.out ${XLIB} -lXrandr &> /dev/null && \
 	touch .weaver/have_xrandr) ||true
 	@if [ -e .weaver/have_xrandr ]; then \
 	echo "OK";  \
@@ -152,9 +162,9 @@ test_cc: .weaver/have_cc
 	@echo "#include <AL/al.h>" > .weaver/dummy.c
 	@echo "#include <AL/alc.h>" >> .weaver/dummy.c
 	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
-	@(gcc .weaver/dummy.c -o .weaver/a.out -lopenal &> /dev/null && \
+	@(gcc .weaver/dummy.c -o .weaver/a.out ${AL} &> /dev/null && \
 	touch .weaver/have_openal) || \
-	(clang .weaver/dummy.c -o .weaver/a.out -lopenal &> /dev/null && \
+	(clang .weaver/dummy.c -o .weaver/a.out ${AL} &> /dev/null && \
 	touch .weaver/have_openal) ||true
 	@if [ -e .weaver/have_openal ]; then \
 	echo "OK";  \
@@ -166,9 +176,9 @@ test_cc: .weaver/have_cc
 	@echo -n "Testing PNG.................."
 	@echo "#include <png.h>" > .weaver/dummy.c
 	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
-	@(gcc .weaver/dummy.c -o .weaver/a.out -lpng &> /dev/null && \
+	@(gcc .weaver/dummy.c -o .weaver/a.out ${PNG} &> /dev/null && \
 	touch .weaver/have_png) || \
-	(clang .weaver/dummy.c -o .weaver/a.out -lpng &> /dev/null && \
+	(clang .weaver/dummy.c -o .weaver/a.out ${PNG} &> /dev/null && \
 	touch .weaver/have_png) ||true
 	@if [ -e .weaver/have_png ]; then \
 	echo "OK";  \
@@ -181,9 +191,9 @@ test_cc: .weaver/have_cc
 	@echo -n "Testing MPG123..............."
 	@echo "#include <mpg123.h>" > .weaver/dummy.c
 	@echo "int main(void){ return 1; }" >> .weaver/dummy.c
-	@(gcc .weaver/dummy.c -o .weaver/a.out -lmpg123 &> /dev/null && \
+	@(gcc .weaver/dummy.c -o .weaver/a.out ${MPG123} &> /dev/null && \
 	touch .weaver/have_mp3) || \
-	(clang .weaver/dummy.c -o .weaver/a.out -lmpg123 &> /dev/null && \
+	(clang .weaver/dummy.c -o .weaver/a.out ${MPG123} &> /dev/null && \
 	touch .weaver/have_mp3) ||true
 	@if [ -e .weaver/have_mp3 ]; then \
 	echo "OK";  \
