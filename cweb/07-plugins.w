@@ -182,9 +182,6 @@ arquivos \monoespaco{plugins.c} e \monoespaco{plugins.h}:
 @
 @(project/src/weaver/plugins.c@>=
 #include "plugins.h"
-#if W_TARGET == W_ELF
-#include <error.h>
-#endif
 @
 
 Primeiro temos que definir que tipo de informação teremos que

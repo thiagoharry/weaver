@@ -63,6 +63,7 @@ Como usamos o libmpg123 e semáforos:
 
 @<Som: Declarações@>+=
 #if W_TARGET == W_ELF
+#include <pthread.h>
 #include <semaphore.h>
 #ifndef W_DISABLE_MP3
 #include <mpg123.h>
@@ -826,6 +827,7 @@ tocando_musica:
       goto sem_musica_nenhuma;
   }
   goto tocando_musica;
+  return NULL;
 }
 #endif
 @

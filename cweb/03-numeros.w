@@ -30,7 +30,7 @@ E agora o nosso arquivo com as funções C em si:
 #endif
 #include <stdint.h>
 #include <stdbool.h>
-#include <sys/timeb.h> // ftime
+#include <sys/time.h> // gettimeofday
 #include <string.h> // memcpy
 #include "numeric.h"
 #if W_TARGET == W_ELF
@@ -158,7 +158,7 @@ verdadeira. Se for o caso, lemos a variável estática global
 o usuário definiu a macro |W_SEED| em \monoespaco{conf/conf.h},
 usaremos este valor. Caso contrário usaremos como valor o número lido
 de \monoespaco{/dev/urandom} ou um valor baseado no número de
-milissegundos.
+microsegundos.
 
 @<Funções Numéricas: Inicialização@>+=
 if(use_runtime_seed)
@@ -174,15 +174,15 @@ else{
     close(file);
   }
   if(!got_seed){
-    struct timeb t;
-    ftime(&t);
-    seed = (uint32_t) t.time + (uint32_t) (t.millitm << 2);
+    struct timeval t;
+    gettimeofday(&t, NULL);
+    seed = (uint32_t) t.tv_usec + (uint32_t) (t.tv_sec << 9);
   }
 #else
   {
-    struct timeb t;
-    ftime(&t);
-    seed = (uint32_t) t.time + (uint32_t) (t.millitm << 2);
+    struct timeval t;
+    gettimeofday(&t, NULL);
+    seed = (uint32_t) t.tv_usec + (uint32_t) (t.tv_sec << 9);
   }
 #endif
   // Colocamos a semente como primeiro valor na nossa sequência aleatória:

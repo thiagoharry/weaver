@@ -1348,6 +1348,9 @@ verificar o al diretório que armazena shaders:
               // dirent por esta informação:
                 struct stat s;
                 int err;
+		char file[256];
+		strlcpy(file, shader_directory, 256);
+		strlcat(file, dir -> d_name, 256);
                 err = stat(file, &s);
                 if(err == -1) continue;
                 if(!S_ISDIR(s.st_mode)) continue;
@@ -1409,6 +1412,9 @@ o Shader.
               // dirent por esta informação:
                 struct stat s;
                 int err;
+		char file[256];
+		strlcpy(file, shader_directory, 256);
+		strlcat(file, dir -> d_name, 256);
                 err = stat(file, &s);
                 if(err == -1) continue;
                 if(!S_ISDIR(s.st_mode)) continue;
@@ -1913,11 +1919,11 @@ de renderização, separada da engine de física e controle do jogo.
   glBindBuffer(GL_ARRAY_BUFFER,_interface_VBO);
     // Lembrando que '_number_of_loops' contém em qual subloop nós
     // estamos no momento.
-    int last_type;
+    int last_type = W_NONE;
     int i;
     bool first_element = true;
     float time_float;
-    struct _shader *current_shader;
+    struct _shader *current_shader = NULL;
     // Vamos passar para os shaders o tempo em segundos na forma de um
     // float. Isso é para calcularmos com mais precisão minimizando
     // underflows

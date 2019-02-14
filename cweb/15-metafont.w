@@ -436,10 +436,12 @@ static struct token *new_token(int type, float value, char *name,
     token -> type = type;
     token -> value = value;
     if(name != NULL){
-        token -> name = Walloc_arena(memory_arena, strlen(name) + 1);
+        size_t name_size;
+        name_size =  strlen(name) + 1;
+        token -> name = Walloc_arena(memory_arena, name_size);
         if(token -> name == NULL)
             goto error_no_memory;
-        strcpy(token -> name, name);
+        memcpy(token -> name, name, name_size);
     }
     else
         token -> name = name;
@@ -4531,7 +4533,7 @@ Então, vamos ao código:
 @<Metafont: Executa Declaração@>=
 {
   struct token *tok = statement, *last_separator = NULL;
-  struct token *last_semicolon;
+  struct token *last_semicolon = NULL;
   bool found_equation_or_attribution = false;
   int type = -1;
   struct token *token_stack[512];
