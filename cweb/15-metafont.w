@@ -511,7 +511,7 @@ static struct token *next_token(struct metafont *mf){
     case '.':
         next_char = peek_char(mf);
         if(next_char == '.'){
-            strcpy(family, ".");
+            memcpy(family, ".", 2);
             break;
         }
         else if(isdigit(next_char))
@@ -568,37 +568,37 @@ static struct token *next_token(struct metafont *mf){
     case 'I': case 'J': case 'K': case 'L': case 'M': case 'N': case 'O':
     case 'P': case 'Q': case 'R': case 'S': case 'T': case 'U': case 'V':
     case 'W': case 'X': case 'Y': case 'Z':
-        strcpy(family, "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ");
-        break;
+      memcpy(family, "abcdefghijklmnopqrstuvwxyz_ABCDEFGHIJKLMNOPQRSTUVWXYZ", 54);
+      break;
     case '<': case '=': case '>': case ':': case '|':
-        strcpy(family, "<=>:|");
+        memcpy(family, "<=>:|", 6);
         break;
     case '`': case '\'':
-        strcpy(family, "`'");
+        memcpy(family, "`'", 3);
         break;
     case '+': case '-':
-        strcpy(family, "+-");
+        memcpy(family, "+-", 3);
         break;
     case '/': case '*': case '\\':
-        strcpy(family, "/*\\");
+        memcpy(family, "/*\\", 4);
         break;
     case '!': case '?':
-        strcpy(family, "!?");
+        memcpy(family, "!?", 3);
         break;
     case '#': case '&': case '@@': case '$':
-        strcpy(family, "#&@@$");
+        memcpy(family, "#&@@$", 5);
         break;
     case '[':
-        strcpy(family, "[");
+        memcpy(family, "[", 2);
         break;
     case ']':
-        strcpy(family, "]");
+        memcpy(family, "]", 2);
         break;
     case '{': case '}':
-        strcpy(family, "{}");
+        memcpy(family, "{}", 3);
         break;
     case '~': case '^':
-        strcpy(family, "~^");
+        memcpy(family, "~^", 3);
         break;
     default:
         mf_error(mf, "Text line contains an invalid character.");
@@ -1170,7 +1170,8 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "everyjob")){
        strlen((*mf) -> everyjob_token_name) < strlen(statement -> next -> name))
         (*mf) -> everyjob_token_name = (char *)
             Walloc(strlen(statement -> next -> name) + 1);
-    strcpy((*mf) -> everyjob_token_name, statement -> next -> name);
+    memcpy((*mf) -> everyjob_token_name, statement -> next -> name,
+           strlen(statement -> next -> name) + 1);
     return;
 }
 @
@@ -1609,6 +1610,7 @@ simples:
 if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
     char *end_delimiter;
     void *current_arena;
+    size_t name_size;
     struct metafont *scope = (*mf);
     statement = statement -> next;
     if(statement == NULL || statement -> type != SYMBOL){
@@ -1622,15 +1624,16 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "delimiters")){
         mf_error(*mf, "Missing symbolic token.");
         return;
     }
-    end_delimiter = (char *) Walloc_arena(current_arena,
-                                          strlen(statement -> name) + 1);
+    end_delimiter = (char *)
+        Walloc_arena(current_arena,
+                     name_size = strlen(statement -> name) + 1);
     if(end_delimiter == NULL){
         fprintf(stderr, "ERROR: Not enough memory to parse METAFONT. "
                 "Please, increase the value of %s at conf/conf.h.\n",
                 (current_arena==_user_arena)?"W_MAX_MEMORY":"W_INTERNAL_MEMORY");
         return;
     }
-    strcpy(end_delimiter, statement -> name);
+    memcpy(end_delimiter, statement -> name, name_size);
     _insert_trie(scope -> delimiters, current_arena, VOID_P,
                  statement -> prev -> name, (void *) end_delimiter);
     statement = statement -> next;
@@ -3074,6 +3077,7 @@ void new_defined_string_variable(char *var_name, char *type_name,
                   (void *) & new_variable);
     if(new_variable == NULL){
         // Não existe, gerando a variável
+        size_t name_size;
         new_variable = (struct string_variable *)
             Walloc_arena(current_arena,
                          sizeof(struct string_variable));
@@ -3081,10 +3085,10 @@ void new_defined_string_variable(char *var_name, char *type_name,
             goto error_no_memory;
         new_variable -> name =
             (char *) Walloc_arena(current_arena,
-                                  strlen(string_token -> name) + 1);
+                                  name_size = strlen(string_token -> name) + 1);
         if(new_variable -> name == NULL)
             goto error_no_memory;
-        strcpy(new_variable -> name, string_token -> name);
+        memcpy(new_variable -> name, string_token -> name, name_size);
         new_variable -> deterministic = string_token -> deterministic;
         new_variable -> prev = new_variable -> next = NULL;
         _insert_trie(scope -> vars[STRING], current_arena, VOID_P,
@@ -3094,15 +3098,17 @@ void new_defined_string_variable(char *var_name, char *type_name,
     else{
         // Existe.
         if(overwrite){
+            size_t name_size;
             if(new_variable -> prev != NULL)
                 new_variable -> prev -> next = new_variable -> next;
             if(new_variable -> next != NULL)
                 new_variable -> next -> prev = new_variable -> prev;
             new_variable -> name = (char *)
-                Walloc_arena(current_arena, strlen(string_token -> name) + 1);
+                Walloc_arena(current_arena,
+                             name_size = strlen(string_token -> name) + 1);
             if(new_variable -> name == NULL)
                 goto error_no_memory;
-            strcpy(new_variable -> name, string_token -> name);
+            memcpy(new_variable -> name, string_token -> name, name_size);
             new_variable -> deterministic = string_token -> deterministic;
             new_variable -> prev = new_variable -> next = NULL;
         }
@@ -3125,16 +3131,18 @@ void new_defined_string_variable(char *var_name, char *type_name,
             while(new_variable -> prev != NULL)
                 new_variable = new_variable -> prev;
             while(new_variable != NULL){
+                size_t name_size;
                 struct string_variable *next_var;
                 // Rompe conexão com anterior
                 new_variable -> prev = NULL;
                 // Gera o novo nome para a variável
                 new_variable -> name =
-                    (char *) Walloc_arena(current_arena,
-                                          strlen(string_token -> name) + 1);
+                    (char *)
+                        Walloc_arena(current_arena,
+                                     name_size = strlen(string_token -> name) + 1);
                 if(new_variable -> name == NULL)
                     goto error_no_memory;
-                strcpy(new_variable -> name, string_token -> name);
+                memcpy(new_variable -> name, string_token -> name, name_size);
                 new_variable -> deterministic = string_token -> deterministic;
                 // Rompe conexão com próximo e vai até ele
                 next_var = new_variable -> next;
@@ -4056,6 +4064,7 @@ avaliado quando avaliamos uma expressão quaternária:
 if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "&")){
   int new_string_size;
+  size_t last_token_size;
   char *buffer;
   struct token *result;
   // O token anterior deve ser uma string:
@@ -4068,15 +4077,15 @@ if(current_token -> type == SYMBOL &&
     mf_error(*mf, "Missing known string after '&'.");
     return NULL;
   }
-  new_string_size = strlen(current_token -> prev -> name) +
-    strlen(current_token -> next -> name) + 1;
+  last_token_size = strlen(current_token -> prev -> name) + 1;
+  new_string_size = last_token_size + strlen(current_token -> next -> name);
   buffer = Walloc_arena(_internal_arena, new_string_size);
   if(buffer == NULL){
     fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
             "value of W_INTERNAL_MEMORY at conf/conf.h.\n");
     exit(1);
   }
-  strcpy(buffer, current_token -> prev -> name);
+  memcpy(buffer, current_token -> prev -> name, last_token_size);
   strcat(buffer, current_token -> next -> name);
   result = new_token_string(buffer);
   result -> deterministic = current_token -> next -> deterministic &&
@@ -4473,7 +4482,7 @@ static void equal_variables(struct metafont *mf, char *name1, char *name2,
                         var2 -> prev = NULL;
                         var2 -> name = (char *) Walloc_arena(arena2,
                                                              tamanho + 1);
-                        strcpy(var1 -> name, var2 -> name);
+                        memcpy(var1 -> name, var2 -> name, tamanho + 1);
                         next_var = var2 -> next;
                         var2 -> next = NULL;
                         var2 = next_var;

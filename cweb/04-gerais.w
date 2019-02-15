@@ -189,7 +189,7 @@ portanto não terá filhos. E não terá um valor, pois não é uma folha:
     ret -> string = (char *) Walloc_arena(arena, size + 1);
     if(ret -> string == NULL)
         goto no_memory_error;
-    strcpy(ret -> string, string);
+    memcpy(ret -> string, string, size + 1);
     ret -> leaf = false;
     for(i = 0; i < 256; i ++)
         ret -> child[i] = NULL;

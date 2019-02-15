@@ -983,7 +983,7 @@ código para lidar com shaders todo na mesma unidade de compilação:
 @(project/src/weaver/shaders.c@>=
 #include <sys/types.h> // open
 #include <sys/stat.h> // stat, open
-#include <string.h> // strlen, strcpy
+#include <string.h> // strlen, memcpy
 #include <dirent.h> // opendir
 #include <ctype.h> // isdigit
 #include <unistd.h> // access
@@ -1413,7 +1413,11 @@ o Shader.
                 struct stat s;
                 int err;
 		char file[256];
-		strlcpy(file, shader_directory, 256);
+		size_t name_size = strlen(shader_directory) + 1;
+		if(name_size > 256)
+		    name_size = 256;
+		memcpy(file, shader_directory, name_size);
+		file[255] = '\0';
 		strlcat(file, dir -> d_name, 256);
                 err = stat(file, &s);
                 if(err == -1) continue;
@@ -1444,7 +1448,11 @@ o Shader.
                 // precisa ser declarada e definida:
                 {
                     char path[256];
-                    strcpy(path, shader_directory);
+		    size_t name_size = strlen(shader_directory) + 1;
+		    if(name_size > 256)
+		        name_size = 256;
+                    memcpy(path, shader_directory, name_size);
+		    path[255] = '\0';
                     strcat(path, dir -> d_name);
                     path[255] = '\0';
                     _compile_and_insert_new_shader(path, shader_number - 1);
