@@ -255,6 +255,7 @@ void _initialize_plugin(struct _plugin_data *data, char *path);
 void _initialize_plugin(struct _plugin_data *data, char *path){
   struct stat attr;
   char *p, buffer[256];
+  size_t plugin_name_length = strlen(data -> plugin_name);
   int i;
 #ifdef W_PREVENT_SELF_ENABLING_PLUGINS
   data -> finished_initialization = false;
@@ -301,41 +302,37 @@ void _initialize_plugin(struct _plugin_data *data, char *path){
   }
   data -> plugin_name[i] = '\0'; // Armazenado nome do plugin
   // Obtendo nome de _init_plugin_PLUGINNAME e a obtendo:
-  buffer[0] = '\0';
-  strcat(buffer, "_init_plugin_");
-  strcat(buffer, data -> plugin_name);
+  // buffer: 256 de tamanho, data -> plugin_name tem no máximo 128
+  memcpy(buffer, "_init_plugin_", 14);
+  memcpy(&buffer[13], data -> plugin_name, plugin_name_length + 1);
   data -> _init_plugin = dlsym(data -> handle, buffer);
   if(data -> _init_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
             data -> plugin_name, buffer);
   // Obtendo _fini_plugin_PLUGINNAME:
-  buffer[0] = '\0';
-  strcat(buffer, "_fini_plugin_");
-  strcat(buffer, data -> plugin_name);
+  memcpy(buffer, "_fini_plugin_", 14);
+  memcpy(&buffer[13], data -> plugin_name, plugin_name_length + 1);
   data -> _fini_plugin = dlsym(data -> handle, buffer);
   if(data -> _fini_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
             data -> plugin_name, buffer);
   // Obtendo _run_plugin_PLUGINNAME:
-  buffer[0] = '\0';
-  strcat(buffer, "_run_plugin_");
-  strcat(buffer, data -> plugin_name);
+  memcpy(buffer, "_run_plugin_", 13);
+  memcpy(&buffer[12], data -> plugin_name, plugin_name_length + 1);
   data -> _run_plugin = dlsym(data -> handle, buffer);
   if(data -> _run_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
             data -> plugin_name, buffer);
   // Obtendo _enable_PLUGINNAME:
-  buffer[0] = '\0';
-  strcat(buffer, "_enable_plugin_");
-  strcat(buffer, data -> plugin_name);
+  memcpy(buffer, "_enable_plugin_", 16);
+  memcpy(&buffer[15], data -> plugin_name, plugin_name_length + 1);
   data -> _enable_plugin = dlsym(data -> handle, buffer);
   if(data -> _enable_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
             data -> plugin_name, buffer);
   // Obtendo _disable_PLUGINNAME:
-  buffer[0] = '\0';
-  strcat(buffer, "_disable_plugin_");
-  strcat(buffer, data -> plugin_name);
+  memcpy(buffer, "_disable_plugin_", 17);
+  memcpy(&buffer[16], data -> plugin_name, plugin_name_length + 1);
   data -> _disable_plugin = dlsym(data -> handle, buffer);
   if(data -> _disable_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define %s.\n",
@@ -434,6 +431,7 @@ bool _reload_plugin(int plugin_id){
   char buffer[256];
   struct stat attr;
   struct _plugin_data *data = &(_plugins[plugin_id]);
+  size_t string_length, plugin_name_length = strlen(data -> plugin_name);
 #ifdef W_MULTITHREAD
   pthread_mutex_lock(&(data -> mutex));
 #endif
@@ -476,41 +474,41 @@ bool _reload_plugin(int plugin_id){
   dlerror(); // Limpa qualquer mensagem de erro existente
   // Agora temos que obter novos ponteiros para as funções do plugin
   // Obtendo nome de _init_plugin_PLUGINNAME e a obtendo:
-  buffer[0] = '\0';
-  strcat(buffer, "_init_plugin_");
-  strcat(buffer, data -> plugin_name);
+  string_length = 13;
+  memcpy(buffer, "_init_plugin_", string_length + 1);
+  memcpy(&buffer[13], data -> plugin_name, plugin_name_length + 1);
   data -> _init_plugin = dlsym(data -> handle, buffer);
   if(data -> _init_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define _init_plugin_%s.\n",
             data -> plugin_name, data -> plugin_name);
   // Obtendo _fini_plugin_PLUGINNAME:
-  buffer[0] = '\0';
-  strcat(buffer, "_fini_plugin_");
-  strcat(buffer, data -> plugin_name);
+  string_length = 13;
+  memcpy(buffer, "_fini_plugin_", string_length + 1);
+  memcpy(&buffer[13], data -> plugin_name, plugin_name_length + 1);
   data -> _fini_plugin = dlsym(data -> handle, buffer);
   if(data -> _fini_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define _fini_plugin_%s.\n",
             data -> plugin_name, data -> plugin_name);
   // Obtendo _run_plugin_PLUGINNAME:
-  buffer[0] = '\0';
-  strcat(buffer, "_run_plugin_");
-  strcat(buffer, data -> plugin_name);
+  string_length = 12;
+  memcpy(buffer, "_run_plugin_", string_length + 1);
+  memcpy(&buffer[12], data -> plugin_name, plugin_name_length + 1);
   data -> _run_plugin = dlsym(data -> handle, buffer);
   if(data -> _run_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define _run_plugin_%s.\n",
             data -> plugin_name, data -> plugin_name);
   // Obtendo _enable_PLUGINNAME:
-  buffer[0] = '\0';
-  strcat(buffer, "_enable_plugin_");
-  strcat(buffer, data -> plugin_name);
+  string_length = 15;
+  memcpy(buffer, "_enable_plugin_", string_length + 1);
+  memcpy(&buffer[15], data -> plugin_name, plugin_name_length + 1);
   data -> _enable_plugin = dlsym(data -> handle, buffer);
   if(data -> _enable_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define _enable_plugin_%s.\n",
             data -> plugin_name, data -> plugin_name);
   // Obtendo _disable_PLUGINNAME:
-  buffer[0] = '\0';
-  strcat(buffer, "_disable_plugin_");
-  strcat(buffer, data -> plugin_name);
+  string_length = 16;
+  memcpy(buffer, "_disable_plugin_", string_length + 1);
+  memcpy(&buffer[16], data -> plugin_name, plugin_name_length + 1);
   data -> _disable_plugin = dlsym(data -> handle, buffer);
   if(data -> _disable_plugin == NULL)
     fprintf(stderr, "ERROR: Plugin %s doesn't define _disable_plugin_%s.\n",
@@ -671,6 +669,7 @@ como fizemos na contagem:
 
 @<Plugins: Inicialização@>+=
 {
+  size_t dir_length, d_name_length;
   begin = end = W_PLUGIN_PATH;
   i = 0;
   while(*end != '\0'){
@@ -685,6 +684,7 @@ como fizemos na contagem:
     }
     strncpy(dir, begin, (size_t) (end - begin));
     dir[(end - begin)] = '\0';
+    dir_length = (end - begin);
     // dir agora possui o nome do diretório que devemos checar
     directory = opendir(dir);
     if(directory == NULL){
@@ -698,7 +698,8 @@ como fizemos na contagem:
     // Se não houve erro, iteramos sobre os arquivos do diretório
     while ((dp = readdir(directory)) != NULL){
       if(dp -> d_name[0] != '.' && dp -> d_type == DT_REG){
-        if(strlen(dir) + 1 + strlen(dp -> d_name) > 255){
+	d_name_length = strlen(dp -> d_name);
+        if(dir_length + 1 + d_name_length > 255){
           fprintf(stderr, "Ignoring plugin with too long path: %s/%s.\n",
                   dir, dp -> d_name);
           continue;
@@ -708,8 +709,8 @@ como fizemos na contagem:
                   "new plugins being added.\n", dir, dp -> d_name);
           continue;
         }
-        strcat(dir, "/");
-        strcat(dir, dp -> d_name);
+	memcpy(&dir[dir_length], "/", 2);
+	memcpy(&dir[dir_length + 1], dp -> d_name, d_name_length + 1);
         _initialize_plugin(&(_plugins[i]), dir);
         i ++;
       }
@@ -789,6 +790,7 @@ void _reload_all_plugins(void){
     char *begin = W_PLUGIN_PATH, *end = W_PLUGIN_PATH;
     char dir[256]; // Nome de diretório
     DIR *directory;
+    size_t dir_length, d_name_length;
     struct dirent *dp;
     while(*end != '\0'){
       end ++;
@@ -801,6 +803,7 @@ void _reload_all_plugins(void){
       }
       strncpy(dir, begin, (size_t) (end - begin));
       dir[(end - begin)] = '\0';
+      dir_length = (end - begin);
       // dir agora possui o nome do diretório que devemos checar
       directory = opendir(dir);
       if(directory == NULL){
@@ -828,13 +831,14 @@ void _reload_all_plugins(void){
           }
           else{
             // É um novo plugin que não existia antes!
-            if(strlen(dir) + 1 + strlen(dp -> d_name) > 255){
+	    d_name_length = strlen(dp -> d_name);
+            if(dir_length + 1 + d_name_length > 255){
               fprintf(stderr, "Ignoring plugin with too long path: %s/%s.\n",
                       dir, dp -> d_name);
               continue;
             }
-            strcat(dir, "/");
-            strcat(dir, dp -> d_name);
+	    memcpy(&dir[dir_length], "/", 2);
+	    memcpy(&dir[dir_length + 1], dp -> d_name, d_name_length);
             for(i = 0; i < _max_number_of_plugins; i ++){
               if(_plugins[i].defined == false){
                 _initialize_plugin(&(_plugins[i]), dir);

@@ -26,7 +26,7 @@ else
 LIBPNG=
 endif
 INCLUDES=$(shell pkg-config --cflags x11 gl glew openal) ${INCMP3} ${INCPNG}
-LIB=$(shell pkg-config --cflags --libs x11 gl glew openal) -lm -pthread -ldl ${LIBMP3} ${LIBPNG}
+LIB=$(shell pkg-config --cflags --libs x11 gl glew openal) -lm -pthread -lXrandr ${LIBMP3} ${LIBPNG}
 ifeq ($(strip $(SOURCE_TEST)),W_C)
 FINAL_CC=${CC}
 else ifeq ($(strip $(SOURCE_TEST)),W_CPP)
