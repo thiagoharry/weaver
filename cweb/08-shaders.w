@@ -1319,13 +1319,22 @@ verificar o al diretório que armazena shaders:
 {
     int number_of_shaders = 0;
     char shader_directory[256];
+    size_t dir_length = 0;
     DIR *d;
     shader_directory[0] = '\0';
 #if W_DEBUG_LEVEL == 0
-    strcat(shader_directory, W_INSTALL_DATA);
-    strcat(shader_directory, "/");
+    dir_length = strlen(W_INSTALL_DATA);
+    if(dir_length + 9 > 256){
+      fprintf(stderr, "ERROR (0): Shader directory name is too big: %s\n",
+	      W_INSTALL_DATA);
+      exit(1);
+    }
+    memcpy(shader_directory, W_INSTALL_DATA, dir_length + 1);
+    memcpy(&shader_directory[dir_length], "/");
+    dir_length ++;
 #endif
-    strcat(shader_directory, "shaders/");
+    memcpy(&shader_directory[dir_length], "shaders/", 9);
+    dir_length += 8;
     // Pra começar, abrimos o diretório e percorremos os arquivos para
     // contar quantos diretórios tem ali:
     d = opendir(shader_directory);
@@ -1448,13 +1457,16 @@ o Shader.
                 // precisa ser declarada e definida:
                 {
                     char path[256];
-		    size_t name_size = strlen(shader_directory) + 1;
-		    if(name_size > 256)
-		        name_size = 256;
-                    memcpy(path, shader_directory, name_size);
-		    path[255] = '\0';
-                    strcat(path, dir -> d_name);
-                    path[255] = '\0';
+		    size_t name_size = strlen(shader_directory);
+		    size_t d_name_size = strlen(dir -> d_name);
+		    if(name_size + d_name_size > 255){
+		      fprintf(stderr, "ERROR (0): path is "
+			      "too big: %s%s\n", shader_directory,
+			      dir -> d_name);
+		      exit(1);
+		    }
+                    memcpy(path, shader_directory, name_size + 1);
+		    memcpy(&path[name_size], dir -> d_name, d_name_size + 1);
                     _compile_and_insert_new_shader(path, shader_number - 1);
                 }
             }
@@ -1499,6 +1511,7 @@ void _compile_and_insert_new_shader(char *dir, int position){
     char *p;
     int i;
     FILE *fp;
+    size_t file_name_size = 0;
     // Marcamos o shader como inicializado:
     _shader_list[position].initialized = true;
     // Começamos obtendo o nome do shader, que é o nome do diretório
@@ -1510,10 +1523,10 @@ void _compile_and_insert_new_shader(char *dir, int position){
         _shader_list[position].name[i] = p[i]; // Copiando
     _shader_list[position].name[i] = '\0'; // Encerrando
     // Checando existência do código-fonte de shader de vértice:
-    vertex_file = (char *) _iWalloc(strlen(dir) + strlen("/vertex.glsl") + 1);
-    vertex_file[0] = '\0';
-    strcat(vertex_file, dir);
-    strcat(vertex_file, "/vertex.glsl");
+    file_name_size = strlen(dir);
+    vertex_file = (char *) _iWalloc(file_name_size + strlen("/vertex.glsl") + 1);
+    memcpy(vertex_file, dir, file_name_size + 1);
+    memcpy(&vertex_file[file_name_size], "/vertex.glsl", 13);
     // Vendo se arquivo existe e pode ser lido:
     if((fp = fopen(vertex_file, "r"))){
         _shader_list[position].vertex_source = vertex_file;
@@ -1530,11 +1543,10 @@ void _compile_and_insert_new_shader(char *dir, int position){
         vertex_file = NULL;
     }
     // Checando existência do código-fonte de shader de fragmento:
-    fragment_file = (char *) _iWalloc(strlen(dir) + strlen("/fragment.glsl") +
+    fragment_file = (char *) _iWalloc(file_name_size + strlen("/fragment.glsl") +
                                       1);
-    fragment_file[0] = '\0';
-    strcat(fragment_file, dir);
-    strcat(fragment_file, "/fragment.glsl");
+    memcpy(fragment_file, dir, file_name_size + 1);
+    memcpy(&fragment_file[file_name_size], "/fragment.glsl", 15);
     if((fp = fopen(fragment_file, "r"))){
         _shader_list[position].fragment_source = fragment_file;
         fclose(fp);

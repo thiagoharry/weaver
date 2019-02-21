@@ -120,53 +120,57 @@ void _initialize_database(void);
 #if W_TARGET == W_ELF
 void _initialize_database(void){
   char path[256];
-  int ret, size;
+  size_t path_length = 0, w_prog_length = strlen(W_PROG);
+  int ret;
   char *p, *zErrMsg = NULL;
   // Temos que obter o diretório home do usuário. Primeiro tentamos
   // ler a variável de ambiente HOME:
   p = getenv("HOME");
   if(p != NULL){
-    size = strlen(p);
-    strncpy(path, p, 255);
-    path[255] = '\0';
+    path_length = strlen(p);
+    if(path_length + 2 * w_prog_length + 17 > 255){
+      fprintf(stderr, "ERROR: Path too long: %s/.weaver_data/%s/%s.db\n", p,
+	      W_PROG, W_PROG);
+      exit(1);
+    }
+    memcpy(path, p, path_length + 1);
   } 
   else{
     // Se não conseguimos obter a variável HOME, usamos getpwuid para
     // obter o diretório configurado no /etc/passwd:
     struct passwd *pw = getpwuid(getuid());
     if(pw != NULL){
-      size = strlen(pw -> pw_dir);
-      strncpy(path, pw -> pw_dir, 255);
-      path[255] = '\0';
+      path_length = strlen(pw -> pw_dir);
+      if(path_length + 2 * w_prog_length + 17 > 255){
+	fprintf(stderr, "ERROR: Path too long: %s/.weaver_data/%s/%s.db\n", p,
+		W_PROG, W_PROG);
+	exit(1);
+      }
+      memcpy(path, pw -> pw_dir, path_length + 1);
     }
     else{
       // Se tudo falhar, tentamos usar o /tmp/ e avisamos o usuário:
       fprintf(stderr,
               "WARNING (0): Couldn't get home directory. Saving data in /tmp."
               "\n");
-      size = 4;
-      strncpy(path, "/tmp", 255);
+      path_length = 4;
+      memcpy(path, "/tmp", 5);
     }
   }
   // Criando o endereço do diretório cuidando com buffer overflows:
-  if(size + 9 < 256){
-    size += 14;
-    strcat(path, "/.weaver_data/");
-    mkdir(path, 0755);
-  }
+  memcpy(&path[path_length], "/.weaver_data/", 15);
+  path_length += 14;
+  mkdir(path, 0755);
   // Criando o .weaver_data/W_PROG:
-  size += strlen(W_PROG) + 1;
-  if(size < 256){
-    strcat(path, W_PROG);
-    strcat(path, "/");
-    mkdir(path, 0755);
-  }
+  memcpy(&path[path_length], W_PROG, w_prog_length + 1);
+  path_length += w_prog_length;
+  memcpy(&path[path_length], "/", 2);
+  path_length ++;
   // Adicionando o nome do arquivo:
-  size += strlen(W_PROG) + 3;
-  if(size < 256){
-    strcat(path, W_PROG);
-    strcat(path, ".db");
-  }
+  memcpy(&path[path_length], W_PROG, w_prog_length + 1);
+  path_length += w_prog_length;
+  memcpy(&path[path_length], ".db", 4);
+  path_length +=3;
   // Se o banco de dados não existir, ele será criado:
   ret = sqlite3_open(path, &database);
   if(ret != SQLITE_OK){
