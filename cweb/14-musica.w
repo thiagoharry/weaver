@@ -257,6 +257,8 @@ nada e colocando a música passada como argumento para tocar:
 bool _play_music(char *name, bool loop){
   int i;
   bool success = false;
+  size_t path_length = 0;
+  size_t name_length = strlen(name);
   // Antes de assumir que ainda não temos a música rodando, vamos ver
   // se ela já não existe e não está tocando, ainda que esteja
   // pausada:
@@ -283,13 +285,21 @@ bool _play_music(char *name, bool loop){
       // Gerando o caminho do arquivo da música:
       _music[i].filename[_number_of_loops][0] = '\0';
 #if W_DEBUG_LEVEL == 0
-      strncpy(_music[i].filename[_number_of_loops], W_INSTALL_DATA, 256);
-      strcat(_music[i].filename[_number_of_loops], "/");
+      path_length = strlen(W_INSTALL_DATA);
+      memcpy(_music[i].filename[_number_of_loops], W_INSTALL_DATA,
+	     path_length + 1);
+      memcpy(&_music[i].filename[_number_of_loops][path_length], "/", 2);
+      path_length ++;
 #endif
-      strncat(_music[i].filename[_number_of_loops], "music/",
-              256 - strlen(_music[i].filename[_number_of_loops]));
-      strncat(_music[i].filename[_number_of_loops], name,
-              256 - strlen(_music[i].filename[_number_of_loops]));
+      if(path_length + name_length > 249){
+	fprintf(stderr, "WARNING: Path is too long: %smusic/%s",
+		_music[i].filename[_number_of_loops], name);
+	break;
+      }
+      memcpy(&_music[i].filename[_number_of_loops][path_length], "music/", 7);
+      path_length += 6;
+      memcpy(&_music[i].filename[_number_of_loops][path_length], name,
+	     name_length);
       success = true;
       if(_music[i].status[_number_of_loops] != _PLAYING){
         _music[i].status[_number_of_loops] = _PLAYING;

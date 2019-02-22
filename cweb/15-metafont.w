@@ -1918,16 +1918,21 @@ com cada sufixo separado por espaços:
 
 @<Metafont: Funções Estáticas@>=
 void declared_variable(struct metafont *mf, struct token **token,
-                       char *dst, int dst_size){
+                       char *dst, size_t dst_size){
     struct token *first_token = *token, *current_token;
-    dst[0] = '\0';
+    size_t dst_length = 0, aux_length;
     // O primeiro token apenas deve ser simbólico
     if(first_token == NULL || first_token -> type != SYMBOL){
         mf_error(mf, "Missing symbolic token.");
         return;
     }
     current_token = first_token -> next;
-    strncpy(dst, first_token -> name, dst_size - 1);
+    dst_length = strlen(first_token -> name);
+    if(dst_length + 1 > dst_size){
+        mf_error(mf, "Token too big: %s\n", first_token -> name);
+        return;
+    }
+    memcpy(dst, first_token -> name, dst_length + 1);
     while(current_token != NULL){
         // Se um token não for uma tag ou '[' e ']', encerremos
         if(current_token -> type != SYMBOL ||
@@ -1955,9 +1960,15 @@ void declared_variable(struct metafont *mf, struct token **token,
             break;
         }
         // Se não, apenas incrementa o contador do tamanho do nome do token
-        strcat(dst, " ");
-        strncat(dst, current_token -> name, dst_size - 1);
-        dst_size -= (strlen(current_token -> name) + 1);
+        aux_length = strlen(current_token -> name);
+	if(dst_length + aux_length + 2 > dst_size){
+            mf_error(mf, "Token too big: %s %s\n", dst, current_token -> name);
+            return;
+        }
+        memcpy(&dst[dst_length], " ", 2);
+        dst_length ++;
+	memcpy(&dst[dst_length], current_token -> name, aux_length + 1);
+        dst_length += aux_length;
         current_token  = current_token -> next;
     }
     if(current_token == NULL && first_token -> prev == NULL)
@@ -4063,8 +4074,8 @@ avaliado quando avaliamos uma expressão quaternária:
 @<Metafont: String: Expressões Quaternárias@>=
 if(current_token -> type == SYMBOL &&
    !strcmp(current_token -> name, "&")){
-  int new_string_size;
-  size_t last_token_size;
+  size_t new_string_size;
+  size_t last_token_size, next_token_size;
   char *buffer;
   struct token *result;
   // O token anterior deve ser uma string:
@@ -4077,16 +4088,18 @@ if(current_token -> type == SYMBOL &&
     mf_error(*mf, "Missing known string after '&'.");
     return NULL;
   }
-  last_token_size = strlen(current_token -> prev -> name) + 1;
-  new_string_size = last_token_size + strlen(current_token -> next -> name);
+  last_token_size = strlen(current_token -> prev -> name);
+  next_token_size = strlen(current_token -> next -> name);
+  new_string_size = last_token_size + next_token_size + 1;
   buffer = Walloc_arena(_internal_arena, new_string_size);
   if(buffer == NULL){
     fprintf(stderr, "ERROR: Not enough memory. Please, increase the "
             "value of W_INTERNAL_MEMORY at conf/conf.h.\n");
     exit(1);
   }
-  memcpy(buffer, current_token -> prev -> name, last_token_size);
-  strcat(buffer, current_token -> next -> name);
+  memcpy(buffer, current_token -> prev -> name, last_token_size + 1);
+  memcpy(&buffer[last_token_size], current_token -> next -> name,
+	 next_token_size);
   result = new_token_string(buffer);
   result -> deterministic = current_token -> next -> deterministic &&
     current_token -> prev -> deterministic;
