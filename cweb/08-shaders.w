@@ -159,7 +159,7 @@ void _flush_interfaces(void){
 #ifdef W_MULTITHREAD
         if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex)) !=
            0)
-            perror("Finalizing interface mutex:");
+            perror("Finalizing user interface mutex:");
 #endif
     }
 }
@@ -1330,7 +1330,7 @@ verificar o al diretório que armazena shaders:
       exit(1);
     }
     memcpy(shader_directory, W_INSTALL_DATA, dir_length + 1);
-    memcpy(&shader_directory[dir_length], "/");
+    memcpy(&shader_directory[dir_length], "/", 2);
     dir_length ++;
 #endif
     memcpy(&shader_directory[dir_length], "shaders/", 9);

@@ -48,4 +48,5 @@ compiled_plugins/%.so: plugins/%.c ${HEADERS} conf/conf.h
 .weaver/%.o : src/weaver/%.c ${HEADERS} conf/conf.h
 	${CC} ${DEFINES} ${INCLUDES} ${FLAGS} -c $< -o $(subst src/weaver/,.weaver/,$(subst .c,.o,$<))
 .misc/sqlite3.o: src/misc/sqlite/sqlite3.c src/misc/sqlite/sqlite3.h
+	mkdir -p .misc
 	${CC} ${DEFINES} -O2 -c src/misc/sqlite/sqlite3.c -o .misc/sqlite3.o

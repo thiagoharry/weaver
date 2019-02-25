@@ -166,6 +166,7 @@ void _initialize_database(void){
   path_length += w_prog_length;
   memcpy(&path[path_length], "/", 2);
   path_length ++;
+  mkdir(path, 0755);
   // Adicionando o nome do arquivo:
   memcpy(&path[path_length], W_PROG, w_prog_length + 1);
   path_length += w_prog_length;

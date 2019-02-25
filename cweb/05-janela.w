@@ -92,6 +92,7 @@ mais de uma thread:
 
 @<Cabeçalhos Weaver@>+=
 #ifdef W_MULTITHREAD
+#include <pthread.h>
 extern pthread_mutex_t _window_mutex;
 #endif
 @
