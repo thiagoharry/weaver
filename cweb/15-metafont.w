@@ -890,6 +890,8 @@ METAFONT, as quais serão definidas logo em seguida.
 @<Metafont: Função Estática expand_token@>=
 bool expand_token(struct metafont *mf, struct token **first_token){
      // todo
+     (void) mf; // Evita aviso de compilação
+     (void) first_token; // Evita aviso de compilação
      return false;
 }
 @
@@ -3196,6 +3198,7 @@ somente por números literais. Depois iremos expandir seu significado:
 @<Metafont: eval_numeric@>=
 static struct token *eval_numeric(struct metafont **mf,
                                   struct token **expression){
+  (void) mf; // TODO: Evita aviso de compilação
   struct token *ret = *expression;
   if(ret -> next != NULL)
     ret -> next -> prev = ret -> prev;
