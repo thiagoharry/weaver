@@ -146,22 +146,28 @@ void _flush_interfaces(void);
 @
 @<Interface: Definições@>=
 void _flush_interfaces(void){
-    int i;
-    for(i = 0; i < W_MAX_INTERFACES; i ++){
-        switch(_interfaces[_number_of_loops][i].type){
-            // Dependendo do tipo da interface, podemos fazer desalocações
-            // específicas aqui. Embora geralmente possamos simplesmente
-            //confiar no coletor de lixo implementado
-            //@<Desaloca Interfaces de Vários Tipos@>
-        default:
-            _interfaces[_number_of_loops][i].type = W_NONE;
-        }
-#ifdef W_MULTITHREAD
-        if(pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex)) !=
-           0)
-            perror("Finalizing user interface mutex:");
-#endif
+  int i, ret;
+  if(!_running_loop)
+    return;
+  for(i = 0; i < W_MAX_INTERFACES; i ++){
+    switch(_interfaces[_number_of_loops][i].type){
+      // Dependendo do tipo da interface, podemos fazer desalocações
+      // específicas aqui. Embora geralmente possamos simplesmente
+      //confiar no coletor de lixo implementado
+      //@<Desaloca Interfaces de Vários Tipos@>
+    default:
+      _interfaces[_number_of_loops][i].type = W_NONE;
     }
+#ifdef W_MULTITHREAD
+    do{
+      ret = pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex));
+      if(ret == EBUSY)
+	pthread_yield();
+    } while(ret != EBUSY);
+    if(ret != 0)
+      perror("Finalizing user interface mutex:");
+#endif
+  }
 }
 @
 
