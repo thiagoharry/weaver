@@ -93,7 +93,7 @@ música será:
 @<Som: Declarações@>+=
 struct _music_data{
     char filename[W_MAX_SUBLOOP][256];
-    int status[W_MAX_SUBLOOP]; // Playing, not playing or paused
+    int status[W_MAX_SUBLOOP]; // Playing, not playing, paused or closing
     float volume[W_MAX_SUBLOOP];
     bool loop[W_MAX_SUBLOOP];
 #if W_TARGET == W_ELF
@@ -138,6 +138,7 @@ macros:
 #define _NOT_LOADED 0
 #define _PLAYING    1
 #define _PAUSED     2
+#define _CLOSED     3 // Closing the program
 @
 
 E inicializamos a estrutura:
@@ -491,6 +492,43 @@ Adicionando à |W|:
   W.stop_music = &_stop_music;
 @
 
+E por fim a função para encerrar todas as thread que tocam as músicas antes
+do programa encerrar:
+
+@<Som: Declarações@>+=
+bool _close_music(void);
+@
+
+E a definição:
+
+@<Som: Definições@>+=
+bool _close_music(void){
+  int i;
+  bool success = false;
+#ifdef W_MULTITHREAD
+  pthread_mutex_lock(&_music_mutex);
+#endif
+  for(i = 0; i < W_MAX_MUSIC; i ++){
+    _music[i].filename[_number_of_loops][0] = '\0';
+    _music[i].status[_number_of_loops] = _CLOSED;
+#if W_TARGET == W_ELF
+      // Liberamos o mutex para a thread funcionar e poder encerrar
+    sem_post(&(_music[i].semaphore));
+#endif
+  }
+  success = true;
+#ifdef W_MULTITHREAD
+  pthread_mutex_unlock(&_music_mutex);
+#endif
+#ifdef W_DISABLE_MP3
+  return success && false;
+#else
+  return success;
+#endif
+}
+@
+
+
 Outra coisa importante será obter informações sobre o volume:
 
 @<Som: Declarações@>+=
@@ -744,15 +782,7 @@ das threads de música e destruir seus semáforos:
 
 @<Som: Finalização@>+=
 #if W_TARGET == W_ELF
-{
-  int i;
-  for(i = 0; i < W_MAX_MUSIC; i ++){
-    sem_destroy(&(_music[i].semaphore));
-#ifndef W_DISABLE_MP3
-    pthread_cancel(_music[i].thread);
-#endif
-  }
-}
+  _close_music();
 #endif
 @
 
@@ -786,6 +816,8 @@ void *_music_thread(void *arg){
 sem_musica_nenhuma: // Se paramos ou nunca começamos a tocar
   while(music_data -> status[_number_of_loops] == _NOT_LOADED)
       sem_wait(&(music_data -> semaphore));
+  if(music_data -> status[_number_of_loops] == _CLOSED)
+    goto encerrando_thread;
   // Se saímos do loop acima, é porque temos uma nova música a tocar:
   if(!_music_thread_prepare_new_music(music_data, &rate, &channels, &encoding,
                                       &bits, &current_format, &size)){
@@ -815,6 +847,8 @@ tocando_musica:
       last_loop = _number_of_loops;
       if(music_data -> status[_number_of_loops] == _NOT_LOADED)
           goto sem_musica_nenhuma;
+      if(music_data -> status[_number_of_loops] == _CLOSED)
+	goto encerrando_thread;
   }
   // E por mudança de volume
   else if(last_volume != music_data -> volume[_number_of_loops]){
@@ -836,7 +870,12 @@ tocando_musica:
       _music_thread_interrupt_music(music_data);
       goto sem_musica_nenhuma;
   }
+  // E por tudo sendo encerrado
+  if(music_data -> status[_number_of_loops] == _CLOSED)
+    goto encerrando_thread;
   goto tocando_musica;
+ encerrando_thread:
+  sem_destroy(&(music_data -> semaphore));
   return NULL;
 }
 #endif
