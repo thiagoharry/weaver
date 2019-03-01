@@ -12,7 +12,7 @@ MPG123=$(shell pkg-config --cflags --libs libmpg123)
 TARGET_TEST=$(shell egrep "\#define[ \t]+W_TARGET[ \t]+W_" conf/conf.h | egrep -o "(W_WEB|W_ELF)")
 INSTALL_DATA_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_DATA[ \t]\+" conf/conf.h | grep -o "\".*\"")
 INSTALL_PROG_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_PROG[ \t]\+" conf/conf.h | grep -o "\".*\"")
-DEBUG_LEVEL=$(shell grep "\#define[ \t]\+W_DEBUG_LEVEL[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
+DEBUG_LEVEL=$(shell egrep "^\#define[\t ]+W_DEBUG_LEVEL[\t ]+" conf/conf.h | egrep -o "[0-9]+")
 DONT_USE_PNG=$(shell grep "^\#define[ \t]\+W_DISABLE_PNG" conf/conf.h)
 DONT_USE_MP3=$(shell grep "^\#define[ \t]\+W_DISABLE_MP3" conf/conf.h)
 
@@ -219,6 +219,7 @@ install:
 	cp -r sound/ ${INSTALL_DATA_DIR}/
 	cp -r image/ ${INSTALL_DATA_DIR}/
 	cp -r music/ ${INSTALL_DATA_DIR}/
+	cp -r fonts/ ${INSTALL_DATA_DIR}/
 	chmod 755 ${INSTALL_DATA_DIR}/*
 	chmod 755 ${INSTALL_DATA_DIR}/shaders/*
 	install -d ${INSTALL_PROG_DIR}
