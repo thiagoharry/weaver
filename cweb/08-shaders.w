@@ -146,7 +146,7 @@ void _flush_interfaces(void);
 @
 @<Interface: Definições@>=
 void _flush_interfaces(void){
-  int i, ret;
+  int i;
   if(!_running_loop)
     return;
   for(i = 0; i < W_MAX_INTERFACES; i ++){
@@ -159,13 +159,16 @@ void _flush_interfaces(void){
       _interfaces[_number_of_loops][i].type = W_NONE;
     }
 #ifdef W_MULTITHREAD
-    do{
-      ret = pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex));
-      if(ret == EBUSY)
-	pthread_yield();
-    } while(ret != EBUSY);
-    if(ret != 0)
-      perror("Finalizing user interface mutex:");
+    {
+      int ret;
+      do{
+	ret = pthread_mutex_destroy(&(_interfaces[_number_of_loops][i]._mutex));
+	if(ret == EBUSY)
+	  pthread_yield();
+      } while(ret != EBUSY);
+      if(ret != 0)
+	perror("Finalizing user interface mutex:");
+    }
 #endif
   }
 }
