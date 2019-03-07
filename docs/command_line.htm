@@ -39,6 +39,7 @@
         <li><a href="#updating">Updating Weaver Projects</a></li>
         <li><a href="#plugin">Creating a New Plugin</a></li>
         <li><a href="#shader">Creating a New Shader</a></li>
+	<li><a href="#openbsd">Instructions for OpenBSD</a></li>
       </ol>
       <h3 id="installing">Installing Weaver</h3>
       <p>Currently there is only one way to install Weaver.</p>
@@ -487,6 +488,31 @@ weaver --shader SHADER_NAME</pre>
       <p>
         To read more about shaders, check
         the <a href="shaders.htm">Shader Documentation Page</a>.
+      </p>
+      <h3 id="openbsd">Instructions for OpenBSD</h3>
+      <p>
+	Weaver is also tested in OpenBSD 6.4 systems. All the previous
+	instructions would also work in OpenBSD systems, except:
+      </p>
+      <ul>
+	<li>
+	  Emscripten and Compiling to Play in a Web Browser is not
+	  guaranteed.
+	</li>
+	<li>
+	  You need to install the dependencies with <tt>pkg_add</tt>
+	  as root. The dependencies needed to compile projects
+	  are <tt>texlive_texmf-full</tt>, <tt>gmake</tt>, <tt>bash</tt>,
+	  <tt>glew</tt>, <tt>openal</tt>,
+	  <tt>vim</tt> and <tt>mpg123</tt>.
+	</li>
+	<li>
+	  In all the examples, instead of <tt>make</tt>, you need to
+	  type <tt>gmake</tt>. Including when compiling the game projects.
+	</li>
+      </ul>
+      <p>
+	And these are the only differences.
       </p>
     </div>
   </body>
