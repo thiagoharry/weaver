@@ -94,6 +94,12 @@ memória para armazenar tais traduções de uma tecla para outra. Um
 número de 100 delas pode ser estabelecido como máximo, pois a maioria
 dos teclados tem menos teclas que isso.
 
+Dentro do que foi dito acima, existe apenas uma única exceção, uma
+tecla extremamente comum cuja representação no Xlib é justamente
+0xffff. A tecla Delete. Este é um caso que simplesmente trataremos
+como exceção e assumiremos que existe uma tradução automática deste
+valor para outro que cabe no vetor.
+
 Note que este é um problema do XLib. O SDL de qualquer forma já se
 atém somente à 16 bytes para representar suas teclas. Então, podemos
 ignorar com segurança tais traduções quando estivermos programando
@@ -186,10 +192,12 @@ vazios ou indefinidos. Os demais valores nos indicam que uma tecla
 específica está sendo pressionada.
 
 @<Cabeçalhos Weaver@>=
-#define W_SHIFT 2 // Shift esquerdo ou direito
-#define W_CTRL  3 // Ctrl esquerdo ou direito
-#define W_ALT   4 // Alt esquerdo ou direito
-#define W_ANY   6 // Qualquer botão
+#define W_SHIFT  2 // Shift esquerdo ou direito
+#define W_CTRL   3 // Ctrl esquerdo ou direito
+#define W_ALT    4 // Alt esquerdo ou direito
+#define W_DELETE 5 // Representaremos Delete aqui, pois seu valor real
+                   // pode estar fora do alcance do vetor.
+#define W_ANY    6 // Qualquer botão
 @
 
 A função que nos permite traduzir uma tecla para outra consiste em
@@ -200,6 +208,8 @@ registrada para o símbolo que estamos procurando:
 #if W_TARGET == W_ELF
 static unsigned _translate_key(unsigned symbol){
   int i;
+  if(symbol == 0xffff) // Tecla DELETE
+    return W_DELETE;
   for(i = 0; i < 100; i ++){
     if(_key_translate[i].original_symbol == 0)
       return symbol % 0xffff; // Sem mais traduções. Nada encontrado.
@@ -293,7 +303,7 @@ Uma vez que tenhamos preparado as traduções, podemos enfim ir até o
 loop principal e acompanhar o surgimento de eventos para saber quando
 o usuário pressiona ou solta uma tecla. No caso de estarmos usando
 XLib e uma tecla é pressionada, o código abaixo é executado. A coisa
-mais críptica abaixo é o suo da função |XkbKeycodeToKeysym|. Mas
+mais críptica abaixo é o uso da função |XkbKeycodeToKeysym|. Mas
 basicamente o que esta função faz é traduzir o valor da variável
 |event.xkey.keycode| de uma representação inicial, que representa a
 posição da tecla  em um teclado para o símbolo específico associado
@@ -478,7 +488,6 @@ sem saber o código da tecla no Xlib:
 #define W_BACKSPACE   XK_BackSpace
 #define W_TAB         XK_Tab
 #define W_PAUSE       XK_Pause
-#define W_DELETE      XK_Delete
 #define W_SCROLL_LOCK XK_Scroll_Lock
 #define W_HOME        XK_Home
 #define W_PAGE_UP     XK_Page_Up
@@ -605,6 +614,9 @@ cada informação:
 if(event.type == SDL_KEYDOWN){
   unsigned int code =  event.key.keysym.sym;
   int i;
+  // Tratando a tecla DELETE como caso particular:
+  if(code == SDLK_DELETE)
+    code = W_DELETE;
   // Adiciona na lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
     if(_pressed_keys[i] == 0 || _pressed_keys[i] == code){
@@ -631,6 +643,9 @@ Por fim, o evento da tecla sendo solta:
 if(event.type == SDL_KEYUP){
   unsigned int code =  event.key.keysym.sym;
   int i;
+  // Tratando a tecla DELETE como caso particular:
+  if(code == SDLK_DELETE)
+    code = W_DELETE;
   // Remove da lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
     if(_pressed_keys[i] == code){
@@ -691,7 +706,7 @@ teclado será diferente e correspondente aos valores usados pelo SDL:
 #define W_BACKSPACE   SDLK_BACKSPACE
 #define W_TAB         SDLK_TAB
 #define W_PAUSE       SDLK_PAUSE
-#define W_DELETE      SDLK_DELETE
+  //#define W_DELETE      SDLK_DELETE
 #define W_SCROLL_LOCK SDLK_SCROLLOCK
 #define W_HOME        SDLK_HOME
 #define W_PAGE_UP     SDLK_PAGEUP
