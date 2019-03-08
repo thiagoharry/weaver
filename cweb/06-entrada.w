@@ -94,12 +94,6 @@ memória para armazenar tais traduções de uma tecla para outra. Um
 número de 100 delas pode ser estabelecido como máximo, pois a maioria
 dos teclados tem menos teclas que isso.
 
-Dentro do que foi dito acima, existe apenas uma única exceção, uma
-tecla extremamente comum cuja representação no Xlib é justamente
-0xffff. A tecla Delete. Este é um caso que simplesmente trataremos
-como exceção e assumiremos que existe uma tradução automática deste
-valor para outro que cabe no vetor.
-
 Note que este é um problema do XLib. O SDL de qualquer forma já se
 atém somente à 16 bytes para representar suas teclas. Então, podemos
 ignorar com segurança tais traduções quando estivermos programando
@@ -112,7 +106,7 @@ mesmo tratamento para os botões pressionados no \italico{mouse}:
 
 @<Variáveis Weaver@>=
 // Esta declaração fica dentro de "struct _weaver_struct{(...)} W;"
-  long keyboard[0xffff];
+  long keyboard[0x10000];
 @
 
 @<API Weaver: Definições@>=
@@ -143,7 +137,7 @@ como valor:
 @<API Weaver: Inicialização@>+=
 {
   int i;
-  for(i = 0; i < 0xffff; i ++)
+  for(i = 0; i <= 0xffff; i ++)
     W.keyboard[i] = 0;
 #if W_TARGET == W_ELF
   for(i = 0; i < 100; i ++){
@@ -195,8 +189,6 @@ específica está sendo pressionada.
 #define W_SHIFT  2 // Shift esquerdo ou direito
 #define W_CTRL   3 // Ctrl esquerdo ou direito
 #define W_ALT    4 // Alt esquerdo ou direito
-#define W_DELETE 5 // Representaremos Delete aqui, pois seu valor real
-                   // pode estar fora do alcance do vetor.
 #define W_ANY    6 // Qualquer botão
 @
 
@@ -208,20 +200,18 @@ registrada para o símbolo que estamos procurando:
 #if W_TARGET == W_ELF
 static unsigned _translate_key(unsigned symbol){
   int i;
-  if(symbol == 0xffff) // Tecla DELETE
-    return W_DELETE;
   for(i = 0; i < 100; i ++){
     if(_key_translate[i].original_symbol == 0)
-      return symbol % 0xffff; // Sem mais traduções. Nada encontrado.
+      return symbol % 0x10000; // Sem mais traduções. Nada encontrado.
     if(_key_translate[i].original_symbol == symbol)
-      return _key_translate[i].new_symbol % 0xffff; // Retorna tradução
+      return _key_translate[i].new_symbol % 0x10000; // Retorna tradução
   }
 #if W_DEBUG_LEVEL >= 2
-  if(symbol >= 0xffff)
+  if(symbol > 0xffff)
     fprintf(stderr, "WARNING (2): Key with unknown code pressed: %lu",
            (unsigned long) symbol);
 #endif
-  return symbol % 0xffff; // Vetor percorrido e nenhuma tradução encontrada
+  return symbol % 0x10000; // Vetor percorrido e nenhuma tradução encontrada
 }
 #endif
 @
@@ -486,6 +476,7 @@ sem saber o código da tecla no Xlib:
 #define W_F11         XK_F11
 #define W_F12         XK_F12
 #define W_BACKSPACE   XK_BackSpace
+#define W_DELETE      XK_Delete
 #define W_TAB         XK_Tab
 #define W_PAUSE       XK_Pause
 #define W_SCROLL_LOCK XK_Scroll_Lock
@@ -614,9 +605,6 @@ cada informação:
 if(event.type == SDL_KEYDOWN){
   unsigned int code =  event.key.keysym.sym;
   int i;
-  // Tratando a tecla DELETE como caso particular:
-  if(code == SDLK_DELETE)
-    code = W_DELETE;
   // Adiciona na lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
     if(_pressed_keys[i] == 0 || _pressed_keys[i] == code){
@@ -643,9 +631,6 @@ Por fim, o evento da tecla sendo solta:
 if(event.type == SDL_KEYUP){
   unsigned int code =  event.key.keysym.sym;
   int i;
-  // Tratando a tecla DELETE como caso particular:
-  if(code == SDLK_DELETE)
-    code = W_DELETE;
   // Remove da lista de teclas pressionadas
   for(i = 0; i < 20; i ++){
     if(_pressed_keys[i] == code){
@@ -706,7 +691,7 @@ teclado será diferente e correspondente aos valores usados pelo SDL:
 #define W_BACKSPACE   SDLK_BACKSPACE
 #define W_TAB         SDLK_TAB
 #define W_PAUSE       SDLK_PAUSE
-  //#define W_DELETE      SDLK_DELETE
+#define W_DELETE      SDLK_DELETE
 #define W_SCROLL_LOCK SDLK_SCROLLOCK
 #define W_HOME        SDLK_HOME
 #define W_PAGE_UP     SDLK_PAGEUP
@@ -1209,7 +1194,7 @@ W.hide_cursor = &_Whide_cursor;
 
 \macronome As seguintes 2 novas variáveis foram definidas:
 
-\macrovalor|long W.keyboard[0xffff]|: Um vetor que contém informações
+\macrovalor|long W.keyboard[0x10000]|: Um vetor que contém informações
 sobre cada tecla do teclado. Se ela foi recém-pressionada, a posição
 relacionada à tecla conterá o valor 1. Se ela está sendo pressionada,
 ela terá um valor positivo correspondente à quantos microssegundos ela
