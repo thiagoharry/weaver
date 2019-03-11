@@ -223,7 +223,11 @@ Assim, na inicialização, para lermos o nosso arquivo inicial com
 código METAFONT, usamos:
 
 @<Metafont: Lê Arquivo de Inicialização@>=
-    mf = _new_metafont(NULL, "fonts/init.mf");
+#if W_DEBUG_LEVEL == 0
+  mf = _new_metafont(NULL, "/usr/share/games/"W_PROG"/fonts/init.mf");
+#else
+  mf = _new_metafont(NULL, "fonts/init.mf");
+#endif
 @
 
 Agora anter de escrevermos o lexer da nossa linguagem, vamos
@@ -4704,7 +4708,7 @@ static void end_scope(struct metafont *mf){
 
 A utilidade do \monoespaco{vardef} que declaramos não é apenas
 declarar um número potencialmente infinito de variáveis cujo valor é
-deduzido por meio de expressões mais complexas e soficticadas baseadas
+deduzido por meio de expressões mais complexas e sofisticadas baseadas
 no nome. Devido à ordem em que elas são avaliadas, isso faz com que
 elas sejam a forma correta de declarar novos operadores unários, os
 quais podem receber parâmetros.
@@ -4732,7 +4736,7 @@ ler:
 \alinhanormal
 
 onde depois da vírgula teremos mais argumentos antes do fechamento de
-parêntesis.
+parênteses.
 
 @<Metafont: expand_macro: Lê Expressão Delimitada@>=
 else if(arg -> type == EXPR){
