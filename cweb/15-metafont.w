@@ -4341,6 +4341,7 @@ sejam simbólicos:
         }
     }
     @<Metafont: expand_macro: Lê Expressão Delimitada@>
+    @<Metafont: expand_macro: Lê Expressão Não-Delimitada@>
 }
 @
 
@@ -4725,11 +4726,10 @@ Onde o delimitador não precisa ser necessariamente o parênteses, mas
 qualquer coisa que tenha sido definida como delimitador. Ao invés de
 fechar o parênteses, podemos ter depois uma vírgula e outros
 parâmetros. Em tais casos, se não lemos o último parâmetro, apenas
-substituímos a vírcula por \monoespaco{)(}, ou qualquer que seja o
+substituímos a vírgula por \monoespaco{)(}, ou qualquer que seja o
 delimitador.
 
-Alternativamente, se não estamos no último argumento, podemos ter que
-ler:
+Em tais casos, podemos ter que ler:
 
 \alinhaverbatim
 ( <Expressão> ,
@@ -4785,4 +4785,46 @@ else if(arg -> type == EXPR){
 @
 
 Caso não seja uma expressão delimitada, devemos ler a maior expresão
-possível, sem a ajuda de delimitadores para ajudar.
+possível, sem a ajuda de delimitadores para ajudar. Para isso vamos
+simplesmente confiar na nossa função \monoespaco{eval} para fazer o
+trabalho por nós:
+
+
+@<Metafont: expand_macro: Lê Expressão Não-Delimitada@>=
+else if(arg -> type == UNDELIMITED_EXPR){
+  // Sabemos que a expressão não começa com um '(', pois ela não é
+  // delimitada. Entretanto, ela pode começar com um 'begingroup'.
+  // Em tais casos, não avaliaremos o 'begingroup', apenas copiaremos
+  // ele até o seu 'endgroup' e armazenaremos isso como o argumento.
+  // Nos demias casos, apenas avaliamos a expressão.
+  if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "begingroup")){
+    int number_of_begins = 1;
+    struct token *begin = *tok, *end;
+    while(number_of_begins > 0){
+      if((*tok) != NULL && (*tok) -> next == NULL)
+	(*tok) -> next = get_statement(mf);
+      *tok = (*tok) -> next;
+      if(*tok == NULL){
+	mf_error(mf, "Missing or invalid argument.");
+	return;
+      }
+      if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "begingroup"))
+	number_of_begins ++;
+      else if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "endgroup")){
+	number_of_begins --;
+	end = *tok;
+      }
+    }
+    if((*tok) -> next != NULL){
+      *tok = (*tok) -> next;
+      (*tok) -> prev = NULL;
+    }
+    end -> next = NULL;
+    arg -> prev = begin;
+  }
+  else{
+    arg -> prev = eval(&mf, tok);
+    *tok = (*tok) -> next;
+  }
+}
+@
