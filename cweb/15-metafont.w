@@ -390,7 +390,7 @@ ABCDEFGHIJKLMNOPQRSTUVWXYZ_abcdefghijklmnopqrstuvwxyz
 <=>:|
 `'
 +-
-/*\\
+*/\\
 !?
 #&@$
 [
@@ -3290,7 +3290,7 @@ void variable(struct metafont **mf, struct token **token,
                         (*token) -> next -> prev = (*token) -> prev;
                     *type = MACRO;
                     expand_macro(*mf, mc, token);
-                    /*(*token) -> prev = (*token) -> prev -> prev;
+                    /*(*token) -> prev = (*token) -> prev -> prev;
                     if((*token) -> prev -> prev != NULL)
                     (*token) -> prev -> prev -> next = (*token);*/
                     eval(mf, token);

@@ -24,7 +24,7 @@
 
 // The maximum ammount of memory for the game
 #define W_MAX_MEMORY 100000000
-#define W_INTERNAL_MEMORY 16384
+#define W_INTERNAL_MEMORY 1000000
 // When compiling for the web, we usually need aditional memory. So we
 // sum the memory above with the value below:
 #define W_WEB_MEMORY 2097152
