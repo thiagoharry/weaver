@@ -2267,9 +2267,9 @@ E agora uma versão desta função apenas para parâmetros
 não-delimitados. Tais parâmetros podem ter os seguintes tipos novos:
 
 @<Metafont: Variáveis Estáticas@>+=
-#define UNDELIMITED_EXPR   11
-#define UNDELIMITED_SUFFIX 12
-#define UNDELIMITED_TEXT   13
+#define UNDELIMITED_EXPR   12
+#define UNDELIMITED_SUFFIX 13
+#define UNDELIMITED_TEXT   14
 @
 
 @<Metafont: Funções Estáticas@>+=
@@ -3283,14 +3283,16 @@ void variable(struct metafont **mf, struct token **token,
                     // Se for um vardef, já fazemos a substituição com função a
                     // ser definida e retornamos:
                     if((*token) -> prev -> prev != NULL){
-                        (*token) -> prev -> prev -> next = (*token) -> next;
+                        (*token) -> prev -> prev -> next = *token;
                         (*token) -> prev = (*token) -> prev -> prev;
                     }
-                    if((*token) -> next != NULL)
-                        (*token) -> next -> prev = (*token) -> prev;
+		    else
+		      (*token) -> prev = NULL;
+                    //if((*token) -> next != NULL)
+		    //   (*token) -> next -> prev = (*token) -> prev;
                     *type = MACRO;
                     expand_macro(*mf, mc, token);
-                    /*(*token) -> prev = (*token) -> prev -> prev;
+                    /*(*token) -> prev = (*token) -> prev -> prev;
                     if((*token) -> prev -> prev != NULL)
                     (*token) -> prev -> prev -> next = (*token);*/
                     eval(mf, token);
@@ -4106,7 +4108,8 @@ if(current_token -> type == SYMBOL &&
   }
   memcpy(buffer, current_token -> prev -> name, last_token_size + 1);
   memcpy(&buffer[last_token_size], current_token -> next -> name,
-	 next_token_size);
+	 next_token_size + 1);
+
   result = new_token_string(buffer);
   result -> deterministic = current_token -> next -> deterministic &&
     current_token -> prev -> deterministic;
@@ -4118,6 +4121,9 @@ if(current_token -> type == SYMBOL &&
     *expression = result;
   if(result -> next != NULL)
     result -> next -> prev = result;
+  // Se o começo da expressão foi consumido, consertar isso:
+  if(*expression == current_token -> prev)
+    *expression = result;
   current_token = result;
 }
 @
@@ -4799,7 +4805,7 @@ else if(arg -> type == UNDELIMITED_EXPR){
   // Nos demias casos, apenas avaliamos a expressão.
   if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "begingroup")){
     int number_of_begins = 1;
-    struct token *begin = *tok, *end;
+    struct token *begin = *tok, *end = *tok;
     while(number_of_begins > 0){
       if((*tok) != NULL && (*tok) -> next == NULL)
 	(*tok) -> next = get_statement(mf);
@@ -4825,6 +4831,9 @@ else if(arg -> type == UNDELIMITED_EXPR){
   else{
     arg -> prev = eval(&mf, tok);
     *tok = (*tok) -> next;
+    (*tok) -> prev = arg -> prev -> prev;
+    arg -> prev -> prev = NULL;
+    arg -> prev -> next = NULL;
   }
 }
 @
