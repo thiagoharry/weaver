@@ -2227,10 +2227,11 @@ static struct token *delimited_parameters(struct metafont *mf,
         tok = tok -> next;
         parameter_list = symbolic_token_list(mf, &tok);
         while(parameter_list != NULL){
+	    size_t name_size = strlen(parameter_list -> name);
             char *name = (char *)
-                Walloc_arena(arena,
-                             strlen(parameter_list -> name) + 1);
+                Walloc_arena(arena, name_size + 1);
             if(name == NULL) goto error_no_memory;
+	    memcpy(name, parameter_list -> name, name_size + 1);
             if(last_result != NULL){
                 last_result -> next = new_token(type, 0.0, name, arena);
                 if(last_result -> next == NULL)
@@ -4783,6 +4784,7 @@ else if(arg -> type == EXPR){
     *tok = begin_delim;
   }
   else{
+    arg -> prev -> next = NULL;
     *tok = end_delim -> next;
     begin_delim -> prev -> next = end_delim -> next;
     end_delim -> next -> prev = begin_delim -> prev;
