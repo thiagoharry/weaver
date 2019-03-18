@@ -2431,13 +2431,8 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "def")){
                 (current_arena == _user_arena)?"MAX":"INTERNAL");
         exit(1);
     }
-    new_macro -> parameters = undelimited_header;
-    if(new_macro -> parameters == NULL)
-        new_macro -> parameters = delimited_headers;
-    else
-        new_macro -> parameters -> next = delimited_headers;
-    if(delimited_headers != NULL)
-        delimited_headers -> prev = undelimited_header;
+    new_macro -> parameters = delimited_headers;
+    concat_token(&(new_macro -> parameters), undelimited_header);
     // Token = ou :=
     if(statement == NULL || statement -> type != SYMBOL ||
        (strcmp(statement -> name, "=") && strcmp(statement -> name, ":="))){
@@ -2550,8 +2545,8 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
         exit(1);
     }
     new_macro -> parameters = suffix_header;
-    concat_token(&(new_macro -> parameters), undelimited_header);
     concat_token(&(new_macro -> parameters), delimited_headers);
+    concat_token(&(new_macro -> parameters), undelimited_header);
     // Token = ou :=
     if(statement == NULL || statement -> type != SYMBOL ||
        (strcmp(statement -> name, "=") && strcmp(statement -> name, ":="))){
@@ -4781,6 +4776,7 @@ else if(arg -> type == EXPR){
     // Trocando a vírgula por novo '('
     begin_delim -> next = next_token -> next -> next;
     next_token -> next -> next -> prev = begin_delim;
+    arg -> prev -> next = NULL;
     *tok = begin_delim;
   }
   else{
