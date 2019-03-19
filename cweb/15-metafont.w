@@ -3278,19 +3278,14 @@ void variable(struct metafont **mf, struct token **token,
                 if(vardef){
                     // Se for um vardef, já fazemos a substituição com função a
                     // ser definida e retornamos:
-                    if((*token) -> prev -> prev != NULL){
-                        (*token) -> prev -> prev -> next = *token;
-                        (*token) -> prev = (*token) -> prev -> prev;
+                    if(old_token -> prev != NULL){
+                        old_token -> prev -> next = *token;
+                        (*token) -> prev = old_token -> prev;
                     }
 		    else
 		      (*token) -> prev = NULL;
-                    //if((*token) -> next != NULL)
-		    //   (*token) -> next -> prev = (*token) -> prev;
                     *type = MACRO;
                     expand_macro(*mf, mc, token);
-                    /*(*token) -> prev = (*token) -> prev -> prev;
-                    if((*token) -> prev -> prev != NULL)
-                    (*token) -> prev -> prev -> next = (*token);*/
                     eval(mf, token);
                     (*token) -> prev = previous_token;
                     return;
