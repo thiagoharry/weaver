@@ -652,6 +652,33 @@ static void concat_token(struct token **before, struct token *after){
 }
 @
 
+Além de concatenar, criar uma cópia de uma lista de tokens pode ser
+bastante útil, especialmente em casos nos quais podemos querer mover
+tokens de uma arena de memória para outra ou quando queremos extrair
+elementos de uma lista de tokens sem desfazer aquela lista:
+
+@<Metafont: Funções Estáticas@>+=
+// Coloca sequência de tokens 'after' após a sequência de tokens 'before'
+static struct token *copy_token_list(struct token *list, void *memory_arena){
+  struct token *ret, *last_created = NULL, *current;
+  current = list;
+  if(current == NULL)
+    return NULL;
+  ret = new_token(current -> type, current -> value, current -> name,
+		  memory_arena);
+  last_created = ret;
+  current = current -> next;
+  while(last_created != NULL && current != NULL){
+    last_created -> next = new_token(current -> type, current -> value,
+				     current -> name, memory_arena);
+    last_created = last_created -> next;
+    current = current -> next;
+  }
+  return ret;
+}
+@
+
+
 @*1 Declarações e Expansões.
 
 Um programa METAFONT tem a seguinte aparência:
@@ -1945,7 +1972,6 @@ void declared_variable(struct metafont *mf, struct token **token,
            (!is_tag(mf, current_token) &&
             (strcmp(current_token -> name, "[") &&
              strcmp(current_token -> name, "]")))){
-            // Não tá pegando o sufixo vardef aqui... :-/
             current_token = current_token -> prev;
             break;
         }
@@ -2565,6 +2591,7 @@ if(statement -> type == SYMBOL && !strcmp(statement -> name, "vardef")){
     }
     new_macro -> replacement_text -> next = replacement_text(*mf, &statement,
                                                              current_arena);
+    new_macro -> replacement_text -> next -> prev = new_macro -> replacement_text;
     if(new_macro -> replacement_text -> next != NULL)
       new_macro -> replacement_text -> next -> prev =
           new_macro -> replacement_text;
@@ -3224,7 +3251,7 @@ variável numérica interna, usaremos isso:
 @
 
 @<Metafont: Funções Estáticas@>=
-void variable(struct metafont **mf, struct token **token,
+static void variable(struct metafont **mf, struct token **token,
               char *dst, int dst_size,
               char *type_name, int *type, bool consume){
     struct metafont *scope = *mf;
@@ -3276,16 +3303,22 @@ void variable(struct metafont **mf, struct token **token,
                 vardef = _search_trie(scope -> vardef, VOID_P,
                                       type_name, (void *) &mc);
                 if(vardef){
-                    // Se for um vardef, já fazemos a substituição com função a
-                    // ser definida e retornamos:
-                    if(old_token -> prev != NULL){
-                        old_token -> prev -> next = *token;
-                        (*token) -> prev = old_token -> prev;
-                    }
-		    else
-		      (*token) -> prev = NULL;
+		  // vardef, remover os tokens de seu nome
+		  if(old_token -> prev != NULL){
+		    old_token -> prev -> next = *token;
+		    (*token) -> prev = old_token -> prev;
+		  }
+		  else
+		    (*token) -> prev = NULL;
                     *type = MACRO;
-                    expand_macro(*mf, mc, token);
+                    *token = expand_macro(*mf, mc, token);
+		    // Se expandiu para NULL, temos que tratar o
+		    // começo de um bloco. Retornar e repassar o
+		    // controle para o interpretador
+		    if(*token == NULL){
+		      consume = false;
+		      goto restore_token_if_not_consume_and_exit;
+		    }
                     eval(mf, token);
                     (*token) -> prev = previous_token;
                     return;
@@ -4187,22 +4220,39 @@ função deve receber como argumento uma macro e um ponteiro para um
 token, o qual representa o próximo token da lista a ser interpretada,
 após a macro. Se a macro tivesse argumentos, ele seria o primeiro
 argumento. Como ela não tem, ele é o próximo caractere a ser lido após
-a macro:
+a macro. O retorno da função é um ponteiro para o primeiro token
+gerado na expansão ou |NULL| caso tenhamos encontrado no argumento um
+\monoespaco{begingroup} que terá que ser tratado antes pela próxima iteração do
+interpretador.
 
 @<Metafont: Funções Locais Declaradas@>+=
-static void expand_macro(struct metafont *, struct macro *, struct token **);
+static struct token *expand_macro(struct metafont *, struct macro *,
+				  struct token **);
 @
 @<Metafont: Funções Estáticas@>+=
-static void expand_macro(struct metafont *mf, struct macro *mc,
-                         struct token **tok){
+static struct token *expand_macro(struct  metafont *mf, struct macro *mc,
+				  struct token **tok){
   struct token *expansion = NULL, *current_token = NULL, *replacement;
+  struct token *begin_arg = NULL, *end_arg = NULL;
   replacement = mc -> replacement_text;
   { // Lendo os argumentos
-      struct token *arg = mc -> parameters;
-      while(arg != NULL){
-          @<Metafont: expand_macro: Lê Argumentos@>
-          arg = arg -> next;
-      }
+    struct token *arg = mc -> parameters;
+    while(arg != NULL){
+      @<Metafont: expand_macro: Lê Argumentos@>
+      arg = arg -> next;
+    }
+  }
+  { // Se já tratamos os argumentos sem sair, não encontramos blocos a
+    // serem expandidos dentro do argumento. Vamos remover os
+    // argumentos da lista de tokens interpretados
+    if(begin_arg != NULL){
+      if(begin_arg -> prev != NULL)
+	begin_arg -> prev -> next = end_arg -> next;
+      begin_arg -> prev = NULL;
+      if(end_arg -> next != NULL)
+	end_arg -> next -> prev = begin_arg -> prev;
+      end_arg -> next = NULL;
+    }
   }
   while(replacement != NULL){
     @<Metafont: expand_macro: Expande Argumento@>
@@ -4239,12 +4289,14 @@ static void expand_macro(struct metafont *mf, struct macro *mc,
     if(expansion != NULL)
       *tok = expansion;
   }
+ exit_after_restore_macro:
   @<Metafont: expand_macro: Restaura Macro@>
-  return;
+  return *tok;
  error_no_memory:
   fprintf(stderr, "ERROR: Not enough memory. Please increase the value of "
           "W_INTERNAL_MEMORY at conf/conf.h.\n");
   exit(1);
+  return NULL;
 }
 @
 
@@ -4326,18 +4378,25 @@ sejam simbólicos:
     // Rompemos encadeamento para armazenar expansão
     arg -> prev = NULL;
     if(arg -> type == VARDEF_ARG){
-        while(*tok != NULL && is_tag(mf, *tok)){
-            struct token *next_token = (*tok) -> next;
-            if((*tok) -> prev != NULL)
-                (*tok) -> prev -> next = (*tok) -> next;
-            if((*tok) -> next != NULL)
-                (*tok) -> next -> prev = (*tok) -> prev;
-            (*tok) -> prev = (*tok) -> next = NULL;
-            concat_token(&(arg -> prev), *tok);
-            *tok = next_token;
-        }
+      // Marcamos o começo do argumento
+      if(begin_arg == NULL)
+	begin_arg = *tok;
+      while(*tok != NULL && is_tag(mf, *tok)){
+	// T(esquisito) <-->N(()
+	struct token *next_token = (*tok) -> next;
+	// Atualiza último argumento
+	end_arg = *tok;
+	if((*tok) -> prev != NULL)
+	  (*tok) -> prev -> next = (*tok) -> next;
+	if((*tok) -> next != NULL)
+	  (*tok) -> next -> prev = (*tok) -> prev;
+	(*tok) -> prev = (*tok) -> next = NULL;
+	concat_token(&(arg -> prev), *tok);
+	*tok = next_token;
+      }
     }
     @<Metafont: expand_macro: Lê Expressão Delimitada@>
+    @<Metafont: expand_macro: Lê Sufixo Delimitado@>
     @<Metafont: expand_macro: Lê Expressão Não-Delimitada@>
 }
 @
@@ -4747,7 +4806,7 @@ else if(arg -> type == EXPR){
   delim = delimiter(mf, begin_delim);
   if(delim == NULL){
     mf_error(mf, "Missing argument.");
-    return;
+    return NULL;
   }
   // Achar o fim do delimitador
   number_of_delimiters ++;
@@ -4759,7 +4818,7 @@ else if(arg -> type == EXPR){
   }
   if(end_delim == NULL || end_delim == begin_delim -> next){
     mf_error(mf, "Missing or invalid argument.");
-    return;
+    return NULL;
   }
   end_delim -> prev -> next = NULL;
   next_token = begin_delim -> next;
@@ -4805,7 +4864,7 @@ else if(arg -> type == UNDELIMITED_EXPR){
       *tok = (*tok) -> next;
       if(*tok == NULL){
 	mf_error(mf, "Missing or invalid argument.");
-	return;
+	return NULL;
       }
       if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "begingroup"))
 	number_of_begins ++;
@@ -4828,5 +4887,95 @@ else if(arg -> type == UNDELIMITED_EXPR){
     arg -> prev -> prev = NULL;
     arg -> prev -> next = NULL;
   }
+}
+@
+
+@*1 Parâmetros de Sufixos.
+
+Um sufixo pode ser qualquer quantidade de tags ou subscritos,
+inclusive nenhum. São usados para nos referirmos a variáveis ou a
+sufixos de variáveis. Eles podem também ser argumentos de macros tais
+como os \monoespaco{vardefs} que estamos construindo. Assim como as
+expressões, eles podems ser passados como parâmetros delimitados ou
+não-delimitados para macros.
+
+Vamos tratar primeiro o caso não-delimitado, lembrando que primeiro
+temos que buscar os delimitadores. Aparentemente seria mais fácil
+fazer isso em sufixos que em expressões, pois embora uma eexpressão
+como $(x+1)(x-1)$ tenha seus próprios delimitadores que precisam ser
+levados em conta, espera-se que delimitadores não façam parte de nomes
+de variáveis. Contudo, deve-se lembrar que isso na verdade é falso,
+pois podemos sim ter uma variável passada como argumento na forma
+$var[(x+1)(x-1)]$. Então temos que ser tão estritos aqui como no caso
+de expressões:
+
+@<Metafont: expand_macro: Lê Sufixo Delimitado@>=
+else if(arg -> type == SUFFIX){
+  struct token *begin_delim, *end_delim;
+  bool last_arg = (arg -> next == NULL);
+  char *delim;
+  // Nosso tratamento de delimitradores será tão estrito como o
+  // último. Então temos que ter uma contagem de quantos lemos.
+  int number_of_delimiters = 0;
+  begin_delim = *tok;
+  delim = delimiter(mf, begin_delim);
+  if(delim == NULL){
+    mf_error(mf, "Missing argument.");
+    return NULL;
+  }
+  // Achar o fim do delimitador
+  number_of_delimiters ++;
+  end_delim = begin_delim -> next;
+  while(end_delim != NULL){
+    if(end_delim -> type == SYMBOL && (!strcmp(end_delim -> name, delim) ||
+				       !strcmp(end_delim -> name, ",")))
+      break;
+    // Checando se não é um tag nem um número:
+    if(!is_tag(mf, end_delim) && end_delim -> type != NUMERIC){
+      // Se não é um tag, tem que ser um subscrito tipo [(expressão numérica)].
+      end_delim = end_delim -> next;
+      if(end_delim == NULL || end_delim -> type != SYMBOL ||
+	 strcmp(end_delim -> name, "[") || end_delim -> next == NULL){
+	mf_error(mf, "Missing or invalid suffix argument.");
+	return NULL;
+      }
+      end_delim = end_delim -> next;
+      end_delim = eval_numeric(&mf, &end_delim);
+      if(end_delim == NULL)
+	goto  exit_after_restore_macro; // Possivelmente um begingroup encontrado
+      end_delim = end_delim -> next;
+      if(end_delim == NULL || strcmp(end_delim -> name, "]")){
+	mf_error(mf, "Missing or invalid suffix argument. Missing ']'.");
+	return NULL;
+      }
+    }
+    end_delim = end_delim -> next;
+  }
+  if(end_delim == NULL){
+    mf_error(mf, "Missing or invalid suffix argument.");
+    return NULL;
+  }
+  // Substituir o delimitador ',' por '(' se der
+  if(!last_arg && strcmp(end_delim -> name, delim)){
+    struct token *new_delim = new_token_symbol(begin_delim -> name);
+    new_delim -> next = end_delim -> next;
+    new_delim -> prev = end_delim -> prev;
+    if(end_delim -> next != NULL)
+      end_delim -> next -> prev = new_delim;
+    if(end_delim -> prev != NULL)
+      end_delim -> prev -> next = new_delim;
+    end_delim = new_delim;
+  }
+  // Copiar o conteúdo entre delimitadores para o espaço do argumento:
+  end_delim -> prev -> next = NULL; // Rompe temporariamente o encadeamento
+  // A arena interna é onde estão os tokens temporários interpretados:
+  arg -> prev = copy_token_list(begin_delim -> next, _internal_arena);
+  end_delim -> prev -> next = end_delim; // Conserta encadeamento
+  if(begin_delim -> prev != NULL)
+    begin_delim -> prev -> next = end_delim -> next;
+  if(end_delim -> next != NULL)
+    end_delim -> next -> prev = begin_delim -> prev;
+  begin_delim -> prev = begin_delim -> next = NULL;
+  end_delim -> prev = end_delim -> next = NULL;
 }
 @
