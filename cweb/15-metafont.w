@@ -4233,7 +4233,7 @@ static struct token *expand_macro(struct metafont *, struct macro *,
 static struct token *expand_macro(struct  metafont *mf, struct macro *mc,
 				  struct token **tok){
   struct token *expansion = NULL, *current_token = NULL, *replacement;
-  struct token *begin_arg = NULL, *end_arg = NULL;
+  struct token *begin_arg = NULL, *end_arg = NULL, *before_token = (*tok) -> prev;
   replacement = mc -> replacement_text;
   { // Lendo os argumentos
     struct token *arg = mc -> parameters;
@@ -4286,8 +4286,11 @@ static struct token *expand_macro(struct  metafont *mf, struct macro *mc,
     if(*tok != NULL){
         (*tok) -> prev = current_token;
     }
-    if(expansion != NULL)
+    if(expansion != NULL){
       *tok = expansion;
+      expansion -> prev = before_token;
+      before_token -> next = expansion;
+    }
   }
  exit_after_restore_macro:
   @<Metafont: expand_macro: Restaura Macro@>
@@ -4382,18 +4385,13 @@ sejam simbólicos:
       if(begin_arg == NULL)
 	begin_arg = *tok;
       while(*tok != NULL && is_tag(mf, *tok)){
-	// T(esquisito) <-->N(()
-	struct token *next_token = (*tok) -> next;
-	// Atualiza último argumento
 	end_arg = *tok;
-	if((*tok) -> prev != NULL)
-	  (*tok) -> prev -> next = (*tok) -> next;
-	if((*tok) -> next != NULL)
-	  (*tok) -> next -> prev = (*tok) -> prev;
-	(*tok) -> prev = (*tok) -> next = NULL;
-	concat_token(&(arg -> prev), *tok);
-	*tok = next_token;
+	*tok = (*tok) -> next;
       }
+      // Rompendo encadeamento para copiar só o que queremos
+      end_arg -> next = NULL;
+      arg -> prev = copy_token_list(begin_arg, _internal_arena);
+      end_arg -> next = *tok;
     }
     @<Metafont: expand_macro: Lê Expressão Delimitada@>
     @<Metafont: expand_macro: Lê Sufixo Delimitado@>
