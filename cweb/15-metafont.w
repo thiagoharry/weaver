@@ -4294,7 +4294,13 @@ static struct token *expand_macro(struct  metafont *mf, struct macro *mc,
   }
  exit_after_restore_macro:
   @<Metafont: expand_macro: Restaura Macro@>
-  return *tok;
+  // Se estamos aqui e nada mudou, não ocorreu uma expansão.
+  // Ou ocorreu um erro ou um begingroup foi encontrado
+  // nos argumentos.
+  if(*tok == begin_arg)
+    return NULL;
+  else
+    return *tok;
  error_no_memory:
   fprintf(stderr, "ERROR: Not enough memory. Please increase the value of "
           "W_INTERNAL_MEMORY at conf/conf.h.\n");
@@ -4806,6 +4812,8 @@ else if(arg -> type == EXPR){
     mf_error(mf, "Missing argument.");
     return NULL;
   }
+  if(begin_arg == NULL)
+    begin_arg = begin_delim;
   // Achar o fim do delimitador
   number_of_delimiters ++;
   end_delim = begin_delim -> next;
@@ -4813,6 +4821,7 @@ else if(arg -> type == EXPR){
     if(end_delim -> type == SYMBOL && !strcmp(end_delim -> name, delim))
       break;
     end_delim = end_delim -> next;
+    end_arg = end_delim;
   }
   if(end_delim == NULL || end_delim == begin_delim -> next){
     mf_error(mf, "Missing or invalid argument.");
@@ -4822,20 +4831,30 @@ else if(arg -> type == EXPR){
   next_token = begin_delim -> next;
   arg -> prev = eval(&mf, &next_token);
   end_delim -> prev -> next = end_delim;
+  if(arg -> prev == NULL){
+    // Tem um bloco nesta expressão. Encerrar.
+    *tok = begin_arg;
+    goto exit_after_restore_macro;
+  }
+  arg -> prev = new_token(arg -> prev -> type, arg -> prev -> value,
+			  arg -> prev -> name, _internal_arena);
   if(!last_arg && next_token -> next != NULL &&
      next_token -> next -> type == SYMBOL &&
      !strcmp(next_token -> next -> name, ",")){
-    // Trocando a vírgula por novo '('
-    begin_delim -> next = next_token -> next -> next;
-    next_token -> next -> next -> prev = begin_delim;
-    arg -> prev -> next = NULL;
-    *tok = begin_delim;
+    // Trocando a vírgula por novo ')('
+    struct token *new_delimiter = new_token_symbol(end_delim -> name);
+    new_delimiter -> next = new_token_symbol(begin_delim -> name);
+    new_delimiter -> next -> prev = new_delimiter;
+    new_delimiter -> next -> next = next_token -> next -> next;
+    if(next_token -> next -> next != NULL)
+      next_token -> next -> next -> prev = new_delimiter -> next;
+    new_delimiter -> prev = next_token -> next -> prev;
+    if(next_token -> next -> prev != NULL)
+      next_token -> next -> prev -> next = new_delimiter;
+    *tok = new_delimiter -> next;
   }
   else{
-    arg -> prev -> next = NULL;
     *tok = end_delim -> next;
-    begin_delim -> prev -> next = end_delim -> next;
-    end_delim -> next -> prev = begin_delim -> prev;
   }
 }
 @
