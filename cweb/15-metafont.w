@@ -3408,16 +3408,14 @@ static void variable(struct metafont **mf, struct token **token,
   restore_token_if_not_consume_and_exit:
     if(!consume && old_token != *token){
       // Restaurar variável
-      if(*token != NULL && (*token) -> prev != NULL)
-        (*token) -> prev -> next = old_token;
-      while(old_token -> next != (*token) &&
-            old_token -> next != NULL &&
+      if(old_token -> prev != NULL)
+	old_token -> prev -> next = old_token;
+      while(old_token -> next != NULL &&
             old_token -> next != old_token){
+	if(old_token -> next -> prev != old_token)
+	  old_token -> next -> prev = old_token;
         old_token = old_token -> next;
       }
-      if(*token != NULL)
-          (*token) -> prev = old_token;
-      old_token -> next = *token;
     }
     return;
 }
