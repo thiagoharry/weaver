@@ -3311,7 +3311,7 @@ static void variable(struct metafont **mf, struct token **token,
 		  else
 		    (*token) -> prev = NULL;
                     *type = MACRO;
-                    *token = expand_macro(*mf, mc, token);
+                    *token = expand_macro(mf, mc, token);
 		    // Se expandiu para NULL, temos que tratar o
 		    // começo de um bloco. Retornar e repassar o
 		    // controle para o interpretador
@@ -4223,12 +4223,23 @@ gerado na expansão ou |NULL| caso tenhamos encontrado no argumento um
 \monoespaco{begingroup} que terá que ser tratado antes pela próxima iteração do
 interpretador.
 
+Note que embora o que estejamos criando agora não receba argumentos,
+esta ainda será a mesma função que tratará qualquer macro, tenha ela
+argumentos ou não Por isso colocamos nela algumas coisas que mais
+tarde ajudarão a tratar argumentos. Por exemplo, passamos um ponteiro
+de ponteiro para a estrutura METAFONT. Pois se lemos argumentos, os
+argumentos podem criar um bloco com \monoespaco{begingroup} e neste
+caso iremos modificar a estrutura METAFONT original que recebermos
+para uma estrutura-filho. Também usaremos ponteiros para marcar o
+começo e o fim dos argumentos caso existam. Tais ponteiros serão
+usados para removê-los depois caso a sua remoção seja segura.
+
 @<Metafont: Funções Locais Declaradas@>+=
-static struct token *expand_macro(struct metafont *, struct macro *,
+static struct token *expand_macro(struct metafont **, struct macro *,
 				  struct token **);
 @
 @<Metafont: Funções Estáticas@>+=
-static struct token *expand_macro(struct  metafont *mf, struct macro *mc,
+static struct token *expand_macro(struct  metafont **mf, struct macro *mc,
 				  struct token **tok){
   struct token *expansion = NULL, *current_token = NULL, *replacement;
   struct token *begin_arg = NULL, *end_arg = NULL, *before_token = (*tok) -> prev;
@@ -4388,7 +4399,7 @@ sejam simbólicos:
       // Marcamos o começo do argumento
       if(begin_arg == NULL)
 	begin_arg = *tok;
-      while(*tok != NULL && is_tag(mf, *tok)){
+      while(*tok != NULL && is_tag(*mf, *tok)){
 	end_arg = *tok;
 	*tok = (*tok) -> next;
       }
@@ -4805,9 +4816,9 @@ else if(arg -> type == EXPR){
   int number_of_delimiters = 0;
   // Primeiro temos que ler o delimitador
   begin_delim = *tok;
-  delim = delimiter(mf, begin_delim);
+  delim = delimiter(*mf, begin_delim);
   if(delim == NULL){
-    mf_error(mf, "Missing argument.");
+    mf_error(*mf, "Missing argument.");
     return NULL;
   }
   if(begin_arg == NULL)
@@ -4822,12 +4833,12 @@ else if(arg -> type == EXPR){
     end_arg = end_delim;
   }
   if(end_delim == NULL || end_delim == begin_delim -> next){
-    mf_error(mf, "Missing or invalid argument.");
+    mf_error(*mf, "Missing or invalid argument.");
     return NULL;
   }
   end_delim -> prev -> next = NULL;
   next_token = begin_delim -> next;
-  arg -> prev = eval(&mf, &next_token);
+  arg -> prev = eval(mf, &next_token);
   end_delim -> prev -> next = end_delim;
   if(arg -> prev == NULL){
     // Tem um bloco nesta expressão. Encerrar.
@@ -4875,10 +4886,10 @@ else if(arg -> type == UNDELIMITED_EXPR){
     struct token *begin = *tok, *end = *tok;
     while(number_of_begins > 0){
       if((*tok) != NULL && (*tok) -> next == NULL)
-	(*tok) -> next = get_statement(mf);
+	(*tok) -> next = get_statement(*mf);
       *tok = (*tok) -> next;
       if(*tok == NULL){
-	mf_error(mf, "Missing or invalid argument.");
+	mf_error(*mf, "Missing or invalid argument.");
 	return NULL;
       }
       if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "begingroup"))
@@ -4896,7 +4907,7 @@ else if(arg -> type == UNDELIMITED_EXPR){
     arg -> prev = begin;
   }
   else{
-    arg -> prev = eval(&mf, tok);
+    arg -> prev = eval(mf, tok);
     *tok = (*tok) -> next;
     (*tok) -> prev = arg -> prev -> prev;
     arg -> prev -> prev = NULL;
@@ -4933,9 +4944,9 @@ else if(arg -> type == SUFFIX){
   // último. Então temos que ter uma contagem de quantos lemos.
   int number_of_delimiters = 0;
   begin_delim = *tok;
-  delim = delimiter(mf, begin_delim);
+  delim = delimiter(*mf, begin_delim);
   if(delim == NULL){
-    mf_error(mf, "Missing argument.");
+    mf_error(*mf, "Missing argument.");
     return NULL;
   }
   // Achar o fim do delimitador
@@ -4946,28 +4957,28 @@ else if(arg -> type == SUFFIX){
 				       !strcmp(end_delim -> name, ",")))
       break;
     // Checando se não é um tag nem um número:
-    if(!is_tag(mf, end_delim) && end_delim -> type != NUMERIC){
+    if(!is_tag(*mf, end_delim) && end_delim -> type != NUMERIC){
       // Se não é um tag, tem que ser um subscrito tipo [(expressão numérica)].
       end_delim = end_delim -> next;
       if(end_delim == NULL || end_delim -> type != SYMBOL ||
 	 strcmp(end_delim -> name, "[") || end_delim -> next == NULL){
-	mf_error(mf, "Missing or invalid suffix argument.");
+	mf_error(*mf, "Missing or invalid suffix argument.");
 	return NULL;
       }
       end_delim = end_delim -> next;
-      end_delim = eval_numeric(&mf, &end_delim);
+      end_delim = eval_numeric(mf, &end_delim);
       if(end_delim == NULL)
 	goto  exit_after_restore_macro; // Possivelmente um begingroup encontrado
       end_delim = end_delim -> next;
       if(end_delim == NULL || strcmp(end_delim -> name, "]")){
-	mf_error(mf, "Missing or invalid suffix argument. Missing ']'.");
+	mf_error(*mf, "Missing or invalid suffix argument. Missing ']'.");
 	return NULL;
       }
     }
     end_delim = end_delim -> next;
   }
   if(end_delim == NULL){
-    mf_error(mf, "Missing or invalid suffix argument.");
+    mf_error(*mf, "Missing or invalid suffix argument.");
     return NULL;
   }
   // Substituir o delimitador ',' por '(' se der
