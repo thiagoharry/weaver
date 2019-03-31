@@ -4876,43 +4876,23 @@ trabalho por nós:
 
 @<Metafont: expand_macro: Lê Expressão Não-Delimitada@>=
 else if(arg -> type == UNDELIMITED_EXPR){
-  // Sabemos que a expressão não começa com um '(', pois ela não é
-  // delimitada. Entretanto, ela pode começar com um 'begingroup'.
-  // Em tais casos, não avaliaremos o 'begingroup', apenas copiaremos
-  // ele até o seu 'endgroup' e armazenaremos isso como o argumento.
-  // Nos demias casos, apenas avaliamos a expressão.
-  if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "begingroup")){
-    int number_of_begins = 1;
-    struct token *begin = *tok, *end = *tok;
-    while(number_of_begins > 0){
-      if((*tok) != NULL && (*tok) -> next == NULL)
-	(*tok) -> next = get_statement(*mf);
-      *tok = (*tok) -> next;
-      if(*tok == NULL){
-	mf_error(*mf, "Missing or invalid argument.");
-	return NULL;
-      }
-      if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "begingroup"))
-	number_of_begins ++;
-      else if((*tok) -> type == SYMBOL && !strcmp((*tok) -> name, "endgroup")){
-	number_of_begins --;
-	end = *tok;
-      }
-    }
-    if((*tok) -> next != NULL){
-      *tok = (*tok) -> next;
-      (*tok) -> prev = NULL;
-    }
-    end -> next = NULL;
-    arg -> prev = begin;
+  arg -> prev = eval(mf, tok);
+  if(arg -> prev == NULL){
+    // Tem um bloco nesta expressão. Encerrar.
+    *tok = begin_arg;
+    goto exit_after_restore_macro;
   }
-  else{
-    arg -> prev = eval(mf, tok);
-    *tok = (*tok) -> next;
-    (*tok) -> prev = arg -> prev -> prev;
-    arg -> prev -> prev = NULL;
-    arg -> prev -> next = NULL;
-  }
+  // Se ainda não encontramos o começo dos argumentos, marcar ele aqui
+  if(begin_arg == NULL)
+    begin_arg = *tok;
+  // E marcar aqui como o fim dos argumentos
+  end_arg = *tok;
+  // Armazenar em arg -> prev apenas uma cópia do resultado da
+  // avaliação, não ele em si:
+  arg -> prev = new_token(arg -> prev -> type, arg -> prev -> value,
+			  arg -> prev -> name, _internal_arena);
+  // Continuar:
+  *tok = (*tok) -> next;
 }
 @
 
