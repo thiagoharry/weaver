@@ -4259,7 +4259,7 @@ static struct token *expand_macro(struct  metafont **mf, struct macro *mc,
 	begin_arg -> prev -> next = end_arg -> next;
       begin_arg -> prev = NULL;
       if(end_arg -> next != NULL)
-	end_arg -> next -> prev = begin_arg -> prev;
+	end_arg -> next -> prev = before_token;
       end_arg -> next = NULL;
     }
   }
@@ -4907,8 +4907,8 @@ não-delimitados para macros.
 
 Vamos tratar primeiro o caso não-delimitado, lembrando que primeiro
 temos que buscar os delimitadores. Aparentemente seria mais fácil
-fazer isso em sufixos que em expressões, pois embora uma eexpressão
-como $(x+1)(x-1)$ tenha seus próprios delimitadores que precisam ser
+fazer isso em sufixos que em expressões, pois embora uma expressão
+como $(x+1)(x-1)$ tenha seus próprios parênteses que precisam ser
 levados em conta, espera-se que delimitadores não façam parte de nomes
 de variáveis. Contudo, deve-se lembrar que isso na verdade é falso,
 pois podemos sim ter uma variável passada como argumento na forma
@@ -4929,6 +4929,9 @@ else if(arg -> type == SUFFIX){
     mf_error(*mf, "Missing argument.");
     return NULL;
   }
+  // Se ainda não encontramos o começo dos argumentos, marcar ele aqui
+  if(begin_arg == NULL)
+    begin_arg = begin_delim;
   // Achar o fim do delimitador
   number_of_delimiters ++;
   end_delim = begin_delim -> next;
@@ -4947,8 +4950,10 @@ else if(arg -> type == SUFFIX){
       }
       end_delim = end_delim -> next;
       end_delim = eval_numeric(mf, &end_delim);
-      if(end_delim == NULL)
+      if(end_delim == NULL){
+	*tok = begin_arg;
 	goto  exit_after_restore_macro; // Possivelmente um begingroup encontrado
+      }
       end_delim = end_delim -> next;
       if(end_delim == NULL || strcmp(end_delim -> name, "]")){
 	mf_error(*mf, "Missing or invalid suffix argument. Missing ']'.");
@@ -4961,27 +4966,26 @@ else if(arg -> type == SUFFIX){
     mf_error(*mf, "Missing or invalid suffix argument.");
     return NULL;
   }
-  // Substituir o delimitador ',' por '(' se der
-  if(!last_arg && strcmp(end_delim -> name, delim)){
-    struct token *new_delim = new_token_symbol(begin_delim -> name);
-    new_delim -> next = end_delim -> next;
-    new_delim -> prev = end_delim -> prev;
+  end_arg = end_delim;
+  // Substituir o delimitador ',' por ")(" se der
+  if(!last_arg && !strcmp(end_delim -> name, ",")){
+    struct token *new_delimiter = new_token_symbol(delim);
+    new_delimiter -> next = new_token_symbol(begin_delim -> name);
+    new_delimiter -> next -> prev = new_delimiter;
+    new_delimiter -> next -> next = end_delim -> next;
     if(end_delim -> next != NULL)
-      end_delim -> next -> prev = new_delim;
+      end_delim -> next -> prev = new_delimiter -> next;
+    new_delimiter -> prev = end_delim -> prev;
     if(end_delim -> prev != NULL)
-      end_delim -> prev -> next = new_delim;
-    end_delim = new_delim;
+      end_delim -> prev -> next = new_delimiter;
+    *tok = new_delimiter -> next;
   }
+  else
+    *tok = end_arg -> next;;
   // Copiar o conteúdo entre delimitadores para o espaço do argumento:
   end_delim -> prev -> next = NULL; // Rompe temporariamente o encadeamento
   // A arena interna é onde estão os tokens temporários interpretados:
   arg -> prev = copy_token_list(begin_delim -> next, _internal_arena);
   end_delim -> prev -> next = end_delim; // Conserta encadeamento
-  if(begin_delim -> prev != NULL)
-    begin_delim -> prev -> next = end_delim -> next;
-  if(end_delim -> next != NULL)
-    end_delim -> next -> prev = begin_delim -> prev;
-  begin_delim -> prev = begin_delim -> next = NULL;
-  end_delim -> prev = end_delim -> next = NULL;
 }
 @
