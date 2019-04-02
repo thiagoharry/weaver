@@ -3474,6 +3474,7 @@ if(current_token -> type == SYMBOL){
     int type = NOT_DECLARED;
     struct token *replacement = NULL;
     struct token *possible_var = current_token;
+    struct token *before_replacement = current_token -> prev;
     variable(mf, &current_token, variable_name, 1024, type_name, &type, true);
     if(type == MACRO){ // vardef substituído
         return NULL;
@@ -3486,17 +3487,16 @@ if(current_token -> type == SYMBOL){
         }
         replacement = read_var(variable_name, type_name, *mf);
         if(replacement != NULL){
-            if(current_token != NULL)
-                replacement -> prev = current_token -> prev;
-            replacement -> next = current_token;
-            if(current_token != NULL && current_token -> prev != NULL)
-                current_token -> prev -> next = replacement;
-            else
-                *expression = replacement;
-            if(current_token != NULL)
-                current_token -> prev = replacement;
-            current_token = replacement;
-            continue;
+	  replacement -> prev = before_replacement;
+	  replacement -> next = current_token;
+	  if(before_replacement != NULL)
+	    before_replacement -> next = replacement;
+	  else
+	    *expression = replacement;
+	  if(current_token != NULL)
+	    current_token -> prev = replacement;
+	  current_token = replacement;
+	  continue;
         }
     }
     if(replacement == NULL || type == NOT_DECLARED){
