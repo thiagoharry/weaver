@@ -4411,6 +4411,7 @@ sejam simbólicos:
     @<Metafont: expand_macro: Lê Expressão Delimitada@>
     @<Metafont: expand_macro: Lê Sufixo Delimitado@>
     @<Metafont: expand_macro: Lê Expressão Não-Delimitada@>
+    @<Metafont: expand_macro: Lê Sufixo Não-Delimitado@>
 }
 @
 
@@ -4981,11 +4982,50 @@ else if(arg -> type == SUFFIX){
     *tok = new_delimiter -> next;
   }
   else
-    *tok = end_arg -> next;;
+    *tok = end_arg -> next;
   // Copiar o conteúdo entre delimitadores para o espaço do argumento:
   end_delim -> prev -> next = NULL; // Rompe temporariamente o encadeamento
   // A arena interna é onde estão os tokens temporários interpretados:
   arg -> prev = copy_token_list(begin_delim -> next, _internal_arena);
   end_delim -> prev -> next = end_delim; // Conserta encadeamento
+}
+@
+
+O que fizemos agora é a versão delimitada de parâmetros de
+sufixo. Para a versão não-delimitada basicamente percorremos os tokens
+sem poder contar com marcações como ``('' e ``,''. Vamos apenas
+percorrer tudo até encontrar algo que não é um tag e nem um subscrito
+e copiamos isso como argumento:
+
+@<Metafont: expand_macro: Lê Sufixo Não-Delimitado@>=
+else if(arg -> type == UNDELIMITED_SUFFIX){
+  struct token *suffix_iterator = *tok;
+  struct token *before_suffix = (*tok != NULL)?((*tok) -> prev):(NULL);
+  // Se ainda não encontramos o começo dos argumentos, marcar ele aqui
+  if(begin_arg == NULL)
+    begin_arg = suffix_iterator;
+  while(suffix_iterator != NULL){
+    // Tratando subscritos
+    if(suffix_iterator -> type == SYMBOL && !strcmp(suffix_iterator -> name, "[")){
+      struct token *result = eval_numeric(mf, &(suffix_iterator -> next));
+      if(result == NULL)
+	return NULL; // Tratar grupo em argumento
+    }
+    if(!is_tag(*mf, suffix_iterator) && suffix_iterator -> type != NUMERIC)
+      break;
+    end_arg = suffix_iterator;
+    suffix_iterator = suffix_iterator -> next;
+  }
+  if(suffix_iterator == NULL){
+    mf_error(*mf, "ERROR: Missing suffix parameter.");
+    return NULL;
+  }
+  // Terminando aqui, suffix_iterator está no token após o sufixo e
+  // before_suffix está no token imediatamente antes. Sabendo disso,
+  // podemos copiar os tokens
+  suffix_iterator -> prev -> next = NULL;
+  arg -> prev = copy_token_list(before_suffix -> next, _internal_arena);
+  suffix_iterator -> prev -> next = suffix_iterator;;
+  *tok = end_arg -> next;
 }
 @
