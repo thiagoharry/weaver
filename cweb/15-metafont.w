@@ -4410,6 +4410,7 @@ sejam simbólicos:
     }
     @<Metafont: expand_macro: Lê Expressão Delimitada@>
     @<Metafont: expand_macro: Lê Sufixo Delimitado@>
+    @<Metafont: expand_macro: Lê Texto Delimitado@>
     @<Metafont: expand_macro: Lê Expressão Não-Delimitada@>
     @<Metafont: expand_macro: Lê Sufixo Não-Delimitado@>
 }
@@ -5029,5 +5030,53 @@ else if(arg -> type == UNDELIMITED_SUFFIX){
   arg -> prev = copy_token_list(before_suffix -> next, _internal_arena);
   suffix_iterator -> prev -> next = suffix_iterator;;
   *tok = end_arg -> next;
+}
+@
+
+@*1 Parâmetros de Texto.
+
+O terceiro e último tipo de parâmetro que vem na forma delimitada e
+não-delimitada são argumentos de texto. Quando delimitado, ele trata
+tudo que vem após ele como um argumento que não é avaliado até
+encontrar um ``)''. Mesmo vírgulas são tratadas como argumentos. E se
+houver ocorrências de delimitadores abertos no argumento, estes
+precisam ser fechados quando são o mesmo tipo de delimitador que o
+usado para delimitar o argumento (nos demais casos, eles não precisam
+ter um par correspondente de fechamento quando são lidos como
+argumentos).
+
+@<Metafont: expand_macro: Lê Texto Delimitado@>=
+else if(arg -> type == TEXT){
+  struct token *begin_delim, *end_delim;
+  bool last_arg = (arg -> next == NULL);
+  char *delim;
+  // Para contarmos quantas vezes abrimos um novo delimitador no texto
+  int number_of_delimiters = 0;
+  begin_delim = *tok;
+  delim = delimiter(*mf, begin_delim);
+  if(delim == NULL){
+    mf_error(*mf, "Missing argument.");
+    return NULL;
+  // Se ainda não encontramos o começo dos argumentos, marcar ele aqui
+  if(begin_arg == NULL)
+    begin_arg = begin_delim;
+  // Achar o fim do delimitador
+  number_of_delimiters ++;
+  // End delim começa sendo o token após o '(' de abertura. Iteramos
+  // sempre fazendo ele virar o próximo até que ele vire NULL sem que
+  // seja possível obter mais tokens (caso em que há um erro de código
+  // incompleto) ou até que ele seja o ')' de finalização do
+  // argumento.
+  end_delim = begin_delim -> next;
+  while(end_delim != NULL){
+    // TODO: Sempre checar se estamos em um '(' (para contarmos número
+    // de aberturas) ou em um ')' (para ver se devemos sair).
+    end_delim = end_delim -> next;
+    // TODO: Tentar pedir mais tokens, pode ser que um ';' fazia parte
+    // do texto
+  }
+  // TODO: Depois de ter o começo e o fim do argumento, copiar tudo
+  // como argumento e atualizar o ponteiro *tok para continuar lendo o
+  // que vem depois.
 }
 @
