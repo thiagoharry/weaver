@@ -4688,40 +4688,42 @@ Então, vamos ao código:
     }
     else{
         // Estamos em um '=', não ':='
-        if(token_stack_position > 0)
-            left = eval(mf, &(token_stack[token_stack_position - 1] -> next));
-        else
-            left = eval(mf, &statement);
-        if(right -> type == SYMBOL && left -> type == SYMBOL){
-          variable(mf, &left, left_var, 1024, left_var_type, &type, false);
-          variable(mf, &right, right_var, 1024, right_var_type, &type, false);
-          equal_variables(*mf, left_var, right_var, left_var_type,
-                          right_var_type, false);
-        }
-        else if(right -> type == SYMBOL){
-          variable(mf, &right, right_var, 1024, right_var_type, &type, false);
-          new_defined_string_variable(right_var, right_var_type, left, *mf,
+      if(token_stack_position > 0)
+	left = eval(mf, &(token_stack[token_stack_position - 1] -> next));
+      else
+	left = eval(mf, &statement);
+      if(left == NULL)
+	return; // Erro ou tratamento de grupo
+      if(right -> type == SYMBOL && left -> type == SYMBOL){
+	variable(mf, &left, left_var, 1024, left_var_type, &type, false);
+	variable(mf, &right, right_var, 1024, right_var_type, &type, false);
+	equal_variables(*mf, left_var, right_var, left_var_type,
+			right_var_type, false);
+      }
+      else if(right -> type == SYMBOL){
+	variable(mf, &right, right_var, 1024, right_var_type, &type, false);
+	new_defined_string_variable(right_var, right_var_type, left, *mf,
                                       false);
-        }
-        else if(left -> type == SYMBOL){
-            // Obtém variável como string e depois a restaura
-            variable(mf, &left, left_var, 1024, left_var_type, &type, false);
-            new_defined_string_variable(left_var, left_var_type, right, *mf,
-                                        false);
-        }
-        else{
-            // Igualdade entre dois literais, isso é um erro:
-          if(left -> type == right -> type && !strcmp(left -> name,
-                                                      right -> name)){
-            mf_error(*mf, "Redundant equation.");
-            return;
-          }
-          else{
-            mf_error(*mf, "Inconsistent equation (%s = %s).", left -> name,
-                     right -> name);
-            return;
-          }
-        }
+      }
+      else if(left -> type == SYMBOL){
+	// Obtém variável como string e depois a restaura
+	variable(mf, &left, left_var, 1024, left_var_type, &type, false);
+	new_defined_string_variable(left_var, left_var_type, right, *mf,
+				    false);
+      }
+      else{
+	// Igualdade entre dois literais, isso é um erro:
+	if(left -> type == right -> type && !strcmp(left -> name,
+						    right -> name)){
+	  mf_error(*mf, "Redundant equation.");
+	  return;
+	}
+	else{
+	  mf_error(*mf, "Inconsistent equation (%s = %s).", left -> name,
+		   right -> name);
+	  return;
+	}
+      }
     }
     last_separator -> prev -> next = last_semicolon;
     last_semicolon -> prev = last_separator -> prev;
