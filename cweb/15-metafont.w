@@ -5048,7 +5048,6 @@ argumentos).
 @<Metafont: expand_macro: Lê Texto Delimitado@>=
 else if(arg -> type == TEXT){
   struct token *begin_delim, *end_delim;
-  bool last_arg = (arg -> next == NULL);
   char *delim;
   // Para contarmos quantas vezes abrimos um novo delimitador no texto
   int number_of_delimiters = 0;
@@ -5057,6 +5056,7 @@ else if(arg -> type == TEXT){
   if(delim == NULL){
     mf_error(*mf, "Missing argument.");
     return NULL;
+  }
   // Se ainda não encontramos o começo dos argumentos, marcar ele aqui
   if(begin_arg == NULL)
     begin_arg = begin_delim;
@@ -5069,14 +5069,34 @@ else if(arg -> type == TEXT){
   // argumento.
   end_delim = begin_delim -> next;
   while(end_delim != NULL){
-    // TODO: Sempre checar se estamos em um '(' (para contarmos número
+    end_arg = end_delim;
+    // Sempre checar se estamos em um '(' (para contarmos número
     // de aberturas) ou em um ')' (para ver se devemos sair).
+    if(end_delim -> type == SYMBOL &&
+       !strcmp(end_delim -> name, begin_delim -> name))
+      number_of_delimiters ++;
+    else if(end_delim -> type == SYMBOL && !strcmp(end_delim -> name, delim)){
+      number_of_delimiters --;
+      if(number_of_delimiters == 0)
+	break;
+    }
+    // Tentar pedir mais tokens caso eles acabarem, pode ser que um
+    // ';' fazia parte do texto
+    if(end_delim -> next == NULL)
+      end_delim -> next = get_statement(*mf);
     end_delim = end_delim -> next;
-    // TODO: Tentar pedir mais tokens, pode ser que um ';' fazia parte
-    // do texto
   }
-  // TODO: Depois de ter o começo e o fim do argumento, copiar tudo
+  // Se acabou os argumentos antes do fim, sinalizar erro
+  if(end_delim == NULL){
+    mf_error(*mf, "Missing argument.");
+    return NULL;
+  }
+  // Depois de ter o começo e o fim do argumento, copiar tudo
   // como argumento e atualizar o ponteiro *tok para continuar lendo o
   // que vem depois.
+  end_delim -> prev -> next = NULL;
+  arg -> prev = copy_token_list(end_delim -> next, _internal_arena);
+  end_delim -> prev -> next = end_delim;
+  *tok = end_delim -> next;
 }
 @
