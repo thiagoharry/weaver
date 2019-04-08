@@ -658,7 +658,7 @@ tokens de uma arena de memória para outra ou quando queremos extrair
 elementos de uma lista de tokens sem desfazer aquela lista:
 
 @<Metafont: Funções Estáticas@>+=
-// Coloca sequência de tokens 'after' após a sequência de tokens 'before'
+// Cria cópia de lista de tokens usando uma arena de memória dada
 static struct token *copy_token_list(struct token *list, void *memory_arena){
   struct token *ret, *last_created = NULL, *current;
   current = list;
@@ -671,6 +671,7 @@ static struct token *copy_token_list(struct token *list, void *memory_arena){
   while(last_created != NULL && current != NULL){
     last_created -> next = new_token(current -> type, current -> value,
 				     current -> name, memory_arena);
+    last_created -> next -> prev = last_created;
     last_created = last_created -> next;
     current = current -> next;
   }
@@ -2952,7 +2953,8 @@ struct token *eval(struct metafont **mf, struct token **expression){
         }
 
     }
-    mf_error(*mf, "Undetermined expression.");
+    // A expressão pode ser um vardef vacuoso. Comentar esse erro traz problemas?
+    //mf_error(*mf, "Undetermined expression.");
     return NULL;
 }
 @
@@ -4293,12 +4295,13 @@ static struct token *expand_macro(struct  metafont **mf, struct macro *mc,
   if(current_token != NULL){
     current_token -> next = *tok;
     if(*tok != NULL){
-        (*tok) -> prev = current_token;
+      (*tok) -> prev = current_token;
     }
     if(expansion != NULL){
       *tok = expansion;
       expansion -> prev = before_token;
-      before_token -> next = expansion;
+      if(before_token != NULL)
+	before_token -> next = expansion;
     }
   }
  exit_after_restore_macro:
@@ -4413,6 +4416,7 @@ sejam simbólicos:
     @<Metafont: expand_macro: Lê Texto Delimitado@>
     @<Metafont: expand_macro: Lê Expressão Não-Delimitada@>
     @<Metafont: expand_macro: Lê Sufixo Não-Delimitado@>
+    @<Metafont: expand_macro: Lê Texto Não-Delimitado@>
 }
 @
 
@@ -5095,8 +5099,79 @@ else if(arg -> type == TEXT){
   // como argumento e atualizar o ponteiro *tok para continuar lendo o
   // que vem depois.
   end_delim -> prev -> next = NULL;
-  arg -> prev = copy_token_list(end_delim -> next, _internal_arena);
+  arg -> prev = copy_token_list(begin_delim -> next, _internal_arena);
   end_delim -> prev -> next = end_delim;
   *tok = end_delim -> next;
 }
 @
+
+Com relação a textos não-delimitados, tudo se torna uma questão de
+apenas pegar como argumento tudo o que existir até o ponto-e-vírgula
+final. Entretanto, observando o comportamento do METAFONT original,
+ainda deve-se omar cuidado com começos de blocos nestes casos. Cada
+bloco \monoespaco{begingroup} no argumento de texto não-delimitado
+ainda precisa ser fechado. Mesmo que isso não seja verdade no caso de
+argumentos de texto delimitados.
+
+Então o nosso código é muito semelhante ao anterior. Vamos percorrendo
+os tokens até achar um ``;'' que finaliza o argumento, exceto que
+fazemos uma contagem de blocos abertos e só consideramos estar no fim
+do argumento se não houverem blocos abertos.
+
+@<Metafont: expand_macro: Lê Texto Não-Delimitado@>=
+else if(arg -> type == UNDELIMITED_TEXT){
+  struct token *begin_delim, *end_delim;
+  // Para contarmos quantas vezes abrimos um bloco
+  int number_of_blocks = 0;
+  begin_delim = *tok;
+  if(begin_delim == NULL){
+    mf_error(*mf, "Missing argument.");
+    return NULL;
+  }
+  // Se ainda não encontramos o começo dos argumentos, marcar ele aqui
+  if(begin_arg == NULL)
+    begin_arg = begin_delim;
+  // End delim começa sendo o token do começo do argumento. Iteramos
+  // sempre fazendo ele virar o próximo até que ele vire NULL sem que
+  // seja possível obter mais tokens (caso em que há um erro de código
+  // incompleto) ou até que ele seja o ';' de finalização do
+  // argumento.
+  end_delim = begin_delim;
+  while(end_delim != NULL){
+    end_arg = end_delim;
+    // Sempre checar se estamos em um '(' (para contarmos número
+    // de aberturas) ou em um ')' (para ver se devemos sair).
+    if(end_delim -> type == SYMBOL && !strcmp(end_delim -> name, "begingroup"))
+      number_of_blocks ++;
+    else if(end_delim -> type == SYMBOL && !strcmp(end_delim -> name, "endgroup"))
+      number_of_blocks --;
+    else if(number_of_blocks == 0 &&
+	    end_delim -> type == SYMBOL && !strcmp(end_delim -> name, ";"))
+      break; // Fim dos argumentos
+    // Tentar pedir mais tokens caso eles acabarem, pode ser que um
+    // ';' fazia parte do argumento dentro de um bloco
+    if(end_delim -> next == NULL)
+      end_delim -> next = get_statement(*mf);
+    end_delim = end_delim -> next;
+  }
+  // Se acabou os argumentos antes do fim, sinalizar erro
+  if(end_delim == NULL){
+    mf_error(*mf, "Missing argument.");
+    return NULL;
+  }
+  // Depois de ter o começo e o fim do argumento, copiar tudo
+  // como argumento e atualizar o ponteiro *tok para continuar lendo o
+  // que vem depois.
+  if(begin_delim == end_delim)
+    arg -> prev = NULL;
+  else{
+    *tok = end_delim;
+    end_delim -> prev -> next = NULL;
+    arg -> prev = copy_token_list(begin_delim, _internal_arena);
+    end_delim -> prev -> next = end_delim;
+  }
+  *tok = end_delim;
+}
+@
+
+
