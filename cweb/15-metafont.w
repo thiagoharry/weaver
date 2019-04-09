@@ -2866,7 +2866,7 @@ expressão começa com um grupo.
           if(statement -> next -> type != SYMBOL ||
              strcmp(statement -> next -> name, ";"))
             mf_error(*mf, "Missing ';' after title.");
-            ; // Se algum dia quiseros fazer algo com o título, inserir aqui
+            ; // Se algum dia quisermos fazer algo com o título, inserir aqui
         }
     }
     return;
@@ -2910,7 +2910,10 @@ struct token *eval(struct metafont **mf, struct token **expression){
             while(expr_begin != NULL && expr_begin -> prev != NULL)
               expr_begin = expr_begin -> prev;
             if(expr_begin != NULL){
-              (*mf) -> past_tokens = expr_begin;
+	      if(expr_begin != aux)
+		(*mf) -> past_tokens = expr_begin;
+	      else
+		(*mf) -> past_tokens = NULL;
             }
             // Começo de uma expressão composta com grupo
             // Primeiro rompemos a cadeia de tokens antes:
@@ -2951,10 +2954,20 @@ struct token *eval(struct metafont **mf, struct token **expression){
             struct token *teste = eval_string(mf, expression);
             return teste;
         }
+	else if(type == MACRO){
+	  return NULL;
+	}
 
     }
-    // A expressão pode ser um vardef vacuoso. Comentar esse erro traz problemas?
-    //mf_error(*mf, "Undetermined expression.");
+    // Não é um erro em si se temos uma expressão vacuosa no fim de um
+    // bloco sendo avaliada. Nos demais casos, temos uma expressão
+    // indeterminada quando não vemos nada que faça sentido como
+    // expressão:
+    if((*mf) -> parent == NULL ||
+       (*expression == NULL) ||
+       (*expression) -> type != SYMBOL ||
+       strcmp((*expression) -> name, "endgroup"))
+    mf_error(*mf, "Undetermined expression.");
     return NULL;
 }
 @
@@ -3322,8 +3335,8 @@ static void variable(struct metafont **mf, struct token **token,
 		      goto restore_token_if_not_consume_and_exit;
 		    }
                     eval(mf, token);
-                    (*token) -> prev = previous_token;
-                    return;
+		    (*token) -> prev = previous_token;
+		    return;
                 }
                 scope = scope -> parent;
             }
