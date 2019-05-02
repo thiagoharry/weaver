@@ -1686,6 +1686,8 @@ oposto de um token, ou NULL se ele não for um delimitador:
 @<Metafont: Funções Estáticas@>+=
 static char *delimiter(struct metafont *mf, struct token *tok){
     char *result = NULL;
+    if(tok -> type != SYMBOL)
+      return NULL;
     while(mf != NULL){
         bool ret = _search_trie(mf -> delimiters, VOID_P, tok -> name,
                                 (void *) &result);
@@ -5187,4 +5189,117 @@ else if(arg -> type == UNDELIMITED_TEXT){
 }
 @
 
+@* Parâmetros Primários e Expressões Primárias.
 
+Para ler alguns tipos de argumentos, devemos ser capazes de avaliar e
+reconhecer somente expressões primárias, secundárias e
+terciárias. Vamos querer então uma função auxiliar que é capaz de
+reconhecer e separar tais tipos de expressão. Primeiro vamos começar
+com uma expressão primária. No momento só as conhecemos para strings,
+mas depois virão outros tipos.
+
+Primeiro uma expressão primária é formada sempre por uma única
+variável ou um único literal ou um único abrir e fechar de parênteses
+ou um único bloco. Isso na verdade vale para todos os tipos. Além
+disso, ela pode ser um operador primário, estes sim variam dependendo
+do tipo que temos. Vamos então começar a tratar isso.
+
+Vamos definir agora uma função que recebe uma sublista de tokens (não
+necessariamente o começo, nem o meio nem o fim de uma lista) e esta
+função deve retornar o último token da expressão primário que
+encontramos ao começar a ler a sublista de onde a recebemos. Se não
+houver ali uma expressão primária, retornamos NULL. Também vamos
+retornar NULL no caso de um \texttt{begingroup}, que embora seja uma
+expressão primária, iremos tratar de forma diferente como uma
+exceção. Já que diante desse tipo de construção temos que interromper
+a avaliação que estamos fazendo para tratar primeiro o bloco.
+
+Comecemos então a definição da função:
+
+@<Metafont: Funções Estáticas@>+=
+struct token *read_primary(struct metafont *mf, struct token *list){
+  char *possible_delimiter;
+  void *dummy;
+  // Tratando begingroup ou lista nula
+  if(list == NULL ||
+     (list -> type == SYMBOL && !strcmp(list -> name, "begingroup")))
+    return NULL;
+  // Tratando caso (...)
+  possible_delimiter = delimiter(mf, list);
+  if(possible_delimiter != NULL){
+    char *delimiter_name = list -> name;
+    int count = 1;
+    list = list -> next;
+    while(list != NULL){
+      if(!strcmp(list -> name, possible_delimiter)){
+	count --;
+	if(count == 0)
+	  break;
+      }
+      else if(!strcmp(list -> name, delimiter_name))
+	count ++;
+      list = list -> next;
+    }
+    return list;
+  }
+  // Tratando string literal
+  if(list -> type == STRING || list -> type == NUMERIC)
+    return list;
+  // Tratando variável
+  // Uma variável pode ser apenas uma quantidade interna:
+  if(_search_trie(mf -> internal_quantities, VOID_P,
+		  list -> name, &dummy)){
+    return list;
+  }
+  // Se não for, uma variável pode ser uma lista de tags e subscritos:
+  if(is_tag(mf, list)){
+    struct token *last_valid_token = list;
+    list = list -> next;
+    while(list != NULL){
+      if(!is_tag(mf, list) && list -> type != NUMERIC){
+	if(list -> type == SYMBOL && !strcmp(list -> name, "[")){
+	  int count = 1;
+	  list = list -> next;
+	  while(list != NULL){
+	    if(list -> type == SYMBOL && !strcmp(list -> name, "["))
+	      count ++;
+	    else if(list -> type == SYMBOL && !strcmp(list -> name, "]")){
+	      count --;
+	      if(count == 0)
+		break;
+	    }
+	    list = list -> next;
+	  }
+	  if(list == NULL) // [ não finalizado
+	    return NULL;
+	}
+	else
+	  break;
+      }
+      last_valid_token = list;
+      list = list -> next;
+    }
+    return last_valid_token;
+  }
+  @<read_primary: Tratar Operadores Primários@>
+  // Se chegamos aqui, não encontramos qualquer caso conhecido
+  return NULL;
+}
+@
+
+No meio desta função indicamos que além dos casos mais claśsicos de
+literais, variáveis e abrir e fechar de parênteses, existem também os
+operadores primários. E eles precisam ser tratados também. No caso das
+expressões de string que vimos até agora, os operadores primários
+são: \monoespaco{jobname}, \monoespaco{readstring}, \monoespaco{str},
+\monoespaco{char}, \monoespaco{decimal} e \monoespaco{substring}.
+
+Tanto \monoespaco{jobname} como \monoespaco{readstring} são expressões
+primárias sem argumento algum, totalmente auto-contidas. Então elas
+são expressões primárias de um único token:
+
+@<read_primary: Tratar Operadores Primários@>=
+  if(list -> type == SYMBOL && (!strcmp(list -> name, "jobname") ||
+				!strcmp(list -> name, "readstring")))
+    return list;
+@
