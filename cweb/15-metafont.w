@@ -5208,8 +5208,7 @@ Vamos definir agora uma função que recebe uma sublista de tokens (não
 necessariamente o começo, nem o meio nem o fim de uma lista) e esta
 função deve retornar o último token da expressão primário que
 encontramos ao começar a ler a sublista de onde a recebemos. Se não
-houver ali uma expressão primária, retornamos NULL. Também vamos
-retornar NULL no caso de um \texttt{begingroup}, que embora seja uma
+houver ali uma expressão primária, retornamos NULL. Também vamosretornar NULL no caso de um \texttt{begingroup}, que embora seja uma
 expressão primária, iremos tratar de forma diferente como uma
 exceção. Já que diante desse tipo de construção temos que interromper
 a avaliação que estamos fazendo para tratar primeiro o bloco.
@@ -5219,8 +5218,7 @@ Comecemos então a definição da função:
 @<Metafont: Funções Estáticas@>+=
 struct token *read_primary(struct metafont *mf, struct token *list){
   char *possible_delimiter;
-  void *dummy;
-  // Tratando begingroup ou lista nula
+  void *dummy;  // Tratando begingroup ou lista nula
   if(list == NULL ||
      (list -> type == SYMBOL && !strcmp(list -> name, "begingroup")))
     return NULL;
@@ -5290,8 +5288,7 @@ struct token *read_primary(struct metafont *mf, struct token *list){
 No meio desta função indicamos que além dos casos mais claśsicos de
 literais, variáveis e abrir e fechar de parênteses, existem também os
 operadores primários. E eles precisam ser tratados também. No caso das
-expressões de string que vimos até agora, os operadores primários
-são: \monoespaco{jobname}, \monoespaco{readstring}, \monoespaco{str},
+expressões de string que vimos até agora, os operadores primáriossão: \monoespaco{jobname}, \monoespaco{readstring}, \monoespaco{str},
 \monoespaco{char}, \monoespaco{decimal} e \monoespaco{substring}.
 
 Tanto \monoespaco{jobname} como \monoespaco{readstring} são expressões
@@ -5303,3 +5300,35 @@ são expressões primárias de um único token:
 				!strcmp(list -> name, "readstring")))
     return list;
 @
+
+Já o operador \monoespaco{str} requer que depois dele exista um
+sufixo. Ou seja, uma lista de tags ou de números literais ou de
+expressões numéricas delimitadas por \monoespaco{[} e \monoespaco{]}.
+
+@<read_primary: Tratar Operadores Primários@>=
+if(list -> type == SYMBOL && !strcmp(list -> name, "str")){
+  int expression_counter = 0;
+  list = list -> next;
+  while(list != NULL){
+    if(!is_tag(mf, list)){
+      if(list -> type == SYMBOL && !strcmp(list -> name, "["))
+	expression_counter ++;
+      else if(list -> type == SYMBOL && !strcmp(list -> name, "]") &&
+	      expression_counter > 0)
+	expression_counter --;
+      else if(list -> type != NUMERIC && expression_counter == 0)
+	break;
+    }
+    if(list -> next == NULL && expression_counter > 0){
+      // Pode existir ';' dentro de expressão por causa de blocos
+      list -> next = get_statement(mf);
+      list -> next -> prev = list;
+    }
+    list = list -> next;
+  }
+  if(list != NULL)
+    list = list -> prev;
+  return list;
+}
+@
+
