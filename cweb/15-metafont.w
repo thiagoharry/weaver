@@ -3779,7 +3779,7 @@ void number2utf8(uint32_t number, char *result){
 }
 @
 
-A principal utilidade desta expressão é que ela fotrnece uma forma de
+A principal utilidade desta expressão é que ela fornece uma forma de
 gerar uma string com aspas, algo que sem isso seria impossível.
 
 Para avaliar ela, precisaríamos primeiro ver qual a definição
@@ -5208,22 +5208,25 @@ Vamos definir agora uma função que recebe uma sublista de tokens (não
 necessariamente o começo, nem o meio nem o fim de uma lista) e esta
 função deve retornar o último token da expressão primário que
 encontramos ao começar a ler a sublista de onde a recebemos. Se não
-houver ali uma expressão primária, retornamos NULL. Também vamosretornar NULL no caso de um \texttt{begingroup}, que embora seja uma
-expressão primária, iremos tratar de forma diferente como uma
+houver ali uma expressão primária, retornamos NULL. Também
+vamos retornar NULL no caso de um \texttt{begingroup}, que embora seja
+uma expressão primária, iremos tratar de forma diferente como uma
 exceção. Já que diante desse tipo de construção temos que interromper
 a avaliação que estamos fazendo para tratar primeiro o bloco.
 
 Comecemos então a definição da função:
 
 @<Metafont: Funções Estáticas@>+=
-struct token *read_primary(struct metafont *mf, struct token *list){
+struct token *read_primary(struct metafont **mf, struct token *list){
   char *possible_delimiter;
   void *dummy;  // Tratando begingroup ou lista nula
   if(list == NULL ||
-     (list -> type == SYMBOL && !strcmp(list -> name, "begingroup")))
+     (list -> type == SYMBOL && !strcmp(list -> name, "begingroup"))){
+    eval(mf, &list);
     return NULL;
+  }
   // Tratando caso (...)
-  possible_delimiter = delimiter(mf, list);
+  possible_delimiter = delimiter(*mf, list);
   if(possible_delimiter != NULL){
     char *delimiter_name = list -> name;
     int count = 1;
@@ -5245,16 +5248,16 @@ struct token *read_primary(struct metafont *mf, struct token *list){
     return list;
   // Tratando variável
   // Uma variável pode ser apenas uma quantidade interna:
-  if(_search_trie(mf -> internal_quantities, VOID_P,
+  if(_search_trie((*mf) -> internal_quantities, VOID_P,
 		  list -> name, &dummy)){
     return list;
   }
   // Se não for, uma variável pode ser uma lista de tags e subscritos:
-  if(is_tag(mf, list)){
+  if(is_tag(*mf, list)){
     struct token *last_valid_token = list;
     list = list -> next;
     while(list != NULL){
-      if(!is_tag(mf, list) && list -> type != NUMERIC){
+      if(!is_tag(*mf, list) && list -> type != NUMERIC){
 	if(list -> type == SYMBOL && !strcmp(list -> name, "[")){
 	  int count = 1;
 	  list = list -> next;
@@ -5266,10 +5269,17 @@ struct token *read_primary(struct metafont *mf, struct token *list){
 	      if(count == 0)
 		break;
 	    }
+	    if(list -> next == NULL){
+	      list -> next = get_statement(*mf);
+	      if(list -> next != NULL)
+		list -> next -> prev = list;
+	    }
 	    list = list -> next;
 	  }
-	  if(list == NULL) // [ não finalizado
+	  if(list == NULL){ // [ não finalizado
+	    mf_error(*mf, "'[' iniciado e não finalizado em sufixo.");
 	    return NULL;
+	  }
 	}
 	else
 	  break;
@@ -5280,7 +5290,9 @@ struct token *read_primary(struct metafont *mf, struct token *list){
     return last_valid_token;
   }
   @<read_primary: Tratar Operadores Primários@>
-  // Se chegamos aqui, não encontramos qualquer caso conhecido
+  // Se chegamos aqui, não encontramos qualquer caso conhecido Não
+  // geramos erro, pois não encontrar nada pode ser efeito de uma
+  // expressão pimária vacuosa
   return NULL;
 }
 @
@@ -5288,7 +5300,8 @@ struct token *read_primary(struct metafont *mf, struct token *list){
 No meio desta função indicamos que além dos casos mais claśsicos de
 literais, variáveis e abrir e fechar de parênteses, existem também os
 operadores primários. E eles precisam ser tratados também. No caso das
-expressões de string que vimos até agora, os operadores primáriossão: \monoespaco{jobname}, \monoespaco{readstring}, \monoespaco{str},
+expressões de string que vimos até agora, os operadores primários são:
+\monoespaco{jobname}, \monoespaco{readstring}, \monoespaco{str},
 \monoespaco{char}, \monoespaco{decimal} e \monoespaco{substring}.
 
 Tanto \monoespaco{jobname} como \monoespaco{readstring} são expressões
@@ -5310,7 +5323,7 @@ if(list -> type == SYMBOL && !strcmp(list -> name, "str")){
   int expression_counter = 0;
   list = list -> next;
   while(list != NULL){
-    if(!is_tag(mf, list)){
+    if(!is_tag(*mf, list)){
       if(list -> type == SYMBOL && !strcmp(list -> name, "["))
 	expression_counter ++;
       else if(list -> type == SYMBOL && !strcmp(list -> name, "]") &&
@@ -5321,7 +5334,7 @@ if(list -> type == SYMBOL && !strcmp(list -> name, "str")){
     }
     if(list -> next == NULL && expression_counter > 0){
       // Pode existir ';' dentro de expressão por causa de blocos
-      list -> next = get_statement(mf);
+      list -> next = get_statement(*mf);
       list -> next -> prev = list;
     }
     list = list -> next;
@@ -5332,3 +5345,51 @@ if(list -> type == SYMBOL && !strcmp(list -> name, "str")){
 }
 @
 
+Os próximos casos são os primários \monoespaco{char}
+e \monoespaco{decimal} que devem receber depois um numérico
+primário. Para isso vamos usar a função
+já-existente \monoespaco{numeric\_primary}, a mesma que já usamos para
+avaliar esses operadores:
+
+@<read_primary: Tratar Operadores Primários@>=
+if(list -> type == SYMBOL && (!strcmp(list -> name, "char") ||
+			      !strcmp(list -> name, "decimal"))){
+  struct token *resultado = numeric_primary(mf, &(list -> next));
+  return resultado;
+}
+@
+
+E o último caso de primário do tipo string é a obtenção de
+substrings. Ela tem a forma \monoespaco{substring <PAR PRIMÁRIO> of
+<STRING PRIMÁRIO>}. Como aqui não estamos preocupados com a corretude
+sintática, apenas queremos obter um separador, podemos usar
+recursivamente nosso detector de primários para ver onde tal expressão
+termina:
+
+@<read_primary: Tratar Operadores Primários@>=
+if(list -> type == SYMBOL && (!strcmp(list -> name, "substring"))){
+  struct token *separador;
+  if(list -> next != NULL && list -> next -> type == SYMBOL &&
+     !strcmp(list -> next -> name, "begingroup")){
+    eval(mf, &(list -> next));
+    return NULL;
+  }
+  separador = read_primary(mf, list -> next);
+  if(separador == NULL){
+    return NULL;
+  }
+  separador = separador -> next;
+  if(separador == NULL || separador -> type != SYMBOL ||
+     strcmp(separador -> name, "of")){
+    mf_error(*mf, "Missing 'of' after substring.");
+    return NULL;
+  }
+  if(separador -> next != NULL && separador -> next -> type == SYMBOL &&
+     !strcmp(separador -> next -> name, "begingroup")){
+    eval(mf, &(separador -> next));
+    return NULL;
+  }
+  separador = read_primary(mf, separador -> next);
+  return separador;
+}
+@
