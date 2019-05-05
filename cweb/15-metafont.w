@@ -4432,6 +4432,7 @@ sejam simbólicos:
     @<Metafont: expand_macro: Lê Expressão Não-Delimitada@>
     @<Metafont: expand_macro: Lê Sufixo Não-Delimitado@>
     @<Metafont: expand_macro: Lê Texto Não-Delimitado@>
+    @<Metafont: expand_macro: Lê Primário Não-Delimitado@>
 }
 @
 
@@ -5216,6 +5217,10 @@ a avaliação que estamos fazendo para tratar primeiro o bloco.
 
 Comecemos então a definição da função:
 
+@<Metafont: Funções Locais Declaradas@>+=
+struct token *read_primary(struct metafont **, struct token *);
+@
+
 @<Metafont: Funções Estáticas@>+=
 struct token *read_primary(struct metafont **mf, struct token *list){
   char *possible_delimiter;
@@ -5391,5 +5396,30 @@ if(list -> type == SYMBOL && (!strcmp(list -> name, "substring"))){
   }
   separador = read_primary(mf, separador -> next);
   return separador;
+}
+@
+
+Feito isso, enfim podemos tratar mais um tipo de parâmetro de macro
+não-delimitado: os parâmetros primários. Ao interpretar uma macro,
+lemos um parâmetro primário não-delimitado desta forma:
+
+@<Metafont: expand_macro: Lê Primário Não-Delimitado@>=
+else if(arg -> type == PRIMARY){
+  struct token *beginning = *tok, *after;
+  beginning = read_primary(mf, beginning);
+  if(beginning == NULL)
+    return NULL;
+  // Separa o primário do resto antes de avaliar
+  after = beginning -> next;
+  beginning -> next = NULL;
+  beginning = eval(mf, &beginning);
+  if(beginning == NULL)
+    return NULL;
+  arg -> prev = copy_token_list(beginning, _internal_arena);
+  beginning -> next = after;
+  if(begin_arg == NULL)
+    begin_arg = beginning;
+  end_arg = beginning;
+  *tok = end_arg -> next;
 }
 @
