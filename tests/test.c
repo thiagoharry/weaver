@@ -122,11 +122,11 @@ void test_Wcreate_arena(void){
 	 ((struct arena_header *) arena1) -> external_last ==  NULL);
   assert("Arena has pointers to free space initialized",
 	 ((struct arena_header *) arena2) -> internal_free == (void *)
-	 ((char *) arena2) + ((struct arena_header *) arena2) -> total_size
-	 - 1 &&
+	 (((char *) arena2) + ((struct arena_header *) arena2) -> total_size
+	 - 1) &&
 	 ((struct arena_header *) arena1) -> internal_free == (void *)
-	 ((char *) arena1) + ((struct arena_header *) arena1) -> total_size
-	 - 1 &&
+	 (((char *) arena1) + ((struct arena_header *) arena1) -> total_size
+	 - 1) &&
 	 ((struct arena_header *) arena2) -> external_free == (void *)
 	 ((char *) arena2 + size_header) &&
 	 ((struct arena_header *) arena1) -> external_free == (void *)
