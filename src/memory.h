@@ -9,12 +9,12 @@ extern"C"{
 /*2:*/
 #line 231 "./weaver-memory-manager.tex"
 
-#include <stdlib.h>
+#include <stdlib.h>  
 void*Wcreate_arena(size_t size);
 /*:2*//*3:*/
 #line 241 "./weaver-memory-manager.tex"
 
-#include <stdbool.h>
+#include <stdbool.h>  
 bool Wdestroy_arena(void*);
 /*:3*//*4:*/
 #line 258 "./weaver-memory-manager.tex"

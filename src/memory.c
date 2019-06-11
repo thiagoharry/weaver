@@ -1,41 +1,49 @@
-/*29:*/
-#line 782 "./weaver-memory-manager.tex"
+/*31:*/
+#line 856 "./weaver-memory-manager.tex"
 
 /*8:*/
 #line 346 "./weaver-memory-manager.tex"
 
 #if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
-#include <sys/mman.h>
+#include <sys/mman.h> 
 #endif
 /*:8*//*13:*/
 #line 424 "./weaver-memory-manager.tex"
 
 #if defined(_WIN32)
-#include <windows.h>
-#include <memoryapi.h>
+#include <windows.h>   
+#include <memoryapi.h>  
 #endif
 /*:13*//*16:*/
 #line 478 "./weaver-memory-manager.tex"
 
 #if defined(__APPLE__) || defined(__unix__)
-#include <unistd.h>
+#include <unistd.h> 
 #endif
 /*:16*//*18:*/
 #line 506 "./weaver-memory-manager.tex"
 
 #if defined(_WIN32)
-#include <windows.h>
+#include <windows.h>  
 #endif
 /*:18*//*20:*/
 #line 559 "./weaver-memory-manager.tex"
 
 #if defined(__unix__) || defined(__APPLE__)
-#include <pthread.h>
+#include <pthread.h> 
 #endif
 /*:20*/
-#line 783 "./weaver-memory-manager.tex"
+#line 857 "./weaver-memory-manager.tex"
 
 #include "memory.h"
+/*29:*/
+#line 793 "./weaver-memory-manager.tex"
+
+#define ALLOCATION 0x01010101
+#define HOLE       0x02020202
+/*:29*/
+#line 859 "./weaver-memory-manager.tex"
+
 /*26:*/
 #line 680 "./weaver-memory-manager.tex"
 
@@ -61,8 +69,22 @@ size_t total_size,remaining_space;
 size_t smallest_remaining_space;
 #endif
 };
-/*:26*/
-#line 785 "./weaver-memory-manager.tex"
+/*:26*//*30:*/
+#line 833 "./weaver-memory-manager.tex"
+
+struct alloc_header{
+unsigned long type;
+void*last_element;
+struct arena_header*arena;
+
+size_t size;
+#if defined(W_DEBUG_MEMORY)
+char file[32];
+unsigned long line;
+#endif
+};
+/*:30*/
+#line 860 "./weaver-memory-manager.tex"
 
 /*28:*/
 #line 754 "./weaver-memory-manager.tex"
@@ -173,6 +195,6 @@ if(error)return NULL;
 return arena;
 }
 /*:28*/
-#line 786 "./weaver-memory-manager.tex"
+#line 861 "./weaver-memory-manager.tex"
 
-/*:29*/
+/*:31*/

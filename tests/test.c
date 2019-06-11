@@ -138,6 +138,17 @@ void test_Wcreate_arena(void){
 	 ((struct arena_header *) arena2) -> internal_index == 1023);
 }
 
+void test_using_arena(void){
+  bool error = false;
+  void *arena = Wcreate_arena(10 * page_size);
+  int i;
+  for(i = sizeof(struct arena_header); i < 10 * page_size; i ++)
+    ((char *) arena)[i] = 'A';
+  for(i = sizeof(struct arena_header); i < 10 * page_size; i ++)
+    if(((char *) arena)[i] != 'A')
+      error = true;
+  assert("Write and read data in arena", !error);
+}
 
 int main(int argc, char **argv){
   int semente;
@@ -149,7 +160,7 @@ int main(int argc, char **argv){
   printf("Starting tests. Seed: %d\n", semente);
   set_page_size();
   test_Wcreate_arena();
-
+  test_using_arena();
   imprime_resultado();
   return 0;
 }

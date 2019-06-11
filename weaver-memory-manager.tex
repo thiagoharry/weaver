@@ -773,6 +773,80 @@ void *Wcreate_arena(size_t t){
 @
 \fimcodigo
 
+\subsecao{2.5. O Cabeçalho de uma Nova Alocação}
+
+Quando alocamos uma nova região de memória e retornamos seu endereço
+para o usuário, nós precisamos adicionar nela informação adicional que
+nos permite gerenciá-la. Mais tarde, quando precisarmos desalocá-la
+podemos ler tais informações para saber o quanto vamos liberar de
+memória e o que fazer com o espaço.
+
+Contudo, nosso gerenciador não armazenará apenas alocações. Como
+mencionamos, iremos armazenar também marcações que nos permitem
+desalocar muitas regiões de uma só vez. Então a primeira coisa que
+vamos querer colocar é uma variável chamada \monoespaco{type} que
+indica que tipo de elemento está posicionado ali. No momento definiremos
+somente dois tipos de elementos: memória alocada e buracos (memória
+anteriormente alocada, mas que foi desalocada):
+
+\iniciocodigo
+@<Definições de Tipos@>=
+#define ALLOCATION 0x01010101
+#define HOLE       0x02020202
+@
+\fimcodigo
+
+Usamos um padrão tão curioso de números ao invés de usar simplesmente 1 e 2
+porque isso pode permitir detectar mais facilmente ocorrências de
+\italico{buffer overflow} caso tenhamos interesse em fazer tais testes de
+sanidade.
+
+Como queremos que todos os elementos formem uma lista encadeada para
+podermos percorrer eles mais rapidamente, precisamos também de um
+ponteiro para o elemento anterior (\monoespaco{last\_element}). E
+queremos também um ponteiro para a própria arena de memória à qual
+pertence aquela alocação (\monoespaco{arena}).
+
+É importante que todos os elementos mencionados acima venham primeiro
+e estejam na mesma ordem, independente do tipo de elemento armazenado
+pelo alocador. Assim podemos percorrer todos eles, verificar seu tipo
+e voltar para o começo da arena de memória sem nos preocupar em
+tratá-los de forma separada.
+
+Come relação às variáveis que são específicas à alocações de memória:
+
+\monoespaco{size}: Armazena o tamanho em bytes da região alocada,
+incluindo o cabeçalho.
+
+\monoespaco{file}: Opcional. Só será armazenado se o gerenciador for
+compilado em modo de depuração ou modo de checar por vazamentos de
+memória. É o nome do arquivo em que a função está sendo invocada.
+
+\monoespaco{file}: Opcional. Só será armazenado se o gerenciador for
+compilado em modo de depuração ou modo de checar por vazamentos de
+memória. É o número da linha em que a função está sendo chamada.
+
+Com isso terminamos de descrever as variáveis que precisamos e
+mostramos o código de nosso cabeçalho de alocação:
+
+\iniciocodigo
+@<Cabeçalho da Arena@>=
+struct alloc_header{
+  unsigned long type;
+  void *last_element;
+  struct arena_header *arena;
+  /////////////////////////
+  size_t size;
+#if defined(W_DEBUG_MEMORY)
+  char file[32];
+  unsigned long line;
+#endif
+};
+@
+\fimcodigo
+
+
+
 \subsecao{2.?. Organização Final do Arquivo-Fonte}
 
 Salvaremos todo o código de definição de funções que fizemos no
@@ -782,6 +856,7 @@ arquivo abaixo que poderá então ser compilado:
 @(src/memory.c@>=
 @<Incluir Cabeçalhos Necessários@>
 #include "memory.h"
+@<Definições de Tipos@>
 @<Cabeçalho da Arena@>
 @<Definição de `Wcreate\_arena'@>
 @
