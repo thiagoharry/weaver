@@ -52,11 +52,10 @@ and fast memory manager for programs where memory is allocated and
 freed in a stack-based order and we know the maximum ammount of memory
 that the program will need. It allows users creating markings during
 the program execution that after allows them to free at once all the
-memory allocated after the last marking. It also warns users about
-memory leaks. After the memory manager creation, we also run some
-benchmarks comparing its performance against malloc and free from
-GNU's Glibc running at Linux and also running in a web browser using
-Web Assembly.}
+memory allocated after the last marking. After the memory manager
+creation, we also run some benchmarks comparing its performance
+against malloc from standard library running at Linux, Windows and
+in a web browser using Web Assembly.}
 
 \vskip 0.5cm plus 3pt minus 3pt
 
@@ -66,10 +65,9 @@ voltado a programas onde a memória é alocada e liberada seguindo uma
 ordem baseada em pilha e a quantidade máxima de memória é
 conhecida. Ele fornece a possibilidade de criar marcações durante a
 execução do programa de modo que depois possam liberar toda a memória
-alocada desde a última marcação. Ele também avisa usuários
-sobre vazamentos de memória. Depois da criação do gerenciador de
-memória, também comparamos o desempenho dele com o {\it malloc} e {\it
-free} da biblioteca C GNU rodando emLinux e em um navegador de
+alocada desde a última marcação. Depois da criação do gerenciador de
+memória, também comparamos o desempenho dele com o {\it malloc} da
+biblioteca C padrão rodando em Linux, Windows e em um navegador de
 Internet usando {\it Web Assembly}.}
 
 \secao{1. Introdução}
@@ -124,26 +122,18 @@ Para evitar isso é comum usar ao invés de ponteiros para objetos alocados,
 memória alocadas podem ser movidas incremental e periodicamente de modo a
 evitar a fragmentação.
 
-O objetivo deste artigo será definir um alocador baseado em pilha, o
-qual consegue armazenar duas pilhas diferentes na região de memória
-gerenciada por ele. Gerenciar qual das pilhas a ser usada será
-responsabilidae do usuário. No caso do Motor de Jogos Weaver, a
-primeira pilha (que chamamos de ``pilha externa'') será reservada para
-alocar memória para elementos criados pelo programador que utiliza o
-motor de jogos e a segunda pilha (``pilha interna'') será reservada
-para uso interno do motor. Essa técnica é descrita em [Ranck, 2000]
-que mostra que ela foi usada no jogo \italico{Hydro Thunder} da
-empresa \italico{Midway}.
+O objetivo deste artigo será definir um alocador com alinhamento de
+memória definido pelo usuário baseado em pilha, o qual consegue
+armazenar duas pilhas diferentes na região de memória gerenciada por
+ele. Gerenciar qual das pilhas a ser usada será responsabilidae do
+usuário. Essa técnica é descrita em [Ranck, 2000] que mostra que ela
+foi usada no jogo \italico{Hydro Thunder} da empresa \italico{Midway}.
 
 Alocadores de reservatório não serão tratados aqui, mas podem ser
 construídos sobre o alocador presente aqui como uma segunda camada de
-gerenciamento. Como o objetivo é fornecer um gerenciador de memória
-para rodar em computadores pessoais para a linguagem C e C++, iremos
-manter um alinhamento automático de memória sempre igual ao tamanho de
-um \monoespaco{long int}. O gerenciador confiará na informação
-fornecida pelo compilador para obter o alinhamento ideal. E como
-estamos definindo um alocador baseado em pilha, não precisaremos nos
-preocupar com desfragmentação.
+gerenciamento. O problema da desfragmentação também não será tratado,
+pois alocadores baseados em pilha não sofrem com o problema da
+fragmentação.
 
 \subsecao{1.2. Ambientes de Execução}
 
@@ -245,51 +235,25 @@ bool Wdestroy_arena(void *);
 \fimcodigo
 
 A terceira equivale a um \monoespaco{malloc} e recebe uma arena, um
-número que indica se queremos alocar da pilha externa (0) ou interna
-(1) da arena e um tamanho em bytes. Se uma macro de depuração estiver
-definida, ela também deve receber o nome do arquivo em que é chamada e
-o número de linha para que quando um vazamento de memória for
-detectado, uma mensagem de erro informativa possa ser impressa. Por
-fim, definimos também uma macro para preencher automaticamente tais
-informações sem que o usuário precise intervir caso o modo de
-depuração esteja ativo:
+número que será uma potência de dois ou zero que representa o
+alinhamento em bits que a memória alocada precisará respeitar, um
+número que indica se queremos alocar da pilha esquerda (0) ou direita
+(1) da arena e um tamanho em bytes. A função sempre retornará um
+endereço múltiplo do alinhamento, assumindo que ele é uma potência
+de dois:
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-#if W_DEBUG_MEMORY
-void *_alloc_(void *arena, int flag,size_t size, char *filename,
-              unsigned long line);
-#define Walloc(a, b, c) _alloc_(a, b, c, __FILE__, __LINE__)
-#else
-void *_alloc_(void *arena, int flag, size_t size);
-#define Walloc(a, b, c) _alloc_(a, b, c)
-#endif
+void *Walloc(void *arena, int alignment, int right, size_t size);
 @
 \fimcodigo
 
-A quarta função é a equivalente ao \monoespaco{free} e desaloca uma
-região previamente alocada com o \monoespaco{Walloc}. Se estivermos em
-modo de depuração, ela também deve ser informada do nome do arquivo e
-número de linha para imprimir mensagens úteis em caso de depuração:
-
-\iniciocodigo
-@<Declarações de Memória@>+=
-#if defined(W_DEBUG_MEMORY)
-void _free_(void *mem, char *filename, unsigned long line);
-#define Wfree(a) _free_(a, __FILE__, __LINE__)
-#else
-void *_free_(void *mem);
-#define Wfree(a) _free_(a)
-#endif
-@
-\fimcodigo
-
-A quinta função serve para colocar uma marcação, a qual chamamos de
+A quarta função serve para colocar uma marcação, a qual chamamos de
 ``breakpoint'' dentro de uma arena onde alocamos memória. Essa
 marcação pode ser usada para determinar que alocações ocorreram antes
 e quais ocorreram depois que ela foi feita. A flag indica se essa
-marcação deve ser colocada na região de alocação externa (0) ou
-interna (1). A função retorna se foi bem-sucedida ou não.
+marcação deve ser colocada na região de alocação esquerda (0) ou
+direita (1). A função retorna se foi bem-sucedida ou não.
 
 \iniciocodigo
 @<Declarações de Memória@>+=
@@ -300,7 +264,7 @@ bool Wbreakpoint(void *arena, int regiao);
 A última função usa a marcação criada pela função anterior e desaloca
 de uma só vez toda a memória alocada com \monoespaco{Walloc} desde que
 a última marcação foi criada. Ela recebe uma flag para saber se isso
-deve ser feito na região externa (0) ou interna (1):
+deve ser feito na região esquerda (0) ou direita (1):
 
 \iniciocodigo
 @<Declarações de Memória@>+=
@@ -640,39 +604,24 @@ LeaveCriticalSection((CRITICAL_SECTION *) mutex);
 Logo após alocarmos uma região de memória (ou ``arena''), a primeira
 coisa a fazer é reservar os seus bytes iniciais para armazenar
 informações gerais sobre ela. As informações que desejamos são: o
-tamanho total de espaço que temos (\monoespaco{remaining\_space}),
-quanto de espaço realmente foi alocado com ela
-(\monoespaco{total\_size}), um ponteiro para o começo de uma região
-livre na pilha de memória interna e externa que iremos alocar
-(\monoespaco{internal\_free}, \monoespaco{external\_free}) e um
-ponteiro para o último elemento que alocamos em cada uma das pilhas
-(\monoespaco{internal\_last}, \monoespaco{external\_last}).
+tamanho total de espaço que temos (\monoespaco{remaining\_space}) e
+ponteiros para o começo de uma região livre na pilha de memória
+esquerda e direita que iremos alocar
+(\monoespaco{left\_free}, \monoespaco{right\_free}).
 
-Outra coisa que também deixaremos no cabeçalho é um \italico{array} de
-elementos de tamanho igual a \monoespaco{unsigned long} reservados
-para alocar quantidades pequenas de memória. Para alocações minúsculas
-de curta duração não valerá à pena gastar espaço da região livre,
-tendo que armazenar para cada uma delas um cabeçalho de
-alocação. Iremos alocar em tais casos, sempre que possível, um espaço
-deste \monoespaco{array} do cabeçalho. E também precisaremos de um
-índice para a próxima região do \italico{array} para a região interna
-e para a externa. Ambas as regiões compartilharão o
-mesmo \italico{array}, mas uma começará ocupando as primeiras posições
-e a outra as últimas posições.
+Precisaremos também de um mutex como o que definimos para proteger a
+arena de ser manipulada simultaneamente por duas threads.
 
-Precisaremos de um mutex como o que definimos para proteger a arena de
-ser manipulada simultaneamente por duas threads.
-
-Outra informação que podemos precisar só em momentos de depuração:
-qual a quantidade mínima de memória que chegamos a ter ao longo do
-tempo de vida da arena? Isso é útil de armazenar em tais momentos
-porque após encerrarmos a arena e descobrirmos que nós usamos muito
-pouco dela, podemos ter interesse em diminuir o tamanho que demos a
-ela, já que nossa aplicação não está precisando de tanta memória
-quanto reservamos. Usaremos a
-variável \monoespaco{smallest\_remaining\_space} para armazenar isso e
-ela só estará definida se a macro \monoespaco{W\_DEBUG\_MEMORY}
-estiver definida.
+Outra informação que podemos precisar só em momentos de depuração é a
+quantidade mínima de memória que chegamos a ter ao longo do tempo de
+vida da arena. Isso é útil de armazenar porque após encerrarmos a
+arena e descobrirmos que alocamos para a arena muita memória que não
+foi usada, podemos querer diminuir o tamanho que demos a ela. Usaremos
+a variável \monoespaco{smallest\_remaining\_space} para armazenar isso
+e ela só estará definida se a macro \monoespaco{W\_DEBUG\_MEMORY}
+estiver definida. Em tais casos também queremos saber o total de
+espaço real que a arena tinha (\monoespaco{total\_size}) para podermos
+sabr a porcentagem de memória não-utilizada.
 
 O cabeçalho de nossa arena de memória terá então a seguinte forma:
 
@@ -680,13 +629,10 @@ O cabeçalho de nossa arena de memória terá então a seguinte forma:
 @<Cabeçalho da Arena@>=
 struct arena_header{
   @<Declaração de Mutex@>
-  void *internal_free, *external_free;
-  void *internal_last, *external_last;
-  unsigned long array[1024];
-  int internal_index, external_index;
-  size_t total_size, remaining_space;
+  void *left_free, *right_free;
+  size_t remaining_space;
 #if defined(W_DEBUG_MEMORY)
-  size_t smallest_remaining_space;
+  size_t total_size, smallest_remaining_space;
 #endif
 };
 @
@@ -700,21 +646,18 @@ com o código abaixo. Para calcular as próximas posições onde iremos
 inserir, convertemos o ponteiro para o começo da arena para um
 ponteiro de caractere para podermos fazer nossos cálculos com
 aritmética de ponteiro com múltiplos de 1 byte. O próximo espaço que
-temos livre para a pilha de memória externa é o byte imediatamente
-após o cabeçalho. Já a pilha interna fica com o último byte da arena.
+temos livre para a pilha de memória esquerda é o byte imediatamente
+após o cabeçalho. Já a pilha direita fica com o último byte da arena.
 
 \iniciocodigo
 @<Inicializa cabeçalho em `arena' de tamanho `M'@>=
 {
   struct arena_header *header = (struct arena_header *) arena;
-  header -> internal_free = ((char *) header) + M - 1;
-  header -> external_free = ((char *) header) + sizeof(struct arena_header);
-  header -> internal_last = header -> external_last = NULL;
-  header -> internal_index = 1023;
-  header -> external_index = 0;
+  header -> right_free = ((char *) header) + M - 1;
+  header -> left_free = ((char *) header) + sizeof(struct arena_header);
   header -> remaining_space = M - sizeof(struct arena_header);
-  header -> total_size = M;
 #if defined(W_DEBUG_MEMORY)
+  header -> total_size = M;
   header ->  smallest_remaining_space = header -> remaining_space;
 #endif
   { // Mutex initialization
@@ -773,78 +716,98 @@ void *Wcreate_arena(size_t t){
 @
 \fimcodigo
 
-\subsecao{2.5. O Cabeçalho de uma Nova Alocação}
+\subsecao{2.5. Mantendo o Alinhamento em Memória Alocada}
 
-Quando alocamos uma nova região de memória e retornamos seu endereço
-para o usuário, nós precisamos adicionar nela informação adicional que
-nos permite gerenciá-la. Mais tarde, quando precisarmos desalocá-la
-podemos ler tais informações para saber o quanto vamos liberar de
-memória e o que fazer com o espaço.
+Quando vamos alocar uma nova memória começamos com um endereço $p$ que
+está disponível no qual iremos colocar nossa memória alocada. Mas
+devemos respeitar o alinhamento $a$, o qual é uma potência de 2 ou o
+número zero (que significa ``qualquer alinhamento''). O modo de fazer
+isso depende se estamos na pilha esquerda (posição inicial da memória
+na arena) ou direita (posição final da memória na arena). Pois uma das
+pilhas de memória cresce para posições maiores e outra para menores.
 
-Contudo, nosso gerenciador não armazenará apenas alocações. Como
-mencionamos, iremos armazenar também marcações que nos permitem
-desalocar muitas regiões de uma só vez. Então a primeira coisa que
-vamos querer colocar é uma variável chamada \monoespaco{type} que
-indica que tipo de elemento está posicionado ali. No momento definiremos
-somente dois tipos de elementos: memória alocada e buracos (memória
-anteriormente alocada, mas que foi desalocada):
+No caso da memória da pilha esquerda, vamos querer colocar nossa
+alocação em um endereço $p$, mas podemos ter que deslocar $p$ um pouco
+mais para os próximos endereços para poder alinhar a memória. Fazemos
+isso considerando que $a-1$ representa tanto o pior caso de quantidade de
+posições que vamos deslocar $p$ como uma máscara de bits que devem ser
+nulos para que o endereço seja válido, pelo fato de $a$ ser uma potência de
+dois. Sendo assim, nosso código de alinhamento é:
 
 \iniciocodigo
-@<Definições de Tipos@>=
-#define ALLOCATION 0x01010101
-#define HOLE       0x02020202
+@<Alinha `p' e marca `offset' de acordo com `a' (esquerda)@>=
+offset = 0;
+if (a > 1){
+  void *new_p = ((char *) p) + (a - 1);
+  new_p = ((char *) new_p) & (~(a - 1));
+  offset = ((char *) new_p) - ((char *) p);
+  p = new_p;
+}
 @
 \fimcodigo
 
-Usamos um padrão tão curioso de números ao invés de usar simplesmente 1 e 2
-porque isso pode permitir detectar mais facilmente ocorrências de
-\italico{buffer overflow} caso tenhamos interesse em fazer tais testes de
-sanidade.
-
-Como queremos que todos os elementos formem uma lista encadeada para
-podermos percorrer eles mais rapidamente, precisamos também de um
-ponteiro para o elemento anterior (\monoespaco{last\_element}). E
-queremos também um ponteiro para a própria arena de memória à qual
-pertence aquela alocação (\monoespaco{arena}).
-
-É importante que todos os elementos mencionados acima venham primeiro
-e estejam na mesma ordem, independente do tipo de elemento armazenado
-pelo alocador. Assim podemos percorrer todos eles, verificar seu tipo
-e voltar para o começo da arena de memória sem nos preocupar em
-tratá-los de forma separada.
-
-Come relação às variáveis que são específicas à alocações de memória:
-
-\monoespaco{size}: Armazena o tamanho em bytes da região alocada,
-incluindo o cabeçalho.
-
-\monoespaco{file}: Opcional. Só será armazenado se o gerenciador for
-compilado em modo de depuração ou modo de checar por vazamentos de
-memória. É o nome do arquivo em que a função está sendo invocada.
-
-\monoespaco{file}: Opcional. Só será armazenado se o gerenciador for
-compilado em modo de depuração ou modo de checar por vazamentos de
-memória. É o número da linha em que a função está sendo chamada.
-
-Com isso terminamos de descrever as variáveis que precisamos e
-mostramos o código de nosso cabeçalho de alocação:
+Já na pilha direita, vamos querer alocar em um endereço $p$, mas
+possivelmente teremos que dimminuir o endereço inicial para mantê-lo
+alinhado ao invés de aumentá-lo. Com isso não é necessário somar
+o endereço inicial com o valor de pior caso $a-1$, basta remover
+diretamente os bits finais que forem necessários para o alinhamento:
 
 \iniciocodigo
-@<Cabeçalho da Arena@>=
-struct alloc_header{
-  unsigned long type;
-  void *last_element;
-  struct arena_header *arena;
-  /////////////////////////
-  size_t size;
+@<Alinha `p' e marca `offset' de acordo com `a' (direita)@>=
+offset = 0;
+if (a > 1){
+  void *new_p = ((char *) new_p) & (~(a - 1));
+  offset = ((char *) p) - ((char *) new_p);
+  p = new_p;
+}
+@
+\fimcodigo
+
+\subsecao{2.7. Alocando Memória}
+
+Antes de alocar memória, temos que verificar se existe espaço
+disponível. Fazemos isso checando os valores do cabeçalho da arena
+e comparando com o valor que temos que alocar, considerando o pior
+caso de alinhamento, onde precisaremos de um espaço adicional de
+$a-1$. Se não houver espaço, o valor $p$ a ser retornado terá que ser
+\monoespaco{NULL}.
+
+Se vamos alocar na pilha esquerda, o nosso endereço alocado será a
+próxima posição depois desse cabeçalho após passar por uma correção de
+alinhamento.
+
+Se vamos alocar na pilha direita, obtemos o valor do endereço alocado indo
+para a próxima região livre marcada no cabeçalho da arena e subtraímos do
+endereço o tamanho que queremos alocar sem o cabeçalho, somando 1 ao
+resultado. Assim teremos à nossa direita a quantidade certa de memória
+que precisamos retornar ao usuário. Mas antes disso, novamente fazemos a
+correção necessária de alinhamento.
+
+Uma vez que isso foi feito, basta atualizarmos o cabeçalho da arena e
+\monoespaco{p} está pronto para ser retornado.
+
+\iniciocodigo
+@<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>=
+{
+  int offset;
+  struct arena_header *header = (struct arena_header *) arena;
+  if(header -> remaining_space >= t + ((a == 0)?(0):(a - 1))){
+    if(right){
+      p = ((char *) header -> right_free) - t + 1;
+      @<Alinha `p' e marca `offset' de acordo com `a' (direita)@>
+    }
+    else{
+      p = ((char *) header -> right_free) + sizeof(struct alloc_header);
+      @<Alinha `p' e marca `offset' de acordo com `a' (esquerda)@>
+    }
+    header -> remaining_space -= (t + offset);
 #if defined(W_DEBUG_MEMORY)
-  char file[32];
-  unsigned long line;
+    if(header -> remaining_space < header -> smallest_remaining_space)
+      header -> smallest_remaining_space = header -> remaining_space;
 #endif
-};
+  }
 @
 \fimcodigo
-
 
 
 \subsecao{2.?. Organização Final do Arquivo-Fonte}
@@ -856,12 +819,10 @@ arquivo abaixo que poderá então ser compilado:
 @(src/memory.c@>=
 @<Incluir Cabeçalhos Necessários@>
 #include "memory.h"
-@<Definições de Tipos@>
 @<Cabeçalho da Arena@>
 @<Definição de `Wcreate\_arena'@>
 @
 \fimcodigo
-
 
 \secao{Referências}
 

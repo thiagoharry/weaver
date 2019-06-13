@@ -88,54 +88,37 @@ struct arena_header{
 #if defined(_WIN32)
   CRITICAL_SECTION mutex;
 #endif
-  void *internal_free, *external_free;
-  void *internal_last, *external_last;
-  unsigned long array[1024];
-  int internal_index, external_index;
-  size_t total_size, remaining_space;
+  void *left_free, *right_free;
+  size_t remaining_space;
 #if defined(W_DEBUG_MEMORY)
-  size_t smallest_remaining_space;
+  size_t total_size, smallest_remaining_space;
 #endif
 };
 
 void test_Wcreate_arena(void){
   size_t size_header = sizeof(struct arena_header);
   void *arena1, *arena2;
+  size_t real_size1, real_size2;
   arena1 = Wcreate_arena(0);
   arena2 = Wcreate_arena(10 * page_size - 1);
+  real_size1 = ((struct arena_header *) arena1) -> remaining_space + size_header;
+  real_size2 = ((struct arena_header *) arena2) -> remaining_space + size_header;
   assert("Arena minimal size is >= header size and multiple of page size",
 	 arena1 != NULL &&
-	 ((struct arena_header *) arena1) -> total_size >= size_header &&
-	 ((struct arena_header *) arena1) -> total_size % page_size == 0);
+	 real_size1 >= size_header &&
+	 real_size1  %  page_size == 0);
   assert("Arena size is always multiple of page size",
 	 arena2 != NULL &&
-	 ((struct arena_header *) arena2) -> total_size == 10 * page_size);
-  assert("Arena size information is consistent",
-	 ((struct arena_header *) arena2) -> remaining_space + size_header ==
-	 ((struct arena_header *) arena2) -> total_size &&
-	 ((struct arena_header *) arena1) -> remaining_space + size_header ==
-	 ((struct arena_header *) arena1) -> total_size);
-  assert("Arena has pointers to previously allocated data initialized",
-	 ((struct arena_header *) arena2) -> internal_last == NULL &&
-	 ((struct arena_header *) arena2) -> external_last == NULL  &&
-	 ((struct arena_header *) arena1) -> internal_last == NULL &&
-	 ((struct arena_header *) arena1) -> external_last ==  NULL);
+	 real_size2 == 10 * page_size);
   assert("Arena has pointers to free space initialized",
-	 ((struct arena_header *) arena2) -> internal_free == (void *)
-	 (((char *) arena2) + ((struct arena_header *) arena2) -> total_size
-	 - 1) &&
-	 ((struct arena_header *) arena1) -> internal_free == (void *)
-	 (((char *) arena1) + ((struct arena_header *) arena1) -> total_size
-	 - 1) &&
-	 ((struct arena_header *) arena2) -> external_free == (void *)
+	 ((struct arena_header *) arena2) -> right_free == (void *)
+	 (((char *) arena2) + real_size2 - 1) &&
+	 ((struct arena_header *) arena1) -> right_free == (void *)
+	 (((char *) arena1) + real_size1 - 1) &&
+	 ((struct arena_header *) arena2) -> left_free == (void *)
 	 ((char *) arena2 + size_header) &&
-	 ((struct arena_header *) arena1) -> external_free == (void *)
+	 ((struct arena_header *) arena1) -> left_free == (void *)
 	 ((char *) arena1 + size_header));
-  assert("Arena has space to small alocations initialized",
-	 ((struct arena_header *) arena1) -> external_index == 0 &&
-	 ((struct arena_header *) arena2) -> external_index == 0 &&
-	 ((struct arena_header *) arena1) -> internal_index == 1023 &&
-	 ((struct arena_header *) arena2) -> internal_index == 1023);
 }
 
 void test_using_arena(void){
