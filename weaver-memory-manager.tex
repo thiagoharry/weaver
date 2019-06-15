@@ -225,7 +225,8 @@ void *Wcreate_arena(size_t size);
 \fimcodigo
 
 A segunda recebe uma arena criada pela primeira e libera toda a memória
-reservada nela, retornando se ela foi bem-sucedida ou não:
+reservada nela. Se haviam elementos não-desalocados na arena, retornamos
+false, caso contrário retornamos verdadeiro:
 
 \iniciocodigo
 @<Declarações de Memória@>+=
@@ -244,7 +245,7 @@ de dois:
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-void *Walloc(void *arena, int alignment, int right, size_t size);
+void *Walloc(void *arena, unsigned alignment, int right, size_t size);
 @
 \fimcodigo
 
@@ -375,7 +376,7 @@ estrutura adicional a ser encerrada futuramente.
 Para desalocar a região alocada usaremos o \monoespaco{UnmapViewOfFile}:
 
 \iniciocodigo
-@<Desalocar 'arena' de tamanho `M' bytes@>+=
+@<Desalocar `arena' de tamanho `M' bytes@>+=
 #if defined(_WIN32)
 UnmapViewOfFile(arena);
 #endif
@@ -604,10 +605,14 @@ LeaveCriticalSection((CRITICAL_SECTION *) mutex);
 Logo após alocarmos uma região de memória (ou ``arena''), a primeira
 coisa a fazer é reservar os seus bytes iniciais para armazenar
 informações gerais sobre ela. As informações que desejamos são: o
-tamanho total de espaço que temos (\monoespaco{remaining\_space}) e
-ponteiros para o começo de uma região livre na pilha de memória
-esquerda e direita que iremos alocar
-(\monoespaco{left\_free}, \monoespaco{right\_free}).
+tamanho total de espaço que temos (\monoespaco{remaining\_space}), o
+tamanho total da arena (\monoespaco{total\_size}) e ponteiros para o
+começo de uma região livre na pilha de memória esquerda e direita que
+iremos alocar (\monoespaco{left\_free}, \monoespaco{right\_free}). Na
+variável \monoespaco{right\_allocations} armazenamos a quantidade
+total alocada na pilha de memória direita. A quantidade da pilha
+esquerda pode ser deduzida com base nesta variável e nas demais,
+portanto não é necessário armazenar isso explicitamente.
 
 Precisaremos também de um mutex como o que definimos para proteger a
 arena de ser manipulada simultaneamente por duas threads.
@@ -619,9 +624,7 @@ arena e descobrirmos que alocamos para a arena muita memória que não
 foi usada, podemos querer diminuir o tamanho que demos a ela. Usaremos
 a variável \monoespaco{smallest\_remaining\_space} para armazenar isso
 e ela só estará definida se a macro \monoespaco{W\_DEBUG\_MEMORY}
-estiver definida. Em tais casos também queremos saber o total de
-espaço real que a arena tinha (\monoespaco{total\_size}) para podermos
-sabr a porcentagem de memória não-utilizada.
+estiver definida.
 
 O cabeçalho de nossa arena de memória terá então a seguinte forma:
 
@@ -630,9 +633,9 @@ O cabeçalho de nossa arena de memória terá então a seguinte forma:
 struct arena_header{
   @<Declaração de Mutex@>
   void *left_free, *right_free;
-  size_t remaining_space;
+  size_t remaining_space, total_size, right_allocations;
 #if defined(W_DEBUG_MEMORY)
-  size_t total_size, smallest_remaining_space;
+  size_t smallest_remaining_space;
 #endif
 };
 @
@@ -656,8 +659,9 @@ após o cabeçalho. Já a pilha direita fica com o último byte da arena.
   header -> right_free = ((char *) header) + M - 1;
   header -> left_free = ((char *) header) + sizeof(struct arena_header);
   header -> remaining_space = M - sizeof(struct arena_header);
-#if defined(W_DEBUG_MEMORY)
+  header -> right_allocations = 0;
   header -> total_size = M;
+#if defined(W_DEBUG_MEMORY)
   header ->  smallest_remaining_space = header -> remaining_space;
 #endif
   { // Mutex initialization
@@ -716,7 +720,58 @@ void *Wcreate_arena(size_t t){
 @
 \fimcodigo
 
-\subsecao{2.5. Mantendo o Alinhamento em Memória Alocada}
+\subsecao{2.5. A Função ``Wdestroy\_arena''}
+
+Uma vez que fornecemos uma forma de criar novas arenas, vamos definir
+também a função que irá finalizá-las. Esta é uma função mais simples
+que fará quatro coisas:
+
+1. Destruirá o mutex associado à arena.
+
+2. Imprimirá um aviso na tela se existe alguma coisa ainda alocada na
+arena.
+
+3. Se estamos em modo de depuração, imprimirá a quantidade de memória
+que nunca chegou a ser usada pela arena.
+
+4. Devolverá para o Sistema Operacional a memória que ele pediu para a
+arena.
+
+\iniciocodigo
+@<Definição de `Wdestroy\_arena'@>=
+bool Wdestroy_arena(void *arena){
+  struct arena_header *header = (struct arena_header *) arena;
+  void *mutex = (void *) &(header -> mutex);
+  size_t M = header -> total_size;
+  bool ret = true;
+  @<Finaliza `*mutex'@>
+  if(header -> total_size != header -> remaining_space +
+     sizeof(struct arena_header))
+    ret = false;
+#if defined(W_DEBUG_MEMORY)
+  printf("Unused memory: %zu/%zu (%f%%)\n",
+         header -> smallest_remaining_space, header -> total_size,
+         100.0 *
+         ((float) header -> smallest_remaining_space) / header -> total_size);
+#endif
+  @<Desalocar `arena' de tamanho `M' bytes@>
+  return ret;
+}
+@
+\fimcodigo
+
+Embora isso nos faça ter que incluir o cabeçalho das funções de
+entrada e saída padrão se estivermos em modo de depuração:
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>+=
+#if defined(W_DEBUG_MEMORY)
+#include <stdio.h>
+#endif
+@
+\fimcodigo
+
+\subsecao{2.6. Mantendo o Alinhamento em Memória Alocada}
 
 Quando vamos alocar uma nova memória começamos com um endereço $p$ que
 está disponível no qual iremos colocar nossa memória alocada. Mas
@@ -739,7 +794,7 @@ dois. Sendo assim, nosso código de alinhamento é:
 offset = 0;
 if (a > 1){
   void *new_p = ((char *) p) + (a - 1);
-  new_p = ((char *) new_p) & (~(a - 1));
+  new_p = (void *) (((long long) new_p) & (~(a - 1)));
   offset = ((char *) new_p) - ((char *) p);
   p = new_p;
 }
@@ -756,7 +811,7 @@ diretamente os bits finais que forem necessários para o alinhamento:
 @<Alinha `p' e marca `offset' de acordo com `a' (direita)@>=
 offset = 0;
 if (a > 1){
-  void *new_p = ((char *) new_p) & (~(a - 1));
+  void *new_p = (void *) (((long long) p) & (~(a - 1)));
   offset = ((char *) p) - ((char *) new_p);
   p = new_p;
 }
@@ -776,14 +831,19 @@ Se vamos alocar na pilha esquerda, o nosso endereço alocado será a
 próxima posição depois desse cabeçalho após passar por uma correção de
 alinhamento.
 
-Se vamos alocar na pilha direita, obtemos o valor do endereço alocado indo
-para a próxima região livre marcada no cabeçalho da arena e subtraímos do
-endereço o tamanho que queremos alocar sem o cabeçalho, somando 1 ao
-resultado. Assim teremos à nossa direita a quantidade certa de memória
-que precisamos retornar ao usuário. Mas antes disso, novamente fazemos a
-correção necessária de alinhamento.
+Se vamos alocar na pilha direita, obtemos o valor do endereço alocado
+indo para a próxima região livre marcada no cabeçalho da arena e
+subtraímos do endereço o tamanho que queremos alocar sem o cabeçalho,
+somando 1 ao resultado. Assim teremos à nossa direita a quantidade
+certa de memória que precisamos retornar ao usuário. Mas antes disso,
+novamente fazemos a correção necessária de alinhamento. E como é a
+pilha direita, armazenamos quanto foi alocado no cabeçalho da arena na
+variável \monoespaco{right\_allocations}.
 
-Uma vez que isso foi feito, basta atualizarmos o cabeçalho da arena e
+Uma vez que isso foi feito, basta atualizarmos o cabeçalho da arena
+com as próximas posições livres, já que a anterior acabamos de ocupar,
+e também calculando um novo valor para o espaço livre que ainda
+temos.Feito isso,
 \monoespaco{p} está pronto para ser retornado.
 
 \iniciocodigo
@@ -795,10 +855,13 @@ Uma vez que isso foi feito, basta atualizarmos o cabeçalho da arena e
     if(right){
       p = ((char *) header -> right_free) - t + 1;
       @<Alinha `p' e marca `offset' de acordo com `a' (direita)@>
+      header -> right_free = (char *) p - 1;
+      header -> right_allocations += (t + offset);
     }
     else{
-      p = ((char *) header -> right_free) + sizeof(struct alloc_header);
+      p = header -> left_free;
       @<Alinha `p' e marca `offset' de acordo com `a' (esquerda)@>
+      header -> left_free = (char *) p + t;
     }
     header -> remaining_space -= (t + offset);
 #if defined(W_DEBUG_MEMORY)
@@ -806,8 +869,81 @@ Uma vez que isso foi feito, basta atualizarmos o cabeçalho da arena e
       header -> smallest_remaining_space = header -> remaining_space;
 #endif
   }
+}
 @
 \fimcodigo
+
+\subsecao{2.8. A Função Walloc}
+
+Podemos agora juntar as peças para definir a função de alocação. Ela
+irá receber \monoespaco{arena} (arena onde o usuário deseja alocar),
+\monoespaco{a} (o alinhamento), \monoespaco{right} (1 se desejamos
+alocar na pilha direita e 0 na esquerda) e \monoespaco{t} (tamanho que
+o usuário deseja alocar).
+
+A primeira coisa a fazer é dar um ``wait'' no mutex da arena. Depois
+fazemos a alocação e então damos um ``signal'' no mutex. Será preciso
+termos também uma variável \monoespaco{p} que é o que iremos retornar
+e apontará para a região de memória requisitada pelo usuário.
+
+
+\iniciocodigo
+@<Definição de `Walloc'@>=
+void *Walloc(void *arena, unsigned a, int right, size_t t){
+  struct arena_header *header = (struct arena_header *) arena;
+  void *mutex = (void *) &(header -> mutex);
+  void *p = NULL;
+  @<`*mutex':WAIT()@>
+  @<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>
+  @<`*mutex':SIGNAL()@>
+  return p;
+}
+@
+\fimcodigo
+
+\subsecao{2.9. Reiniciando uma Arena de Memória}
+
+Caso tenhamos uma arena que já foi usada e tem armazenada regiões
+alocadas, mas queiramos nos livrar de todas as alocações e começar de
+novo, para isso basta reiniciarmos os valores armazenados no cabeçalho
+da arena. Os ponteiros para a próxima posição livre e o espaço livre
+disponível precisa ser atualizado para ficar igual ao valor inicial.
+
+Mas estamos mais interessados não em reiniciar uma arena inteira, mas
+somente as suas alocações na pilha esquerda ou na direita. Na pilha
+direita nós sabemos exatamente quanto foi alocado graças à
+variável \monoespaco{right\_allocations} que armazenamos no cabeçalho
+da arena. Então reiniciamos os valores facilmente para esvaziar
+somente a pilha direita da seguinte forma:
+
+\iniciocodigo
+@<Reinicia memória direita de `arena'@>=
+{
+  struct arena_header *header = arena;
+  header -> right_free = ((char *) arena) + header -> total_size - 1;
+  header -> remaining_space += header -> right_allocations;
+  header -> right_allocations = 0;
+}
+@
+\fimcodigo
+
+Com a memória na pilha esquerda podemos fazer equivalente. Apenas
+temos que deduzir quanto de memória havia nela para ajustarmos
+corretamente quanto de memória estamos liberando fazendo isso:
+
+\iniciocodigo
+@<Reinicia memória esquerda de `arena'@>=
+{
+  struct arena_header *header = arena;
+  header -> left_free = ((char *) arena) + sizeof(struct arena_header);
+  header -> remaining_space += header -> total_size -
+                               header -> remaining_space -
+                               sizeof(struct arena_header) -
+                               header -> right_allocations;
+}
+@
+\fimcodigo
+
 
 
 \subsecao{2.?. Organização Final do Arquivo-Fonte}
@@ -821,6 +957,8 @@ arquivo abaixo que poderá então ser compilado:
 #include "memory.h"
 @<Cabeçalho da Arena@>
 @<Definição de `Wcreate\_arena'@>
+@<Definição de `Wdestroy\_arena'@>
+@<Definição de `Walloc'@>
 @
 \fimcodigo
 

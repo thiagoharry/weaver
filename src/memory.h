@@ -12,20 +12,20 @@ extern"C"{
 #include <stdlib.h>  
 void*Wcreate_arena(size_t size);
 /*:2*//*3:*/
-#line 231 "./weaver-memory-manager.tex"
+#line 232 "./weaver-memory-manager.tex"
 
 #include <stdbool.h>  
 bool Wdestroy_arena(void*);
 /*:3*//*4:*/
-#line 246 "./weaver-memory-manager.tex"
+#line 247 "./weaver-memory-manager.tex"
 
-void*Walloc(void*arena,int alignment,int right,size_t size);
+void*Walloc(void*arena,unsigned alignment,int right,size_t size);
 /*:4*//*5:*/
-#line 259 "./weaver-memory-manager.tex"
+#line 260 "./weaver-memory-manager.tex"
 
 bool Wbreakpoint(void*arena,int regiao);
 /*:5*//*6:*/
-#line 270 "./weaver-memory-manager.tex"
+#line 271 "./weaver-memory-manager.tex"
 
 void Wtrash(void*arena,int regiao);
 /*:6*/
