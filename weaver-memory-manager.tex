@@ -250,7 +250,7 @@ void *Walloc(void *arena, unsigned alignment, int right, size_t size);
 \fimcodigo
 
 A quarta função serve para colocar uma marcação, a qual chamamos de
-``breakpoint'' dentro de uma arena onde alocamos memória. Essa
+``ponto de memória'' dentro de uma arena onde alocamos memória. Essa
 marcação pode ser usada para determinar que alocações ocorreram antes
 e quais ocorreram depois que ela foi feita. A flag indica se essa
 marcação deve ser colocada na região de alocação esquerda (0) ou
@@ -258,7 +258,7 @@ direita (1). A função retorna se foi bem-sucedida ou não.
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-bool Wbreakpoint(void *arena, int regiao);
+bool Wmemorypoint(void *arena, int regiao);
 @
 \fimcodigo
 
@@ -610,9 +610,9 @@ tamanho total da arena (\monoespaco{total\_size}) e ponteiros para o
 começo de uma região livre na pilha de memória esquerda e direita que
 iremos alocar (\monoespaco{left\_free}, \monoespaco{right\_free}). Na
 variável \monoespaco{right\_allocations} armazenamos a quantidade
-total alocada na pilha de memória direita. A quantidade da pilha
-esquerda pode ser deduzida com base nesta variável e nas demais,
-portanto não é necessário armazenar isso explicitamente.
+total alocada na pilha de memória direita e
+em \monoespaco{left\_allocations} a quantidade de memória alocada na
+pilha esquerda.
 
 Precisaremos também de um mutex como o que definimos para proteger a
 arena de ser manipulada simultaneamente por duas threads.
@@ -626,6 +626,12 @@ a variável \monoespaco{smallest\_remaining\_space} para armazenar isso
 e ela só estará definida se a macro \monoespaco{W\_DEBUG\_MEMORY}
 estiver definida.
 
+Teremos também dois ponteiros: \monoespaco{left\_point}
+e \monoespaco{right\_point}. Estes serão ponteiros para pontos de
+memória, informações sobre o estado daarena de memória em um ponto
+específico do tempo para que ela possa ser restaurada àquele
+estado. Tais pontos de memória serão melhor definidos na seção 2.9.
+
 O cabeçalho de nossa arena de memória terá então a seguinte forma:
 
 \iniciocodigo
@@ -633,7 +639,8 @@ O cabeçalho de nossa arena de memória terá então a seguinte forma:
 struct arena_header{
   @<Declaração de Mutex@>
   void *left_free, *right_free;
-  size_t remaining_space, total_size, right_allocations;
+  void *left_point, *right_point;
+  size_t remaining_space, total_size, right_allocations, left_allocations;
 #if defined(W_DEBUG_MEMORY)
   size_t smallest_remaining_space;
 #endif
@@ -660,7 +667,10 @@ após o cabeçalho. Já a pilha direita fica com o último byte da arena.
   header -> left_free = ((char *) header) + sizeof(struct arena_header);
   header -> remaining_space = M - sizeof(struct arena_header);
   header -> right_allocations = 0;
+  header -> left_allocations = 0;
   header -> total_size = M;
+  header -> left_point = NULL;
+  header -> right_point = NULL;
 #if defined(W_DEBUG_MEMORY)
   header ->  smallest_remaining_space = header -> remaining_space;
 #endif
@@ -829,7 +839,8 @@ $a-1$. Se não houver espaço, o valor $p$ a ser retornado terá que ser
 
 Se vamos alocar na pilha esquerda, o nosso endereço alocado será a
 próxima posição depois desse cabeçalho após passar por uma correção de
-alinhamento.
+alinhamento. Também vamos atualizar o quanto está sendo alocado na
+variável \monoespaco{left\_allocations}.
 
 Se vamos alocar na pilha direita, obtemos o valor do endereço alocado
 indo para a próxima região livre marcada no cabeçalho da arena e
@@ -862,6 +873,7 @@ temos.Feito isso,
       p = header -> left_free;
       @<Alinha `p' e marca `offset' de acordo com `a' (esquerda)@>
       header -> left_free = (char *) p + t;
+      header -> left_allocations += (t + offset);
     }
     header -> remaining_space -= (t + offset);
 #if defined(W_DEBUG_MEMORY)
@@ -901,7 +913,7 @@ void *Walloc(void *arena, unsigned a, int right, size_t t){
 @
 \fimcodigo
 
-\subsecao{2.9. Reiniciando uma Arena de Memória}
+\subsecao{2.9. Definição dos Pontos de Memória}
 
 Caso tenhamos uma arena que já foi usada e tem armazenada regiões
 alocadas, mas queiramos nos livrar de todas as alocações e começar de
@@ -911,39 +923,56 @@ disponível precisa ser atualizado para ficar igual ao valor inicial.
 
 Mas estamos mais interessados não em reiniciar uma arena inteira, mas
 somente as suas alocações na pilha esquerda ou na direita. Na pilha
-direita nós sabemos exatamente quanto foi alocado graças à
-variável \monoespaco{right\_allocations} que armazenamos no cabeçalho
-da arena. Então reiniciamos os valores facilmente para esvaziar
-somente a pilha direita da seguinte forma:
+direita ou esquerda nós sabemos exatamente quanto foi alocado graças à
+variável \monoespaco{right\_allocations}
+ou \monoespaco{left\_allocations} que armazenamos no cabeçalho da
+arena. Então reiniciamos os valores facilmente para esvaziar somente a
+pilha na qual estamos interessados:
 
 \iniciocodigo
-@<Reinicia memória direita de `arena'@>=
+@<Reinicia memória de pilha em `arena'@>=
 {
   struct arena_header *header = arena;
-  header -> right_free = ((char *) arena) + header -> total_size - 1;
-  header -> remaining_space += header -> right_allocations;
-  header -> right_allocations = 0;
+  if(right){
+    header -> right_free = ((char *) arena) + header -> total_size - 1;
+    header -> remaining_space += header -> right_allocations;
+    header -> right_allocations = 0;
+  }
+  else{
+    header -> left_free = ((char *) arena) + sizeof(struct arena_header);
+    header -> remaining_space += header -> left_allocations;
+    header -> left_allocations = 0;
+  }
 }
 @
 \fimcodigo
 
-Com a memória na pilha esquerda podemos fazer equivalente. Apenas
-temos que deduzir quanto de memória havia nela para ajustarmos
-corretamente quanto de memória estamos liberando fazendo isso:
+Mas e se quisermos salvar na arena de memória as informações de
+alocação atuais para restaurar mais tarde (chamamos tais informações
+de ``ponto de memória'')? A única informação que precisamos armazenar
+é o conteúdo de \monoespaco{left\_allocations} no caso da pilha
+esquerda e \monoespaco{right\_allocations} na pilha direita.
+
+O ponteiro para a próxima região livre \monoespaco{left\_free}
+ou \monoespaco{right\_free} pode ser atualizado movendo ele um número
+de posições igual à diferença entre a quantidade de alocações atuais e
+a alocação armazenada. O novo valor para a quantidade de espaço livre
+pode ser obtida somando o valor atual à esta mesma diferença entre
+valores de alocações.
+
+Entretanto, queremos poder armazenar não um único ponto de memória,
+mas uma lista de qualquer tamanho deles. Queremos que eles formem uma
+lista encadeada simples. Sendo assim, um ponto de memória é definido
+pelo seguinte cabeçalho:
 
 \iniciocodigo
-@<Reinicia memória esquerda de `arena'@>=
-{
-  struct arena_header *header = arena;
-  header -> left_free = ((char *) arena) + sizeof(struct arena_header);
-  header -> remaining_space += header -> total_size -
-                               header -> remaining_space -
-                               sizeof(struct arena_header) -
-                               header -> right_allocations;
-}
+@<Cabeçalho de Ponto de Memória@>=
+struct memory_point{
+  size_t allocations; // Left or right
+  struct memory_point *last_memory_point;
+};
 @
 \fimcodigo
-
 
 
 \subsecao{2.?. Organização Final do Arquivo-Fonte}
@@ -956,6 +985,7 @@ arquivo abaixo que poderá então ser compilado:
 @<Incluir Cabeçalhos Necessários@>
 #include "memory.h"
 @<Cabeçalho da Arena@>
+@<Cabeçalho de Ponto de Memória@>
 @<Definição de `Wcreate\_arena'@>
 @<Definição de `Wdestroy\_arena'@>
 @<Definição de `Walloc'@>
