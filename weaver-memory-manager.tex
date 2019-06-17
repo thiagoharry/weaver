@@ -252,13 +252,14 @@ void *Walloc(void *arena, unsigned alignment, int right, size_t size);
 A quarta função serve para colocar uma marcação, a qual chamamos de
 ``ponto de memória'' dentro de uma arena onde alocamos memória. Essa
 marcação pode ser usada para determinar que alocações ocorreram antes
-e quais ocorreram depois que ela foi feita. A flag indica se essa
+e quais ocorreram depois que ela foi feita. A região indica se essa
 marcação deve ser colocada na região de alocação esquerda (0) ou
-direita (1). A função retorna se foi bem-sucedida ou não.
+direita (1). Também especificamos um alinhamento como na função de
+alocação. A função retorna se foi bem-sucedida ou não.
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-bool Wmemorypoint(void *arena, int regiao);
+bool Wmemorypoint(void *arena, unsignment alignment, int regiao);
 @
 \fimcodigo
 
@@ -974,6 +975,49 @@ struct memory_point{
 @
 \fimcodigo
 
+\subsecao{2.10. Criação de Ponto de Memória}
+
+Criar um novo ponto de memória significa enviar um sinal
+de \italico{wait} para o mutex, alocar memória para o ponto de
+memória, inicializá-lo e atualizar informações na arena sobre qual o
+último ponto de memória, levando em conta se colocamos ele na memória
+esquerda ou direita. Em seguida podemos liberar o mutex com
+um \italico{signal}:
+
+\iniciocodigo
+@<Definição de `Wmemorypoint'@>=
+bool Wmemorypoint(void *arena, unsignment align, int right){
+  void *mutex = (void *) &(header -> mutex);
+  struct arena_header *header = (struct arena_header *) arena;
+  struct memory_point *point;
+  size_t allocations;
+  @<`*mutex':WAIT()@>
+  if(right)
+    allocations = header -> right_allocations;
+  else
+    allocations = header -> left_allocations;
+  point = (struct memory_point *) Walloc(arena, align, right,
+                                         sizeof(struct memory_point));
+  if(point != NULL){
+    point -> allocations = allocations;
+    if(right){
+      point -> last_memory_point = header -> right_point;
+      header -> right_point = point;
+    }
+    else{
+      point -> last_memory_point = header -> left_point;
+      header -> left_point = point;
+    }
+  }
+  @<`*mutex':SIGNAL()@>
+  if(point == NULL)
+    return false;
+  return true;
+}
+@
+\fimcodigo
+
+
 
 \subsecao{2.?. Organização Final do Arquivo-Fonte}
 
@@ -989,6 +1033,7 @@ arquivo abaixo que poderá então ser compilado:
 @<Definição de `Wcreate\_arena'@>
 @<Definição de `Wdestroy\_arena'@>
 @<Definição de `Walloc'@>
+@<Definição de `Wmemorypoint'@>
 @
 \fimcodigo
 
