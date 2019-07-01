@@ -82,14 +82,15 @@ static void set_page_size(void){
 
 /* Início dos Testes */
 struct arena_header{
-#if defined(__unix__) || defined(__APPLE__)
+  #if defined(__unix__) || defined(__APPLE__)
   pthread_mutex_t mutex;
 #endif
 #if defined(_WIN32)
   CRITICAL_SECTION mutex;
 #endif
   void *left_free, *right_free;
-  size_t remaining_space, total_size;
+  void *left_point, *right_point;
+  size_t remaining_space, total_size, right_allocations, left_allocations;
 #if defined(W_DEBUG_MEMORY)
   size_t smallest_remaining_space;
 #endif

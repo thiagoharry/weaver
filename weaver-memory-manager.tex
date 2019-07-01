@@ -259,7 +259,7 @@ alocação. A função retorna se foi bem-sucedida ou não.
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-bool Wmemorypoint(void *arena, unsignment alignment, int regiao);
+bool Wmemorypoint(void *arena, unsigned alignment, int regiao);
 @
 \fimcodigo
 
@@ -986,9 +986,9 @@ um \italico{signal}:
 
 \iniciocodigo
 @<Definição de `Wmemorypoint'@>=
-bool Wmemorypoint(void *arena, unsignment align, int right){
-  void *mutex = (void *) &(header -> mutex);
+bool Wmemorypoint(void *arena, unsigned align, int right){
   struct arena_header *header = (struct arena_header *) arena;
+  void *mutex = (void *) &(header -> mutex);
   struct memory_point *point;
   size_t allocations;
   @<`*mutex':WAIT()@>
@@ -1017,6 +1017,44 @@ bool Wmemorypoint(void *arena, unsignment align, int right){
 @
 \fimcodigo
 
+\subsecao{2.10. Restauração de Ponto de Memória}
+
+Restaurar o ponto de memória anterior significa mudar o estado da
+pilha de memória (esquerda ou direita) exatamente como era antes do
+ponto de memória ser salvo pela última vez. Se ele nunca foi salvo,
+esvaziamos toda a pilha de memória. A função que fará isso será
+a \monoespaco{Wtrash}:
+
+\iniciocodigo
+@<Definição de `Wtrash'@>+=
+void Wtrash(void *arena, int right){
+  struct arena_header *head = (struct arena_header *) arena;
+  void *mutex = (void *) &(head -> mutex);
+  struct memory_point *point;
+  @<`*mutex':WAIT()@>
+  if(right){
+    point = head -> right_point;
+  }
+  else{
+    point = head -> left_point;
+  }
+  if(point == NULL){
+    @<Reinicia memória de pilha em `arena'@>
+  }
+  else{
+    if(right){
+      head -> right_point = point -> last_memory_point;
+      head -> right_allocations = point -> allocations;
+    }
+    else{
+      head -> left_point = point -> last_memory_point;
+      head -> left_allocations = point -> allocations;
+    }
+  }
+  @<`*mutex':SIGNAL()@>
+}
+@
+\fimcodigo
 
 
 \subsecao{2.?. Organização Final do Arquivo-Fonte}
@@ -1034,6 +1072,7 @@ arquivo abaixo que poderá então ser compilado:
 @<Definição de `Wdestroy\_arena'@>
 @<Definição de `Walloc'@>
 @<Definição de `Wmemorypoint'@>
+@<Definição de `Wtrash'@>
 @
 \fimcodigo
 

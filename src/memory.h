@@ -21,11 +21,11 @@ bool Wdestroy_arena(void*);
 
 void*Walloc(void*arena,unsigned alignment,int right,size_t size);
 /*:4*//*5:*/
-#line 260 "./weaver-memory-manager.tex"
+#line 261 "./weaver-memory-manager.tex"
 
-bool Wbreakpoint(void*arena,int regiao);
+bool Wmemorypoint(void*arena,unsigned alignment,int regiao);
 /*:5*//*6:*/
-#line 271 "./weaver-memory-manager.tex"
+#line 272 "./weaver-memory-manager.tex"
 
 void Wtrash(void*arena,int regiao);
 /*:6*/

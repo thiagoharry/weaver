@@ -1,53 +1,53 @@
-/*34:*/
-#line 905 "./weaver-memory-manager.tex"
+/*38:*/
+#line 1066 "./weaver-memory-manager.tex"
 
 /*7:*/
-#line 311 "./weaver-memory-manager.tex"
+#line 312 "./weaver-memory-manager.tex"
 
 #if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
 #include <sys/mman.h> 
 #endif
 /*:7*//*12:*/
-#line 389 "./weaver-memory-manager.tex"
+#line 390 "./weaver-memory-manager.tex"
 
 #if defined(_WIN32)
 #include <windows.h>   
 #include <memoryapi.h>  
 #endif
 /*:12*//*15:*/
-#line 443 "./weaver-memory-manager.tex"
+#line 444 "./weaver-memory-manager.tex"
 
 #if defined(__APPLE__) || defined(__unix__)
 #include <unistd.h> 
 #endif
 /*:15*//*17:*/
-#line 471 "./weaver-memory-manager.tex"
+#line 472 "./weaver-memory-manager.tex"
 
 #if defined(_WIN32)
 #include <windows.h>  
 #endif
 /*:17*//*19:*/
-#line 524 "./weaver-memory-manager.tex"
+#line 525 "./weaver-memory-manager.tex"
 
 #if defined(__unix__) || defined(__APPLE__)
 #include <pthread.h> 
 #endif
 /*:19*//*29:*/
-#line 762 "./weaver-memory-manager.tex"
+#line 778 "./weaver-memory-manager.tex"
 
 #if defined(W_DEBUG_MEMORY)
 #include <stdio.h> 
 #endif
 /*:29*/
-#line 906 "./weaver-memory-manager.tex"
+#line 1067 "./weaver-memory-manager.tex"
 
 #include "memory.h"
 /*25:*/
-#line 628 "./weaver-memory-manager.tex"
+#line 639 "./weaver-memory-manager.tex"
 
 struct arena_header{
 /*20:*/
-#line 534 "./weaver-memory-manager.tex"
+#line 535 "./weaver-memory-manager.tex"
 
 #if defined(__unix__) || defined(__APPLE__)
 pthread_mutex_t mutex;
@@ -56,19 +56,30 @@ pthread_mutex_t mutex;
 CRITICAL_SECTION mutex;
 #endif
 /*:20*/
-#line 630 "./weaver-memory-manager.tex"
+#line 641 "./weaver-memory-manager.tex"
 
 void*left_free,*right_free;
-size_t remaining_space,total_size;
+void*left_point,*right_point;
+size_t remaining_space,total_size,right_allocations,left_allocations;
 #if defined(W_DEBUG_MEMORY)
 size_t smallest_remaining_space;
 #endif
 };
 /*:25*/
-#line 908 "./weaver-memory-manager.tex"
+#line 1069 "./weaver-memory-manager.tex"
+
+/*35:*/
+#line 970 "./weaver-memory-manager.tex"
+
+struct memory_point{
+size_t allocations;
+struct memory_point*last_memory_point;
+};
+/*:35*/
+#line 1070 "./weaver-memory-manager.tex"
 
 /*27:*/
-#line 696 "./weaver-memory-manager.tex"
+#line 712 "./weaver-memory-manager.tex"
 
 void*Wcreate_arena(size_t t){
 bool error= false;
@@ -76,19 +87,19 @@ void*arena;
 size_t p,M,header_size= sizeof(struct arena_header);
 
 /*13:*/
-#line 417 "./weaver-memory-manager.tex"
+#line 418 "./weaver-memory-manager.tex"
 
 #if defined(__unix__)
 p= sysconf(_SC_PAGESIZE);
 #endif
 /*:13*//*14:*/
-#line 432 "./weaver-memory-manager.tex"
+#line 433 "./weaver-memory-manager.tex"
 
 #if defined(__APPLE__)
 p= getpagesize();
 #endif
 /*:14*//*16:*/
-#line 456 "./weaver-memory-manager.tex"
+#line 457 "./weaver-memory-manager.tex"
 
 #if defined(_WIN32)
 {
@@ -98,13 +109,13 @@ p= info.dwPageSize;
 }
 #endif
 /*:16*//*18:*/
-#line 488 "./weaver-memory-manager.tex"
+#line 489 "./weaver-memory-manager.tex"
 
 #if defined(__EMSCRIPTEN__)
 p= 64*1024;
 #endif
 /*:18*/
-#line 702 "./weaver-memory-manager.tex"
+#line 718 "./weaver-memory-manager.tex"
 
 
 M= (((t-1)/p)+1)*p;
@@ -112,14 +123,14 @@ if(M<header_size)
 M= (((header_size-1)/p)+1)*p;
 
 /*8:*/
-#line 324 "./weaver-memory-manager.tex"
+#line 325 "./weaver-memory-manager.tex"
 
 #if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
 arena= mmap(NULL,M,PROT_READ|PROT_WRITE,MAP_PRIVATE|MAP_ANON,
 -1,0);
 #endif
 /*:8*//*10:*/
-#line 360 "./weaver-memory-manager.tex"
+#line 361 "./weaver-memory-manager.tex"
 
 #if defined(_WIN32)
 {
@@ -134,25 +145,29 @@ CloseHandle(handle);
 }
 #endif
 /*:10*/
-#line 708 "./weaver-memory-manager.tex"
+#line 724 "./weaver-memory-manager.tex"
 
 
 /*26:*/
-#line 652 "./weaver-memory-manager.tex"
+#line 664 "./weaver-memory-manager.tex"
 
 {
 struct arena_header*header= (struct arena_header*)arena;
 header->right_free= ((char*)header)+M-1;
 header->left_free= ((char*)header)+sizeof(struct arena_header);
 header->remaining_space= M-sizeof(struct arena_header);
+header->right_allocations= 0;
+header->left_allocations= 0;
 header->total_size= M;
+header->left_point= NULL;
+header->right_point= NULL;
 #if defined(W_DEBUG_MEMORY)
 header->smallest_remaining_space= header->remaining_space;
 #endif
 {
 void*mutex= &(header->mutex);
 /*21:*/
-#line 552 "./weaver-memory-manager.tex"
+#line 553 "./weaver-memory-manager.tex"
 
 #if defined(__unix__) || defined(__APPLE__)
 error= pthread_mutex_init((pthread_mutex_t*)mutex,NULL);
@@ -161,22 +176,22 @@ error= pthread_mutex_init((pthread_mutex_t*)mutex,NULL);
 InitializeCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:21*/
-#line 664 "./weaver-memory-manager.tex"
+#line 680 "./weaver-memory-manager.tex"
 
 }
 }
 /*:26*/
-#line 710 "./weaver-memory-manager.tex"
+#line 726 "./weaver-memory-manager.tex"
 
 
 if(error)return NULL;
 return arena;
 }
 /*:27*/
-#line 909 "./weaver-memory-manager.tex"
+#line 1071 "./weaver-memory-manager.tex"
 
 /*28:*/
-#line 736 "./weaver-memory-manager.tex"
+#line 752 "./weaver-memory-manager.tex"
 
 bool Wdestroy_arena(void*arena){
 struct arena_header*header= (struct arena_header*)arena;
@@ -184,7 +199,7 @@ void*mutex= (void*)&(header->mutex);
 size_t M= header->total_size;
 bool ret= true;
 /*22:*/
-#line 566 "./weaver-memory-manager.tex"
+#line 567 "./weaver-memory-manager.tex"
 
 #if defined(__unix__) || defined(__APPLE__)
 pthread_mutex_destroy((pthread_mutex_t*)mutex);
@@ -193,7 +208,7 @@ pthread_mutex_destroy((pthread_mutex_t*)mutex);
 DeleteCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:22*/
-#line 742 "./weaver-memory-manager.tex"
+#line 758 "./weaver-memory-manager.tex"
 
 if(header->total_size!=header->remaining_space+
 sizeof(struct arena_header))
@@ -205,34 +220,34 @@ header->smallest_remaining_space,header->total_size,
 ((float)header->smallest_remaining_space)/header->total_size);
 #endif
 /*9:*/
-#line 341 "./weaver-memory-manager.tex"
+#line 342 "./weaver-memory-manager.tex"
 
 #if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
 munmap(arena,M);
 #endif
 /*:9*//*11:*/
-#line 379 "./weaver-memory-manager.tex"
+#line 380 "./weaver-memory-manager.tex"
 
 #if defined(_WIN32)
 UnmapViewOfFile(arena);
 #endif
 /*:11*/
-#line 752 "./weaver-memory-manager.tex"
+#line 768 "./weaver-memory-manager.tex"
 
 return ret;
 }
 /*:28*/
-#line 910 "./weaver-memory-manager.tex"
+#line 1072 "./weaver-memory-manager.tex"
 
 /*33:*/
-#line 883 "./weaver-memory-manager.tex"
+#line 904 "./weaver-memory-manager.tex"
 
 void*Walloc(void*arena,unsigned a,int right,size_t t){
 struct arena_header*header= (struct arena_header*)arena;
 void*mutex= (void*)&(header->mutex);
 void*p= NULL;
 /*23:*/
-#line 579 "./weaver-memory-manager.tex"
+#line 580 "./weaver-memory-manager.tex"
 
 #if defined(__unix__) || defined(__APPLE__)
 pthread_mutex_lock((pthread_mutex_t*)mutex);
@@ -241,10 +256,10 @@ pthread_mutex_lock((pthread_mutex_t*)mutex);
 EnterCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:23*/
-#line 888 "./weaver-memory-manager.tex"
+#line 909 "./weaver-memory-manager.tex"
 
 /*32:*/
-#line 843 "./weaver-memory-manager.tex"
+#line 862 "./weaver-memory-manager.tex"
 
 {
 int offset;
@@ -253,7 +268,7 @@ if(header->remaining_space>=t+((a==0)?(0):(a-1))){
 if(right){
 p= ((char*)header->right_free)-t+1;
 /*31:*/
-#line 806 "./weaver-memory-manager.tex"
+#line 822 "./weaver-memory-manager.tex"
 
 offset= 0;
 if(a> 1){
@@ -262,14 +277,15 @@ offset= ((char*)p)-((char*)new_p);
 p= new_p;
 }
 /*:31*/
-#line 850 "./weaver-memory-manager.tex"
+#line 869 "./weaver-memory-manager.tex"
 
 header->right_free= (char*)p-1;
+header->right_allocations+= (t+offset);
 }
 else{
 p= header->left_free;
 /*30:*/
-#line 788 "./weaver-memory-manager.tex"
+#line 804 "./weaver-memory-manager.tex"
 
 offset= 0;
 if(a> 1){
@@ -279,9 +295,10 @@ offset= ((char*)new_p)-((char*)p);
 p= new_p;
 }
 /*:30*/
-#line 855 "./weaver-memory-manager.tex"
+#line 875 "./weaver-memory-manager.tex"
 
 header->left_free= (char*)p+t;
+header->left_allocations+= (t+offset);
 }
 header->remaining_space-= (t+offset);
 #if defined(W_DEBUG_MEMORY)
@@ -291,10 +308,10 @@ header->smallest_remaining_space= header->remaining_space;
 }
 }
 /*:32*/
-#line 889 "./weaver-memory-manager.tex"
+#line 910 "./weaver-memory-manager.tex"
 
 /*24:*/
-#line 593 "./weaver-memory-manager.tex"
+#line 594 "./weaver-memory-manager.tex"
 
 #if defined(__unix__) || defined(__APPLE__)
 pthread_mutex_unlock((pthread_mutex_t*)mutex);
@@ -303,11 +320,139 @@ pthread_mutex_unlock((pthread_mutex_t*)mutex);
 LeaveCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:24*/
-#line 890 "./weaver-memory-manager.tex"
+#line 911 "./weaver-memory-manager.tex"
 
 return p;
 }
 /*:33*/
-#line 911 "./weaver-memory-manager.tex"
+#line 1073 "./weaver-memory-manager.tex"
 
+/*36:*/
+#line 988 "./weaver-memory-manager.tex"
+
+bool Wmemorypoint(void*arena,unsigned align,int right){
+struct arena_header*header= (struct arena_header*)arena;
+void*mutex= (void*)&(header->mutex);
+struct memory_point*point;
+size_t allocations;
+/*23:*/
+#line 580 "./weaver-memory-manager.tex"
+
+#if defined(__unix__) || defined(__APPLE__)
+pthread_mutex_lock((pthread_mutex_t*)mutex);
+#endif
+#if defined(_WIN32)
+EnterCriticalSection((CRITICAL_SECTION*)mutex);
+#endif
+/*:23*/
+#line 994 "./weaver-memory-manager.tex"
+
+if(right)
+allocations= header->right_allocations;
+else
+allocations= header->left_allocations;
+point= (struct memory_point*)Walloc(arena,align,right,
+sizeof(struct memory_point));
+if(point!=NULL){
+point->allocations= allocations;
+if(right){
+point->last_memory_point= header->right_point;
+header->right_point= point;
+}
+else{
+point->last_memory_point= header->left_point;
+header->left_point= point;
+}
+}
+/*24:*/
+#line 594 "./weaver-memory-manager.tex"
+
+#if defined(__unix__) || defined(__APPLE__)
+pthread_mutex_unlock((pthread_mutex_t*)mutex);
+#endif
+#if defined(_WIN32)
+LeaveCriticalSection((CRITICAL_SECTION*)mutex);
+#endif
+/*:24*/
+#line 1012 "./weaver-memory-manager.tex"
+
+if(point==NULL)
+return false;
+return true;
+}
+/*:36*/
+#line 1074 "./weaver-memory-manager.tex"
+
+/*37:*/
+#line 1029 "./weaver-memory-manager.tex"
+
+void Wtrash(void*arena,int right){
+struct arena_header*head= (struct arena_header*)arena;
+void*mutex= (void*)&(head->mutex);
+struct memory_point*point;
+/*23:*/
+#line 580 "./weaver-memory-manager.tex"
+
+#if defined(__unix__) || defined(__APPLE__)
+pthread_mutex_lock((pthread_mutex_t*)mutex);
+#endif
+#if defined(_WIN32)
+EnterCriticalSection((CRITICAL_SECTION*)mutex);
+#endif
+/*:23*/
+#line 1034 "./weaver-memory-manager.tex"
+
+if(right){
+point= head->right_point;
+}
+else{
+point= head->left_point;
+}
+if(point==NULL){
+/*34:*/
+#line 934 "./weaver-memory-manager.tex"
+
+{
+struct arena_header*header= arena;
+if(right){
+header->right_free= ((char*)arena)+header->total_size-1;
+header->remaining_space+= header->right_allocations;
+header->right_allocations= 0;
+}
+else{
+header->left_free= ((char*)arena)+sizeof(struct arena_header);
+header->remaining_space+= header->left_allocations;
+header->left_allocations= 0;
+}
+}
 /*:34*/
+#line 1042 "./weaver-memory-manager.tex"
+
+}
+else{
+if(right){
+head->right_point= point->last_memory_point;
+head->right_allocations= point->allocations;
+}
+else{
+head->left_point= point->last_memory_point;
+head->left_allocations= point->allocations;
+}
+}
+/*24:*/
+#line 594 "./weaver-memory-manager.tex"
+
+#if defined(__unix__) || defined(__APPLE__)
+pthread_mutex_unlock((pthread_mutex_t*)mutex);
+#endif
+#if defined(_WIN32)
+LeaveCriticalSection((CRITICAL_SECTION*)mutex);
+#endif
+/*:24*/
+#line 1054 "./weaver-memory-manager.tex"
+
+}
+/*:37*/
+#line 1075 "./weaver-memory-manager.tex"
+
+/*:38*/
