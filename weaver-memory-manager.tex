@@ -805,12 +805,23 @@ dois. Sendo assim, nosso código de alinhamento é:
 offset = 0;
 if (a > 1){
   void *new_p = ((char *) p) + (a - 1);
-  new_p = (void *) (((long long) new_p) & (~(a - 1)));
+  new_p = (void *) (((uintptr_t) new_p) & (~((uintptr_t) a - 1)));
   offset = ((char *) new_p) - ((char *) p);
   p = new_p;
 }
 @
 \fimcodigo
+
+Para podermos usar o tipo \monoespaco{uintptr\_t} usamos a biblioteca
+abaixo. Esse tipo é a maneira portável de podermos usar operações
+bit-a-bit em ponteiros.
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>+=
+#include <stdint.h>
+@
+\fimcodigo
+
 
 Já na pilha direita, vamos querer alocar em um endereço $p$, mas
 possivelmente teremos que dimminuir o endereço inicial para mantê-lo
@@ -822,7 +833,7 @@ diretamente os bits finais que forem necessários para o alinhamento:
 @<Alinha `p' e marca `offset' de acordo com `a' (direita)@>=
 offset = 0;
 if (a > 1){
-  void *new_p = (void *) (((long long) p) & (~(a - 1)));
+  void *new_p = (void *) (((uintptr_t) p) & (~((uintptr_t) a - 1)));
   offset = ((char *) p) - ((char *) new_p);
   p = new_p;
 }
@@ -986,18 +997,19 @@ um \italico{signal}:
 
 \iniciocodigo
 @<Definição de `Wmemorypoint'@>=
-bool Wmemorypoint(void *arena, unsigned align, int right){
+bool Wmemorypoint(void *arena, unsigned a, int right){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
+  char *p = NULL;
   struct memory_point *point;
-  size_t allocations;
+  size_t allocations, t = sizeof(struct memory_point);
   @<`*mutex':WAIT()@>
   if(right)
     allocations = header -> right_allocations;
   else
     allocations = header -> left_allocations;
-  point = (struct memory_point *) Walloc(arena, align, right,
-                                         sizeof(struct memory_point));
+  @<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>
+  point = (struct memory_point *) p;
   if(point != NULL){
     point -> allocations = allocations;
     if(right){
@@ -1043,10 +1055,14 @@ void Wtrash(void *arena, int right){
   }
   else{
     if(right){
+      head -> remaining_space += (head -> right_allocations -
+                                  point -> allocations);
       head -> right_point = point -> last_memory_point;
       head -> right_allocations = point -> allocations;
     }
     else{
+      head -> remaining_space += (head -> left_allocations -
+                                  point -> allocations);
       head -> left_point = point -> last_memory_point;
       head -> left_allocations = point -> allocations;
     }

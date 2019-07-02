@@ -1,5 +1,5 @@
-/*38:*/
-#line 1066 "./weaver-memory-manager.tex"
+/*39:*/
+#line 1082 "./weaver-memory-manager.tex"
 
 /*7:*/
 #line 312 "./weaver-memory-manager.tex"
@@ -38,8 +38,12 @@
 #if defined(W_DEBUG_MEMORY)
 #include <stdio.h> 
 #endif
-/*:29*/
-#line 1067 "./weaver-memory-manager.tex"
+/*:29*//*31:*/
+#line 820 "./weaver-memory-manager.tex"
+
+#include <stdint.h> 
+/*:31*/
+#line 1083 "./weaver-memory-manager.tex"
 
 #include "memory.h"
 /*25:*/
@@ -66,17 +70,17 @@ size_t smallest_remaining_space;
 #endif
 };
 /*:25*/
-#line 1069 "./weaver-memory-manager.tex"
+#line 1085 "./weaver-memory-manager.tex"
 
-/*35:*/
-#line 970 "./weaver-memory-manager.tex"
+/*36:*/
+#line 981 "./weaver-memory-manager.tex"
 
 struct memory_point{
 size_t allocations;
 struct memory_point*last_memory_point;
 };
-/*:35*/
-#line 1070 "./weaver-memory-manager.tex"
+/*:36*/
+#line 1086 "./weaver-memory-manager.tex"
 
 /*27:*/
 #line 712 "./weaver-memory-manager.tex"
@@ -188,7 +192,7 @@ if(error)return NULL;
 return arena;
 }
 /*:27*/
-#line 1071 "./weaver-memory-manager.tex"
+#line 1087 "./weaver-memory-manager.tex"
 
 /*28:*/
 #line 752 "./weaver-memory-manager.tex"
@@ -237,10 +241,10 @@ UnmapViewOfFile(arena);
 return ret;
 }
 /*:28*/
-#line 1072 "./weaver-memory-manager.tex"
+#line 1088 "./weaver-memory-manager.tex"
 
-/*33:*/
-#line 904 "./weaver-memory-manager.tex"
+/*34:*/
+#line 915 "./weaver-memory-manager.tex"
 
 void*Walloc(void*arena,unsigned a,int right,size_t t){
 struct arena_header*header= (struct arena_header*)arena;
@@ -256,10 +260,10 @@ pthread_mutex_lock((pthread_mutex_t*)mutex);
 EnterCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:23*/
-#line 909 "./weaver-memory-manager.tex"
+#line 920 "./weaver-memory-manager.tex"
 
-/*32:*/
-#line 862 "./weaver-memory-manager.tex"
+/*33:*/
+#line 873 "./weaver-memory-manager.tex"
 
 {
 int offset;
@@ -267,17 +271,17 @@ struct arena_header*header= (struct arena_header*)arena;
 if(header->remaining_space>=t+((a==0)?(0):(a-1))){
 if(right){
 p= ((char*)header->right_free)-t+1;
-/*31:*/
-#line 822 "./weaver-memory-manager.tex"
+/*32:*/
+#line 833 "./weaver-memory-manager.tex"
 
 offset= 0;
 if(a> 1){
-void*new_p= (void*)(((long long)p)&(~(a-1)));
+void*new_p= (void*)(((uintptr_t)p)&(~((uintptr_t)a-1)));
 offset= ((char*)p)-((char*)new_p);
 p= new_p;
 }
-/*:31*/
-#line 869 "./weaver-memory-manager.tex"
+/*:32*/
+#line 880 "./weaver-memory-manager.tex"
 
 header->right_free= (char*)p-1;
 header->right_allocations+= (t+offset);
@@ -290,12 +294,12 @@ p= header->left_free;
 offset= 0;
 if(a> 1){
 void*new_p= ((char*)p)+(a-1);
-new_p= (void*)(((long long)new_p)&(~(a-1)));
+new_p= (void*)(((uintptr_t)new_p)&(~((uintptr_t)a-1)));
 offset= ((char*)new_p)-((char*)p);
 p= new_p;
 }
 /*:30*/
-#line 875 "./weaver-memory-manager.tex"
+#line 886 "./weaver-memory-manager.tex"
 
 header->left_free= (char*)p+t;
 header->left_allocations+= (t+offset);
@@ -307,8 +311,8 @@ header->smallest_remaining_space= header->remaining_space;
 #endif
 }
 }
-/*:32*/
-#line 910 "./weaver-memory-manager.tex"
+/*:33*/
+#line 921 "./weaver-memory-manager.tex"
 
 /*24:*/
 #line 594 "./weaver-memory-manager.tex"
@@ -320,21 +324,22 @@ pthread_mutex_unlock((pthread_mutex_t*)mutex);
 LeaveCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:24*/
-#line 911 "./weaver-memory-manager.tex"
+#line 922 "./weaver-memory-manager.tex"
 
 return p;
 }
-/*:33*/
-#line 1073 "./weaver-memory-manager.tex"
+/*:34*/
+#line 1089 "./weaver-memory-manager.tex"
 
-/*36:*/
-#line 988 "./weaver-memory-manager.tex"
+/*37:*/
+#line 999 "./weaver-memory-manager.tex"
 
-bool Wmemorypoint(void*arena,unsigned align,int right){
+bool Wmemorypoint(void*arena,unsigned a,int right){
 struct arena_header*header= (struct arena_header*)arena;
 void*mutex= (void*)&(header->mutex);
+char*p= NULL;
 struct memory_point*point;
-size_t allocations;
+size_t allocations,t= sizeof(struct memory_point);
 /*23:*/
 #line 580 "./weaver-memory-manager.tex"
 
@@ -345,14 +350,65 @@ pthread_mutex_lock((pthread_mutex_t*)mutex);
 EnterCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:23*/
-#line 994 "./weaver-memory-manager.tex"
+#line 1006 "./weaver-memory-manager.tex"
 
 if(right)
 allocations= header->right_allocations;
 else
 allocations= header->left_allocations;
-point= (struct memory_point*)Walloc(arena,align,right,
-sizeof(struct memory_point));
+/*33:*/
+#line 873 "./weaver-memory-manager.tex"
+
+{
+int offset;
+struct arena_header*header= (struct arena_header*)arena;
+if(header->remaining_space>=t+((a==0)?(0):(a-1))){
+if(right){
+p= ((char*)header->right_free)-t+1;
+/*32:*/
+#line 833 "./weaver-memory-manager.tex"
+
+offset= 0;
+if(a> 1){
+void*new_p= (void*)(((uintptr_t)p)&(~((uintptr_t)a-1)));
+offset= ((char*)p)-((char*)new_p);
+p= new_p;
+}
+/*:32*/
+#line 880 "./weaver-memory-manager.tex"
+
+header->right_free= (char*)p-1;
+header->right_allocations+= (t+offset);
+}
+else{
+p= header->left_free;
+/*30:*/
+#line 804 "./weaver-memory-manager.tex"
+
+offset= 0;
+if(a> 1){
+void*new_p= ((char*)p)+(a-1);
+new_p= (void*)(((uintptr_t)new_p)&(~((uintptr_t)a-1)));
+offset= ((char*)new_p)-((char*)p);
+p= new_p;
+}
+/*:30*/
+#line 886 "./weaver-memory-manager.tex"
+
+header->left_free= (char*)p+t;
+header->left_allocations+= (t+offset);
+}
+header->remaining_space-= (t+offset);
+#if defined(W_DEBUG_MEMORY)
+if(header->remaining_space<header->smallest_remaining_space)
+header->smallest_remaining_space= header->remaining_space;
+#endif
+}
+}
+/*:33*/
+#line 1011 "./weaver-memory-manager.tex"
+
+point= (struct memory_point*)p;
 if(point!=NULL){
 point->allocations= allocations;
 if(right){
@@ -374,17 +430,17 @@ pthread_mutex_unlock((pthread_mutex_t*)mutex);
 LeaveCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:24*/
-#line 1012 "./weaver-memory-manager.tex"
+#line 1024 "./weaver-memory-manager.tex"
 
 if(point==NULL)
 return false;
 return true;
 }
-/*:36*/
-#line 1074 "./weaver-memory-manager.tex"
+/*:37*/
+#line 1090 "./weaver-memory-manager.tex"
 
-/*37:*/
-#line 1029 "./weaver-memory-manager.tex"
+/*38:*/
+#line 1041 "./weaver-memory-manager.tex"
 
 void Wtrash(void*arena,int right){
 struct arena_header*head= (struct arena_header*)arena;
@@ -400,7 +456,7 @@ pthread_mutex_lock((pthread_mutex_t*)mutex);
 EnterCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:23*/
-#line 1034 "./weaver-memory-manager.tex"
+#line 1046 "./weaver-memory-manager.tex"
 
 if(right){
 point= head->right_point;
@@ -409,8 +465,8 @@ else{
 point= head->left_point;
 }
 if(point==NULL){
-/*34:*/
-#line 934 "./weaver-memory-manager.tex"
+/*35:*/
+#line 945 "./weaver-memory-manager.tex"
 
 {
 struct arena_header*header= arena;
@@ -425,16 +481,20 @@ header->remaining_space+= header->left_allocations;
 header->left_allocations= 0;
 }
 }
-/*:34*/
-#line 1042 "./weaver-memory-manager.tex"
+/*:35*/
+#line 1054 "./weaver-memory-manager.tex"
 
 }
 else{
 if(right){
+head->remaining_space+= (head->right_allocations-
+point->allocations);
 head->right_point= point->last_memory_point;
 head->right_allocations= point->allocations;
 }
 else{
+head->remaining_space+= (head->left_allocations-
+point->allocations);
 head->left_point= point->last_memory_point;
 head->left_allocations= point->allocations;
 }
@@ -449,10 +509,10 @@ pthread_mutex_unlock((pthread_mutex_t*)mutex);
 LeaveCriticalSection((CRITICAL_SECTION*)mutex);
 #endif
 /*:24*/
-#line 1054 "./weaver-memory-manager.tex"
+#line 1070 "./weaver-memory-manager.tex"
 
 }
-/*:37*/
-#line 1075 "./weaver-memory-manager.tex"
-
 /*:38*/
+#line 1091 "./weaver-memory-manager.tex"
+
+/*:39*/
