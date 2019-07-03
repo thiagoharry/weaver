@@ -8,7 +8,7 @@ src: weaver-memory-manager.tex
 	ctangle weaver-memory-manager.tex
 	rm weaver-memory-manager.c
 test: src tests/test.c src/memory.c
-	${CC} ${FLAGS} tests/test.c src/memory.c -o test
+	${CC} ${FLAGS} -lpthread tests/test.c src/memory.c -o test
 	./test
 clean:
 	rm -f *~ *.core *.scn *.dvi *.idx *.log tests/*~ rm test

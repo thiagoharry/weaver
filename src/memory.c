@@ -334,7 +334,7 @@ return p;
 /*37:*/
 #line 999 "./weaver-memory-manager.tex"
 
-bool Wmemorypoint(void*arena,unsigned a,int right){
+bool Wmempoint(void*arena,unsigned a,int right){
 struct arena_header*header= (struct arena_header*)arena;
 void*mutex= (void*)&(header->mutex);
 char*p= NULL;

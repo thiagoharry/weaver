@@ -259,7 +259,7 @@ alocação. A função retorna se foi bem-sucedida ou não.
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-bool Wmemorypoint(void *arena, unsigned alignment, int regiao);
+bool Wmempoint(void *arena, unsigned alignment, int regiao);
 @
 \fimcodigo
 
@@ -996,8 +996,8 @@ esquerda ou direita. Em seguida podemos liberar o mutex com
 um \italico{signal}:
 
 \iniciocodigo
-@<Definição de `Wmemorypoint'@>=
-bool Wmemorypoint(void *arena, unsigned a, int right){
+@<Definição de `Wmempoint'@>=
+bool Wmempoint(void *arena, unsigned a, int right){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   char *p = NULL;
@@ -1087,7 +1087,7 @@ arquivo abaixo que poderá então ser compilado:
 @<Definição de `Wcreate\_arena'@>
 @<Definição de `Wdestroy\_arena'@>
 @<Definição de `Walloc'@>
-@<Definição de `Wmemorypoint'@>
+@<Definição de `Wmempoint'@>
 @<Definição de `Wtrash'@>
 @
 \fimcodigo

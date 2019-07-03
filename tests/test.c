@@ -8,6 +8,7 @@
 #endif
 #if defined(__unix__) || defined(__APPLE__)
 #include <unistd.h> // Include 'sysconf' || 'getpagesize'
+#include <pthread.h>
 #endif
 #if defined(__unix__) || defined(__APPLE__)
 #include <pthread.h>
@@ -239,8 +240,8 @@ void test_memorypoint(void){
   void *arena = Wcreate_arena(10 * page_size);
   struct arena_header *header = (struct arena_header *) arena;
   bool pointers_ok = true;
-  Wmemorypoint(arena, 0, 0);
-  Wmemorypoint(arena, 0, 1);
+  Wmempoint(arena, 0, 0);
+  Wmempoint(arena, 0, 1);
   pointers_ok = pointers_ok &&  header -> right_point != NULL;
   pointers_ok = pointers_ok &&  header -> left_point != NULL;
   Wtrash(arena, 0);
@@ -258,7 +259,7 @@ void test_memorypoint2(void){
   p1 = Walloc(arena, 0, 0, 8 * page_size);
   Wtrash(arena, 0);
   p2 = Walloc(arena, 0, 0, 4 * page_size);
-  Wmemorypoint(arena, 0, 0);
+  Wmempoint(arena, 0, 0);
   p2 = Walloc(arena, 0, 0, 4 * page_size);
   Wtrash(arena, 0);
   p2 = Walloc(arena, 0, 0, 4 * page_size);
@@ -269,7 +270,7 @@ void test_memorypoint2(void){
   p3 = Walloc(arena, 0, 1, 8 * page_size);
   Wtrash(arena, 1);
   p4 = Walloc(arena, 0, 1, 4 * page_size);
-  Wmemorypoint(arena, 0, 1);
+  Wmempoint(arena, 0, 1);
   p4 = Walloc(arena, 0, 1, 4 * page_size);
   Wtrash(arena, 1);
   p4 = Walloc(arena, 0, 1, 4 * page_size);
@@ -291,11 +292,11 @@ void test_memorypoint3(void){
   bool integrity_ok = true;
   int i;
   // Left memory
-  Wmemorypoint(arena, 4, 0);
+  Wmempoint(arena, 4, 0);
   p1 = (char *) Walloc(arena, 4, 0, 16);
   for(i = 0; i < 16; i ++)
     p1[i] = 'A';
-  Wmemorypoint(arena, 4, 0);
+  Wmempoint(arena, 4, 0);
   p2 = Walloc(arena, 4, 0, 16);
   for(i = 0; i < 16; i ++)
     p2[i] = 'B';
@@ -311,11 +312,11 @@ void test_memorypoint3(void){
       integrity_ok = false;
   Wtrash(arena, 0);
   // Right memory
-  Wmemorypoint(arena, 4, 1);
+  Wmempoint(arena, 4, 1);
   p3 = (char *) Walloc(arena, 4, 1, 16);
   for(i = 0; i < 16; i ++)
     p3[i] = 'A';
-  Wmemorypoint(arena, 4, 1);
+  Wmempoint(arena, 4, 1);
   p4 = Walloc(arena, 4, 1, 16);
   for(i = 0; i < 16; i ++)
     p4[i] = 'B';
@@ -332,7 +333,73 @@ void test_memorypoint3(void){
   Wtrash(arena, 1);
   assert("Testing integrity with memory points", integrity_ok &&
 	 Wdestroy_arena(arena));
+}
 
+void test_memorypoint4(void){
+  void *arena1 = Wcreate_arena(10 * page_size);
+  void *arena2 = Wcreate_arena(10 * page_size);
+  Wmempoint(arena1, 2, 0);
+  Wtrash(arena2, 0);
+  Wtrash(arena2, 0);
+  Wtrash(arena2, 0);
+  Wtrash(arena2, 1);
+  Wtrash(arena2, 1);
+  Wtrash(arena2, 1);
+  assert("Memory leaks from memory points are detectable",
+	 !Wdestroy_arena(arena1));
+  assert("Wtrash function in empty memory stacks don't cause problems",
+	 Wdestroy_arena(arena2));
+}
+
+#define THREAD_NUMBER 1000
+
+#if defined(_WIN32)
+DWORD WINAPI thread_function(void *arena){
+#else
+void *thread_function(void *arena){
+#endif
+  void *data = NULL;
+  int size, i;
+  if(rand() % 10){
+    size = rand() % 128;
+    data = Walloc(arena, 4, rand() % 2, size);
+    if(data != NULL)
+      for(i = 0; i < size; i ++)
+	((char *) data)[i] = 'W';
+  }
+  else{
+    Wmempoint(arena, rand() % 2, 0);
+  }
+  return data;
+}
+  
+void test_threads(void){
+#if defined(_WIN32)
+  HANDLE thread[THREAD_NUMBER];
+#else
+  pthread_t thread[THREAD_NUMBER];
+#endif
+  int i;
+  void *arena1 = Wcreate_arena(500 * THREAD_NUMBER);
+  for(i = 0; i < THREAD_NUMBER; i ++)
+#if defined(_WIN32)
+    thread[i] = CreateThread(NULL, 0, ThreadFunc, arena1, 0, NULL);
+#else
+    pthread_create(&(thread[i]), NULL, thread_function, arena1);
+#endif
+  for(i = 0; i < THREAD_NUMBER; i ++)
+#if defined(_WIN32)
+    WaitForSingleObject(thread[i], INFINITE);
+#else
+    pthread_join(thread[i], NULL);  
+#endif
+  for(i = 0; i < THREAD_NUMBER; i ++){
+    Wtrash(arena1, 0);
+    Wtrash(arena1, 1);
+  }
+  assert("Memory manager works when used in multiple threads",
+	 Wdestroy_arena(arena1));
+  
 }
 
 int main(int argc, char **argv){
@@ -351,6 +418,8 @@ int main(int argc, char **argv){
   test_memorypoint();
   test_memorypoint2();
   test_memorypoint3();
+  test_memorypoint4();
+  test_threads();
   imprime_resultado();
   return 0;
 }
