@@ -370,7 +370,11 @@ void *thread_function(void *arena){
   else{
     Wmempoint(arena, rand() % 2, 0);
   }
-  return data;
+#if defined(_WIN32)
+  return 0;
+#else
+  return NULL;
+#endif
 }
   
 void test_threads(void){
@@ -383,7 +387,7 @@ void test_threads(void){
   void *arena1 = Wcreate_arena(500 * THREAD_NUMBER);
   for(i = 0; i < THREAD_NUMBER; i ++)
 #if defined(_WIN32)
-    thread[i] = CreateThread(NULL, 0, ThreadFunc, arena1, 0, NULL);
+    thread[i] = CreateThread(NULL, 0, thread_function, arena1, 0, NULL);
 #else
     pthread_create(&(thread[i]), NULL, thread_function, arena1);
 #endif
