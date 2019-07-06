@@ -10,7 +10,10 @@ src: weaver-memory-manager.tex
 test: src tests/test.c src/memory.c
 	${CC} ${FLAGS} -lpthread tests/test.c src/memory.c -o test
 	./test
+benchmark: src benchmark/benchmark.c src/memory.c
+	${CC} ${FLAGS} -lm  src/memory.c benchmark/benchmark.c -o bench
+	./bench
 clean:
-	rm -f *~ *.core *.scn *.dvi *.idx *.log tests/*~ rm test
+	rm -f *~ *.core *.scn *.dvi *.idx *.log tests/*~ test bench benchmark/*~
 distclean: clean
 	rm -f test weaver-memory-manager.pdf src/*
