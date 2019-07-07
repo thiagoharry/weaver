@@ -23,8 +23,8 @@
   elapsed = t2.tv_sec + t2.tv_usec*1e-6 - t1.tv_sec - t1.tv_usec*1e-6; }
 #endif
 
-#define ALLOC_SIZE 80
-#define N 1000
+#define ALLOC_SIZE 10*1024
+#define N 100000
 double measures[N];
 double mean;
 double standard_deviation;
@@ -85,10 +85,44 @@ void measure_free(void){
   printf("Free: %f seconds ± %f seconds\n", mean, standard_deviation);
 }
 
+void measure_wmempoint_wtrash(void){
+  void *arena = Wcreate_arena(ALLOC_SIZE * N + 1024);
+  int i;
+  double elapsed, sum = 0, dif_squared = 0;
+  for(i = 0; i < N; i ++){
+    TIMER_START();
+    Wmempoint(arena, 0, 0);
+    TIMER_END();
+    measures[i] = elapsed;
+  }
+  for(i = 0; i < N; i ++)
+    sum += measures[i];
+  mean = sum / N;
+  for(i = 0; i < N; i ++)
+    dif_squared += (measures[i] - mean) * (measures[i] - mean);
+  standard_deviation = sqrt(dif_squared / (N - 1));
+  printf("Wmempoint: %f seconds ± %f seconds\n", mean, standard_deviation);
+  sum = 0;
+  dif_squared = 0;
+  for(i = 0; i < N; i ++){
+    TIMER_START();
+    Wtrash(arena, 0);
+    TIMER_END();
+    measures[i] = elapsed;
+  }
+  for(i = 0; i < N; i ++)
+    sum += measures[i];
+  mean = sum / N;
+  for(i = 0; i < N; i ++)
+    dif_squared += (measures[i] - mean) * (measures[i] - mean);
+  standard_deviation = sqrt(dif_squared / (N - 1));
+  printf("Wtrash: %f seconds ± %f seconds\n", mean, standard_deviation);
+}
 
 int main(int argc, char **argv){
   measure_malloc();
   measure_free();
   measure_walloc();
+  measure_wmempoint_wtrash();
   return 0;
 }
