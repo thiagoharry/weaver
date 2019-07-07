@@ -23,7 +23,7 @@
   elapsed = t2.tv_sec + t2.tv_usec*1e-6 - t1.tv_sec - t1.tv_usec*1e-6; }
 #endif
 
-#define ALLOC_SIZE 10*1024
+#define ALLOC_SIZE 5*1024
 #define N 100000
 double measures[N];
 double mean;
