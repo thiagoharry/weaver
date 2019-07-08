@@ -10,6 +10,10 @@ src: weaver-memory-manager.tex
 test: src tests/test.c src/memory.c
 	${CC} ${FLAGS} -pthread tests/test.c src/memory.c -o test
 	./test
+web-test:
+	emcc  tests/test.c src/memory.c -s WASM=1 -o doc/test/test.html
+web-benchmark:
+	emcc src/memory.c benchmark/benchmark.c  -s WASM=1 -o doc/benchmark/bench.html
 benchmark: src benchmark/benchmark.c src/memory.c
 	${CC} ${FLAGS} src/memory.c benchmark/benchmark.c -o bench -lm 
 	./bench

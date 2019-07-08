@@ -39,7 +39,7 @@ void assert(char *descricao, bool valor){
   numero_de_testes ++;
   printf("%s%s", descricao, pontos);
   if(valor){
-#if defined(__unix__)
+#if defined(__unix__) && !defined(__EMSCRIPTEN__)
     printf("\e[32m[OK]\033[0m\n");
 #else
     printf("[OK]\n");
@@ -47,7 +47,7 @@ void assert(char *descricao, bool valor){
     acertos ++;
   }
   else{
-#if defined(__unix__)
+#if defined(__unix__) && !defined(__EMSCRIPTEN__)
     printf("\033[0;31m[FAIL]\033[0m\n");
 #else
     printf("[FAIL]\n");
@@ -76,6 +76,9 @@ static void set_page_size(void){
     GetSystemInfo(&info);
     page_size = info.dwPageSize;
   }
+#endif
+#if defined(__EMSCRIPTEN__)
+  page_size = 64 * 1024; // 64 KiB
 #endif
   printf("Page size: %d\n", (int) page_size);
 }
@@ -423,7 +426,9 @@ int main(int argc, char **argv){
   test_memorypoint2();
   test_memorypoint3();
   test_memorypoint4();
+#if !defined(__EMSCRIPTEN__)
   test_threads();
+#endif
   imprime_resultado();
   return 0;
 }

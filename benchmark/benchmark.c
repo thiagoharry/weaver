@@ -11,7 +11,7 @@
   e.QuadPart *= 1000000; \
   e.QuadPart /= f.QuadPart; \
   elapsed = ((double)e.QuadPart) *1e-6; }
-#elif defined(__unix__)
+#elif defined(__unix__) && !defined(__EMSCRIPTEN__)
 #include <time.h>
 #define TIMER_START() { struct timespec t1, t2;	\
   clock_gettime(CLOCK_PROCESS_CPUTIME_ID, &t1);
