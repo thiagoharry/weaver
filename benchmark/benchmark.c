@@ -4,11 +4,13 @@
 
 #ifdef _WIN32
 #include <windows.h>
-#define TIMER_START() { struct timespec t1, f1, t2, f2;		\
-  QueryPerformanceCounter(&t1); QueryPerformanceFrequency(&f1);
-#define TIMER_END() QueryPerformanceCounter(&t2); QueryPerformanceFrequency(&f2); \
-  elapsed = ((double)t2.QuadPart/(double)f2.QuadPart) - \
-    ((double)t2.QuadPart/(double)f2.QuadPart); }
+#define TIMER_START() { LARGE_INTEGER t1, f, t2, e;		\
+  QueryPerformanceFrequency(&f); QueryPerformanceCounter(&t1);
+#define TIMER_END() QueryPerformanceCounter(&t2); \
+  e.QuadPart = t2.QuadPart - t1.QuadPart; \
+  e.QuadPart *= 1000000; \
+  e.QuadPart /= f.QuadPart; \
+  elapsed = ((double)e.QuadPart) *1e-6; }
 #elif defined(__unix__)
 #include <time.h>
 #define TIMER_START() { struct timespec t1, t2;	\
@@ -33,11 +35,13 @@ void *malloc_data[N];
 void measure_walloc(void){
   void *arena = Wcreate_arena(ALLOC_SIZE * N + 1024);
   int i;
+  void *v;
   double elapsed, sum = 0, dif_squared = 0;
   for(i = 0; i < N; i ++){
     TIMER_START();
-    Walloc(arena, 0, 0, ALLOC_SIZE);
+    v = Walloc(arena, 0, 0, ALLOC_SIZE);
     TIMER_END();
+	((char*)v)[0] = 'W';
     measures[i] = elapsed;
   }
   for(i = 0; i < N; i ++)
@@ -46,7 +50,7 @@ void measure_walloc(void){
   for(i = 0; i < N; i ++)
     dif_squared += (measures[i] - mean) * (measures[i] - mean);
   standard_deviation = sqrt(dif_squared / (N - 1));
-  printf("Walloc: %f seconds ± %f seconds\n", mean, standard_deviation);
+  printf("Walloc: %.15f seconds ± %.15f seconds\n", mean, standard_deviation);
 }
 
 void measure_malloc(void){
@@ -64,7 +68,7 @@ void measure_malloc(void){
   for(i = 0; i < N; i ++)
     dif_squared += (measures[i] - mean) * (measures[i] - mean);
   standard_deviation = sqrt(dif_squared / (N - 1));
-  printf("Malloc: %f seconds ± %f seconds\n", mean, standard_deviation);
+  printf("Malloc: %.15f seconds ± %.15f seconds\n", mean, standard_deviation);
 }
 
 void measure_free(void){
@@ -82,7 +86,7 @@ void measure_free(void){
   for(i = 0; i < N; i ++)
     dif_squared += (measures[i] - mean) * (measures[i] - mean);
   standard_deviation = sqrt(dif_squared / (N - 1));
-  printf("Free: %f seconds ± %f seconds\n", mean, standard_deviation);
+  printf("Free: %.15f seconds ± %.15f seconds\n", mean, standard_deviation);
 }
 
 void measure_wmempoint_wtrash(void){
@@ -101,7 +105,7 @@ void measure_wmempoint_wtrash(void){
   for(i = 0; i < N; i ++)
     dif_squared += (measures[i] - mean) * (measures[i] - mean);
   standard_deviation = sqrt(dif_squared / (N - 1));
-  printf("Wmempoint: %f seconds ± %f seconds\n", mean, standard_deviation);
+  printf("Wmempoint: %.15f seconds ± %.15f seconds\n", mean, standard_deviation);
   sum = 0;
   dif_squared = 0;
   for(i = 0; i < N; i ++){
@@ -116,7 +120,7 @@ void measure_wmempoint_wtrash(void){
   for(i = 0; i < N; i ++)
     dif_squared += (measures[i] - mean) * (measures[i] - mean);
   standard_deviation = sqrt(dif_squared / (N - 1));
-  printf("Wtrash: %f seconds ± %f seconds\n", mean, standard_deviation);
+  printf("Wtrash: %.15f seconds ± %.15f seconds\n", mean, standard_deviation);
 }
 
 int main(int argc, char **argv){
