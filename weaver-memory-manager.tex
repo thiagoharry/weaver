@@ -1113,7 +1113,7 @@ alinhamento e por sempre usar a pilha esquerda para as alocações, pois
 é a pilha que teria o melhor desempenho devido à localidade espacial
 das alocações.
 
-É importante notar que embora as funçõe aqui definidas tenham sido
+É importante notar que embora as funções aqui definidas tenham sido
 projetadas para executar sempre em tempo constante, independente do
 tamanho do espaço de memória alocado, as funções \monoespaco{malloc}
 e \monoespaco{free} de cada um dos sistemas nem sempre segue esta
@@ -1122,8 +1122,8 @@ e foi mudada para verificar se isso alterava os tempos de
 execução. Quando detectamos que uma função não executa em tempo
 constante, nossa maior preocupação foi checar para quais valores a
 função tem um desempenho equivalente e para quais tem um desempenho
-pior no computador usado nos testes. Não arriscamos previsões muito
-precisas quanto ao comportamento da função sem uma análise de sua
+pior no computador usado nos testes. Não serão feitas previsões muito
+quanto ao comportamento exato da função sem uma análise de sua
 implementação.
 
 \subsecao{3.1. OpenBSD}
@@ -1133,15 +1133,37 @@ constante para diferentes tamanhos de memórias liberadas. O tempo de
 execução dela parece crescer linearmente à medida que a quantidade a
 ser liberada cresce exponencialmente, o que parece indicar uma
 complexicade logarítmica. Na máquina usada nos testes, o desempenho
-dela ficou próximo somente quando o espaço a ser desalocado tinha na
-ordem de 100 bytes. O desempenho mostrado abaixo é para o teste
-particular de alocações de 5 KiB repetidas por cem mil vezes.
+dela ficou próximo ao do \monoespaco{Wfree} somente quando o espaço a
+ser desalocado tinha cerca de 100 bytes. O desempenho mostrado
+abaixo é para o teste particular de alocações de 5 KiB repetidas por
+cem mil vezes.
 
-Da mesma forma, para valores pequenos, a função \monoespaco{malloc}
-demonstra um desempenho equivalente à \monoespaco{Walloc}, indicando
-que o desempenho menor mostrado no gráfico abaixo se deve ao custo de
-pedir mais memória por meio de uma chamada de sistema ao Sistema
-Operacional.
+Para valores pequenos, a função \monoespaco{malloc} demonstra um
+desempenho equivalente à \monoespaco{Walloc}, indicando que o
+desempenho menor mostrado na tabela abaixo se deve ao custo de pedir
+mais memória por meio de uma chamada de sistema ao Sistema
+Operacional. Contudo, ao contrário da função \monoespaco{free}, não
+foi observado um aumento contínuo no tempo de execução à medida que a
+quantidade de memória pedida aumenta.
+
+% http://gnuplot.sourceforge.net/demo/transparent.html
+
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Função OpenBSD\hidewidth&&\omit\hidewidth
+Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&6,30530874&&25,124535168&\cr\linha
+&&\monoespaco{free}&&22,00978538&&12,809965439&\cr\linha
+&&\monoespaco{Walloc}&&2,50560902&&0,228082461&\cr\linha
+&&\monoespaco{Wmempoint}&&2,26598656&&0,505975457&\cr\linha
+&&\monoespaco{Wtrash}&&2,22814472&&0,166606876&\cr\linha}}
 
 % OpenBSD:
 % Malloc:     6.30530874us +- 25.124535168us
