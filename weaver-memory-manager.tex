@@ -1165,19 +1165,55 @@ Média ($\mu$s)\hidewidth&&
 &&\monoespaco{Wmempoint}&&2,26598656&&0,505975457&\cr\linha
 &&\monoespaco{Wtrash}&&2,22814472&&0,166606876&\cr\linha}}
 
-% OpenBSD:
-% Malloc:     6.30530874us +- 25.124535168us
-% Free:      22.00978538us +- 12.809965439us
-% Walloc:     2.50560902us +-  0.228082461us
-% Wmempoint:  2.26598656us +-  0.505975457us
-% Wtrash:     2.22814472us +-  0.166606876us
+Podemos observar a diferença entre as funções no gráfico abaixo que
+mostra a densidade de probabilidade de cada uma das funções acima
+executar em um dado intervalo de tempo em microssegundos de acordo com
+os dados acima:
 
-% Linux
-% Malloc:     2.71246735us +-  0.801445880us
-% Free:       0.87757830us +-  0.141186377us
-% Walloc:     0.76750440us +-  0.218803555us
-% Wmempoint:  0.75614315us +-  0.155982817us
-% Wtrash:     0.75579410us +-  0.066124620us
+\imagem{images/openbsd.eps}
+
+Nota-se que nossas funções implementadas quase sempre executam em
+menos de 3 microssegundos enquando as funções nativas do OpenBSD levam
+um tempo que é bastante próximo de uma distribuição linear entre 0 e
+um valor máximo. O desvio padrão neste caso é relevante, pois
+interfere no pior caso observado e por isso deve ser levado em conta
+ao avaliar o desempenho de uma função de biblioteca.
+
+\subsecao{3.1. Linux (Ubuntu 19.04)}
+
+Ao contrário do OpenBSD que implementa medidas adicionais no alocador
+de memória para randomizar os endereços obtidos e que sempre retorna
+imediatamente a memória liberada para o kernel, o Linux tem suas
+funções mais orientadas a ter um desempenho maior, mesmo que com menos
+medidas de segurança. Todas as funções estadas demonstram executar em
+tempo constante no Linux. Os dados obtidos são:
+
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Função Linux\hidewidth&&\omit\hidewidth
+Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&2,71246735&&0,801445880&\cr\linha
+&&\monoespaco{free}&&0,87757830&&0,141186377&\cr\linha
+&&\monoespaco{Walloc}&&0,76750440&&0,218803555&\cr\linha
+&&\monoespaco{Wmempoint}&&0,75614315&&0,155982817&\cr\linha
+&&\monoespaco{Wtrash}&&0,75579410&&0,066124620&\cr\linha}}
+
+Todas as funções então apresentam um desempenho bastante semelhante,
+pró\-xi\-mo de 1 microssegundo de tempo. Só a
+função \monoespaco{malloc} da biblioteca padrão que apresenta um
+desempenho pior e com maior variação. Comparando os piores casos, a
+nossa função \monoespaco{Walloc} executa cerca de quatro vezes mais
+rápido.
+
+\imagem{images/linux.eps}
+
 
 % Windows 10
 % Malloc:    1.59881us +- 11.466939064us
