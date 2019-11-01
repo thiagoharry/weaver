@@ -1179,7 +1179,7 @@ um valor máximo. O desvio padrão neste caso é relevante, pois
 interfere no pior caso observado e por isso deve ser levado em conta
 ao avaliar o desempenho de uma função de biblioteca.
 
-\subsecao{3.1. Linux (Ubuntu 19.04)}
+\subsecao{3.2. Linux (Ubuntu 19.04)}
 
 Ao contrário do OpenBSD que implementa medidas adicionais no alocador
 de memória para randomizar os endereços obtidos e que sempre retorna
@@ -1214,13 +1214,75 @@ rápido.
 
 \imagem{images/linux.eps}
 
+\subsecao{3.3. Windows 10}
 
-% Windows 10
-% Malloc:    1.59881us +- 11.466939064us
-% Free:      0.57427us +-  9.402517112us
-% Walloc:    0.00003us +-  0.005477171us
-% Wmempoint: 0.00515us +-  0.233332428us
-% Wtrash:    0.00045us +-  0.097825831us
+O Windows 10 se destaca por ter tempos médios relativamente baixos em
+suas funções, mas desvios padrão altos, o que indica que embora o
+desempenho seja alto, ocasionalmente pode-se ter azar e ter que passar
+por uma espera maior para que a chamada de sistema termine devolvendo
+a memória pedida. Apesar dos tempos baixos de execução das funções de
+gerenciamento de memória, nossa implementação conseguiu tempos ainda
+menores e sem o problema do desvio padrão alto.
+
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Função Windows\hidewidth&&\omit\hidewidth
+Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&1,59881&&11,466939064&\cr\linha
+&&\monoespaco{free}&&0,57427&&9.402517112&\cr\linha
+&&\monoespaco{Walloc}&&0,00003&&0.005477171&\cr\linha
+&&\monoespaco{Wmempoint}&&0,00515&&0,233332428&\cr\linha
+&&\monoespaco{Wtrash}&&0,00045&&0,097825831&\cr\linha}}
+
+O comportamento das funções no Windows parece indicar uma diferença de
+filosofia na implementação comparada à implementação Linux. No Windows
+a prioridade parece ser deixar o tempo médio das funções menor, mesmo
+que para isso tenha-se que lidar com um pior caso muito ruim, mas que
+dificilmente acontece. No Linux a prioridade era evitar surpresas
+ruins com o pior caso, mesmo que para isso o tempo médio de execução
+fique um pouco maior.
+
+\imagem{images/windows.eps}
+
+\subsecao{3.4. Web Assembly (Firefox Quantum 67.04)}
+
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Web Assembly
+(Firefox)\hidewidth&&\omit\hidewidth Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&2,399475651&&48.931141529&\cr\linha
+&&\monoespaco{free}&&0,489213791&&22,130980751&\cr\linha
+&&\monoespaco{Walloc}&&0,394548569&&19,744325980&\cr\linha
+&&\monoespaco{Wmempoint}&&0,451152325&&21,208728454&\cr\linha
+&&\monoespaco{Wtrash}&&0,398001614&&19,744481718&\cr\linha}}
+
+\imagem{images/web_firefox.eps}
+
+Executando em um ambiente Web Assembly em um navegador de Internet,
+compreensivelmente todas as funções passaram a ter desvio padrão
+maior. A surpresa é que o tempo médio muitas vezes foi menor comparado
+ao do Sistema Operacional (os testes de Web Assembly foram feitos no
+Linux) e as nossas funções, ainda demonstraram desvio menor que as
+funções da biblioteca do sistema.
+
+No gráfico não é possível distinguir as funções \monoespaco{Walloc}
+e \monoespaco{Wtrash}, já que ambas tiveram comportamento praticamente
+idêntico nos testes.
+
 
 % Web Assembly (Firefox Quantum 67.04)
 % Malloc:    2.399475651us +-  48.931141529us
