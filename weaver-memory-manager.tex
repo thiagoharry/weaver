@@ -1283,22 +1283,73 @@ No gráfico não é possível distinguir as funções \monoespaco{Walloc}
 e \monoespaco{Wtrash}, já que ambas tiveram comportamento praticamente
 idêntico nos testes.
 
+\subsecao{3.5. Web Assembly (Microsoft Edge 40.15254.369)}
 
-% Web Assembly (Firefox Quantum 67.04)
-% Malloc:    2.399475651us +-  48.931141529us
-% Free:      0.489213791us +-  22.130980751us
-% Walloc:    0.394548569us +-  19.744325980us
-% Wmempoint: 0.451152325us +-  21.208728454us
-% Wtrash:    0.398001614us +-  19.744481718us
+Executando o código em Web Assembly no Microsoft Edge do Windows 10
+tivemos um desempenho semelhante ao Web Assembly do Firefox. A
+diferença é que as funções tendem a gastar um tempo um pouco mais
+previsível, com um desvio padrão menor. O tempo médio ficou apenas
+ligeiramente menor. Aqui o \monoespaco{malloc} sendo executado no
+navegador de Internet teve um desempenho médio melhor que
+o \monoespaco{malloc} executando nativamente.
 
-% Web Assembly (Microsoft Edge)
-% Malloc:    1.075476093us +-   36.039479231us
-% Free:      0.620922375us +-   24.892216258us
-% Walloc:    0.366360054us +-   18.970295969us
-% Wmempoint: 0.346548996us +-   19.232215457us
-% Wtrash:    0.302235565us +-   17.317682053us
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Web Assembly
+(Edge)\hidewidth&&\omit\hidewidth Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&1,075476093&&36,039479231&\cr\linha
+&&\monoespaco{free}&&0,620922375&&24,892216258&\cr\linha
+&&\monoespaco{Walloc}&&0,366360054&&18,970295969&\cr\linha
+&&\monoespaco{Wmempoint}&&0,346548996&&19,232215457&\cr\linha
+&&\monoespaco{Wtrash}&&0,302235565&&17,317682053&\cr\linha}}
 
+O gráfico abaixo está exatamente na mesma escala que o anterior do
+desempenho no Firefox.
 
+\imagem{images/web_edge.eps}
+
+\secao{4. Conclusão}
+
+Em todos os casos de teste, as funções que desenvolvemos apresentaram
+um desempenho de tempo melhor e mais previsível em comparação às
+funções de gerenciamento de memória nativas. O desempenho ocorre
+principalmente devido a não precisarmos realizar chamadas de sistema
+para alocar mais memória, uma chamada de sistema ocorre na
+inicialização e depois disso apenas gerenciamos esta mesma memória
+alocada.
+
+Isso traz a desvantagem de termos que especificar logo no começo da
+execução de um programa qual a quantidade máxima de memória que ele
+poderá usar. Outra desvantagem existente é não termos mais acesso à
+uma função \monoespaco{free}. Toda a desalocação deve ocorrer em
+blocos. Em aplicações que podem se adaptar à este esquema, elas podem
+obter melhoras de desempenho ainda maiores, pois sucessivas chamadas
+de uma função \monoespaco{free} podem ser substituídas por uma só
+chamada de função \monoespaco{Wtrash}.
+
+Em alguns casos, pode-se usar em
+sequência \monoespaco{Wmempoint}, \monoespaco{Walloc}
+e \monoespaco{Wtrash} para simular um uso de \monoespaco{malloc}
+seguido de \monoespaco{free} para quando quer se alocar algo
+temporariamente para ser desalocado em seguida. Para este caso, em
+todos os sistemas testados chamar as três primeiras funções é mais
+rápido que chamar as duas últimas e o desempenho continua melhor.
+
+Todas as desvantagens expostas não são um problema em algumas
+aplicações como o desenvolvimento de jogos. Neles de qualquer forma
+não se deve usar mais recursos do que o que é especificado de antemão
+e a estrutura de um jogo se adapta à um gerenciador de memória baseado
+em pilhas de alocação. O uso das funções definidas aqui pode então
+trazer vantagens como diminuição de tempo de carregamento de recursos
+graças à alocações mais rápidas, que em um jogo tipicamente ocorrem na
+inicialização de um novo cenário ou fase do jogo.
 
 \secao{Referências}
 
