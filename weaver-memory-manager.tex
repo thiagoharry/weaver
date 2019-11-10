@@ -52,10 +52,10 @@ and fast memory manager for programs where memory is allocated and
 freed in a stack-based order and we know the maximum ammount of memory
 that the program will need. It allows users creating markings during
 the program execution that after allows them to free at once all the
-memory allocated after the last marking. After the memory manager
-creation, we also run some benchmarks comparing its performance
-against malloc from standard library running at Linux, Windows and
-in a web browser using Web Assembly.}
+memory allocated after the last marking. The article shows the results
+of running some benchmarks comparing its performance against malloc
+from standard library running at Linux, OpenBSD, Windows and in a web
+browser using Web Assembly.}
 
 \vskip 0.5cm plus 3pt minus 3pt
 
@@ -64,11 +64,10 @@ gerenciador de memória escrito para o Motor de Jogos Weaver. Ele é
 voltado a programas onde a memória é alocada e liberada seguindo uma
 ordem baseada em pilha e a quantidade máxima de memória é
 conhecida. Ele fornece a possibilidade de criar marcações durante a
-execução do programa de modo que depois possam liberar toda a memória
-alocada desde a última marcação. Depois da criação do gerenciador de
-memória, também comparamos o desempenho dele com o {\it malloc} da
-biblioteca C padrão rodando em Linux, Windows e em um navegador de
-Internet usando {\it Web Assembly}.}
+execução do programa de modo que depois possa liberar toda a memória
+alocada desde a última marcação. Também é comparado o desempenho dele
+com o {\it malloc} da biblioteca C padrão rodando em Linux, OpenBSD,
+Windows e em um navegador de Internet usando {\it Web Assembly}.}
 
 \secao{1. Introdução}
 
@@ -171,6 +170,8 @@ podem ser inseridos estaticamente em qualquer projeto, ou compilados
 como uma biblioteca compartilhada. O que colocaremos
 em \monoespaco{memory.h} será:
 
+\quebra
+
 \iniciocodigo
 @(src/memory.h@>=
 #ifndef WEAVER_MEMORY_MANAGER
@@ -220,7 +221,7 @@ contínua de memória a ser gerenciada (que chamamos de ``arena''):
 \iniciocodigo
 @<Declarações de Memória@>=
 #include <stdlib.h> // Include 'size_t'
-void *Wcreate_arena(size_t size);
+void *_Wcreate_arena(size_t size);
 @
 \fimcodigo
 
@@ -231,7 +232,7 @@ false, caso contrário retornamos verdadeiro:
 \iniciocodigo
 @<Declarações de Memória@>+=
 #include <stdbool.h> // Include 'bool'
-bool Wdestroy_arena(void *);
+bool _Wdestroy_arena(void *);
 @
 \fimcodigo
 
@@ -245,7 +246,7 @@ de dois:
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-void *Walloc(void *arena, unsigned alignment, int right, size_t size);
+void *_Walloc(void *arena, unsigned alignment, int right, size_t size);
 @
 \fimcodigo
 
@@ -259,18 +260,18 @@ alocação. A função retorna se foi bem-sucedida ou não.
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-bool Wmempoint(void *arena, unsigned alignment, int regiao);
+bool _Wmempoint(void *arena, unsigned alignment, int regiao);
 @
 \fimcodigo
 
 A última função usa a marcação criada pela função anterior e desaloca
-de uma só vez toda a memória alocada com \monoespaco{Walloc} desde que
+de uma só vez toda a memória alocada com \monoespaco{\_Walloc} desde que
 a última marcação foi criada. Ela recebe uma flag para saber se isso
 deve ser feito na região esquerda (0) ou direita (1):
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-void Wtrash(void *arena, int regiao);
+void _Wtrash(void *arena, int regiao);
 @
 \fimcodigo
 
@@ -686,7 +687,7 @@ após o cabeçalho. Já a pilha direita fica com o último byte da arena.
 \subsecao{2.4. O Código de Alocação de Nova Arena}
 
 Com o código que definirmos já temos como definir a
-função \monoespaco{Wcreate\_arena}. O que a função terá que fazer
+função \monoespaco{\_Wcreate\_arena}. O que a função terá que fazer
 são as 6 operações abaixo:
 
 1. Receber do usuário um tamanho \monoespaco{t} para alocar.
@@ -709,8 +710,8 @@ ou \monoespaco{NULL} em caso de problemas.
 O código para fazer isso será então:
 
 \iniciocodigo
-@<Definição de `Wcreate\_arena'@>=
-void *Wcreate_arena(size_t t){
+@<Definição de `\_Wcreate\_arena'@>=
+void *_Wcreate_arena(size_t t){
   bool error = false;
   void *arena;
   size_t p, M, header_size = sizeof(struct arena_header);
@@ -731,7 +732,7 @@ void *Wcreate_arena(size_t t){
 @
 \fimcodigo
 
-\subsecao{2.5. A Função ``Wdestroy\_arena''}
+\subsecao{2.5. A Função ``\_Wdestroy\_arena''}
 
 Uma vez que fornecemos uma forma de criar novas arenas, vamos definir
 também a função que irá finalizá-las. Esta é uma função mais simples
@@ -749,8 +750,8 @@ que nunca chegou a ser usada pela arena.
 arena.
 
 \iniciocodigo
-@<Definição de `Wdestroy\_arena'@>=
-bool Wdestroy_arena(void *arena){
+@<Definição de `\_Wdestroy\_arena'@>=
+bool _Wdestroy_arena(void *arena){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   size_t M = header -> total_size;
@@ -897,7 +898,7 @@ temos.Feito isso,
 @
 \fimcodigo
 
-\subsecao{2.8. A Função Walloc}
+\subsecao{2.8. A Função \_Walloc}
 
 Podemos agora juntar as peças para definir a função de alocação. Ela
 irá receber \monoespaco{arena} (arena onde o usuário deseja alocar),
@@ -912,8 +913,8 @@ e apontará para a região de memória requisitada pelo usuário.
 
 
 \iniciocodigo
-@<Definição de `Walloc'@>=
-void *Walloc(void *arena, unsigned a, int right, size_t t){
+@<Definição de `\_Walloc'@>=
+void *_Walloc(void *arena, unsigned a, int right, size_t t){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   void *p = NULL;
@@ -996,8 +997,8 @@ esquerda ou direita. Em seguida podemos liberar o mutex com
 um \italico{signal}:
 
 \iniciocodigo
-@<Definição de `Wmempoint'@>=
-bool Wmempoint(void *arena, unsigned a, int right){
+@<Definição de `\_Wmempoint'@>=
+bool _Wmempoint(void *arena, unsigned a, int right){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   char *p = NULL;
@@ -1035,11 +1036,11 @@ Restaurar o ponto de memória anterior significa mudar o estado da
 pilha de memória (esquerda ou direita) exatamente como era antes do
 ponto de memória ser salvo pela última vez. Se ele nunca foi salvo,
 esvaziamos toda a pilha de memória. A função que fará isso será
-a \monoespaco{Wtrash}:
+a \monoespaco{\_Wtrash}:
 
 \iniciocodigo
-@<Definição de `Wtrash'@>+=
-void Wtrash(void *arena, int right){
+@<Definição de `\_Wtrash'@>+=
+void _Wtrash(void *arena, int right){
   struct arena_header *head = (struct arena_header *) arena;
   void *mutex = (void *) &(head -> mutex);
   struct memory_point *point;
@@ -1084,11 +1085,11 @@ arquivo abaixo que poderá então ser compilado:
 #include "memory.h"
 @<Cabeçalho da Arena@>
 @<Cabeçalho de Ponto de Memória@>
-@<Definição de `Wcreate\_arena'@>
-@<Definição de `Wdestroy\_arena'@>
-@<Definição de `Walloc'@>
-@<Definição de `Wmempoint'@>
-@<Definição de `Wtrash'@>
+@<Definição de `\_Wcreate\_arena'@>
+@<Definição de `\_Wdestroy\_arena'@>
+@<Definição de `\_Walloc'@>
+@<Definição de `\_Wmempoint'@>
+@<Definição de `\_Wtrash'@>
 @
 \fimcodigo
 
@@ -1108,7 +1109,7 @@ com problemas de alinhamento de memória e assim serem penalizadas. Mas
 o valor também permite que observemos o custo que estas funções tem de
 pedirem mais memória para o Sistema Operacional, pois é um valor
 relativamente alto, maior que o tamanho de uma página na máquina
-usada. Na função \monoespaco{Walloc}, optamos por pedir qualquer
+usada. Na função \monoespaco{\_Walloc}, optamos por pedir qualquer
 alinhamento e por sempre usar a pilha esquerda para as alocações, pois
 é a pilha que teria o melhor desempenho devido à localidade espacial
 das alocações.
@@ -1139,7 +1140,7 @@ abaixo é para o teste particular de alocações de 5 KiB repetidas por
 cem mil vezes.
 
 Para valores pequenos, a função \monoespaco{malloc} demonstra um
-desempenho equivalente à \monoespaco{Walloc}, indicando que o
+desempenho equivalente à \monoespaco{\_Walloc}, indicando que o
 desempenho menor mostrado na tabela abaixo se deve ao custo de pedir
 mais memória por meio de uma chamada de sistema ao Sistema
 Operacional. Contudo, ao contrário da função \monoespaco{free}, não
@@ -1161,9 +1162,9 @@ Média ($\mu$s)\hidewidth&&
 \omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&6,30530874&&25,124535168&\cr\linha
 &&\monoespaco{free}&&22,00978538&&12,809965439&\cr\linha
-&&\monoespaco{Walloc}&&2,50560902&&0,228082461&\cr\linha
-&&\monoespaco{Wmempoint}&&2,26598656&&0,505975457&\cr\linha
-&&\monoespaco{Wtrash}&&2,22814472&&0,166606876&\cr\linha}}
+&&\monoespaco{\_Walloc}&&2,50560902&&0,228082461&\cr\linha
+&&\monoespaco{\_Wmempoint}&&2,26598656&&0,505975457&\cr\linha
+&&\monoespaco{\_Wtrash}&&2,22814472&&0,166606876&\cr\linha}}
 
 Podemos observar a diferença entre as funções no gráfico abaixo que
 mostra a densidade de probabilidade de cada uma das funções acima
@@ -1201,15 +1202,15 @@ Média ($\mu$s)\hidewidth&&
 \omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&2,71246735&&0,801445880&\cr\linha
 &&\monoespaco{free}&&0,87757830&&0,141186377&\cr\linha
-&&\monoespaco{Walloc}&&0,76750440&&0,218803555&\cr\linha
-&&\monoespaco{Wmempoint}&&0,75614315&&0,155982817&\cr\linha
-&&\monoespaco{Wtrash}&&0,75579410&&0,066124620&\cr\linha}}
+&&\monoespaco{\_Walloc}&&0,76750440&&0,218803555&\cr\linha
+&&\monoespaco{\_Wmempoint}&&0,75614315&&0,155982817&\cr\linha
+&&\monoespaco{\_Wtrash}&&0,75579410&&0,066124620&\cr\linha}}
 
 Todas as funções então apresentam um desempenho bastante semelhante,
 pró\-xi\-mo de 1 microssegundo de tempo. Só a
 função \monoespaco{malloc} da biblioteca padrão que apresenta um
 desempenho pior e com maior variação. Comparando os piores casos, a
-nossa função \monoespaco{Walloc} executa cerca de quatro vezes mais
+nossa função \monoespaco{\_Walloc} executa cerca de quatro vezes mais
 rápido.
 
 \imagem{images/linux.eps}
@@ -1237,9 +1238,9 @@ Média ($\mu$s)\hidewidth&&
 \omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&1,59881&&11,466939064&\cr\linha
 &&\monoespaco{free}&&0,57427&&9.402517112&\cr\linha
-&&\monoespaco{Walloc}&&0,00003&&0.005477171&\cr\linha
-&&\monoespaco{Wmempoint}&&0,00515&&0,233332428&\cr\linha
-&&\monoespaco{Wtrash}&&0,00045&&0,097825831&\cr\linha}}
+&&\monoespaco{\_Walloc}&&0,00003&&0.005477171&\cr\linha
+&&\monoespaco{\_Wmempoint}&&0,00515&&0,233332428&\cr\linha
+&&\monoespaco{\_Wtrash}&&0,00045&&0,097825831&\cr\linha}}
 
 O comportamento das funções no Windows parece indicar uma diferença de
 filosofia na implementação comparada à implementação Linux. No Windows
@@ -1266,9 +1267,9 @@ fique um pouco maior.
 \omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&2,399475651&&48.931141529&\cr\linha
 &&\monoespaco{free}&&0,489213791&&22,130980751&\cr\linha
-&&\monoespaco{Walloc}&&0,394548569&&19,744325980&\cr\linha
-&&\monoespaco{Wmempoint}&&0,451152325&&21,208728454&\cr\linha
-&&\monoespaco{Wtrash}&&0,398001614&&19,744481718&\cr\linha}}
+&&\monoespaco{\_Walloc}&&0,394548569&&19,744325980&\cr\linha
+&&\monoespaco{\_Wmempoint}&&0,451152325&&21,208728454&\cr\linha
+&&\monoespaco{\_Wtrash}&&0,398001614&&19,744481718&\cr\linha}}
 
 \imagem{images/web_firefox.eps}
 
@@ -1279,8 +1280,8 @@ ao do Sistema Operacional (os testes de Web Assembly foram feitos no
 Linux) e as nossas funções, ainda demonstraram desvio menor que as
 funções da biblioteca do sistema.
 
-No gráfico não é possível distinguir as funções \monoespaco{Walloc}
-e \monoespaco{Wtrash}, já que ambas tiveram comportamento praticamente
+No gráfico não é possível distinguir as funções \monoespaco{\_Walloc}
+e \monoespaco{\_Wtrash}, já que ambas tiveram comportamento praticamente
 idêntico nos testes.
 
 \subsecao{3.5. Web Assembly (Microsoft Edge 40.15254.369)}
@@ -1306,9 +1307,9 @@ o \monoespaco{malloc} executando nativamente.
 \omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&1,075476093&&36,039479231&\cr\linha
 &&\monoespaco{free}&&0,620922375&&24,892216258&\cr\linha
-&&\monoespaco{Walloc}&&0,366360054&&18,970295969&\cr\linha
-&&\monoespaco{Wmempoint}&&0,346548996&&19,232215457&\cr\linha
-&&\monoespaco{Wtrash}&&0,302235565&&17,317682053&\cr\linha}}
+&&\monoespaco{\_Walloc}&&0,366360054&&18,970295969&\cr\linha
+&&\monoespaco{\_Wmempoint}&&0,346548996&&19,232215457&\cr\linha
+&&\monoespaco{\_Wtrash}&&0,302235565&&17,317682053&\cr\linha}}
 
 O gráfico abaixo está exatamente na mesma escala que o anterior do
 desempenho no Firefox.
@@ -1332,11 +1333,11 @@ uma função \monoespaco{free}. Toda a desalocação deve ocorrer em
 blocos. Em aplicações que podem se adaptar à este esquema, elas podem
 obter melhoras de desempenho ainda maiores, pois sucessivas chamadas
 de uma função \monoespaco{free} podem ser substituídas por uma só
-chamada de função \monoespaco{Wtrash}.
+chamada de função \monoespaco{\_Wtrash}.
 
 Em alguns casos, pode-se usar em
-sequência \monoespaco{Wmempoint}, \monoespaco{Walloc}
-e \monoespaco{Wtrash} para simular um uso de \monoespaco{malloc}
+sequência \monoespaco{\_Wmempoint}, \monoespaco{\_Walloc}
+e \monoespaco{\_Wtrash} para simular um uso de \monoespaco{malloc}
 seguido de \monoespaco{free} para quando quer se alocar algo
 temporariamente para ser desalocado em seguida. Para este caso, em
 todos os sistemas testados chamar as três primeiras funções é mais
