@@ -8,7 +8,7 @@ W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w cweb/03-numeros.w\
         cweb/05-janela.w cweb/06-entrada.w cweb/07-plugins.w\
 	cweb/08-shaders.w cweb/09-resolucao.w cweb/10-som.w cweb/11-gifs.w \
 	cweb/12-imagens.w cweb/13-arquivos.w cweb/14-musica.w \
-	cweb/15-metafont.w cweb/99-fim.w
+	cweb/99-fim.w
 CORES=$(shell grep -c ^processor /proc/cpuinfo 2> /dev/null || sysctl hw.ncpu | grep -E -o "[0-9]+")
 
 main: program

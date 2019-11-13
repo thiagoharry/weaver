@@ -1,5 +1,5 @@
 graph{
-        size="5.625,9.375!"
+        size="4.3,7.1!"
 	pong[shape=box];
 	".weaver"[shape=box];
 	conf[shape=box];

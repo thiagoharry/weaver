@@ -1,0 +1,3 @@
+[submodule "weaver-memory-manager"]
+	path = weaver-memory-manager
+	url = https://github.com/thiagoharry/weaver-memory-manager.git

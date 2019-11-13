@@ -1,0 +1,296 @@
+\font\sixteen=cmbx16
+\font\twelve=cmr12
+\font\fonteautor=cmbx12
+\font\fonteemail=cmtt10
+\font\twelvenegit=cmbxti12
+\font\twelvebold=cmbx12
+\font\trezebold=cmbx13
+\font\twelveit=cmsl12
+\font\monodoze=cmtt12
+\font\it=cmti12
+\voffset=0,959994cm % 3,5cm de margem superior e 2,5cm inferior
+\parskip=6pt
+
+\def\titulo#1{{\noindent\sixteen\hbox to\hsize{\hfill#1\hfill}}}
+\def\autor#1{{\noindent\fonteautor\hbox to\hsize{\hfill#1\hfill}}}
+\def\email#1{{\noindent\fonteemail\hbox to\hsize{\hfill#1\hfill}}}
+\def\negrito#1{{\twelvebold#1}}
+\def\italico#1{{\twelveit#1}}
+\def\monoespaco#1{{\monodoze#1}}
+\def\iniciocodigo{\lineskip=0pt\parskip=0pt}
+\def\fimcodigo{\twelve\parskip=0pt plus 1pt\lineskip=1pt}
+
+\long\def\abstract#1{\parshape 10 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+\noindent{{\twelvenegit Abstract: }\twelveit #1}}
+
+\def\resumo#1{\parshape  10 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+\noindent{{\twelvenegit Resumo: }\twelveit #1}}
+
+\def\secao#1{\vskip12pt\noindent{\trezebold#1}\parshape 1 0cm 15cm}
+\def\subsecao#1{\vskip12pt\noindent{\twelvebold#1}}
+\def\referencia#1{\vskip6pt\parshape 5 0cm 15cm 0.5cm 14.5cm 0.5cm 14.5cm
+0.5cm 14.5cm 0.5cm 14.5cm {\twelve\noindent#1}}
+
+%@* .
+
+\twelve
+\vskip12pt
+\titulo{O Programa Weaver}
+\vskip12pt
+\autor{Thiago Leucz Astrizi}
+\vskip6pt
+\email{thiago@@bitbitbit.com.br}
+\vskip6pt
+
+\abstract{This article describes using literary programming the
+  program Weaver. This program is a project manager for the Weaver
+  Game Engine. If a user wants to create a new game with the Weaver
+  Game Engine, they use this program to create the directory structure
+  for a new game project. They also use this program to add new source
+  files and shader files to a game project. And to update a project
+  with a more recent Weaver version installed in the computer. The
+  presenting code in C is cross-platform and should work under
+  Windows, Linux, OpenBSD and possibly other Unix variants.}
+
+\vskip 0.5cm plus 3pt minus 3pt
+
+\resumo{Este artigo descreve usando programação literária o programa
+  Weaver. Este programa é um gerenciador de projetos para o Motor de
+  Jogos Weaver. Se alguém deseja criar um novo projeto com o motor de
+  jogos, usará este programa para criar a estrutura de diretórios
+  desejada. Também usará o programa para adicionar novos arquivos de
+  código-fonte e shaders. Para atualizar um projeto pré-existente com
+  uma nova versão de Weaver, o programa também é necessário. O código
+  seguinte em C será multi-plataforma e deverá funcionar em Windows,
+  Linux, OpenBSD e possivelmente outras variantes de Unix.}
+
+\secao{1. Introdução}
+
+Um motor de jogos é formado por um conjunto de bibliotecas e funções
+que auxiliam na criação de jogos fornecendo as funcionalidades mais
+comus para este tipo de desenvolvimento. Mas além das bibliotecas e
+funções, deve existir um gerenciador responsável por fazer com que o
+seu código utilize as bibliotecas a maneira adequada e faça as
+inicializações necessárias.
+
+O motor de jogos Weaver tem pré-requisitos bastante estritos de como o
+diretório que contém um projeto Weaver deve estar organizado. É para
+cumprir erstes requisitos que o programa que será apresentado é
+necessário. Ele inicializa da maneira correta a estrutura de
+diretórios de um novo projeto. Ele adiciona novos arquivos fonte já
+com quaisquer código necessário para sua integração. E por controlar o
+projeto desta forma, ele saberá atualizar as bibliotecas para versões
+mais recentes se necessário.
+
+O uso deste programa será por mieo de linha de comando. Por exemplo,
+se um usuário usar o comando ``\monoespaco{weaver pong}'', será criada
+uma estrutura de diretórios semelhante à mostrada na imagem que
+ilustra o fim da seção com um novo projeto chamado ``pong''.
+
+\imagem{cweb/diagrams/project_dir.eps}
+
+As seguintes seções do artigo estão organizadas da seguinte forma. A
+seção 2 abordará a licensa do software. A seção 3 listará as variáveis
+usadas para controlar seu comportamento. A seção 4 trará algumas
+macros e quais as bibliotecas incluídas. A seção 5 listará todos os
+casos de uso e como implementá-los.
+
+\secao{2. Copyright e licenciamento}
+
+Segue abaixo a licença do programa e sua tradução não-oficial:
+
+\espaco{5mm}\linha
+\alinhaverbatim
+Copyright (c) Thiago Leucz Astrizi 2015
+
+This program is free software: you can redistribute it and/or
+modify it under the terms of the GNU Affero General Public License as
+published by the Free Software Foundation, either version 3 of
+the License, or (at your option) any later version.
+
+This program is distributed in the hope that it will be useful,
+but WITHOUT ANY WARRANTY; without even the implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE.  See the
+GNU Affero General Public License for more details.
+
+You should have received a copy of the GNU Affero General Public
+License along with this program.  If not, see
+<http://www.gnu.org/licenses/>.
+
+\linha
+
+Copyright (c) Thiago Leucz Astrizi 2015
+
+Este programa é um software livre; você pode redistribuí-lo e/ou
+modificá-lo dentro dos termos da Licença Pública Geral GNU Affero como
+publicada pela Fundação do Software Livre (FSF); na versão 3 da
+Licença, ou (na sua opinião) qualquer versão.
+
+Este programa é distribuído na esperança de que possa ser útil,
+mas SEM NENHUMA GARANTIA; sem uma garantia implícita de ADEQUAÇÃO
+a qualquer MERCADO ou APLICAÇÃO EM PARTICULAR. Veja a
+Licença Pública Geral GNU Affero para maiores detalhes.
+
+Você deve ter recebido uma cópia da Licença Pública Geral GNU Affero
+junto com este programa. Se não, veja
+<http://www.gnu.org/licenses/>.
+\alinhanormal
+\linha\espaco{5mm}
+
+A versão completa da licença pode ser obtida junto ao código-fonte
+Weaver ou consultada no link mencionado.
+
+\secao{Variáveis e Estrutura do Programa Weaver}
+
+O comportamento de Weaver deve depender das seguintes variáveis:
+
+|inside_weaver_directory|: Indicará se o programa está sendo
+  invocado de dentro de um projeto Weaver.
+
+|argument|: O primeiro argumento, ou NULL se ele não existir
+
+|argument2|: O segundo argumento, ou NULL se não existir.
+
+|project_version_major|: Se estamos em um projeto Weaver, qual o
+  maior número da versão do Weaver usada para gerar o
+  projeto. Exemplo: se a versão for 0.5, o número maior é 0. Em
+  versões de teste, o valor é sempre 0.
+
+|project_version_minor|: Se estamos em um projeto Weaver, o valor
+  do menor número da versão do Weaver usada para gerar o
+  projeto. Exemplo, se a versão for 0.5, o número menor é 5. Em
+  versões de teste o valor é sempre 0.
+
+|weaver_version_major|: O número maior da versão do Weaver sendo
+  usada no momento.
+
+|weaver_version_minor|: O número menor da versão do Weaver sendo
+  usada no momento.
+
+|arg_is_path|: Se o primeiro argumento é ou não um caminho
+  absoluto ou relativo para um projeto Weaver.
+
+|arg_is_valid_project|: Se o argumento passado seria válido como
+  nome de projeto Weaver.
+
+|arg_is_valid_module|: Se o argumento passado seria válido como
+  um novo módulo no projeto Weaver atual.
+
+|arg_is_valid_plugin|: Se o segundo argumento existe e se ele é um
+ nome válido para um novo plugin.
+
+|arg_is_valid_function|: Se o segundo argumento existe e se ele seria
+ um nome válido para um loop principal e também para um arquivo.
+
+|project_path|: Se estamos dentro de um diretório de projeto
+  Weaver, qual o caminho para a sua base (onde há o Makefile)
+
+|have_arg|: Se o programa é invocado com argumento.
+
+|shared_dir|: Deverá armazenar o caminho para o diretório onde
+  estão os arquivos compartilhados da instalação de Weaver. Por
+  padrão, será igual à "\monoespaco{/usr/local/share/weaver}", mas caso exista a
+  variável de ambiente \monoespaco{WEAVER\_DIR}, então este será
+  considerado o endereço dos arquivos compartilhados.
+
+|author_name|,|project_name| e |year|: Conterão respectivamente o
+  nome do usuário que está invocando Weaver, o nome do projeto atual
+  (se estivermos no diretório de um) e o ano atual. Isso será
+  importante para gerar as mensagens de Copyright em novos projetos
+  Weaver.
+
+|return_value|: Que valor o programa deve retornar caso o programa
+  seja interrompido no momento atual.
+
+A estrutura geral do programa com a declaração de todas as variáveis
+será:
+
+\iniciocodigo
+@(src/weaver.c@>=
+@<Cabeçalhos Incluídos no Programa Weaver@>
+@<Macros do Programa Weaver@>
+@<Funções auxiliares Weaver@>
+int main(int argc, char **argv){@/
+  int return_value = 0; /* Valor de retorno. */
+  bool inside_weaver_directory = false, arg_is_path = false,
+    arg_is_valid_project = false, arg_is_valid_module = false,
+    have_arg = false, arg_is_valid_plugin = false,
+    arg_is_valid_function = false; /* Variáveis booleanas. */
+  unsigned int project_version_major = 0, project_version_minor = 0,
+    weaver_version_major = 0, weaver_version_minor = 0,
+    year = 0;
+  /* Strings UTF-8: */
+  char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
+    *author_name = NULL, *project_name = NULL, *argument2 = NULL;
+  @<Inicialização@>
+  @<Caso de uso 1: Imprimir ajuda (criar projeto)@>
+  @<Caso de uso 2: Imprimir ajuda de gerenciamento@>
+  @<Caso de uso 3: Mostrar versão@>
+  @<Caso de uso 4: Atualizar projeto Weaver@>
+  @<Caso de uso 5: Criar novo módulo@>
+  @<Caso de uso 6: Criar novo projeto@>
+  @<Caso de uso 7: Criar novo plugin@>
+  @<Caso de uso 8: Criar novo shader@>
+  @<Caso de uso 9: Criar novo loop principal@>
+END_OF_PROGRAM:
+  @<Finalização@>
+  return return_value;
+}
+@
+\fimcodigo
+
+\secao{4. Macros e Cabeçalhos do Programa Weaver}
+
+O programa precisará de algumas macros. A primeira delas deverá conter
+uma string com a versão do programa. A versão pode ser formada só por
+letras (no caso de versões de teste) ou por um número seguido de um
+ponto e de outro número (sem espaços) no caso de uma versão final do
+programa.
+
+Para a segunda macro, observe que na estrutura geral do programa vista
+acima existe um rótulo chamado |END_OF_PROGRAM| logo na parte de
+finalização. Uma das formas de chegarmos lá é por meio da execução
+normal do programa, caso nada dê errado. Entretanto, no caso de um
+erro, nós podemos também chegar lá por meio de um desvio incondicional
+após imprimirmos a mensagem de erro e ajustarmos o valor de retorno do
+programa. A responsabilidade de fazer isso será da segunda macro.
+
+Por outro lado, podemos também querer encerrar o programa previamente,
+mas sem que tenha havido um erro. A responsabilidade disso é da
+terceira macro que definimos.
+
+\iniciocodigo
+@<Macros do Programa Weaver@>=
+#define VERSION "Alpha"
+#define ERROR() {perror(NULL); return_value = 1; goto END_OF_PROGRAM;}
+#define END() goto END_OF_PROGRAM;
+@
+\fimcodigo
+
+Vamos também mostrar agora os cabeçahos incluídos:
+
+\iniciocodigo
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#include <sys/types.h> // stat, getuid, getpwuid, mkdir
+#include <sys/stat.h> // stat, mkdir
+#include <stdbool.h> // bool, true, false
+#include <unistd.h> // get_current_dir_name, getcwd, stat, chdir, getuid
+#include <string.h> // strcmp, strcat, strcpy, strncmp
+#include <stdlib.h> // free, exit, getenv
+#include <dirent.h> // readdir, opendir, closedir
+#include <libgen.h> // basename
+#include <stdarg.h> // va_start, va_arg
+#include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
+#include <ctype.h> // isanum
+#include <time.h> // localtime, time
+#include <pwd.h> // getpwuid
+@
+\fimcodigo
+
+\secao{5. Casos de Uso do Programa Weaver}
+
+\fim
