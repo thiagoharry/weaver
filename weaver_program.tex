@@ -96,8 +96,10 @@ ilustra o fim da seção com um novo projeto chamado ``pong''.
 As seguintes seções do artigo estão organizadas da seguinte forma. A
 seção 2 abordará a licensa do software. A seção 3 listará as variáveis
 usadas para controlar seu comportamento. A seção 4 trará algumas
-macros e quais as bibliotecas incluídas. A seção 5 listará todos os
-casos de uso e como implementá-los.
+macros que usaremos, algumas das quais apareceram na estrutura do
+programa. A seção 5 apresentará algumas funções auxiliares que
+utilizaremos. A seção 6 mostrará a inicialização das variáveis do
+programa.
 
 \secao{2. Copyright e licenciamento}
 
@@ -271,26 +273,307 @@ terceira macro que definimos.
 @
 \fimcodigo
 
-Vamos também mostrar agora os cabeçahos incluídos:
+Como estamos usando a função de biblioteca \monoespaco{perror},
+devemos incluir o cabeçalho \monoespaco{stdio.h}, o que também nos
+trará s funções de imprimir na tela, abrir e fechar arquivos e
+escrever neles, o que nos será útil. Vamos inserir suporte à valores
+booleanos que usamos na própria estrutura do programa:
 
 \iniciocodigo
 @<Cabeçalhos Incluídos no Programa Weaver@>=
-#include <sys/types.h> // stat, getuid, getpwuid, mkdir
-#include <sys/stat.h> // stat, mkdir
-#include <stdbool.h> // bool, true, false
-#include <unistd.h> // get_current_dir_name, getcwd, stat, chdir, getuid
-#include <string.h> // strcmp, strcat, strcpy, strncmp
-#include <stdlib.h> // free, exit, getenv
-#include <dirent.h> // readdir, opendir, closedir
-#include <libgen.h> // basename
-#include <stdarg.h> // va_start, va_arg
 #include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
-#include <ctype.h> // isanum
-#include <time.h> // localtime, time
-#include <pwd.h> // getpwuid
+#include <stdbool.h> // bool, true, false
 @
 \fimcodigo
 
-\secao{5. Casos de Uso do Programa Weaver}
+\secao{5. Funções Auxiliares}
+
+Listemos aqui algumas funções que usaremos ao longo do programa para
+facilitar sua descrição.
+
+\subsecao{5.1. path\_up: Manipula Caminho}
+
+Para manipularmos o caminho da árvore de diretórios, usaremos uma
+função auxiliar que recebe como entrada uma string com um caminho na
+árvore de diretórios e apaga todos os últimos caracteres até apagar
+dois ``/''. Assim em ``/home/alice/projeto/diretorio/'' ele retornaria
+``/home/alice/projeto'' efetivamente subindo um nível na árvore de
+diretórios.
+
+É importante lembrar que no Windows o separador não é o ``/'', mas o
+``\\''. Então vamos tratar o separador de forma diferente de acordo
+com o sistema:
+
+\iniciocodigo
+@<Funções auxiliares Weaver@>=
+void path_up(char *path){
+#if !defined(_WIN32)
+  char separator = '/';
+#else
+  char separator = '\';
+#endif
+  int erased = 0;
+  char *p = path;
+  while(*p != '\0') p ++; // Vai até o fim
+  while(erased < 2 && p != path){
+    p --;
+    if(*p == separator) erased ++;
+    *p = '\0'; // Apaga
+  }
+}
+@
+\fimcodigo
+
+Note que caso a função receba uma string que não possua dois ``/'' em
+seu nome, acabamos apagando toda a string. Neste programa limitaremos
+o uso desta função a strings com caminhos de arquivos que não estão na
+raíz e diretórios diferentes da própria raíz que terminam sempre com
+``/'', então não teremos problemas pois a restrição do número de
+barras será cumprida. Ex: ``/etc/'' e ``/tmp/file.txt''.
+
+\subsecao{5.2. directory\_exists: Arquivo existe e é diretório}
+
+Para checar se o diretório \monoespaco{.weaver} existe, definimos
+|directory_exist(x)| como uma função que recebe uma string
+correspondente à localização de um arquivo e que deve retornar 1 se
+|x| for um diretório existente, -1 se |x| for um arquivo existente e 0
+caso contrário. Primeiro criamos as macros para não nos esquecermos do
+que significa cada número de retorno:
+
+\iniciocodigo
+@<Macros do Programa Weaver@>+=
+#define NAO_EXISTE             0
+#define EXISTE_E_EH_DIRETORIO  1
+#define EXISTE_E_EH_ARQUIVO   -1
+@
+\fimcodigo
+
+\iniciocodigo
+@<Funções auxiliares Weaver@>+=
+int directory_exist(char *dir){
+#if !defined(_WIN32)
+  // Unix:
+  struct stat s; // Armazena status se um diretório existe ou não.
+  int err; // Checagem de erros
+  err = stat(dir, &s); // .weaver existe?
+  if(err == -1) return NAO_EXISTE;
+  if(S_ISDIR(s.st_mode)) return EXISTE_E_EH_DIRETORIO;
+  return EXISTE_E_EH_ARQUIVO;
+#else
+  // Windows:
+  DWORD dwAttrib = GetFileAttributes(dir);
+  if(dwAttrib == INVALID_FILE_ATTRIBUTES) return NAO_EXISTE;
+  if(!(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) return EXISTE_E_EH_ARQUIVO;
+  else return EXISTE_E_EH_DIRETORIO
+#endif
+}
+@
+\fimcodigo
+
+Dependendo de estarmos no Windows ou em sistemas Unix, usamos funções
+diferentes e vamos precisar de cabeçalhos diferentes:
+
+\iniciocodigo
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#if !defined(_WIN32)
+#include <sys/types.h> // stat, getuid, getpwuid, mkdir
+#include <sys/stat.h> // stat, mkdir
+#else
+#include <windows.h> // GetFileAttributes, ...
+#endif
+@
+\fimcodigo
+
+\subsecao{5.3. concatenate: Concatena strings}
+
+A última função auxiliar da qual precisaremos é uma função para
+concatenar strings. Ela deve receber um número arbitrário de srings
+como argumento, mas a última string deve ser uma string vazia. E irá
+retornar a concatenação de todas as strings passadas como argumento.
+
+A função irá alocar sempre uma nova string, a qual deverá ser
+desalocada antes do programa terminar. Como exemplo,
+|concatenate("tes", " ", "te", "")| retorna |"tes te"|.
+
+\iniciocodigo
+@<Funções auxiliares Weaver@>+=
+char *concatenate(char *string, ...){
+  va_list arguments;
+  char *new_string, *current_string = string;
+  size_t current_size = strlen(string) + 1;
+  char *realloc_return;
+  va_start(arguments, string);
+  new_string = (char *) malloc(current_size);
+  if(new_string == NULL) return NULL;
+   // Copia primeira string de acordo com o indicado pelo sistema operacional
+#ifdef __OpenBSD__
+  strlcpy(new_string, string, current_size);
+#else
+  strcpy(new_string, string);
+#endif
+  while(current_string[0] != '\0'){ // Pára quando copiamos o ""
+    current_string = va_arg(arguments, char *);
+    current_size += strlen(current_string);
+    realloc_return = (char *) realloc(new_string, current_size);
+    if(realloc_return == NULL){
+      free(new_string);
+      return NULL;
+    }
+    new_string = realloc_return;
+     // Copia próxima string de acordo com o recomendado pelo sistema
+#ifdef __OpenBSD__
+    strlcat(new_string, current_string, current_size);
+#else
+    strcat(new_string, current_string);
+#endif
+  }
+  return new_string;
+}
+@
+\fimcodigo
+
+É importante lembrarmos que a função |concatenate| sempre deve receber
+como último argumento uma string vazia ou teremos um \italico{buffer
+  overflow}. Esta função é perigosa e deve ser usada sempre tomando-se
+este cuidado.
+
+O uso desta função requer que usemos o seguinte cabeçalho:
+
+\iniciocodigo
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#include <string.h> // strcmp, strcat, strcpy, strncmp
+#include <stdarg.h> // va_start, va_arg
+@
+\fimcodigo
+
+\secao{6. Inicialização das Variáveis}
+
+\subsecao{6.1. inside\_weaver\_directory e project\_path: Onde estamos}
+
+A primeira das variáveis é |inside_weaver_directory|, que deve valer
+|false| se o programa foi invocado de fora de um diretório de projeto
+Weaver e |true| caso contrário.
+
+Como definir se estamos em um diretório que pertence à um projeto
+Weaver? Simples. São diretórios que contém dentro de si ou em um
+diretório ancestral um diretório oculto
+chamado \monoespaco{.weaver}. Caso encontremos este diretório oculto,
+também podemos aproveitar e ajustar a variável |project_path| para
+apontar para o local onde ele está. Se não o encontrarmos, estaremos
+fora de um diretório Weaver e não precisamos mudar nenhum valor das
+duas variáveis, pois elas deverão permanecer com o valor padrão
+|NULL|.
+
+Em suma, o que precisamos é de um loop com as seguintes
+características:
+
+\negrito{Invariantes}: A variável |complete_path| deve sempre
+  possuir o caminho completo do diretório \monoespaco{.weaver} se ele
+  existisse no diretório atual.
+
+\negrito{Inicialização:} Inicializamos tanto o |complete_path|
+  para serem válidos de acordo com o diretório em que o programa é
+  invocado.
+
+\negrito{Manutenção:} Em cada iteração do loop nós verificamos se
+  encontramos uma condição de finalização. Caso contrário, subimos
+  para o diretório pai do qual estamos, sempre atualizando as
+  variáveis para que o invariante continue válido.
+
+\negrito{Finalização}: Interrompemos a execução do loop se uma das
+  três condições ocorrerem:
+
+a) |complete_path == "/.weaver"|: Neste caso não podemos subir mais na
+árvore de diretórios, pois estamos na raiz do sistema de arquivos. Não
+encontramos um diretório \monoespaco{.weaver}. Isso significa que não
+estamos dentro de um projeto Weaver.
+
+b) |complete_path == "C:\\.weaver"|: A letra inicial pode não ser um
+``C''. De qualquer forma, estamos na raíz do sistema dos arquivos e
+não podemos subir mais como no caso acima. Com a diferença de estarmos
+no Windows.
+
+c) |complete_path == "./.weaver"| e tal arquivo existe e é diretório:
+Neste caso encontramos um diretório \monoespaco{.weaver} e descobrimos
+que estamos dentro de um projeto Weaver. Podemos então atualizar a
+variável |project_path| para o diretório em que paramos.
+
+O código de inicialização destas variáveis será então:
+
+\iniciocodigo
+@<Inicialização@>=
+char *path = NULL, *complete_path = NULL;
+#if !defined(_WIN32)
+path = getcwd(NULL, 0); // Unix
+#else
+{ // Windows
+  DWORD bsize;
+  bsize = GetCurrentDirectory(0, NULL);
+  path = (char *) malloc(bsize);
+  GetCurrentDirectory(bsize, path);
+}
+#endif
+if(path == NULL) ERROR();
+complete_path = concatenate(path, "/.weaver", "");
+free(path);
+if(complete_path == NULL) ERROR();
+@
+\fimcodigo
+
+Para obtermos o diretório atual, vamos precisar do cabeçalho:
+
+\iniciocodigo
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#if !defined(_WIN32)
+#include <unistd.h> // get_current_dir_name, getcwd, stat, chdir, getuid
+#endif
+@
+\fimcodigo
+
+Agora iniciamos um loop que terminará quando |complete_path| for igual
+à \monoespaco{/.weaver} (chegamos no fim da árvore de diretórios e não
+encontramos nada) ou quando realmente existir o
+diretório \monoespaco{.weaver/} no diretório examinado. E no fim do
+loop, sempre vamos para o diretório-pai do qual estamos:
+
+\iniciocodigo
+@<Inicialização@>+=
+{
+  size_t tmp_size = strlen(complete_path);
+  // Testa se chegamos ao fim:
+  while(strcmp(complete_path, "/.weaver") &&
+	strcmp(complete_path, "\.weaver") &&
+	strcmp(complete_path + 1, ":\.weaver")){
+    if(directory_exist(complete_path) == EXISTE_E_EH_DIRETORIO){
+      inside_weaver_directory = true;
+      complete_path[strlen(complete_path) - 7] = '\0'; // Apaga o '.weaver'
+      project_path = concatenate(complete_path, "");
+      if(project_path == NULL){ free(complete_path); ERROR(); }
+      break;
+    }
+    else{
+      path_up(complete_path);
+#ifdef __OpenBSD__
+      strlcat(complete_path, "/.weaver", tmp_size);
+#else
+      strcat(complete_path, "/.weaver");
+#endif
+    }
+  }
+  free(complete_path);
+}
+@
+\fimcodigo
+
+Como alocamos memória para |project_path| armazenar o endereço do
+projeto atual se estamos em um projeto Weaver, no final do programa
+teremos que desalocar a memória:
+
+\iniciocodigo
+@<Finalização@>=
+if(project_path != NULL) free(project_path);
+@
+\fimcodigo
+
 
 \fim
