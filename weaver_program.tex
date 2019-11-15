@@ -277,12 +277,15 @@ Como estamos usando a função de biblioteca \monoespaco{perror},
 devemos incluir o cabeçalho \monoespaco{stdio.h}, o que também nos
 trará s funções de imprimir na tela, abrir e fechar arquivos e
 escrever neles, o que nos será útil. Vamos inserir suporte à valores
-booleanos que usamos na própria estrutura do programa:
+booleanos que usamos na própria estrutura do programa e também a
+biblioteca padrão, que tem funções como |exit| usadas na estrutura do
+programa:
 
 \iniciocodigo
 @<Cabeçalhos Incluídos no Programa Weaver@>=
 #include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
 #include <stdbool.h> // bool, true, false
+#include <stdlib.h> // free, exit, getenv
 @
 \fimcodigo
 
@@ -446,6 +449,43 @@ O uso desta função requer que usemos o seguinte cabeçalho:
 @
 \fimcodigo
 
+\subsecao{5.4. basename: Obtém o caminho do diretório de arquivo}
+
+Esta função já existe em sistemas Unix. Dado o caminho completo para
+um arquivo, ela retorna uma string apenas com o nome do arquivo. Ela
+não precisa alocar uma nova string, ela retorna um ponteiro para o
+nome do arquivo dentro do próprio caminho recebido como argumento.
+Vamos defini-la agora para sistemas Windows:
+
+\iniciocodigo
+@<Funções auxiliares Weaver@>+=
+#if defined(_WIN32)
+char *basename(char *path){
+  char *p = path;
+  char *last_delimiter = NULL;
+  while(*p != '\0'){
+    if(*p == '\')
+      last_delimiter = p;
+    p ++;
+  }
+  if(last_delimiter != NULL)
+    return last_delimiter + 1;
+  else
+    return path;
+}
+#endif
+@
+\fimcodigo
+
+Mesmo que não precisemos definir esta função em sistemas Unix, ainda
+precisamos incluí-la com o cabeçalho:
+
+\iniciocodigo
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#include <libgen.h>
+@
+\fimcodigo
+
 \secao{6. Inicialização das Variáveis}
 
 \subsecao{6.1. inside\_weaver\_directory e project\_path: Onde estamos}
@@ -575,5 +615,496 @@ if(project_path != NULL) free(project_path);
 @
 \fimcodigo
 
+\subsecao{6.2. weaver\_version\_major e weaver\_version\_minor: Versão do Programa}
+
+Para descobrirmos a versão atual do Weaver que temos, basta consultar
+o valor presente na macro |VERSION|. Então, obtemos o número de versão
+maior e menor que estão separados por um ponto (se existirem). Note
+que se não houver um ponto no nome da versão, então ela é uma versão
+de testes. Mesmo neste caso o código abaixo vai funcionar, pois a
+função |atoi| iria retornar 0 nas duas invocações por encontrar
+respectivamente uma string sem dígito algum e um fim de string sem
+conteúdo:
+
+\iniciocodigo
+@<Inicialização@>+=
+{
+  char *p = VERSION;
+  while(*p != '.' && *p != '\0') p ++;
+  if(*p == '.') p ++;
+  weaver_version_major = atoi(VERSION);
+  weaver_version_minor = atoi(p);
+}
+@
+\fimcodigo
+
+\subsecao{6.3. project\_version\_major e project\_version\_minor: Versão do Projeto}
+
+Se estamos dentro de um projeto Weaver, temos que inicializar
+informação sobre qual versão do Weaver foi usada para atualizá-lo pela
+última vez. Isso pode ser obtido lendo o arquivo
+\italico{.weaver/version} localizado dentro do diretório Weaver. Se não
+estamos em um diretório Weaver, não precisamos inicializar tais
+valores. O número de versão maior e menor é separado por um ponto.
+
+\iniciocodigo
+@<Inicialização@>+=
+if(inside_weaver_directory){
+  FILE *fp;
+  char *p, version[10];
+  char *file_path = concatenate(project_path, ".weaver/version", "");
+  if(file_path == NULL) ERROR();
+  fp = fopen(file_path, "r");
+  free(file_path);
+  if(fp == NULL) ERROR();
+  p = fgets(version, 10, fp);
+  if(p == NULL){ fclose(fp); ERROR(); }
+  while(*p != '.' && *p != '\0') p ++;
+  if(*p == '.') p ++;
+  project_version_major = atoi(version);
+  project_version_minor = atoi(p);
+  fclose(fp);
+}
+@
+\fimcodigo
+
+\subsecao{6.4. have\_arg, argument e argument2: Argumentos de Invocação}
+
+Uma das variáveis mais fáceis e triviais de se inicializar. Basta
+consultar |argc| e |argv|.
+
+\iniciocodigo
+@<Inicialização@>+=
+have_arg = (argc > 1);
+if(have_arg) argument = argv[1];
+if(argc > 2) argument2 = argv[2];
+@
+\fimcodigo
+
+\subsecao{6.5. arg\_is\_path: Se argumento é diretório}
+
+Agora temos que verificar se no caso de termos um argumento, se ele é
+um caminho para um projeto Weaver existente ou não. Para isso,
+checamos se ao concatenarmos \monoespaco{/.weaver} no argumento
+encontramos o caminho de um diretório existente ou não.
+
+\iniciocodigo
+@<Inicialização@>+=
+if(have_arg){
+  char *buffer = concatenate(argument, "/.weaver", "");
+  if(buffer == NULL) ERROR();
+  if(directory_exist(buffer) == EXISTE_E_EH_DIRETORIO){
+    arg_is_path = 1;
+  }
+  free(buffer);
+}
+@
+\fimcodigo
+
+\subsecao{6.6. shared\_dir: Onde arquivos estão instalados}
+
+A variável |shared_dir| deverá conter onde estão os arquivos
+compartilhados da instalação de Weaver. Tais arquivos são as próprias
+bibliotecas a serem inseridas estaticamente e modelos de código
+fonte. Se existir a macro passada durante a
+compilação \monoespaco{WEAVER\_DIR}, este será o caminho em que estão
+os arquivos. Caso contrário, assumiremos o valor padrão
+de \monoespaco{/usr/local/share/weaver} em sistemas baseados em Unix e
+o local apontado pela variável de ambiente ProgramFiles em ambientes
+Windows.
+
+@<Inicialização@>+=
+{
+  char *weaver_dir = NULL;
+#ifdef WEAVER_DIR
+  shared_dir = concatenate(WEAVER_DIR, "");
+#else
+#if !defined(_WIN32)
+  shared_dir = concatenate("/usr/local/share/weaver/", ""); // Unix
+#else
+  { // Windows
+    char *temp_buf;
+    DWORD bsize = GetEnvironmentVariable("ProgramFiles", temp_buf, 0);
+    temp_buf = (char *) malloc(bsize);
+    GetEnvironmentVariable("ProgramFiles", temp_buf, bsize);
+    shared_dir = concatenate(temp_buf, "\weaver", "");
+    free(temp_buf);
+  }
+#endif
+#endif
+  if(shared_dir == NULL) ERROR();
+}
+@
+\fimcodigo
+
+Com isso damos poder durante a compilação para determinar onde os
+dados do motor Weaver serão armazenados no sistema. Algo mais comum de
+ser alterado em sistemas Unix que no Windows, onde espera-se que os
+programas sejam armazenados no mesmo lugar.
+
+No Windows o código é mais longo principalmente por termos que
+determinar manualmente o nome do local padrão de se armazenar os
+programas. O endereço pode variar de acordo com o idioma do sistema,
+com a unidade de volume em que ele está ou com o fato do programa ter
+sido compilado em máquina com 32 ou 64 bits.
+
+No fim do programa devemos desalocar a memória alocada para
+|shared_dir|:
+
+\iniciocodigo
+@<Finalização@>+=
+if(shared_dir != NULL) free(shared_dir);
+@
+\fimcodigo
+
+\subsecao{6.7. arg\_is\_valid\_project: Se o argumento é um nome de projeto}
+
+A próxima questão que deve ser averiguada é se o que recebemos como
+argumento, caso haja argumento, pode ser o nome de um projeto Weaver
+válido ou não. Para isso, três condições precisam ser
+satisfeitas:
+
+1) O nome base do projeto deve ser formado somente por caracteres
+alfanuméricos e underline (embora uma barra possa aparecer para passar
+o caminho completo de um projeto).
+
+2) Não pode existir um arquivo com o mesmo nome do projeto no local
+indicado para a criação.
+
+3) O projeto não pode ter o nome de nenhum arquivo que costuma ficar
+no diretório base de um projeto Weaver (como ``Makefile''). Do
+contrário, na hora da compilação comandos como ``\monoespaco{gcc
+game.c -o Makefile}'' poderiam ser executados e sobrescreveriam
+arquivos importantes.
+
+Para isso, usamos o seguinte código:
+
+\iniciocodigo
+@<Inicialização@>+=
+if(have_arg && !arg_is_path){
+  char *buffer;
+  char *base = basename(argument);
+  int size = strlen(base);
+  int i;
+  // Checando caracteres inválidos no nome:
+  for(i = 0; i < size; i ++){
+    if(!isalnum(base[i]) && base[i] != '_'){
+      goto NOT_VALID;
+    }
+  }
+  // Checando se arquivo existe:
+  if(directory_exist(argument) != NAO_EXISTE){
+    goto NOT_VALID;
+  }
+  // Checando se conflita com arquivos de compilação:
+  buffer = concatenate(shared_dir, "project/", base, "");
+  if(buffer == NULL) ERROR();
+  if(directory_exist(buffer) != NAO_EXISTE){
+    free(buffer);
+    goto NOT_VALID;
+  }
+  free(buffer);
+  arg_is_valid_project = true;
+}
+NOT_VALID:
+@
+\fimcodigo
+
+Para podermos checar se um caractere é alfanumérico, incluimos a
+seguinte biblioteca:
+
+\iniciocodigo
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#include <ctype.h> // isalnum
+@
+\fimcodigo
+
+\subsecao{6.8. arg\_is\_valid\_module: Se o argumento pode ser um nome de módulo}
+
+Checar se o argumento que recebemos pode ser um nome válido para um
+módulo só faz sentido se estivermos dentro de um diretório Weaver e se
+um argumento estiver sendo passado. Neste caso, o argumento é um nome
+válido se ele contiver apenas caracteres alfanuméricos, underline e se
+não existir no projeto um arquivo \monoespaco{.c} ou \monoespaco{.h}
+em
+\monoespaco{src/} que tenha o mesmo nome do argumento passado:
+
+\iniciocodigo
+@<Inicialização@>+=
+if(have_arg && inside_weaver_directory){
+  char *buffer;
+  int i, size;
+  size = strlen(argument);
+  // Checando caracteres inválidos no nome:
+  for(i = 0; i < size; i ++){
+    if(!isalnum(argument[i]) && argument[i] != '_'){
+      goto NOT_VALID_MODULE;
+    }
+  }
+  // Checando por conflito de nomes:
+  buffer = concatenate(project_path, "src/", argument, ".c", "");
+  if(buffer == NULL) ERROR();
+  if(directory_exist(buffer) != NAO_EXISTE){
+    free(buffer);
+    goto NOT_VALID_MODULE;
+  }
+  buffer[strlen(buffer) - 1] = 'h';
+  if(directory_exist(buffer) != NAO_EXISTE){
+    free(buffer);
+    goto NOT_VALID_MODULE;
+  }
+  free(buffer);
+  arg_is_valid_module = true;
+}
+NOT_VALID_MODULE:
+@
+\fimcodigo
+
+\subsecao{6.9. arg\_is\_valid\_plugin: Se o argumento pode ser um nome de plugin}
+
+Para que um argumento seja um nome válido para plugin, ele deve ser
+composto só por caracteres alfanuméricos ou underline e não existir no
+diretório
+\monoespaco{plugin} um arquivo com a extensão \monoespaco{.c} de mesmo
+nome. Também precisamos estar naturalmente, em um diretório Weaver.
+
+\iniciocodigo
+@<Inicialização@>+=
+if(argument2 != NULL && inside_weaver_directory){
+  int i, size;
+  char *buffer;
+  size = strlen(argument2);
+  // Checando caracteres inválidos no nome:
+  for(i = 0; i < size; i ++){
+    if(!isalnum(argument2[i]) && argument2[i] != '_'){
+      goto NOT_VALID_PLUGIN;
+    }
+  }
+  // Checando se já existe plugin com mesmo nome:
+  buffer = concatenate(project_path, "plugins/", argument2, ".c", "");
+  if(buffer == NULL) ERROR();
+  if(directory_exist(buffer) != NAO_EXISTE){
+    free(buffer);
+    goto NOT_VALID_PLUGIN;
+  }
+  free(buffer);
+  arg_is_valid_plugin = true;
+}
+NOT_VALID_PLUGIN:
+@
+\fimcodigo
+
+\subsecao{6.10. arg\_is\_valid\_function: Se o argumento pode ser um nome de função de loop principal}
+
+Para que essa variável seja verdadeira, é preciso existir um segundo
+argumento e ele deve ser formado somente por caracteres alfanuméricos
+ou underline. Além disso, o primeiro caractere precisa ser uma letra e
+ele não pode ter o mesmo nome de alguma palavra reservada em C.
+
+\iniciocodigo
+@<Inicialização@>+=
+if(argument2 != NULL && inside_weaver_directory &&
+   !strcmp(argument, "--loop")){
+  int i, size;
+  char *buffer;
+  // Primeiro caractere não pode ser dígito
+  if(isdigit(argument2[0]))
+    goto NOT_VALID_FUNCTION;
+  size = strlen(argument2);
+  // Checando caracteres inválidos no nome:
+  for(i = 0; i < size; i ++){
+    if(!isalnum(argument2[i]) && argument2[i] != '_'){
+      goto NOT_VALID_PLUGIN;
+    }
+  }
+  // Checando se existem arquivos com o nome indicado:
+  buffer = concatenate(project_path, "src/", argument2, ".c", "");
+  if(buffer == NULL) ERROR();
+  if(directory_exist(buffer) != NAO_EXISTE){
+    free(buffer);
+    goto NOT_VALID_FUNCTION;
+  }
+  buffer[strlen(buffer)-1] = 'h';
+  if(directory_exist(buffer) != NAO_EXISTE){
+    free(buffer);
+    goto NOT_VALID_FUNCTION;
+  }
+  free(buffer);
+  // Checando se recebemos como argumento uma palavra reservada em C:
+  if(!strcmp(argument2, "auto") || !strcmp(argument2, "break") ||
+     !strcmp(argument2, "case") || !strcmp(argument2, "char") ||
+     !strcmp(argument2, "const") || !strcmp(argument2, "continue") ||
+     !strcmp(argument2, "default") || !strcmp(argument2, "do") ||
+     !strcmp(argument2, "int") || !strcmp(argument2, "long") ||
+     !strcmp(argument2, "register") || !strcmp(argument2, "return") ||
+     !strcmp(argument2, "short") || !strcmp(argument2, "signed") ||
+     !strcmp(argument2, "sizeof") || !strcmp(argument2, "static") ||
+     !strcmp(argument2, "struct") || !strcmp(argument2, "switch") ||
+     !strcmp(argument2, "typedef") || !strcmp(argument2, "union") ||
+     !strcmp(argument2, "unsigned") || !strcmp(argument2, "void") ||
+     !strcmp(argument2, "volatile") || !strcmp(argument2, "while") ||
+     !strcmp(argument2, "double") || !strcmp(argument2, "else") ||
+     !strcmp(argument2, "enum") || !strcmp(argument2, "extern") ||
+     !strcmp(argument2, "float") || !strcmp(argument2, "for") ||
+     !strcmp(argument2, "goto") || !strcmp(argument2, "if"))
+    goto NOT_VALID_FUNCTION;
+  arg_is_valid_function = true;
+}
+NOT_VALID_FUNCTION:
+@
+
+\subsecao{6.11. author\_name: Nome do criador do código}
+
+A variável |author_name| deve conter o nome do usuário que está
+invocando o programa. Esta informação é útil para gerar uma mensagem
+de Copyright nos arquivos de código fonte de novos módulos.
+
+Isso será feito de maneira diferente em sistemas Unix e Windows. Em
+sistemas Unix, começamos obtendo o seu UID. De posse dele, obtemos
+todas as informações de login com um |getpwuid|. Se o usuário tiver
+registrado um nome em \monoespaco{/etc/passwd}, obtemos tal nome na
+estrutura retornada pela função. Caso contrário, assumiremos o login
+como sendo o nome:
+
+\iniciocodigo
+@<Inicialização@>+=
+#if !defined(_WIN32)
+{
+  struct passwd *login;
+  int size;
+  char *string_to_copy;
+  login = getpwuid(getuid()); // Obtém dados de usuário
+  if(login == NULL) ERROR();
+  size = strlen(login -> pw_gecos);
+  if(size > 0)
+    string_to_copy = login -> pw_gecos;
+  else
+    string_to_copy = login -> pw_name;
+  size = strlen(string_to_copy);
+  author_name = (char *) malloc(size + 1);
+  if(author_name == NULL) ERROR();
+#ifdef __OpenBSD__
+  strlcpy(author_name, string_to_copy, size + 1);
+#else
+  strcpy(author_name, string_to_copy);
+#endif
+}
+#endif
+@
+\fimcodigo
+
+No Windows, o nome pode ser obtido com a função |GetUserNameExA|. Na
+primeira invocação tentamos obter o tamanho do buffer necessário para
+armazenarmos o nome e na segunda obtemos o nome em si. Em caso de
+erro, assumimos um tamanho padrão de 64 bytes e usamos a variável de
+ambiente \monoespaco{USERNAME}.
+
+\iniciocodigo
+@<Inicialização@>+=
+#if defined(_WIN32)
+{
+  int size = 0;
+  GetUserNameExA(NameDisplay, author_name, &size);
+  if(size == 0)
+    size = 64;
+  author_name = (char *) malloc(size);
+  if(GetUserNameExA(NameDisplay, author_name, &size) == 0){
+    strncpy(author_name, getenv("USERNAME"), size);
+    author_name[size - 1] = '\0';
+  }
+}
+#endif
+@
+\fimcodigo
+
+Depois, precisaremos desalocar a memória ocupada por |author_name|:
+
+\iniciocodigo
+@<Finalização@>+=
+if(author_name != NULL) free(author_name);
+@
+\fimcodigo
+
+Para que o código Unix funcione, devemos inserir a biblioteca abaixo
+para termos acesso ao \monoespaco{getpwuid}:
+
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#if !defined(_WIN32)
+#include <pwd.h> // getpwuid
+#endif
+@
+
+\subsecao{6.12. project\_name: Nome do projeto}
+
+Só faz sendido falarmos no nome do projeto se estivermos dentro de um
+projeto Weaver. Neste caso, o nome do projeto pode ser encontrado em
+um dos arquivos do diretório base de tal projeto em
+\monoespaco{.weaver/name}:
+
+\iniciocodigo
+@<Inicialização@>+=
+if(inside_weaver_directory){
+  FILE *fp;
+  char *c;
+#if !defined(_WIN32)
+  char *filename = concatenate(project_path, ".weaver/name", "");
+#else
+  char *filename = concatenate(project_path, ".weaver\name", "");
+#endif
+  if(filename == NULL) ERROR();
+  project_name = (char *) malloc(256);
+  if(project_name == NULL){
+    free(filename);
+    ERROR();
+  }
+  fp = fopen(filename, "r");
+  if(fp == NULL){
+    free(filename);
+    ERROR();
+  }
+  c = fgets(project_name, 256, fp);
+  fclose(fp);
+  free(filename);
+  if(c == NULL) ERROR();
+  project_name[strlen(project_name)-1] = '\0';
+  project_name = realloc(project_name, strlen(project_name) + 1);
+  if(project_name == NULL) ERROR();
+}
+@
+\fimcodigo
+
+Depois, precisaremos desalocar a memória ocupada por |project_name|:
+
+\iniciocodigo
+@<Finalização@>+=
+if(project_name != NULL) free(project_name);
+@
+\fimcodigo
+
+\subsecao{6.13. year: Ano atual}
+
+O ano atual é trivial de descobrir usando a função |localtime|,
+independente do sistema operacional:
+
+\iniciocodigo
+@<Inicialização@>+=
+{
+  time_t current_time;
+  struct tm *date;
+  time(&current_time);
+  date = localtime(&current_time);
+  year = date -> tm_year + 1900;
+}
+@
+\fimcodigo
+
+O único pré-requisito é incluirmos antes a biblioteca com funções de
+tempo:
+
+\iniciocodigo
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#include <time.h> // localtime, time
+@
+\fimcodigo
 
 \fim
