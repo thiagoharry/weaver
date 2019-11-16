@@ -99,7 +99,8 @@ usadas para controlar seu comportamento. A seção 4 trará algumas
 macros que usaremos, algumas das quais apareceram na estrutura do
 programa. A seção 5 apresentará algumas funções auxiliares que
 utilizaremos. A seção 6 mostrará a inicialização das variáveis do
-programa.
+programa. A seção 7 mostrará os casos de uso do programa e como
+implementá-los após termos as variáveis com os valores certos.
 
 \secao{2. Copyright e licenciamento}
 
@@ -483,6 +484,170 @@ precisamos incluí-la com o cabeçalho:
 \iniciocodigo
 @<Cabeçalhos Incluídos no Programa Weaver@>=
 #include <libgen.h>
+@
+\fimcodigo
+
+\subsecao{5.5. copy\_single\_file: Copia um único arquivo para diretório}
+
+A função |copy_single_file| tenta copiar o
+arquivo cujo caminho é o primeiro argumento para o diretório cujo
+caminho é o segundo argumento. Se ela conseguir, retorna 1 e retorna 0
+caso contrário.
+
+\iniciocodigo
+@<Funções auxiliares Weaver@>+=
+int copy_single_file(char *file, char *directory){
+  int block_size, bytes_read;
+  char *buffer, *file_dst;
+  FILE *orig, *dst;
+  // Inicializa 'block_size':
+  @<Descobre tamanho do bloco do sistema de arquivos@>
+  buffer = (char *) malloc(block_size); // Aloca buffer de cópia
+  if(buffer == NULL) return 0;
+  file_dst = concatenate(directory, "/", basename(file), "");
+  if(file_dst == NULL) return 0;
+  orig = fopen(file, "r"); // Abre arquivo de origem
+  if(orig == NULL){
+    free(buffer);
+    free(file_dst);
+    return 0;
+  }
+  dst = fopen(file_dst, "w"); // Abre arquivo de destino
+  if(dst == NULL){
+    fclose(orig);
+    free(buffer);
+    free(file_dst);
+    return 0;
+  }
+  while((bytes_read = fread(buffer, 1, block_size, orig)) > 0){
+    fwrite(buffer, 1, bytes_read, dst); // Copia origem -> buffer -> destino
+  }
+  fclose(orig);
+  fclose(dst);
+  free(file_dst);
+  free(buffer);
+  return 1;
+}
+@
+\fimcodigo
+
+O mais eficiente é que o buffer usado para copiar arquivos tenha o
+mesmo tamanho do bloco do sistema de arquivos. Para obter o valor
+correto deste tamanho, usamos o seguinte trecho de código em sistemas
+Unix:
+
+\iniciocodigo
+@<Descobre tamanho do bloco do sistema de arquivos@>=
+#if !defined(_WIN32)
+{
+  struct stat s;
+  stat(directory, &s);
+  block_size = s.st_blksize;
+  if(block_size <= 0){
+    block_size = 4096;
+  }
+}
+#endif
+@
+\fimcodigo
+
+No Windows o código equivalente seria:
+
+\iniciocodigo
+@<Descobre tamanho do bloco do sistema de arquivos@>+=
+#if defined(_WIN32)
+{
+  DWORD dummy;
+  DISK_GEOMETRY s;
+  file = CreateFileW(".temp.dat", 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
+                     NULL, OPEN_EXISTING, FILE_FLAG_DELETE_ON_CLOSE, NULL);
+  DeviceIoControl(file, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &s,
+                  sizeof(s), &dummy, (LPOVERLAPPED) NULL);
+  CloseHandle(file);
+  block_size = (ULONG) s.BytesPerSector;
+}
+#endif
+@
+\fimcodigo
+
+\subsecao{5.6. copy\_files: Copia todos os arquivos de origem para destino}
+
+De posse da função que copia um só arquivo, precisamos definir uma
+função para copiar todos os arquivos de dentro d eum diretório para
+outro recursivamente. Isso é algo trabalhoso, pois precisamos listar
+todo o conteúdo de um diretório para obter seus arquivos. Como fazer
+isso varia dependendo do sistema operacional.
+
+
+Em sistemas Unix a função usará |readdir| para ler o conteúdo de
+arquivos:
+
+\iniciocodigo
+@<Funções auxiliares Weaver@>+=
+#if !defined(_WIN32)
+int copy_files(char *orig, char *dst){
+  DIR *d = NULL;
+  struct dirent *dir;
+  d = opendir(orig);
+  if(d){
+    while((dir = readdir(d)) != NULL){ // Loop para ler cada arquivo
+          char *file;
+          file = concatenate(orig, "/", dir -> d_name, "");
+          if(file == NULL){
+            return 0;
+          }
+      #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)@/
+        // Se suportamos DT_DIR, não precisamos chamar a função 'stat':
+        if(dir -> d_type == DT_DIR){
+      #else
+        struct stat s;
+        int err;
+        err = stat(file, &s);
+        if(err == -1) return 0;
+        if(S_ISDIR(s.st_mode)){
+      #endif
+        // Se concluirmos estar lidando com subdiretório via 'stat' ou 'DT_DIR':
+          char *new_dst;
+          new_dst = concatenate(dst, "/", dir -> d_name, "");
+          if(new_dst == NULL){
+            return 0;
+          }
+          if(strcmp(dir -> d_name, ".") && strcmp(dir -> d_name, "..")){
+            if(directory_exist(new_dst) == NAO_EXISTE) mkdir(new_dst, 0755);
+            if(copy_files(file, new_dst) == 0){
+              free(new_dst);
+              free(file);
+              closedir(d);
+              return 0; // Não fazemos nada para diretórios '.' e '..'
+            }
+          }
+          free(new_dst);
+        }
+        else{
+          // Se concluimos estar diante de um arquivo usual:
+          if(copy_single_file(file, dst) == 0){
+            free(file);
+            closedir(d);
+            return 0;
+          }
+        }
+      free(file);
+    } // Fim do loop para ler cada arquivo
+    closedir(d);
+  }
+  return 1;
+}
+#endif
+@
+\fimcodigo
+
+E isso requer inserir o cabeçalho:
+
+\iniciocodigo
+@<Cabeçalhos Incluídos no Programa Weaver@>=
+#if !defined(_WIN32)
+#include <dirent.h> // readdir, opendir, closedir
+#endif
 @
 \fimcodigo
 
@@ -1106,5 +1271,149 @@ tempo:
 #include <time.h> // localtime, time
 @
 \fimcodigo
+
+\secao{7. Casos de Uso}
+
+\subsecao{7.1. Imprimir ajuda de criação de projeto}
+
+O primeiro caso de uso sempre ocorre quando Weaver é invocado fora de
+um diretório de projeto e a invocação é sem argumentos ou com
+argumento \monoespaco{--help}. Nesse caso assumimos que o usuário não sabe
+bem como usar o programa e imprimimos uma mensagem de ajuda. A mensagem
+de ajuda terá uma forma semelhante a esta:
+
+\alinhaverbatim
+    .  .   You are outside a Weaver Directory.
+   ./  \\.  The following command uses are available:
+   \\\\  //
+   \\\\()//  weaver
+   .={}=.      Print this message and exits.
+  / /`'\\ \\
+  ` \\  / '  weaver PROJECT_NAME
+     `'        Creates a new Weaver Directory with a new
+               project.
+\alinhanormal
+
+O que é feito com o código abaixo:
+
+\iniciocodigo
+@<Caso de uso 1: Imprimir ajuda de criação de projeto@>=
+if(!inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
+  printf("    .  .     You are outside a Weaver Directory.\n"
+  "   .|  |.    The following command uses are available:\n"
+  "   ||  ||\n"
+  "   \\\\()//  weaver\n"
+  "   .={}=.      Print this message and exits.\n"
+  "  / /`'\\ \\\n"
+  "  ` \\  / '  weaver PROJECT_NAME\n"
+  "     `'        Creates a new Weaver Directory with a new\n"
+  "                project.\n");
+  END();
+}
+\fimcodigo
+
+\subsecao{7.2. Imprimir ajuda de gerenciamento}
+
+O segundo caso de uso também é bastante simples. Ele é invocado quando
+já estamos dentro de um projeto Weaver e invocamos Weaver sem
+argumentos ou com um \monoespaco{--help}. Assumimos neste caso que o
+usuário quer instruções sobre a criação de um novo módulo. A mensagem
+que imprimiremos é semelhante à esta:
+
+\alinhaverbatim
+       \\              You are inside a Weaver Directory.
+        \\______/      The following command uses are available:
+        /\\____/\\
+       / /\\__/\\ \\       weaver
+    __/_/_/\\/\\_\\_\\___     Prints this message and exits.
+      \\ \\ \\/\\/ / /
+       \\ \\/__\\/ /       weaver NAME
+        \\/____\\/          Creates NAME.c and NAME.h, updating
+        /      \\          the Makefile and headers
+       /
+                          weaver --loop NAME
+                           Creates a new main loop in a new file src/NAME.c
+
+                          weaver --plugin NAME
+                           Creates new plugin in plugin/NAME.c
+
+                          weaver --shader NAME
+                           Creates a new shader directory in shaders/
+\alinhanormal
+
+O que é obtido com o código:
+
+\iniciocodigo
+@<Caso de uso 2: Imprimir ajuda de gerenciamento@>=
+if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
+  printf("       \\                You are inside a Weaver Directory.\n"
+  "        \\______/        The following command uses are available:\n"
+  "        /\\____/\\\n"
+  "       / /\\__/\\ \\       weaver\n"
+  "    __/_/_/\\/\\_\\_\\___     Prints this message and exits.\n"
+  "      \\ \\ \\/\\/ / /\n"
+  "       \\ \\/__\\/ /       weaver NAME\n"
+  "        \\/____\\/          Creates NAME.c and NAME.h, updating\n"
+  "        /      \\          the Makefile and headers\n"
+  "       /\n"
+  "                        weaver --loop NAME\n"
+  "                         Creates a new main loop in a new file src/NAME.c\n\n"
+  "                        weaver --plugin NAME\n"
+  "                         Creates a new plugin in plugin/NAME.c\n\n"
+  "                        weaver --shader NAME\n"
+  "                         Creates a new shader directory in shaders/\n");
+  END();
+}
+\fimcodigo
+
+\subsecao{7.3. Mostrar a versão instalada de Weaver}
+
+Um caso de uso ainda mais simples. Ocorrerá toda vez que o usuário
+invocar Weaver com o argumento \monoespaco{--version}:
+
+\iniciocodigo
+@<Caso de uso 3: Mostrar versão@>=
+if(have_arg && !strcmp(argument, "--version")){
+  printf("Weaver\t%s\n", VERSION);
+  END();
+}
+@
+\fimcodigo
+
+\subsecao{7.3. Atualizar projetos Weaver já existentes}
+
+Este caso de uso ocorre quando o usuário passar como argumento para
+Weaver um caminho absoluto ou relativo para um diretório Weaver
+existente. Assumimos então que ele deseja atualizar o projeto passado
+como argumento. Talvez o projeto tenha sido feito com uma versão muito
+antiga do motor e ele deseja que ele passe a usar uma versão mais
+nova da API.
+
+Naturalmente, isso só será feito caso a versão de Weaver instalada
+seja superior à versão do projeto ou se a versão de Weaver instalada
+for uma versão instável para testes. Entende-se neste caso que o
+usuário deseja testar a versão experimental de Weaver no projeto. Fora
+isso, não é possível fazer \italico{downgrades} de projetos, passando
+da versão 0.2 para 0.1, por exemplo.
+
+Versões experimentais sempre são identificadas como tendo um nome
+formado somente por caracteres alfabéticos. Versões estáveis serão
+sempre formadas por um ou mais dígitos, um ponto e um ou mais dígitos
+(o número de versão maior e menor). Como o número de versão é
+interpretado com um |atoi|, isso significa que se estamos usando uma
+versão experimental, então o número de versão maior e menor serão
+sempre identificados como zero.
+
+Pela definição que fizemos até agora, isso significa também que
+projetos em versões experimentais de Weaver sempre serão atualizados,
+independente da versão ser mais antiga ou mais nova.
+
+Uma atualização consiste em copiar todos os arquivos que estão no
+diretório de arquivos compartilhados Weaver dentro de
+\monoespaco{project/src/weaver} para o diretório \monoespaco{src/weaver} do
+projeto em questão.
+
+Mas para copiarmos os arquivos precisamos primeiro de uma função capaz
+de copiar um único arquivo. 
 
 \fim
