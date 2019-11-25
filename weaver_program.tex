@@ -701,7 +701,34 @@ int copy_files(char *orig, char *dst){
 @
 \fimcodigo
 
-\end
+\subsecao{5.7. write\_copyright: Escreve mensagem de copyright em arquivo}
+
+Por padrão, projetos Weaver utilizam a licença GNU GPL3. Como códigos
+sob esta licença são copiados e usados estaticamente em novos
+projetos, eles precisam necessariamente ter uma licença igual ou
+compatível.
+
+O código é bastante simples e requer apenas alguns parâmetros com o
+nome do autor e ano atual:
+
+\iniciocodigo
+@<Funções auxiliares Weaver@>+=
+void write_copyright(FILE *fp, char *author_name, char *project_name, int year){
+  char license[] = "/*\nCopyright (c) %s, %d\n\nThis file is part of %s.\n\n%s\
+ is free software: you can redistribute it and/or modify\nit under the terms of\
+ the GNU Affero General Public License as published by\nthe Free Software\ 
+ Foundation, either version 3 of the License, or\n(at your option) any later\
+ version.\n\n\
+%s is distributed in the hope that it will be useful,\nbut WITHOUT ANY\
+  WARRANTY; without even the implied warranty of\nMERCHANTABILITY or FITNESS\
+  FOR A PARTICULAR PURPOSE.  See the\nGNU Affero General Public License for more\
+  details.\n\nYou should have received a copy of the GNU Affero General Public License\
+\nalong with %s. If not, see <http://www.gnu.org/licenses/>.\n*/\n\n";
+  fprintf(fp, license, author_name, year, project_name, project_name,
+          project_name, project_name);
+}
+@
+\fimcodigo
 
 \secao{6. Inicialização das Variáveis}
 
@@ -1348,6 +1375,7 @@ de ajuda terá uma forma semelhante a esta:
 
 O que é feito com o código abaixo:
 
+
 \iniciocodigo
 @<Caso de uso 1: Imprimir ajuda de criação de projeto@>=
 if(!inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
@@ -1362,7 +1390,9 @@ if(!inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
   "                project.\n");
   END();
 }
+@
 \fimcodigo
+
 
 \subsecao{7.2. Imprimir ajuda de gerenciamento}
 
@@ -1416,6 +1446,7 @@ if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
   "                         Creates a new shader directory in shaders/\n");
   END();
 }
+@
 \fimcodigo
 
 \subsecao{7.3. Mostrar a versão instalada de Weaver}
@@ -1456,16 +1487,192 @@ interpretado com um |atoi|, isso significa que se estamos usando uma
 versão experimental, então o número de versão maior e menor serão
 sempre identificados como zero.
 
-Pela definição que fizemos até agora, isso significa também que
-projetos em versões experimentais de Weaver sempre serão atualizados,
+Projetos em versões experimentais de Weaver sempre serão atualizados,
 independente da versão ser mais antiga ou mais nova.
 
 Uma atualização consiste em copiar todos os arquivos que estão no
 diretório de arquivos compartilhados Weaver dentro de
-\monoespaco{project/src/weaver} para o diretório \monoespaco{src/weaver} do
-projeto em questão.
+\monoespaco{project/src/weaver} para o diretório \monoespaco{src/weaver}
+do projeto em questão. Para isso podemos contar com as funções de
+cópia de arquivos definidos na seção de funções auxiliares.
 
-Mas para copiarmos os arquivos precisamos primeiro de uma função capaz
-de copiar um único arquivo. 
+\iniciocodigo
+@<Caso de uso 4: Atualizar projeto Weaver@>=
+if(arg_is_path){
+  if((weaver_version_major == 0 && weaver_version_minor == 0) ||
+     (weaver_version_major > project_version_major) ||
+     (weaver_version_major == project_version_major &&
+      weaver_version_minor > project_version_minor)){
+    char *buffer, *buffer2;
+    // |buffer| <- SHARED_DIR/project/src/weaver
+    buffer = concatenate(shared_dir, "project/src/weaver/", "");
+    if(buffer == NULL) ERROR();
+    // |buffer2| <- PROJECT_DIR/src/weaver/
+    buffer2 = concatenate(argument, "/src/weaver/", "");
+    if(buffer2 == NULL){
+      free(buffer);
+      ERROR();
+    }
+    if(copy_files(buffer, buffer2) == 0){
+      free(buffer);
+      free(buffer2);
+      ERROR();
+    }
+    free(buffer);
+    free(buffer2);
+  }
+  END();
+}
+@
+\fimcodigo
+
+\subsecao{7.4. Adicionando um módulo ao projeto Weaver}
+
+Se estamos dentro de um diretório de projeto Weaver, e o programa
+recebeu um argumento, então estamos inserindo um novo módulo no nosso
+jogo. Se o argumento é um nome válido, podemos fazer isso. Caso
+contrário,devemos imprimir uma mensagem de erro e sair.
+
+Criar um módulo basicamente envolve:
+
+
+a) Criar arquivos \monoespaco{.c} e \monoespaco{.h} base, deixando seus
+nomes iguais ao nome do módulo criado.
+
+b) Adicionar em ambos um código com copyright e licenciamento com o
+nome do autor, do projeto e ano.
+
+c) Adicionar no \monoespaco{.h} código de macro simples para evitar que
+o cabeçalho seja inserido mais de uma vez e fazer com que o
+\monoespaco{.c} inclua o \monoespaco{.h} dentro de si.
+
+d) Fazer com que o \monoespaco{.h} gerado seja inserido
+em \monoespaco{src/includes.h} e assim suas estruturas sejam
+acessíveis de todos os outros módulos do jogo.
+
+O código para isso é:
+
+\iniciocodigo
+@<Caso de uso 5: Criar novo módulo@>=
+if(inside_weaver_directory && have_arg &&
+   strcmp(argument, "--plugin") && strcmp(argument, "--shader") &&
+   strcmp(argument, "--loop")){
+  if(arg_is_valid_module){
+    char *filename;
+    FILE *fp;
+    // Criando modulo.c
+    filename = concatenate(project_path, "src/", argument, ".c", "");
+    if(filename == NULL) ERROR();
+    fp = fopen(filename, "w");
+    if(fp == NULL){
+      free(filename);
+      ERROR();
+    }
+    write_copyright(fp, author_name, project_name, year);
+    fprintf(fp, "#include \"%s.h\"", argument);
+    fclose(fp);
+    filename[strlen(filename)-1] = 'h'; // Criando modulo.h
+    fp = fopen(filename, "w");
+    if(fp == NULL){
+      free(filename);
+      ERROR();
+    }
+    write_copyright(fp, author_name, project_name, year);
+    fprintf(fp, "#ifndef _%s_h_\n", argument);
+    fprintf(fp, "#define _%s_h_\n\n#include \"weaver/weaver.h\"\n",
+            argument);
+    fprintf(fp, "#include \"includes.h\"\n\n#endif");
+    fclose(fp);
+    free(filename);
+
+    // Atualizando src/includes.h para inserir modulo.h:
+    fp = fopen("src/includes.h", "a");
+    fprintf(fp, "#include \"%s.h\"\n", argument);
+    fclose(fp);
+  }
+  else{
+    fprintf(stderr, "ERROR: This module name is invalid.\n");
+    return_value = 1;
+  }
+  END();
+}
+@
+\fimcodigo
+
+\subsecao{7.5. Criar novo projeto}
+
+Criar um novo projeto Weaver consiste em criar um novo diretório com o
+nome do projeto, copiar para lá tudo o que está no diretório
+\monoespaco{project} do diretório de arquivos compartilhados e criar um
+diretório \monoespaco{.weaver} com os dados do projeto. Além disso,
+criamos um \monoespaco{src/game.c} e \monoespaco{src/game.h} adicionando o
+comentário de Copyright neles e copiando a estrutura básica dos
+arquivos do diretório compartilhado \monoespaco{basefile.c} e
+\monoespaco{basefile.h}. Também criamos um
+\monoespaco{src/includes.h} que por hora estará vazio, mas será modificado
+na criação de futuros módulos.
+
+A permissão dos diretórios criados será \monoespaco{drwxr-xr-x}
+(|0755| em octal) para sistemas Unix. Naturalmente, o programa irá
+respeitar qualquer valor pré-estabelecido de |umask|, o que pode
+deixar as permissões finais diferentes. Em sistemas Windows, iremos
+apenas herdar as permissões do diretório pai, já que o projeto de
+sistemas de arquivo NTFS são baseados em uma lógica mais hierárquica.
+
+\iniciocodigo
+@<Caso de uso 6: Criar novo projeto@>=
+if(! inside_weaver_directory && have_arg){
+  if(arg_is_valid_project){
+    int err;
+    char *dir_name;
+    FILE *fp;
+    err = mkdir(argument, S_IRWXU | S_IRWXG | S_IROTH);
+    if(err == -1) ERROR();
+    err = chdir(argument);
+    if(err == -1) ERROR();
+    mkdir(".weaver", 0755); mkdir("conf", 0755); mkdir("tex", 0755);
+    mkdir("src", 0755); mkdir("src/weaver", 0755); mkdir ("fonts", 0755);
+    mkdir("image", 0755); mkdir("sound", 0755); mkdir ("models", 0755);
+    mkdir("music", 0755); mkdir("plugins", 0755); mkdir("src/misc/", 0755);
+    mkdir("src/misc/sqlite", 0755); mkdir(".misc", 0755);
+    mkdir("compiled_plugins", 0755);
+    mkdir("shaders", 0755);
+    dir_name = concatenate(shared_dir, "project", "");
+    if(dir_name == NULL) ERROR();
+    if(copy_files(dir_name, ".") == 0){
+      free(dir_name);
+      ERROR();
+    }
+    free(dir_name); //Criando arquivo com número de versão:
+    fp = fopen(".weaver/version", "w");
+    fprintf(fp, "%s\n", VERSION);
+    fclose(fp); // Criando arquivo com nome de projeto:
+    fp = fopen(".weaver/name", "w");
+    fprintf(fp, "%s\n", basename(argv[1]));
+    fclose(fp);
+    fp = fopen("src/game.c", "w");
+    if(fp == NULL) ERROR();
+    write_copyright(fp, author_name, argument, year);
+    if(append_basefile(fp, shared_dir, "basefile.c") == 0) ERROR();
+    fclose(fp);
+    fp = fopen("src/game.h", "w");
+    if(fp == NULL) ERROR();
+    write_copyright(fp, author_name, argument, year);
+    if(append_basefile(fp, shared_dir, "basefile.h") == 0) ERROR();
+    fclose(fp);
+    fp = fopen("src/includes.h", "w");
+    write_copyright(fp, author_name, argument, year);
+    fprintf(fp, "\n#include \"weaver/weaver.h\"\n");
+    fprintf(fp, "\n#include \"game.h\"\n");
+    fclose(fp);
+  }
+  else{
+    fprintf(stderr, "ERROR: %s is not a valid project name.", argument);
+    return_value = 1;
+  }
+  END();
+}
+@
+\fimcodigo
 
 \fim
