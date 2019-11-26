@@ -656,7 +656,7 @@ está inserido. A definição da função fica assim:
 
 \iniciocodigo
 @<Funções auxiliares Weaver@>+=
-#if !defined(_WIN32)
+#if defined(_WIN32)
 int copy_files(char *orig, char *dst){
   WIN32_FIND_DATA file;
   HANDLE dir = NULL;
@@ -726,6 +726,60 @@ void write_copyright(FILE *fp, char *author_name, char *project_name, int year){
 \nalong with %s. If not, see <http://www.gnu.org/licenses/>.\n*/\n\n";
   fprintf(fp, license, author_name, year, project_name, project_name,
           project_name, project_name);
+}
+@
+\fimcodigo
+
+\subsecao{5.8. create\_dir: Cria novos diretórios}
+
+Esta é a função responsável por criar uma lista de diretórios. Isso é
+algo bastante simples, mas deve ficar encapsulado em sua própria
+função por causa das diferenças entre Sistemas Operacionais sobre como
+realizar a tarefa.
+
+Esta função deve receber uma lista variável de strings como argumento,
+sendo que o último argumento precisa ser NULL. Para cada argumento
+representando um caminho, a função criará o diretório no caminho
+especificado. Por padrão, o separador em caminhos será o
+``\monoespaco{/}'' para podermos usar esta função da mesma forma
+independente do Sistema Operacional. Em sistemas em que o separador é
+outro, como no caso do Windows que usa o ``\monoespaco{\\}'', a função
+fará a conversão da maneira apropriada.
+
+Em sistemas Unix nós precisamos também especificar as permissões
+máximas que o diretório terá em termos de leitura, escrita e
+execução. Tais permissões podem ser mais restritas de acordo com a
+configuração do sistema. No Windows, que tem um sistema de permissões
+mais hierárquica, nós apenas herdamos as permissões do diretório pai.
+
+Em caso de erro, nós retornaremos -1. Se tudo deu certo, retornamos 1.
+
+A definição de nossa função será então:
+
+\iniciocodigo
+@<Funções auxiliares Weaver@>+=
+int *create_dir(char *string, ...){
+  char *current_string;
+  va_list arguments;
+  va_start(arguments, string);
+  int err = 1;
+  while(current_string[0] != '\0' && err != -1){
+    current_string = va_arg(arguments, char *);
+#if !defined(_WIN32)
+    err = mkdir(current_string, S_IRWXU | S_IRWXG | S_IROTH);
+#else
+    {
+      char *p = current_string;
+      while(*p != '\0'){
+        if(*p == '/') *p = '\\';
+        p ++;
+      }
+      if(!CreateDirectoryW(current_string, NULL))
+        err = -1;
+    }
+#endif
+  }
+  return err;
 }
 @
 \fimcodigo
@@ -1612,13 +1666,6 @@ arquivos do diretório compartilhado \monoespaco{basefile.c} e
 \monoespaco{src/includes.h} que por hora estará vazio, mas será modificado
 na criação de futuros módulos.
 
-A permissão dos diretórios criados será \monoespaco{drwxr-xr-x}
-(|0755| em octal) para sistemas Unix. Naturalmente, o programa irá
-respeitar qualquer valor pré-estabelecido de |umask|, o que pode
-deixar as permissões finais diferentes. Em sistemas Windows, iremos
-apenas herdar as permissões do diretório pai, já que o projeto de
-sistemas de arquivo NTFS são baseados em uma lógica mais hierárquica.
-
 \iniciocodigo
 @<Caso de uso 6: Criar novo projeto@>=
 if(! inside_weaver_directory && have_arg){
@@ -1626,17 +1673,19 @@ if(! inside_weaver_directory && have_arg){
     int err;
     char *dir_name;
     FILE *fp;
-    err = mkdir(argument, S_IRWXU | S_IRWXG | S_IROTH);
+    err = create_dir(argument, NULL);
     if(err == -1) ERROR();
+#if !defined(_WIN32) //cd
     err = chdir(argument);
+#else
+    err = _chdir(argument);
+#endif
     if(err == -1) ERROR();
-    mkdir(".weaver", 0755); mkdir("conf", 0755); mkdir("tex", 0755);
-    mkdir("src", 0755); mkdir("src/weaver", 0755); mkdir ("fonts", 0755);
-    mkdir("image", 0755); mkdir("sound", 0755); mkdir ("models", 0755);
-    mkdir("music", 0755); mkdir("plugins", 0755); mkdir("src/misc/", 0755);
-    mkdir("src/misc/sqlite", 0755); mkdir(".misc", 0755);
-    mkdir("compiled_plugins", 0755);
-    mkdir("shaders", 0755);
+    err = creade_dir(".weaver", "conf", "tex", "src", "src/weaver",
+                     "fonts", "image", "sound", "models", "music",
+                     "plugins", "src/misc", "src/misc/sqlite",
+                     "compiled_plugins", "shaders", NULL);
+    if(err == -1) ERROR();
     dir_name = concatenate(shared_dir, "project", "");
     if(dir_name == NULL) ERROR();
     if(copy_files(dir_name, ".") == 0){
