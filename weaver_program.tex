@@ -738,13 +738,13 @@ função por causa das diferenças entre Sistemas Operacionais sobre como
 realizar a tarefa.
 
 Esta função deve receber uma lista variável de strings como argumento,
-sendo que o último argumento precisa ser NULL. Para cada argumento
-representando um caminho, a função criará o diretório no caminho
-especificado. Por padrão, o separador em caminhos será o
-``\monoespaco{/}'' para podermos usar esta função da mesma forma
-independente do Sistema Operacional. Em sistemas em que o separador é
-outro, como no caso do Windows que usa o ``\monoespaco{\\}'', a função
-fará a conversão da maneira apropriada.
+sendo que o último argumento precisa ser uma string vazia ou
+NULL. Para cada argumento representando um caminho, a função criará o
+diretório no caminho especificado. Por padrão, o separador em caminhos
+será o ``\monoespaco{/}'' para podermos usar esta função da mesma
+forma independente do Sistema Operacional. Em sistemas em que o
+separador é outro, como no caso do Windows que usa o
+``\monoespaco{\\}'', a função fará a conversão da maneira apropriada.
 
 Em sistemas Unix nós precisamos também especificar as permissões
 máximas que o diretório terá em termos de leitura, escrita e
@@ -763,7 +763,7 @@ int *create_dir(char *string, ...){
   va_list arguments;
   va_start(arguments, string);
   int err = 1;
-  while(current_string[0] != '\0' && err != -1){
+  while(current_string != NULL && current_string[0] != '\0' && err != -1){
     current_string = va_arg(arguments, char *);
 #if !defined(_WIN32)
     err = mkdir(current_string, S_IRWXU | S_IRWXG | S_IROTH);
@@ -1726,10 +1726,10 @@ if(! inside_weaver_directory && have_arg){
     err = _chdir(argument);
 #endif
     if(err == -1) ERROR();
-    err = creade_dir(".weaver", "conf", "tex", "src", "src/weaver",
+    err = create_dir(".weaver", "conf", "tex", "src", "src/weaver",
                      "fonts", "image", "sound", "models", "music",
                      "plugins", "src/misc", "src/misc/sqlite",
-                     "compiled_plugins", "shaders", NULL);
+                     "compiled_plugins", "shaders", "");
     if(err == -1) ERROR();
     dir_name = concatenate(shared_dir, "project", "");
     if(dir_name == NULL) ERROR();
@@ -1829,144 +1829,81 @@ lacunas na numeração de shaders, por exemplo existir um shader 1 e um
 conteúdo base de um shader será obtido de um arquivo onde o programa
 Weaver está instalado.
 
+Depois de descobrir a numeração do novo shader, basta criarmos ele
+como um arquivo vazio e depois copiarmos o conteúdo de um modelo já
+existente em nosso diretório de instalação.
+
 O código deste caso de uso é então:
 
 \iniciocodigo
 @<Caso de uso 8: Criar novo shader@>=
 if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
    argument2 != NULL){
-    FILE *fp;
-    int i, number, number_of_files, err;
-    char *buffer2;
-    bool *exists;
-    size_t tmp_size;
-    @<Shader: Conta número de arquivos@>
-    // Agora que sabemos o número de arquivos existentes, precisamos
-    // de um número 1 unidade maior para conter todos os arquivos mais
-    // o próximo. Alocamos um vetor booleano para indicar se o shader
-    // cujo número corresponde à tal posição existe ou não.
-    exists = (bool *) malloc(sizeof(bool) * number_of_files + 1);
-    if(exists == NULL) ERROR();
-    for(i = 0; i < number_of_files + 1; i ++)
-        exists[i] = false;
-    // Iteramos novamente sobre os arquivos para saber quais números
-    // já estão preenchidos e assim saber qual deve ser o número do
-    // próximo shader. Provavelmente será o último. Mas vamos
-    // considerar a possibilidade de haver um shader 1, um shader 3 e
-    // não existir um 2, por exemplo. Neste caso, buscaremos tapar os
-    // buracos.
-    shader_dir = opendir("shaders/");
-    if(shader_dir == NULL)
-        ERROR();
-    while((dp = readdir(shader_dir)) != NULL){
-        if(dp -> d_name == NULL) continue;
-        if(dp -> d_name[0] == '.') continue;
-        if(dp -> d_name[0] == '\0') continue;
-        buffer = concatenate("shaders/", dp -> d_name, "");
-        if(buffer == NULL) ERROR();
-        if(directory_exist(buffer) != EXISTE_E_EH_DIRETORIO){
-            free(buffer);
-            continue;
-        }
-        free(buffer);
-        number = atoi(dp -> d_name);
-        exists[number - 1] = true;
-    }
-    closedir(shader_dir);
-    for(i = 0; exists[i] && i < number_of_files + 1; i ++);
-    if(i == number_of_files + 1){
-        fprintf(stderr, "ERROR: Shader directory changed during execution.\n");
-        ERROR();
-    }
-    number = i + 1; // Este é o número do novo shader
-    // Criando diretório do shader:
-    tmp_size = strlen("shaders/") + number / 10 + 2 + strlen(argument2);
+    int shader_number;
+    @<Shader: Conta número de arquivos e obtém número do shader@>
+    // Criando o shader:
+    tmp_size = number / 10 + 7 + strlen(argument2);
     buffer = (char *) malloc(tmp_size);
     if(buffer == NULL) ERROR();
     buffer[0] = '\0';
-    snprintf(buffer, tmp_size, "shaders/%d-%s", number, argument2);
-    err = mkdir(buffer, S_IRWXU | S_IRWXG | S_IROTH);
-    if(err == -1) ERROR();
-    // Escrevendo o shader de vértice:
-    buffer2 = concatenate(buffer, "/vertex.glsl", "");
-    if(buffer2 == NULL) ERROR();
-    fp = fopen(buffer2, "w");
+    snprintf(buffer, tmp_size, "%d-%s.glsl", number, argument2);
+    fp = fopen(buffer, "w");
     if(fp == NULL){
         free(buffer);
-        free(buffer2);
         ERROR();
     }
-    fprintf(fp, "#version 100\n\n");
-    fprintf(fp, "#if GL_FRAGMENT_PRECISION_HIGH == 1\n");
-    fprintf(fp, "  precision highp float;\n  precision highp int;\n");
-    fprintf(fp, "#else\n");
-    fprintf(fp, "  precision mediump float;\n  precision mediump int;\n");
-    fprintf(fp, "#endif\n");
-    fprintf(fp, "  precision lowp sampler2D;\n  precision lowp samplerCube;\n");
-    fprintf(fp, "\n\nattribute vec3 vertex_position;\n\n");
-    fprintf(fp, "uniform vec4 object_color;\nuniform mat4 model_view_matrix;");
-    fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n");
-    fprintf(fp, "uniform int integer;\n\n");
-    fprintf(fp, "varying mediump vec2 texture_coordinate;\n\n");
-    fprintf(fp, "void main(){\n  gl_Position = model_view_matrix * ");
-    fprintf(fp, "vec4(vertex_position, 1.0);\n");
-    fprintf(fp, "texture_coordinate = vec2(vertex_position[0] + 0.5, "
-            "vertex_position[1] + 0.5);\n}\n");
-    free(buffer2);
+    if(append_file(fp, shared_dir, "shader.glsl") == 0) ERROR();
     fclose(fp);
-    // Escrevendo o shader de fragmento:
-    buffer2 = concatenate(buffer, "/fragment.glsl", "");
-    if(buffer2 == NULL) ERROR();
-    fp = fopen(buffer2, "w");
-    if(fp == NULL){
-        free(buffer);
-        free(buffer2);
-        ERROR();
-    }
-    fprintf(fp, "#version 100\n\n");
-    fprintf(fp, "#if GL_FRAGMENT_PRECISION_HIGH == 1\n");
-    fprintf(fp, "  precision highp float;\n  precision highp int;\n");
-    fprintf(fp, "#else\n");
-    fprintf(fp, "  precision mediump float;\n  precision mediump int;\n");
-    fprintf(fp, "#endif\n");
-    fprintf(fp, "  precision lowp sampler2D;\n  precision lowp samplerCube;\n");
-    fprintf(fp, "\nuniform vec4 object_color;\n");
-    fprintf(fp, "\nuniform float time;\nuniform vec2 object_size;\n");
-    fprintf(fp, "uniform int integer;\n");
-    fprintf(fp, "\nuniform sampler2D texture1;\n");
-    fprintf(fp, "varying mediump vec2 texture_coordinate;\n\n");
-    fprintf(fp, "void main(){\n  ");
-    fprintf(fp, "vec4 texture = texture2D(texture1, texture_coordinate);\n");
-    fprintf(fp, "  float final_alpha = texture.a + object_color.a * "
-            "(1.0 - texture.a);\n");
-    fprintf(fp, "  gl_FragData[0] = vec4((texture.a * texture.rgb +\n");
-    fprintf(fp, "                         object_color.rgb * object_color.a *"
-            "\n");
-    fprintf(fp, "                         (1.0 - texture.a)) /");
-    fprintf(fp, "                        final_alpha, final_alpha);\n}\n");
-    // Finalizando
     free(buffer);
-    free(buffer2);
     END();
 }
 @
 \fimcodigo
 
-A parte de contar o número de arquivos ocorre de maneira diferente no
-Unix e no Windows devido à API diferente para lidar com o sistema de
-arquivos. No Unix o código é:
+A parte de contar onter o número do novo shader ocorre de maneira
+diferente no Unix e no Windows devido à API diferente para lidar com o
+sistema de arquivos. Tirando as particularidades de como iterar sobre
+arquivos em um diretório, o que faremos é iterar em cada arquivo no
+diretório \monoespaco{shaders} de nosso projeto que não seja um
+diretório, tenha extensão GLSL e tenha seu nome começado com um número
+positivo. Chamaremos tal número de \monoespaco{number}. Teremos um
+vetor booleano inicialmente marcado inteiramente como falso. Ao chegar
+em cada um destes arquivos, marcamos no vetor booleano a informação de
+que o shader de número \monoespaco{number} existe colocando o valor
+verdadeiro na posição do vetor reservada para ele. Depois de iterarmos
+sobre cada um dos arquivos, acharemos a primeira posição do vetor que
+ainda está marcada como falsa. Sua posição indica qual número de shadr
+ainda não foi usado e é o número que escolheremos.
+
+Complexidades adicionais neste código envolvem apenas tomarmos o
+cuidado para que o nosso vetor booleano sempre tenha um tamanho
+adequado. Para isso tentamos alocar ele inicialmente com 128 espaços,
+mas se acharmos shaders com números altos o bastante, o realocaremos
+para lidar com o número maior.
+
+O código para isso no Linux será:
 
 \iniciocodigo
-@<Shader: Conta número de arquivos@>=
+@<Shader: Conta número de arquivos e obtém número do shader@>=
 #if !defined(_WIN32)
 {
+  int i;
   DIR *shader_dir;
   struct dirent *dp;
   char *buffer, *p;
-  number_of_files = 0;
+  bool *exists;
+  size_t exists_size = 128;
+  int number, max_number = 0;
   shader_dir = opendir("shaders/");
   if(shader_dir == NULL)
     ERROR();
+  exists = (bool *) malloc(sizeof(bool) * exists_size);
+  if(exists == NULL){
+    closedir(shader_dir);
+    ERROR();
+  }
+  for(i = 0; i < exists_size; i ++)
+    exists[i] = false;
   while((dp = readdir(shader_dir)) != NULL){
     if(dp -> d_name == NULL) continue;
     if(dp -> d_name[0] == '.') continue;
@@ -1983,26 +1920,66 @@ arquivos. No Unix o código é:
       free(buffer);
       continue;
     }
+    number = atoi(buffer);
+    if(number == 0){
+      free(buffer);
+      continue;
+    }
+    if(number > max_number)
+      max_number = number;
+    if(number > exists_size){
+      if(number > exists_size * 2)
+        exists_size = number;
+      else
+        exists_size *= 2;
+      exists = (bool *) realloc(exists, exists_size * sizeof(bool));
+      if(exists == NULL){
+        free(buffer);
+        closedir(shader_dir);
+        ERROR();
+      }
+      for(i = exists_size / 2; i < exists_size; i ++)
+        exists[i] = false;
+    }
+    exists[number - 1] = true;
     free(buffer);
-    number_of_files ++;
   }
   closedir(shader_dir);
+  for(i = 0; i <= max_number; i ++)
+    if(exists[i] == false){
+      shader_number = i + 1;
+      break;
+    }
+  free(exists);
 }
 #endif
 @
 \fimcodigo
 
-No Windows, para iterar sobre os arquivos fazemos:
+No Windows, o código para iterar sobre arquivos é diferente, mas o
+restante não muda:
 
-@<Shader: Conta número de arquivos@>=
+@<Shader: Conta número de arquivos e obtém número do shader@>=
 #if defined(_WIN32)
 {
+  int i;
+  char *buffer, *p;
+  bool *exists;
+  size_t exists_size = 128;
+  int number, max_number = 0;
   WIN32_FIND_DATA file;
   HANDLE shader_dir = NULL;
   number_of_files = 0;
   shader_dir = FindFirstFile("shaders\\", &file));
   if(shader_dir == INVALID_HANDLE_VALUE)
     ERROR();
+  exists = (bool *) malloc(sizeof(bool) * exists_size);
+  if(exists == NULL){
+    closedir(shader_dir);
+    ERROR();
+  }
+  for(i = 0; i < exists_size; i ++)
+    exists[i] = false;
   do{
     if(file.cFileName == NULL) continue;
     if(file.cFileName[0] == '.') continue;
@@ -2019,14 +1996,40 @@ No Windows, para iterar sobre os arquivos fazemos:
       free(buffer);
       continue;
     }
+    number = atoi(buffer);
+    if(number == 0){
+      free(buffer);
+      continue;
+    }
+    if(number > max_number)
+      max_number = number;
+    if(number > exists_size){
+      if(number > exists_size * 2)
+        exists_size = number;
+      else
+        exists_size *= 2;
+      exists = (bool *) realloc(exists, exists_size * sizeof(bool));
+      if(exists == NULL){
+        free(buffer);
+        closedir(shader_dir);
+        ERROR();
+      }
+      for(i = exists_size / 2; i < exists_size; i ++)
+        exists[i] = false;
+    }
+    exists[number - 1] = true;
     free(buffer);
-    number_of_files ++;
   }while(FindNextFile(shader_dir, &file) != 0);
   FindClose(shader_dir);
+  for(i = 0; i <= max_number; i ++)
+  if(exists[i] == false){
+    shader_number = i + 1;
+    break;
+  }
+  free(exists);
 }
 #endif
 @
 \fimcodigo
-
 
 \fim
