@@ -96,6 +96,7 @@ install: uninstall
 	install -c project/web.Makefile ${PROJECT_SHARE}
 	install -c project/basefile.c ${INSTALL_SHARE_DIR}
 	install -c project/basefile.h ${INSTALL_SHARE_DIR}
+	install -c project/shader.glsl ${INSTALL_SHARE_DIR}
 	install -c project/COPYING ${PROJECT_SHARE}
 	install -c project/conf/conf.h ${PROJECT_SHARE}/conf
 	install -c project/src/misc/sqlite/sqlite3.h \

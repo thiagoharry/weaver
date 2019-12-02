@@ -147,7 +147,7 @@ junto com este programa. Se não, veja
 A versão completa da licença pode ser obtida junto ao código-fonte
 Weaver ou consultada no link mencionado.
 
-\secao{Variáveis e Estrutura do Programa Weaver}
+\secao{3. Variáveis e Estrutura do Programa Weaver}
 
 O comportamento de Weaver deve depender das seguintes variáveis:
 
@@ -1959,6 +1959,7 @@ O código para isso no Linux será:
 No Windows, o código para iterar sobre arquivos é diferente, mas o
 restante não muda:
 
+\iniciocodigo
 @<Shader: Conta número de arquivos e obtém número do shader@>=
 #if defined(_WIN32)
 {
@@ -2031,5 +2032,96 @@ restante não muda:
 #endif
 @
 \fimcodigo
+
+\subsecao{7.9. Criar novo loop principal}
+
+Este caso de uso ocorre quando o segundo argumento é
+\monoespaco{--loop} e quando o próximo argumento for um nome válido
+para uma função. Se não for, imprimimos uma mensagem de erro para
+avisar.
+
+Neste caso não podemos apenas copiar o conteúdo de um arquivo base
+para formar o arquivo com um novo módulo do projeto Weaver, pois esse
+novo arquivo terá definida uma função com um nome fornecido pelo
+usuário. Então apenas criamos e preenchemos o arquivo na hora com
+conteúdo defiido no próprio código abaixo.
+
+\iniciocodigo
+@<Caso de uso 9: Criar novo loop principal@>=
+if(inside_weaver_directory && !strcmp(argument, "--loop")){
+  if(!arg_is_valid_function){
+    if(argument2 == NULL)
+      fprintf(stderr,
+              "ERROR: You should pass a name for your new loop.\n");
+    else
+      fprintf(stderr, "ERROR: %s not a valid loop name.\n", argument2);
+    ERROR();
+  }
+  char *filename;
+  FILE *fp;
+  // Criando LOOP_NAME.c
+  filename = concatenate(project_path, "src/", argument2, ".c", "");
+  if(filename == NULL) ERROR();
+  fp = fopen(filename, "w");
+  if(fp == NULL){
+    free(filename);
+    ERROR();
+  }
+  write_copyright(fp, author_name, project_name, year);
+  fprintf(fp, "#include \"%s.h\"\n\n", argument2);
+  fprintf(fp, "MAIN_LOOP %s(void){\n", argument2);
+  fprintf(fp, " LOOP_INIT:\n\n");
+  fprintf(fp, " LOOP_BODY:\n");
+  fprintf(fp, "  if(W.keyboard[W_ANY])\n");
+  fprintf(fp, "    Wexit_loop();\n");
+  fprintf(fp, " LOOP_END:\n");
+  fprintf(fp, "  return;\n");
+  fprintf(fp, "}\n");
+  fclose(fp);
+  // Criando LOOP_NAME.h
+  filename[strlen(filename)-1] = 'h';
+  fp = fopen(filename, "w");
+  if(fp == NULL){
+    free(filename);
+    ERROR();
+  }
+  write_copyright(fp, author_name, project_name, year);
+  fprintf(fp, "#ifndef _%s_h_\n", argument2);
+  fprintf(fp, "#define _%s_h_\n#include \"weaver/weaver.h\"\n\n", argument2);
+  fprintf(fp, "#include \"includes.h\"\n\n");
+  fprintf(fp, "MAIN_LOOP %s(void);\n\n", argument2);
+  fprintf(fp, "#endif\n");
+  fclose(fp);
+  free(filename);
+  // Atualizando src/includes.h
+  fp = fopen("src/includes.h", "a");
+  fprintf(fp, "#include \"%s.h\"\n", argument2);
+  fclose(fp);  
+}
+@
+\fimcodigo
+
+\secao{8. Conclusão}
+
+Isso finaliza todo o código necessário para que o programa Weaver
+possa gerenciar projetos de jogos feitos com o motor Weaver.
+
+O programa apresentado aqui ainda não representa todo o gerenciamento
+de um projeto. Uma parte não retratada aqui é um instalador que em
+sistemas Unix é representado por um \monoespaco{Makefile} responsável
+por instalar o motor Weaver no local adequado e em sistemas Windows
+tem a forma de um pacote MSIX.
+
+Além disso, o código das bibliotecas em si também fazem parte do motor
+Weaver, mas terão o seu código descrito em outros artigos.
+
+Alguns códigos como o código-base para shaders e novos projetos podem
+ser encontrados junto com o código-fonte de Weaver, no
+diretório \monoespaco{project}.
+
+Por fim, em sistemas Unix há um Makefile para cada projeto, que também
+realiza muito do desenvolvimento. No Windows, se utiliza-se o Visual
+Studio ao invés de ferramentas Unix, esta parte do gerenciamento será
+feita por um conjunto de regras.
 
 \fim
