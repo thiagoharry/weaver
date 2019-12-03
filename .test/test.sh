@@ -4,14 +4,14 @@ NUMBER_OF_TESTS=0
 OK=0
 FAIL=0
 
-function assert(){
+function assertEqual(){
     LENGTH_STRING=${#1}
     NUMBER_OF_TESTS=$((${NUMBER_OF_TESTS} + 1))
     echo -n ${1}
     for (( i=2; i <= $((65-${LENGTH_STRING})); ++i )); do
 	echo -n "."
     done
-    if [ "${2}" == "1" ]; then
+    if [ "${2}" == "${3}" ]; then
 	echo "[OK]"
 	OK=$((${OK}+1))
     else
@@ -27,14 +27,16 @@ function print_result(){
 
 function test_invocation(){
     OUTPUT=$(./.test/bin/weaver)
-    TEXT="..."
-    R=0
-    if [ "${OUTPUT}" == "${TEXT}" ] ; then
-	R=1
-    else
-	R=0
-    fi
-    assert "Testing simple invocation" "${R}"
+    TEXT="    .  .     You are outside a Weaver Directory.
+   .|  |.    The following command uses are available:
+   ||  ||
+   \\\\()//  weaver
+   .={}=.      Print this message and exits.
+  / /\`'\\ \\
+  \` \\  / '  weaver PROJECT_NAME
+     \`'        Creates a new Weaver Directory with a new
+               project."
+    assertEqual "Testing simple invocation" "${OUTPUT}" "${TEXT}"
 }
 
 test_invocation
