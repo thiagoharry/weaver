@@ -2,6 +2,9 @@ SHELL := /bin/sh
 INSTALL_BIN_DIR=/usr/local/bin/
 INSTALL_SHARE_DIR=/usr/local/share/weaver
 PROJECT_SHARE=${INSTALL_SHARE_DIR}/project
+TANGLE=$(shell if which ctangle > /dev/null; then echo ctangle; else echo noweb; fi)
+CC=$(shell if which gcc > /dev/null; then echo gcc; else echo clang; fi)
+FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=c99 -pedantic
 MAKE=$(shell if which gmake > /dev/null; then echo gmake; else echo make; fi)
 W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w cweb/03-numeros.w\
 	cweb/04-gerais.w\
@@ -146,6 +149,12 @@ install: uninstall
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
+test:
+	@mkdir -p .test/bin
+	@mkdir -p .test/share
+	@${TANGLE} weaver_program.tex
+	@${CC} ${FLAGS} -DWEAVER_DIR="\"test/share\"" src/weaver.c -o .test/bin/weaver > /dev/null
+	@bash ./.test/test.sh
 clean:
 	rm -rf *.o *~ src/*~
 	rm -f bin/*

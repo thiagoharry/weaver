@@ -314,7 +314,7 @@ void path_up(char *path){
 #if !defined(_WIN32)
   char separator = '/';
 #else
-  char separator = '\';
+  char separator = '\\';
 #endif
   int erased = 0;
   char *p = path;
@@ -465,7 +465,7 @@ char *basename(char *path){
   char *p = path;
   char *last_delimiter = NULL;
   while(*p != '\0'){
-    if(*p == '\')
+    if(*p == '\\')
       last_delimiter = p;
     p ++;
   }
@@ -758,13 +758,13 @@ A definição de nossa função será então:
 
 \iniciocodigo
 @<Funções auxiliares Weaver@>+=
-int *create_dir(char *string, ...){
+int create_dir(char *string, ...){
   char *current_string;
   va_list arguments;
   va_start(arguments, string);
   int err = 1;
+  current_string = va_arg(arguments, char *);
   while(current_string != NULL && current_string[0] != '\0' && err != -1){
-    current_string = va_arg(arguments, char *);
 #if !defined(_WIN32)
     err = mkdir(current_string, S_IRWXU | S_IRWXG | S_IROTH);
 #else
@@ -778,6 +778,7 @@ int *create_dir(char *string, ...){
         err = -1;
     }
 #endif
+    current_string = va_arg(arguments, char *);
   }
   return err;
 }
@@ -925,8 +926,8 @@ loop, sempre vamos para o diretório-pai do qual estamos:
   size_t tmp_size = strlen(complete_path);
   // Testa se chegamos ao fim:
   while(strcmp(complete_path, "/.weaver") &&
-	strcmp(complete_path, "\.weaver") &&
-	strcmp(complete_path + 1, ":\.weaver")){
+	strcmp(complete_path, "\\.weaver") &&
+	strcmp(complete_path + 1, ":\\.weaver")){
     if(directory_exist(complete_path) == EXISTE_E_EH_DIRETORIO){
       inside_weaver_directory = true;
       complete_path[strlen(complete_path) - 7] = '\0'; // Apaga o '.weaver'
@@ -1058,7 +1059,6 @@ Windows.
 
 @<Inicialização@>+=
 {
-  char *weaver_dir = NULL;
 #ifdef WEAVER_DIR
   shared_dir = concatenate(WEAVER_DIR, "");
 #else
@@ -1476,7 +1476,7 @@ O que é feito com o código abaixo:
 
 
 \iniciocodigo
-@<Caso de uso 1: Imprimir ajuda de criação de projeto@>=
+@<Caso de uso 1: Imprimir ajuda (criar projeto)@>=
 if(!inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
   printf("    .  .     You are outside a Weaver Directory.\n"
   "   .|  |.    The following command uses are available:\n"
@@ -1839,14 +1839,17 @@ O código deste caso de uso é então:
 @<Caso de uso 8: Criar novo shader@>=
 if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
    argument2 != NULL){
+    FILE *fp;
+    size_t tmp_size, number = 0;
     int shader_number;
+    char *buffer;
     @<Shader: Conta número de arquivos e obtém número do shader@>
     // Criando o shader:
     tmp_size = number / 10 + 7 + strlen(argument2);
     buffer = (char *) malloc(tmp_size);
     if(buffer == NULL) ERROR();
     buffer[0] = '\0';
-    snprintf(buffer, tmp_size, "%d-%s.glsl", number, argument2);
+    snprintf(buffer, tmp_size, "%d-%s.glsl", (int) number, argument2);
     fp = fopen(buffer, "w");
     if(fp == NULL){
         free(buffer);
@@ -1887,13 +1890,12 @@ O código para isso no Linux será:
 @<Shader: Conta número de arquivos e obtém número do shader@>=
 #if !defined(_WIN32)
 {
-  int i;
+  size_t i, max_number = 0;
   DIR *shader_dir;
   struct dirent *dp;
-  char *buffer, *p;
+  char *p;
   bool *exists;
   size_t exists_size = 128;
-  int number, max_number = 0;
   shader_dir = opendir("shaders/");
   if(shader_dir == NULL)
     ERROR();
@@ -1964,7 +1966,7 @@ restante não muda:
 #if defined(_WIN32)
 {
   int i;
-  char *buffer, *p;
+  char *p;
   bool *exists;
   size_t exists_size = 128;
   int number, max_number = 0;
@@ -1985,7 +1987,7 @@ restante não muda:
     if(file.cFileName == NULL) continue;
     if(file.cFileName[0] == '.') continue;
     if(file.cFileName[0] == '\0') continue;
-    buffer = concatenate("shaders\", file.cFileName, "");
+    buffer = concatenate("shaders\\", file.cFileName, "");
     if(buffer == NULL) ERROR();
     if(directory_exist(buffer) != EXISTE_E_EH_ARQUIVO){
       free(buffer);
