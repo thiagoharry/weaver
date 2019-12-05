@@ -44,13 +44,15 @@
 
 #include <ctype.h>  
 /*:32*//*39:*/
-#line 1376 "./weaver_program.tex"
+#line 1378 "./weaver_program.tex"
 
 #if !defined(_WIN32)
 #include <pwd.h>  
+#else
+#include <Security.h> 
 #endif
 /*:39*//*43:*/
-#line 1450 "./weaver_program.tex"
+#line 1454 "./weaver_program.tex"
 
 #include <time.h>  
 /*:43*/
@@ -106,7 +108,7 @@ return EXISTE_E_EH_ARQUIVO;
 DWORD dwAttrib= GetFileAttributes(dir);
 if(dwAttrib==INVALID_FILE_ATTRIBUTES)return NAO_EXISTE;
 if(!(dwAttrib&FILE_ATTRIBUTE_DIRECTORY))return EXISTE_E_EH_ARQUIVO;
-else return EXISTE_E_EH_DIRETORIO
+else return EXISTE_E_EH_DIRETORIO;
 #endif
 }
 /*:6*//*8:*/
@@ -190,7 +192,7 @@ block_size= 4096;
 {
 DWORD dummy;
 DISK_GEOMETRY s;
-file= CreateFileW(".temp.dat",0,FILE_SHARE_READ|FILE_SHARE_WRITE,
+file= CreateFileW(L".temp.dat",0,FILE_SHARE_READ|FILE_SHARE_WRITE,
 NULL,OPEN_EXISTING,FILE_FLAG_DELETE_ON_CLOSE,NULL);
 DeviceIoControl(file,IOCTL_DISK_GET_DRIVE_GEOMETRY,NULL,0,&s,
 sizeof(s),&dummy,(LPOVERLAPPED)NULL);
@@ -289,14 +291,14 @@ return 1;
 
 #if defined(_WIN32)
 int copy_files(char*orig,char*dst){
+char*path;
 WIN32_FIND_DATA file;
 HANDLE dir= NULL;
-dir= FindFirstFile(orig,&file));
-if(dir!== INVALID_HANDLE_VALUE){
+dir= FindFirstFile(orig,&file);
+if(dir!=INVALID_HANDLE_VALUE){
 
 do{
 if(strcmp(file.cFileName,".")&&strcmp(file.cFileName,"..")){
-char*path;
 path= concatenate(orig,"\\",file.cFileName,"");
 if(path==NULL){
 return 0;
@@ -305,7 +307,7 @@ if(file.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY){
 char*dst_path;
 dst_path= concatenate(dst,"\\",file.cFileName,"");
 if(directory_exist(dst_path)==NAO_EXISTE)
-CreateDirectoryW(dst_path,NULL);
+CreateDirectoryA(dst_path,NULL);
 if(copy_files(path,dst_path)==0){
 free(dst_path);
 free(path);
@@ -402,7 +404,7 @@ block_size= 4096;
 {
 DWORD dummy;
 DISK_GEOMETRY s;
-file= CreateFileW(".temp.dat",0,FILE_SHARE_READ|FILE_SHARE_WRITE,
+file= CreateFileW(L".temp.dat",0,FILE_SHARE_READ|FILE_SHARE_WRITE,
 NULL,OPEN_EXISTING,FILE_FLAG_DELETE_ON_CLOSE,NULL);
 DeviceIoControl(file,IOCTL_DISK_GET_DRIVE_GEOMETRY,NULL,0,&s,
 sizeof(s),&dummy,(LPOVERLAPPED)NULL);
@@ -553,7 +555,7 @@ char*temp_buf;
 DWORD bsize= GetEnvironmentVariable("ProgramFiles",temp_buf,0);
 temp_buf= (char*)malloc(bsize);
 GetEnvironmentVariable("ProgramFiles",temp_buf,bsize);
-shared_dir= concatenate(temp_buf,"\weaver","");
+shared_dir= concatenate(temp_buf,"\\weaver","");
 free(temp_buf);
 }
 #endif
@@ -735,7 +737,7 @@ author_name[size-1]= '\0';
 }
 #endif
 /*:37*//*40:*/
-#line 1390 "./weaver_program.tex"
+#line 1394 "./weaver_program.tex"
 
 if(inside_weaver_directory){
 FILE*fp;
@@ -765,7 +767,7 @@ project_name= realloc(project_name,strlen(project_name)+1);
 if(project_name==NULL)W_ERROR();
 }
 /*:40*//*42:*/
-#line 1435 "./weaver_program.tex"
+#line 1439 "./weaver_program.tex"
 
 {
 time_t current_time;
@@ -778,7 +780,7 @@ year= date->tm_year+1900;
 #line 232 "./weaver_program.tex"
 
 /*44:*/
-#line 1481 "./weaver_program.tex"
+#line 1485 "./weaver_program.tex"
 
 if(!inside_weaver_directory&&(!have_arg||!strcmp(argument,"--help"))){
 printf("    .  .     You are outside a Weaver Directory.\n"
@@ -796,7 +798,7 @@ END();
 #line 233 "./weaver_program.tex"
 
 /*45:*/
-#line 1530 "./weaver_program.tex"
+#line 1534 "./weaver_program.tex"
 
 if(inside_weaver_directory&&(!have_arg||!strcmp(argument,"--help"))){
 printf("       \\                You are inside a Weaver Directory.\n"
@@ -821,7 +823,7 @@ END();
 #line 234 "./weaver_program.tex"
 
 /*46:*/
-#line 1559 "./weaver_program.tex"
+#line 1563 "./weaver_program.tex"
 
 if(have_arg&&!strcmp(argument,"--version")){
 printf("Weaver\t%s\n",VERSION);
@@ -831,7 +833,7 @@ END();
 #line 235 "./weaver_program.tex"
 
 /*47:*/
-#line 1601 "./weaver_program.tex"
+#line 1605 "./weaver_program.tex"
 
 if(arg_is_path){
 if((weaver_version_major==0&&weaver_version_minor==0)||
@@ -862,7 +864,7 @@ END();
 #line 236 "./weaver_program.tex"
 
 /*48:*/
-#line 1657 "./weaver_program.tex"
+#line 1661 "./weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&
 strcmp(argument,"--plugin")&&strcmp(argument,"--shader")&&
@@ -910,7 +912,7 @@ END();
 #line 237 "./weaver_program.tex"
 
 /*49:*/
-#line 1717 "./weaver_program.tex"
+#line 1721 "./weaver_program.tex"
 
 if(!inside_weaver_directory&&have_arg){
 if(arg_is_valid_project){
@@ -969,7 +971,7 @@ END();
 #line 238 "./weaver_program.tex"
 
 /*50:*/
-#line 1783 "./weaver_program.tex"
+#line 1787 "./weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&!strcmp(argument,"--plugin")&&
 arg_is_valid_plugin){
@@ -995,7 +997,7 @@ END();
 #line 239 "./weaver_program.tex"
 
 /*51:*/
-#line 1841 "./weaver_program.tex"
+#line 1845 "./weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&!strcmp(argument,"--shader")&&
 argument2!=NULL){
@@ -1004,7 +1006,7 @@ size_t tmp_size,number= 0;
 int shader_number;
 char*buffer;
 /*52:*/
-#line 1892 "./weaver_program.tex"
+#line 1896 "./weaver_program.tex"
 
 #if !defined(_WIN32)
 {
@@ -1074,7 +1076,7 @@ free(exists);
 }
 #endif
 /*:52*//*53:*/
-#line 1967 "./weaver_program.tex"
+#line 1971 "./weaver_program.tex"
 
 #if defined(_WIN32)
 {
@@ -1146,7 +1148,7 @@ free(exists);
 }
 #endif
 /*:53*/
-#line 1848 "./weaver_program.tex"
+#line 1852 "./weaver_program.tex"
 
 
 tmp_size= number/10+7+strlen(argument2);
@@ -1168,7 +1170,7 @@ END();
 #line 240 "./weaver_program.tex"
 
 /*54:*/
-#line 2054 "./weaver_program.tex"
+#line 2058 "./weaver_program.tex"
 
 if(inside_weaver_directory&&!strcmp(argument,"--loop")){
 if(!arg_is_valid_function){
@@ -1237,7 +1239,7 @@ if(shared_dir!=NULL)free(shared_dir);
 
 if(author_name!=NULL)free(author_name);
 /*:38*//*41:*/
-#line 1424 "./weaver_program.tex"
+#line 1428 "./weaver_program.tex"
 
 if(project_name!=NULL)free(project_name);
 /*:41*/

@@ -368,7 +368,7 @@ int directory_exist(char *dir){
   DWORD dwAttrib = GetFileAttributes(dir);
   if(dwAttrib == INVALID_FILE_ATTRIBUTES) return NAO_EXISTE;
   if(!(dwAttrib & FILE_ATTRIBUTE_DIRECTORY)) return EXISTE_E_EH_ARQUIVO;
-  else return EXISTE_E_EH_DIRETORIO
+  else return EXISTE_E_EH_DIRETORIO;
 #endif
 }
 @
@@ -561,7 +561,7 @@ No Windows o código equivalente seria:
 {
   DWORD dummy;
   DISK_GEOMETRY s;
-  file = CreateFileW(".temp.dat", 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
+  file = CreateFileW(L".temp.dat", 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
                      NULL, OPEN_EXISTING, FILE_FLAG_DELETE_ON_CLOSE, NULL);
   DeviceIoControl(file, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &s,
                   sizeof(s), &dummy, (LPOVERLAPPED) NULL);
@@ -660,14 +660,14 @@ está inserido. A definição da função fica assim:
 @<Funções auxiliares Weaver@>+=
 #if defined(_WIN32)
 int copy_files(char *orig, char *dst){
+  char *path;
   WIN32_FIND_DATA file;
   HANDLE dir = NULL;
-  dir = FindFirstFile(orig, &file));
-  if(dir !== INVALID_HANDLE_VALUE){
+  dir = FindFirstFile(orig, &file);
+  if(dir != INVALID_HANDLE_VALUE){
     // The first file shall be '.' and should be safely ignored
     do{
       if(strcmp(file.cFileName, ".") && strcmp(file.cFileName, "..")){
-        char *path;
         path = concatenate(orig, "\\", file.cFileName, "");
         if(path == NULL){
           return 0;
@@ -676,7 +676,7 @@ int copy_files(char *orig, char *dst){
           char *dst_path;
           dst_path = concatenate(dst, "\\", file.cFileName, "");
           if(directory_exist(dst_path) == NAO_EXISTE)
-            CreateDirectoryW(dst_path, NULL);
+            CreateDirectoryA(dst_path, NULL);
           if(copy_files(path, dst_path) == 0){
             free(dst_path);
             free(path);
@@ -1072,7 +1072,7 @@ Windows.
     DWORD bsize = GetEnvironmentVariable("ProgramFiles", temp_buf, 0);
     temp_buf = (char *) malloc(bsize);
     GetEnvironmentVariable("ProgramFiles", temp_buf, bsize);
-    shared_dir = concatenate(temp_buf, "\weaver", "");
+    shared_dir = concatenate(temp_buf, "\\weaver", "");
     free(temp_buf);
   }
 #endif
@@ -1370,12 +1370,16 @@ if(author_name != NULL) free(author_name);
 @
 \fimcodigo
 
-Para que o código Unix funcione, devemos inserir a biblioteca abaixo
-para termos acesso ao \monoespaco{getpwuid}:
+Para que o código funcione, devemos inserir uma biblioteca diferente
+dependendo de estarmos em sistemas Unix (para
+ter \monoespaco{getpwuid}) ou em sistemas Windows (para obtermos uma
+enumeração com diferentes formatos de nomes):
 
 @<Cabeçalhos Incluídos no Programa Weaver@>=
 #if !defined(_WIN32)
 #include <pwd.h> // getpwuid
+#else
+#include <Security.h>
 #endif
 @
 
