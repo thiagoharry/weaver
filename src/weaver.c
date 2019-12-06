@@ -552,7 +552,7 @@ shared_dir= concatenate(WEAVER_DIR,"");
 shared_dir= concatenate("/usr/local/share/weaver/","");
 #else
 {
-char*temp_buf;
+char*temp_buf= NULL;
 DWORD bsize= GetEnvironmentVariable("ProgramFiles",temp_buf,0);
 temp_buf= (char*)malloc(bsize);
 GetEnvironmentVariable("ProgramFiles",temp_buf,bsize);
@@ -1093,7 +1093,7 @@ if(shader_dir==INVALID_HANDLE_VALUE)
 W_ERROR();
 exists= (bool*)malloc(sizeof(bool)*exists_size);
 if(exists==NULL){
-closedir(shader_dir);
+FindClose(shader_dir);
 W_ERROR();
 }
 for(i= 0;i<exists_size;i++)
@@ -1129,7 +1129,7 @@ exists_size*= 2;
 exists= (bool*)realloc(exists,exists_size*sizeof(bool));
 if(exists==NULL){
 free(buffer);
-closedir(shader_dir);
+FindClose(shader_dir);
 W_ERROR();
 }
 for(i= exists_size/2;i<exists_size;i++)
