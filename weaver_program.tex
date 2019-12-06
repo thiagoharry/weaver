@@ -776,7 +776,7 @@ int create_dir(char *string, ...){
         if(*p == '/') *p = '\\';
         p ++;
       }
-      if(!CreateDirectoryW(current_string, NULL))
+      if(!CreateDirectoryA(current_string, NULL))
         err = -1;
     }
 #endif
@@ -1379,6 +1379,7 @@ enumeração com diferentes formatos de nomes):
 #if !defined(_WIN32)
 #include <pwd.h> // getpwuid
 #else
+#define SECURITY_WIN32
 #include <Security.h>
 #endif
 @
@@ -1978,8 +1979,7 @@ restante não muda:
   int number, max_number = 0;
   WIN32_FIND_DATA file;
   HANDLE shader_dir = NULL;
-  number_of_files = 0;
-  shader_dir = FindFirstFile("shaders\\", &file));
+  shader_dir = FindFirstFile("shaders\\", &file);
   if(shader_dir == INVALID_HANDLE_VALUE)
     W_ERROR();
   exists = (bool *) malloc(sizeof(bool) * exists_size);
