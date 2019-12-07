@@ -26,7 +26,8 @@ function print_result(){
 }
 
 function test_invocation(){
-    OUTPUT=$(./.test/bin/weaver)
+	OUTPUT=$(./.test/bin/weaver)
+	echo $?
     TEXT="    .  .     You are outside a Weaver Directory.
    .|  |.    The following command uses are available:
    ||  ||
@@ -42,3 +43,10 @@ function test_invocation(){
 test_invocation
 print_result
 
+if [ "${OSTYPE}" == "msys" ]; then
+    read
+fi
+
+if [[  ${FAIL} > 0 ]]; then
+    exit 1
+fi
