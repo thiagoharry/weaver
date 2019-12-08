@@ -1341,8 +1341,10 @@ como sendo o nome:
 No Windows, o nome pode ser obtido com a função |GetUserNameExA|. Na
 primeira invocação tentamos obter o tamanho do buffer necessário para
 armazenarmos o nome e na segunda obtemos o nome em si. Em caso de
-erro, assumimos um tamanho padrão de 64 bytes e usamos a variável de
-ambiente \monoespaco{USERNAME}.
+erro, usamos a função mais antiga |GetUserNameA| que vai retornar um
+nome de usuário simples ao invés de tentar obter o nome completo, e
+para isso alocamos um espaço para o maior nome de usuário válido no
+sistema.
 
 \iniciocodigo
 @<Inicialização@>+=
@@ -1350,12 +1352,20 @@ ambiente \monoespaco{USERNAME}.
 {
   int size = 0;
   GetUserNameExA(NameDisplay, author_name, &size);
-  if(size == 0)
-    size = 64;
-  author_name = (char *) malloc(size);
-  if(GetUserNameExA(NameDisplay, author_name, &size) == 0){
-    strncpy(author_name, getenv("USERNAME"), size);
-    author_name[size - 1] = '\0';
+  if(GetLastError() == ERROR_MORE_DATA){
+    if(size == 0)
+      size = 64;
+    author_name = (char *) malloc(size);
+    if(GetUserNameExA(NameDisplay, author_name, &size) == 0){
+      size = UNLEN + 1;
+      author_name = (char *) malloc(size);
+      GetUserNameA(authore_name, &size);
+    }
+  }
+  else{
+    size = UNLEN + 1;
+    author_name = (char *) malloc(size);
+    GetUserNameA(authore_name, &size);
   }
 }
 #endif
@@ -1381,6 +1391,7 @@ enumeração com diferentes formatos de nomes):
 #else
 #define SECURITY_WIN32
 #include <Security.h>
+#include <Lmcons.h>
 #endif
 @
 

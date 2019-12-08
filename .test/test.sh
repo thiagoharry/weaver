@@ -26,8 +26,7 @@ function print_result(){
 }
 
 function test_invocation(){
-	OUTPUT=$(./.test/bin/weaver)
-	echo $?
+    OUTPUT=$(./.test/bin/weaver)
     TEXT="    .  .     You are outside a Weaver Directory.
    .|  |.    The following command uses are available:
    ||  ||
