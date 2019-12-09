@@ -1,4 +1,5 @@
 SHELL := /bin/sh
+PWD=$(shell pwd)
 INSTALL_BIN_DIR=/usr/local/bin/
 INSTALL_SHARE_DIR=/usr/local/share/weaver
 PROJECT_SHARE=${INSTALL_SHARE_DIR}/project
@@ -153,7 +154,7 @@ test:
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program.tex
-	@${CC} ${FLAGS} -DWEAVER_DIR="\".test/share/\"" src/weaver.c -o .test/bin/weaver > /dev/null
+	@${CC} ${FLAGS} -DWEAVER_DIR="\"${PWD}/.test/share/\"" src/weaver.c -o .test/bin/weaver > /dev/null
 	@rm -rf .test/share/*
 	@cp -r project/* .test/share
 	@bash ./.test/test.sh

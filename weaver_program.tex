@@ -1771,7 +1771,6 @@ if(! inside_weaver_directory && have_arg){
     if(fp == NULL) W_ERROR();
     write_copyright(fp, author_name, argument, year);
     if(append_file(fp, shared_dir, "basefile.h") == 0) W_ERROR();
-    printf("DEBUG: OK\n");
     fclose(fp);
     fp = fopen("src/includes.h", "w");
     write_copyright(fp, author_name, argument, year);
