@@ -358,7 +358,7 @@ char*current_string;
 va_list arguments;
 va_start(arguments,string);
 int err= 1;
-current_string= va_arg(arguments,char*);
+current_string= string;
 while(current_string!=NULL&&current_string[0]!='\0'&&err!=-1){
 #if !defined(_WIN32)
 err= mkdir(current_string,S_IRWXU|S_IRWXG|S_IROTH);
@@ -736,13 +736,13 @@ author_name= (char*)malloc(size);
 if(GetUserNameExA(NameDisplay,author_name,&size)==0){
 size= UNLEN+1;
 author_name= (char*)malloc(size);
-GetUserNameA(author_name,&size);
+GetUserNameA(authore_name,&size);
 }
 }
 else{
 size= UNLEN+1;
 author_name= (char*)malloc(size);
-GetUserNameA(author_name,&size);
+GetUserNameA(authore_name,&size);
 }
 }
 #endif
@@ -964,6 +964,7 @@ fp= fopen("src/game.h","w");
 if(fp==NULL)W_ERROR();
 write_copyright(fp,author_name,argument,year);
 if(append_file(fp,shared_dir,"basefile.h")==0)W_ERROR();
+printf("DEBUG: OK\n");
 fclose(fp);
 fp= fopen("src/includes.h","w");
 write_copyright(fp,author_name,argument,year);
@@ -981,7 +982,7 @@ END();
 #line 238 "./weaver_program.tex"
 
 /*50:*/
-#line 1799 "./weaver_program.tex"
+#line 1800 "./weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&!strcmp(argument,"--plugin")&&
 arg_is_valid_plugin){
@@ -1007,7 +1008,7 @@ END();
 #line 239 "./weaver_program.tex"
 
 /*51:*/
-#line 1857 "./weaver_program.tex"
+#line 1858 "./weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&!strcmp(argument,"--shader")&&
 argument2!=NULL){
@@ -1016,7 +1017,7 @@ size_t tmp_size,number= 0;
 int shader_number;
 char*buffer;
 /*52:*/
-#line 1908 "./weaver_program.tex"
+#line 1909 "./weaver_program.tex"
 
 #if !defined(_WIN32)
 {
@@ -1086,7 +1087,7 @@ free(exists);
 }
 #endif
 /*:52*//*53:*/
-#line 1983 "./weaver_program.tex"
+#line 1984 "./weaver_program.tex"
 
 #if defined(_WIN32)
 {
@@ -1157,7 +1158,7 @@ free(exists);
 }
 #endif
 /*:53*/
-#line 1864 "./weaver_program.tex"
+#line 1865 "./weaver_program.tex"
 
 
 tmp_size= number/10+7+strlen(argument2);
@@ -1179,7 +1180,7 @@ END();
 #line 240 "./weaver_program.tex"
 
 /*54:*/
-#line 2069 "./weaver_program.tex"
+#line 2070 "./weaver_program.tex"
 
 if(inside_weaver_directory&&!strcmp(argument,"--loop")){
 if(!arg_is_valid_function){

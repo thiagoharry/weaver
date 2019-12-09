@@ -36,6 +36,38 @@ function assertEqualFiles(){
     fi
 }
 
+function assertDirectoryExist(){
+    LENGTH_STRING=${#1}
+    NUMBER_OF_TESTS=$((${NUMBER_OF_TESTS} + 1))
+    echo -n ${1}
+    for (( i=2; i <= $((65-${LENGTH_STRING})); ++i )); do
+	echo -n "."
+    done
+    if  [ -d "${2}" ]; then
+	echo "[OK]"
+	OK=$((${OK}+1))
+    else
+	echo "[FAIL]"
+	FAIL=$((${FAIL}+1))
+    fi
+}
+
+function assertExecutableExists(){
+    LENGTH_STRING=${#1}
+    NUMBER_OF_TESTS=$((${NUMBER_OF_TESTS} + 1))
+    echo -n ${1}
+    for (( i=2; i <= $((65-${LENGTH_STRING})); ++i )); do
+	echo -n "."
+    done
+    if  [ -x "${2}" ]; then
+	echo "[OK]"
+	OK=$((${OK}+1))
+    else
+	echo "[FAIL]"
+	FAIL=$((${FAIL}+1))
+    fi
+}
+
 function print_result(){
     echo ${NUMBER_OF_TESTS}" tests: "${OK}" sucess, "${FAIL}" fails"
     echo
@@ -63,9 +95,25 @@ function test_invocation(){
     fi
 }
 
+function test_new_project(){
+    ./.test/bin/weaver .test/test
+    assertDirectoryExist "Testing new project creation" .test/test
+    cd .test/test
+    if [[ ${OSTYPE} == *"bsd"* ]]; then
+	gmake &> /dev/null
+    else
+	make &> /dev/null
+    fi
+    assertExecutableExists "Testing project compilation" test
+    cd - > /dev/null
+    rm -rf .test/test
+}
+
 echo -e "Running tests...\n"
 
-test_invocation
+test_invocation &&
+    test_new_project
+
 print_result
 
 if [ "${OSTYPE}" == "msys" ]; then
