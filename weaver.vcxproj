@@ -112,6 +112,9 @@
   <ItemGroup>
     <ClCompile Include="src\weaver.c" />
   </ItemGroup>
+  <ItemGroup>
+    <None Include="weaver_program.tex" />
+  </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>

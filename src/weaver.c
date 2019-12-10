@@ -736,13 +736,13 @@ author_name= (char*)malloc(size);
 if(GetUserNameExA(NameDisplay,author_name,&size)==0){
 size= UNLEN+1;
 author_name= (char*)malloc(size);
-GetUserNameA(authore_name,&size);
+GetUserNameA(author_name,&size);
 }
 }
 else{
 size= UNLEN+1;
 author_name= (char*)malloc(size);
-GetUserNameA(authore_name,&size);
+GetUserNameA(author_name,&size);
 }
 }
 #endif

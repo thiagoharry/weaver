@@ -96,7 +96,12 @@ function test_invocation(){
 }
 
 function test_new_project(){
-    ./.test/bin/weaver .test/test
+    if [ "${OSTYPE}" == "msys" ]; then
+        ./.test/bin/weaver .test\\test
+    else
+        ./.test/bin/weaver .test/test
+
+    fi
     assertDirectoryExist "Testing new project creation" .test/test
     cd .test/test
     if [[ ${OSTYPE} == *"bsd"* ]]; then
