@@ -1,0 +1,315 @@
+\font\sixteen=cmbx16
+\font\twelve=cmr12
+\font\fonteautor=cmbx12
+\font\fonteemail=cmtt10
+\font\twelvenegit=cmbxti12
+\font\twelvebold=cmbx12
+\font\trezebold=cmbx13
+\font\twelveit=cmsl12
+\font\monodoze=cmtt12
+\font\it=cmti12
+\voffset=0,959994cm % 3,5cm de margem superior e 2,5cm inferior
+\parskip=6pt
+
+\def\titulo#1{{\noindent\sixteen\hbox to\hsize{\hfill#1\hfill}}}
+\def\autor#1{{\noindent\fonteautor\hbox to\hsize{\hfill#1\hfill}}}
+\def\email#1{{\noindent\fonteemail\hbox to\hsize{\hfill#1\hfill}}}
+\def\negrito#1{{\twelvebold#1}}
+\def\italico#1{{\twelveit#1}}
+\def\monoespaco#1{{\monodoze#1}}
+\def\iniciocodigo{\lineskip=0pt\parskip=0pt}
+\def\fimcodigo{\twelve\parskip=0pt plus 1pt\lineskip=1pt}
+
+\long\def\abstract#1{\parshape 10 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+\noindent{{\twelvenegit Abstract: }\twelveit #1}}
+
+\def\resumo#1{\parshape  10 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+\noindent{{\twelvenegit Resumo: }\twelveit #1}}
+
+\def\secao#1{\vskip12pt\noindent{\trezebold#1}\parshape 1 0cm 15cm}
+\def\subsecao#1{\vskip12pt\noindent{\twelvebold#1}}
+\def\referencia#1{\vskip6pt\parshape 5 0cm 15cm 0.5cm 14.5cm 0.5cm 14.5cm
+0.5cm 14.5cm 0.5cm 14.5cm {\twelve\noindent#1}}
+
+%@* .
+
+\twelve
+\vskip12pt
+\titulo{O Programa Weaver}
+\vskip12pt
+\autor{Thiago Leucz Astrizi}
+\vskip6pt
+\email{thiago@@bitbitbit.com.br}
+\vskip6pt
+
+\abstract{This article describes using literary programming the
+  Weaver API. Weaver is a game engine and this API are how programmers
+  interact with the engine in their game projects. Besides the API,
+  this article also covers how the configuration file is interpreted
+  and how game loops should be managed in a game project. The API is
+  portable code which should work under OpenBSD, Linux, Windows and
+  Web Assembly environments.}
+
+\vskip 0.5cm plus 3pt minus 3pt
+
+\resumo{Este artigo utiliza programação literária para descrever a
+API Weaver. weaver é um motor de jogos e esta API é como os
+programadores interagem com ela em seus projetos. Além da API, este
+artigo também cobre como o arquivo de configuração é interpretado e
+como os laços de execução do jogo devem ser organizados. A API é
+código portável que deve funcionar sob ambientes OpenBSD, Linux,
+Windows e Web Assembly.}
+
+\secao{1. Introdução}
+
+Quando um usuário digita \monoespaco{weaver PROJETO} na linha de
+comando, um diretório com um novo projeto Weaver e criado. Dentro
+deste diretório, o arquivo que contém o loop principal está
+em \monoespaco{src/game.c} e nele encontramos:
+
+\alinhaverbatim
+#include "game.h"
+
+MAIN_LOOP(main_loop){ // The game loop
+ LOOP_INIT: // Code executed during loop initialization
+
+ LOOP_BODY: // Code executed every loop iteration
+    if(W.keyboard[W_ANY])
+        Wexit_loop();
+ LOOP_END: // Code executed at the end of the loop
+    return;
+}
+
+int main(void){
+  Winit(); // Initializes Weaver
+  Wloop(main_loop); // Enter a new game loop
+  return 0;
+}
+\alinhanormal
+
+E dentro de \monoespaco{src/game.h}, nós encontramos:
+
+\alinhaverbatim
+#ifndef _game_h_
+#define _game_h_
+
+#include "weaver/weaver.h"
+#include "includes.h"
+
+struct _game_struct{
+  // You can personalize this struct putting your variables here. But
+  // don't change it's name. Access it in W.game variable.
+} _game;
+
+MAIN_LOOP main_loop(void);
+
+#endif
+\alinhanormal
+
+Notar que neste arquivo existe uma estrutura que pode ser
+personalizada pelo usuário e cumpre o papel de centralizar algumas
+variáveis com estados globais. O tipo de coisa que para um jogo deve
+ser preservada ao salvar. Ou que deve ser acessível para plugins. Ou
+que deve ser transmitida para informar o estado do jogo a clientes
+conectados à rede. Segundo o comentário acima, esta estrutura deve ser
+referenciada pela variável \monoespaco{W.game}, o que já nos indica
+que a API será organizada de modo a fornecer um \monoespaco{struct}
+chamado \monoespaco{W} onde serão centralizados os recursos da API.
+
+O arquivo \monoespaco{includes.h} é apenas um cabeçalho que inclui em
+um projeto todos os cabeçalho de módulos criados pelo usuário (cada
+módulo é um arquivo de código C e um cabeçalho).
+
+Todo o código da API deve então estar presente ou ser incluída por
+macros dentro dos arquivos \monoespaco{weaver.c}
+e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
+
+\iniciocodigo
+@(project/src/weaver/weaver.h@>=
+#ifndef _weaver_h_
+#define _weaver_h_
+#ifdef __cplusplus
+  extern "C" {
+#endif
+@<Estrutura Global@>
+@<Cabeçalhos Weaver@>
+#ifdef __cplusplus
+  }
+#endif
+#endif
+@
+\fimcodigo
+
+A tal ``estrutura global'' referenciada acima nada mais é que
+o \monoespaco{struct} chamado \monoespaco{W} onde já mencionamos no
+comentário que colocaremos o \monoespaco{struct \_game\_struct \_game}
+que definimos em \monoespaco{game.h}. Podemos então começar definindo
+ele:
+
+\iniciocodigo
+@<Estrutura Global@>=
+// Esta estrutura conterá todas as variáveis e funções definidas pela
+// API Weaver:
+extern struct _weaver_struct{
+  struct _game_struct *game;
+  @<Variáveis Weaver@>
+  @<Funções Weaver@>
+} W;
+@
+\fimcodigo
+
+Notar que além de \monoespaco{W.game}, existirão outras variáveis
+presentes dentro desta estrutura. Basicamente iremos centralizar
+dentro dela todas as funções públicas da nossa API. Só não estarão
+nela funções que começam com ``\_'', e que são consideradas internas e
+não deveriam ser usadas por programadores utilizando a API. Desta
+forma deixamos bem delimitado o que faz parte da API e também evitamos
+poluir com nomes o ``namespace'' global de programas em C.
+
+Também definiremos aqui a estrutura geral de nosso
+arquivo \monoespaco{weaver.c}:
+
+\iniciocodigo
+@(project/src/weaver/weaver.c@>=
+#include "weaver.h"
+@<API Weaver: Definições@>
+@<API Weaver: Funções@>
+@<API Weaver: Base@>
+@
+\fimcodigo
+
+Nas definições declaramos novos tipos de estruturas de dados que forem
+necessárias. A primeira coisa que já podemos definir é a
+estrutura \monoespaco{W}, a qual é apenas declarada no cabeçalho:
+
+\iniciocodigo
+@<API Weaver: Definições@>=
+struct _weaver_struct W;
+@
+\fimcodigo
+
+Na parte de funções definimos as funções a serem usadas. Já a última
+partedo arquivo contém as funções mais básicas da API. As únicas que
+não são colocadas dentro da estrutura \monoespaco{W}. Elas são a
+função de inicialização e a função que encerra o funcionamento do
+motor.
+
+Uma das coisas que a função de inicialização faz é inicializar os
+valores da estrutura \monoespaco{W}:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>=
+void Winit(void);
+@
+\fimcodigo
+
+\iniciocodigo
+@<API Weaver: Base@>=
+void Winit(void){
+  W.game = &_game;
+  @<API Weaver: Inicialização@>
+}
+@
+\fimcodigo
+
+A função de finalização deve desalocar qualquer memória pendente,
+finalizar o uso de recursos, e deve também fechar o programa
+informando que tudo correu bem se assim realmente ocorreu:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>=
+void Wexit(void);
+@
+\fimcodigo
+
+\iniciocodigo
+@<API Weaver: Base@>=
+void Wexit(void){
+  @<API Weaver: Finalização@>
+  exit(0);
+}
+@
+\fimcodigo
+
+\subsecao{1.1. Os loops principais.}
+
+Todos os jogos são organizados dentro de loops, ou laços
+principais. Eles são basicamente um código que fica iterando
+indefinidamente até que uma condição nos leve a outro loop principal,
+ou então ao fim do programa.
+
+Como foi mostrado no código inicial do \monoespaco{game.c}, um loop
+principal deve ser declarado como:
+
+\inicioverbatim
+MAIN\_LOOP(nome\_do\_loop){
+  // Código do loop
+}
+\fimverbatim
+
+E podemos entrar em um novo loop principal, ou iniciar o primeiro loop
+principal por meio de uma chamada \monoespaco{Wloop(nome\_do\_loop)}.
+
+Com relação à função \monoespaco{Wloop}, a primeira coisa com a qual
+devemos nos preocupar é se não existe algum arquivo ou recurso
+pendente que deve ser obtido antes de iniciarmos um novo loop. Se
+existir, não poderemos passar para o novo loop. Por causa disso, a
+função \monoespaco{Wloop} na verdade é uma macro que verifica isso
+antes de chamar a verdadeira função de loop:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+#define Wloop(a) ((W.pending_files)?(false):(_Wloop(a)))
+@
+\fimcodigo
+
+A estrutura |W| deve então possuir esta variável que armazena se temos
+arquivos pendentes ou não:
+
+\iniciocodigo
+@<Variáveis Weaver@>=
+  // Isso vai dentro da estrutura W:
+  unsigned int pending_files;
+@
+\fimcodigo
+
+E ela deve ser inicializada como 0, incrementar se começamos a obter
+um recurso relevante assíncrono e decrementar quando terminamos.
+
+\iniciocodigo
+@<API Weaver: Inicialização@>=
+W.pending_files = 0;
+@
+\fimcodigo
+
+Com relação à verdadeira função de loop, ela é declarada da seguinte
+forma:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+void _Wloop(MAIN_LOOP (*f)(void)) __attribute__ ((noreturn));
+@
+\fimcodigo
+
+Notar que a função de loop nunca retornará. Qualquer código presente
+imediatamente após ela será ignorado, a menos que falhemos ao iniciar
+um novo loop devido a algum recurso assíncrono pendente.
+
+
+
+%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TODO %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+
+
+@<Funções Weaver@>
+@
+
+@<API Weaver: Finalização@>
+@
+
+
+\fim

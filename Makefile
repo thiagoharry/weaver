@@ -17,10 +17,6 @@ CORES=$(shell grep -c ^processor /proc/cpuinfo 2> /dev/null || sysctl hw.ncpu | 
 
 main: program
 all: doc program
-preprocess: ${W_FILES}
-	@rm -f cweb/*~
-	@rm -f cweb/weaver.w
-	@cat ${W_FILES} > cweb/weaver.w
 doc: test_cweave test_dot test_latex make-doc
 make-doc: preprocess diagram
 	@if [ -e .error ]; then	rm .error; \
@@ -29,10 +25,11 @@ diagram: cweb/diagrams/project_dir.dot cweb/diagrams/estados.dot cweb/diagrams/e
 	@dot -Teps cweb/diagrams/project_dir.dot -o cweb/diagrams/project_dir.eps
 	@dot -Teps cweb/diagrams/estados.dot -o cweb/diagrams/estados.eps
 	@dot -Teps cweb/diagrams/estados2.dot -o cweb/diagrams/estados2.eps
-program: test_tangle test_cc preprocess make-program
-make-program: preprocess
-	@if [ -e .error ]; then	rm .error; \
-	else ${MAKE} --no-print-directory -j ${CORES} -f Makefile.prog; fi
+program: test_tangle test_cc
+	@echo -n "Compiling...................."
+	@${TANGLE} weaver_program.tex > /dev/null
+	@${CC} ${FLAGS} src/weaver.c -o bin/weaver > /dev/null
+	@echo "OK"
 test_cweave: .build/have_cweave
 .build/have_cweave:
 	@echo -n "Testing CWEAVE..............."
@@ -156,7 +153,9 @@ test:
 	@${TANGLE} weaver_program.tex
 	@${CC} ${FLAGS} -DWEAVER_DIR="\"${PWD}/.test/share/\"" src/weaver.c -o .test/bin/weaver > /dev/null
 	@rm -rf .test/share/*
-	@cp -r project/* .test/share
+	@mkdir -p .test/share/project
+	@cp -r base/* .test/share
+	@cp -r project/* .test/share/project/
 	@bash ./.test/test.sh
 clean:
 	rm -rf *.o *~ src/*~
@@ -165,3 +164,4 @@ clean:
 	rm -f src/*
 	rm -f cweb/weaver.w
 	rm -f .log
+
