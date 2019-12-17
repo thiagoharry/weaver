@@ -151,6 +151,7 @@ test:
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program.tex
+	@${TANGLE} weaver_api.tex
 	@${CC} ${FLAGS} -DWEAVER_DIR="\"${PWD}/.test/share/\"" src/weaver.c -o .test/bin/weaver > /dev/null
 	@rm -rf .test/share/*
 	@mkdir -p .test/share/project

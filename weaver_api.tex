@@ -137,6 +137,7 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
 #endif
 @<Estrutura Global@>
 @<Cabeçalhos Weaver@>
+@<Macros Weaver@>
 #ifdef __cplusplus
   }
 #endif
@@ -157,7 +158,7 @@ ele:
 extern struct _weaver_struct{
   struct _game_struct *game;
   @<Variáveis Weaver@>
-  @<Funções Weaver@>
+  //@<Funções Weaver@>
 } W;
 @
 \fimcodigo
@@ -176,8 +177,9 @@ arquivo \monoespaco{weaver.c}:
 \iniciocodigo
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
+#include "../game.h"
 @<API Weaver: Definições@>
-@<API Weaver: Funções@>
+//@<API Weaver: Funções@>
 @<API Weaver: Base@>
 @
 \fimcodigo
@@ -229,9 +231,17 @@ void Wexit(void);
 \iniciocodigo
 @<API Weaver: Base@>=
 void Wexit(void){
-  @<API Weaver: Finalização@>
+  //@<API Weaver: Finalização@>
   exit(0);
 }
+@
+\fimcodigo
+
+O uso da função \monoespaco{exit} nos obriga a inserir o cabeçalho:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>=
+#include <stdlib.h>
 @
 \fimcodigo
 
@@ -262,7 +272,7 @@ função \monoespaco{Wloop} na verdade é uma macro que verifica isso
 antes de chamar a verdadeira função de loop:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Macros Weaver@>+=
 #define Wloop(a) ((W.pending_files)?(false):(_Wloop(a)))
 @
 \fimcodigo
@@ -291,7 +301,7 @@ forma:
 
 \iniciocodigo
 @<Cabeçalhos Weaver@>+=
-void _Wloop(MAIN_LOOP (*f)(void)) __attribute__ ((noreturn));
+void _Wloop(void (*f)(void)) __attribute__ ((noreturn));
 @
 \fimcodigo
 
@@ -309,6 +319,12 @@ um novo loop devido a algum recurso assíncrono pendente.
 @
 
 @<API Weaver: Finalização@>
+@
+
+@<API Weaver: Funções@>
+@
+
+@<API Weaver: Inicialização@>
 @
 
 

@@ -10,6 +10,6 @@ struct _game_struct{
 
 } _game;
 
-MAIN_LOOP main_loop(void);
+void main_loop(void);
 
 #endif
