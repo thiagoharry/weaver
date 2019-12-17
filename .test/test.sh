@@ -100,13 +100,14 @@ function test_new_project(){
         ./.test/bin/weaver .test\\test
     else
         ./.test/bin/weaver .test/test
-
     fi
     assertDirectoryExist "Testing new project creation" .test/test
     cd .test/test
     echo -e "#include \"game.h\"\n\nint main(void){\nWinit();\nWexit();\nreturn 0;\n}\n" > src/game.c
     if [[ ${OSTYPE} == *"bsd"* ]]; then
 	gmake &> /dev/null
+    elif [[ ${OSTYPE} ==  "msys" ]]; then
+    nmake -f Makefile
     else
 	make &> /dev/null
     fi

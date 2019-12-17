@@ -106,8 +106,15 @@
       <AdditionalDependencies>Secur32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>.test\test.sh</Command>
+      <Command>del /Q ".test\share\*"
+mkdir ".test\share\project"
+copy "base\*" ".test\share\"
+copy "project\*" ".test\share\project\"
+.test\test.sh</Command>
     </PostBuildEvent>
+    <PreBuildEvent>
+      <Command>if not exist ".test\bin" mkdir .test\bin; if not exist ".test\share" mkdir .test\share</Command>
+    </PreBuildEvent>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\weaver.c" />
