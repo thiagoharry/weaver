@@ -553,21 +553,12 @@ Unix:
 @
 \fimcodigo
 
-No Windows o código equivalente seria:
+No Windows nós apenas iremos assumir que o tamanho é 4 KB:
 
 \iniciocodigo
 @<Descobre tamanho do bloco do sistema de arquivos@>+=
 #if defined(_WIN32)
-{
-  DWORD dummy;
-  DISK_GEOMETRY s;
-  file = CreateFileW(L".temp.dat", 0, FILE_SHARE_READ | FILE_SHARE_WRITE,
-                     NULL, OPEN_EXISTING, FILE_FLAG_DELETE_ON_CLOSE, NULL);
-  DeviceIoControl(file, IOCTL_DISK_GET_DRIVE_GEOMETRY, NULL, 0, &s,
-                  sizeof(s), &dummy, (LPOVERLAPPED) NULL);
-  CloseHandle(file);
-  block_size = (ULONG) s.BytesPerSector;
-}
+  block_size = 4096;
 #endif
 @
 \fimcodigo
@@ -742,11 +733,11 @@ realizar a tarefa.
 Esta função deve receber uma lista variável de strings como argumento,
 sendo que o último argumento precisa ser uma string vazia ou
 NULL. Para cada argumento representando um caminho, a função criará o
-diretório no caminho especificado. Por padrão, o separador em caminhos
-será o ``\monoespaco{/}'' para podermos usar esta função da mesma
-forma independente do Sistema Operacional. Em sistemas em que o
-separador é outro, como no caso do Windows que usa o
-``\monoespaco{\\}'', a função fará a conversão da maneira apropriada.
+diretório no caminho especificado. Por padrão, usaremos como separador
+em caminhos será o ``\monoespaco{/}'', de modo que isso fará a função
+funcionar tanto em sistemas Unix como no Windows, onde a sua
+função \monoespaco{CreateDirectoryA} entende caminhos passados com o
+separador Unix.
 
 Em sistemas Unix nós precisamos também especificar as permissões
 máximas que o diretório terá em termos de leitura, escrita e
@@ -770,15 +761,8 @@ int create_dir(char *string, ...){
 #if !defined(_WIN32)
     err = mkdir(current_string, S_IRWXU | S_IRWXG | S_IROTH);
 #else
-    {
-      char *p = current_string;
-      while(*p != '\0'){
-        if(*p == '/') *p = '\\';
-        p ++;
-      }
-      if(!CreateDirectoryA(current_string, NULL))
-        err = -1;
-    }
+    if(!CreateDirectoryA(current_string, NULL))
+      err = -1;
 #endif
     current_string = va_arg(arguments, char *);
   }
