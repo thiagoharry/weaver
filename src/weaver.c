@@ -446,7 +446,6 @@ free(path);
 if(complete_path==NULL)W_ERROR();
 /*:21*//*23:*/
 #line 910 "./weaver_program.tex"
-
 {
 size_t tmp_size= strlen(complete_path);
 
@@ -502,7 +501,6 @@ fclose(fp);
 }
 /*:26*//*27:*/
 #line 1007 "./weaver_program.tex"
-
 have_arg= (argc> 1);
 if(have_arg)argument= argv[1];
 if(argc> 2)argument2= argv[2];
@@ -519,7 +517,6 @@ free(buffer);
 }
 /*:28*//*29:*/
 #line 1046 "./weaver_program.tex"
-
 {
 #ifdef WEAVER_DIR
 shared_dir= concatenate(WEAVER_DIR,"");
@@ -541,7 +538,6 @@ if(shared_dir==NULL)W_ERROR();
 }
 /*:29*//*31:*/
 #line 1112 "./weaver_program.tex"
-
 if(have_arg&&!arg_is_path){
 char*buffer;
 char*base= basename(argument);
@@ -699,7 +695,6 @@ strcpy(author_name,string_to_copy);
 #endif
 /*:36*//*37:*/
 #line 1334 "./weaver_program.tex"
-
 #if defined(_WIN32)
 {
 int size= 0;
@@ -753,7 +748,6 @@ if(project_name==NULL)W_ERROR();
 }
 /*:40*//*42:*/
 #line 1435 "./weaver_program.tex"
-
 {
 time_t current_time;
 struct tm*date;
@@ -881,8 +875,6 @@ argument);
 fprintf(fp,"#include \"includes.h\"\n\n#endif");
 fclose(fp);
 free(filename);
-
-
 fp= fopen("src/includes.h","a");
 fprintf(fp,"#include \"%s.h\"\n",argument);
 fclose(fp);
@@ -898,7 +890,6 @@ END();
 
 /*49:*/
 #line 1717 "./weaver_program.tex"
-
 if(!inside_weaver_directory&&have_arg){
 if(arg_is_valid_project){
 int err;
@@ -919,6 +910,7 @@ err= create_dir(".weaver","conf","tex","src","src/weaver",
 if(err==-1)W_ERROR();
 dir_name= concatenate(shared_dir,"project","");
 if(dir_name==NULL)W_ERROR();
+printf("%s\n", dir_name);
 if(copy_files(dir_name,".")==0){
 free(dir_name);
 W_ERROR();

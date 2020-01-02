@@ -115,6 +115,11 @@ copy "project\*" ".test\share\project\"
     <PreBuildEvent>
       <Command>if not exist ".test\bin" mkdir .test\bin; if not exist ".test\share" mkdir .test\share</Command>
     </PreBuildEvent>
+    <ClCompile>
+      <PreprocessorDefinitions>
+      </PreprocessorDefinitions>
+      <AdditionalOptions>/DWEAVER_DIR="\".test\\share\\\\\"" %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
     <ClCompile Include="src\weaver.c" />

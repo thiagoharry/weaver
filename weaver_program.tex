@@ -1056,7 +1056,7 @@ Windows.
     DWORD bsize = GetEnvironmentVariable("ProgramFiles", temp_buf, 0);
     temp_buf = (char *) malloc(bsize);
     GetEnvironmentVariable("ProgramFiles", temp_buf, bsize);
-    shared_dir = concatenate(temp_buf, "\\weaver", "");
+    shared_dir = concatenate(temp_buf, "\\weaver\\", "");
     free(temp_buf);
   }
 #endif
