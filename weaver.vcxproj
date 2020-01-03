@@ -33,7 +33,7 @@
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Release|Win32'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
     <UseDebugLibraries>false</UseDebugLibraries>
-    <PlatformToolset>v142</PlatformToolset>
+   <PlatformToolset>v142</PlatformToolset>
   </PropertyGroup>
   <PropertyGroup Condition="'$(Configuration)|$(Platform)'=='Debug|x64'" Label="Configuration">
     <ConfigurationType>Application</ConfigurationType>
@@ -118,7 +118,7 @@ copy "project\*" ".test\share\project\"
     <ClCompile>
       <PreprocessorDefinitions>
       </PreprocessorDefinitions>
-      <AdditionalOptions>/DWEAVER_DIR="\".test\\share\\\\\"" %(AdditionalOptions)</AdditionalOptions>
+      <AdditionalOptions>/DWEAVER_DIR="\"$(ProjectDir).test\\share\\\\\"" %(AdditionalOptions)</AdditionalOptions>
     </ClCompile>
   </ItemDefinitionGroup>
   <ItemGroup>
