@@ -98,6 +98,7 @@ function test_invocation(){
 function test_new_project(){
     if [ "${OSTYPE}" == "msys" ]; then
         ./.test/bin/weaver .test\\test
+        ls .test\\test
     else
         ./.test/bin/weaver .test/test
     fi

@@ -288,17 +288,22 @@ char*path;
 WIN32_FIND_DATA file;
 HANDLE dir= NULL;
 dir= FindFirstFile(orig,&file);
+printf("orig: %s\n", orig);
 if(dir!=INVALID_HANDLE_VALUE){
 
 do{
 if(strcmp(file.cFileName,".")&&strcmp(file.cFileName,"..")){
+    printf("%s\n", file.cFileName);
+
 path= concatenate(orig,"\\",file.cFileName,"");
 if(path==NULL){
 return 0;
 }
 if(file.dwFileAttributes&FILE_ATTRIBUTE_DIRECTORY){
+    printf("DIR\n");
 char*dst_path;
 dst_path= concatenate(dst,"\\",file.cFileName,"");
+printf("%s\n", dst_path);
 if(directory_exist(dst_path)==NAO_EXISTE)
 CreateDirectoryA(dst_path,NULL);
 if(copy_files(path,dst_path)==0){
@@ -908,9 +913,8 @@ err= create_dir(".weaver","conf","tex","src","src/weaver",
 "plugins","src/misc","src/misc/sqlite",
 "compiled_plugins","shaders","");
 if(err==-1)W_ERROR();
-dir_name= concatenate(shared_dir,"project","");
+dir_name= concatenate(shared_dir,"project", "");
 if(dir_name==NULL)W_ERROR();
-printf("%s\n", dir_name);
 if(copy_files(dir_name,".")==0){
 free(dir_name);
 W_ERROR();
