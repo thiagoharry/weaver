@@ -98,13 +98,13 @@ function test_invocation(){
 function test_new_project(){
     if [ "${OSTYPE}" == "msys" ]; then
         ./.test/bin/weaver .test\\test
-        ls .test\\test
     else
         ./.test/bin/weaver .test/test
     fi
     assertDirectoryExist "Testing new project creation" .test/test
     cd .test/test
     echo -e "#include \"game.h\"\n\nint main(void){\nWinit();\nWexit();\nreturn 0;\n}\n" > src/game.c
+    ls
     if [[ ${OSTYPE} == *"bsd"* ]]; then
 	gmake &> /dev/null
     elif [[ ${OSTYPE} ==  "msys" ]]; then
