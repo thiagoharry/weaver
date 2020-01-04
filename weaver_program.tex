@@ -651,16 +651,20 @@ está inserido. A definição da função fica assim:
 @<Funções auxiliares Weaver@>+=
 #if defined(_WIN32)
 int copy_files(char *orig, char *dst){
-  char *path;
+  char *path, *search_path;
   WIN32_FIND_DATA file;
   HANDLE dir = NULL;
-  dir = FindFirstFile(orig, &file);
+  search_path = concatenate(orig, "\\*", "");
+  if(search_path == NULL)
+    return 0;
+  dir = FindFirstFile(search_path, &file);
   if(dir != INVALID_HANDLE_VALUE){
     // The first file shall be '.' and should be safely ignored
     do{
       if(strcmp(file.cFileName, ".") && strcmp(file.cFileName, "..")){
         path = concatenate(orig, "\\", file.cFileName, "");
         if(path == NULL){
+	  free(search_path);
           return 0;
         }
         if(file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY){
@@ -672,6 +676,7 @@ int copy_files(char *orig, char *dst){
             free(dst_path);
             free(path);
             FindClose(dir);
+	    free(search_path);
             return 0;
           }
           free(dst_path);
@@ -680,13 +685,15 @@ int copy_files(char *orig, char *dst){
           if(copy_single_file(path, dst) == 0){
             free(path);
             FindClose(dir);
+	    free(search_path);
             return 0;
           }
         }
         free(path);
       }
-    }while(FindNextFile(dir, &file));
+    }while(FindNextFile(search_path, &file));
   }
+  free(search_path);
   FindClose(dir);
   return 1;
 }
