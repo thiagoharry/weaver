@@ -1,0 +1,28 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project DefaultTargets="Build"
+	 xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ProjectConfiguration Include="Debug|Win32">
+      <Configuration>Debug</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+    <ProjectConfiguration Include="Release|Win32">
+      <Configuration>Release</Configuration>
+      <Platform>Win32</Platform>
+    </ProjectConfiguration>
+  </ItemGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.Default.props" />
+  <PropertyGroup>
+    <ConfigurationType>Application</ConfigurationType>
+    <PlatformToolset>v142</PlatformToolset>
+  </PropertyGroup>
+  <Import Project="$(VCTargetsPath)\Microsoft.Cpp.props" />
+  <ItemGroup>
+    <ClCompile Include="src\*.c" />
+    <ClCompile Include="src\weaver\*.c" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="src\*.h" />
+    <ClInclude Include="src\weaver\*.h" />
+  </ItemGroup>
+</Project>
