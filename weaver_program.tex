@@ -691,7 +691,7 @@ int copy_files(char *orig, char *dst){
         }
         free(path);
       }
-    }while(FindNextFile(search_path, &file));
+    }while(FindNextFile(dir, &file));
   }
   free(search_path);
   FindClose(dir);
