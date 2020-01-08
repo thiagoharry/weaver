@@ -109,7 +109,7 @@
       <Command>del /Q ".test\share\*"
 mkdir ".test\share\project"
 copy "base\*" ".test\share\"
-copy "project\*" ".test\share\project\"
+xcopy project ".test\share\project" /y /s /e
 .test\test.sh</Command>
     </PostBuildEvent>
     <PreBuildEvent>

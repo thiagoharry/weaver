@@ -138,10 +138,15 @@ install: uninstall
 	install -c project/src/weaver/numeric.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/gif.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/gif.c ${PROJECT_SHARE}/src/weaver
-	install -c project/src/weaver/database.h ${PROJECT_SHARE}/src/weaver
+	install -c project/src/er/database.h ${P
+
+
+
 	install -c project/src/weaver/database.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/metafont.h ${PROJECT_SHARE}/src/weaver
-	install -c project/src/weaver/metafont.c ${PROJECT_SHARE}/src/weaver
+	install -c proje
+	
+	weaver/metafont.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/trie.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/trie.c ${PROJECT_SHARE}/src/weaver
 uninstall:
