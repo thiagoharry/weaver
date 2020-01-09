@@ -103,6 +103,7 @@ E dentro de \monoespaco{src/game.h}, nós encontramos:
 struct _game_struct{
   // You can personalize this struct putting your variables here. But
   // don't change it's name. Access it in W.game variable.
+  int whatever; // <- A variablejust  to prevent errors in some compilers
 } _game;
 
 MAIN_LOOP main_loop(void);
@@ -301,11 +302,17 @@ forma:
 
 \iniciocodigo
 @<Cabeçalhos Weaver@>+=
+#if !defined(_MSC_VER)
 void _Wloop(void (*f)(void)) __attribute__ ((noreturn));
+#else
+__declspec(noreturn) void _Wloop(void (*f)(void));
+#endif
 @
 \fimcodigo
 
-Notar que a função de loop nunca retornará. Qualquer código presente
+Notar que a função de loop nunca retornará e a macro condicional serve
+para especificar isso tanto em uma notação que o GCC e Clang entendem
+como na notação do Visual Studio. Qualquer código presente
 imediatamente após ela será ignorado, a menos que falhemos ao iniciar
 um novo loop devido a algum recurso assíncrono pendente.
 

@@ -430,6 +430,7 @@ arg_is_valid_function= false;
 unsigned int project_version_major= 0,project_version_minor= 0,
 weaver_version_major= 0,weaver_version_minor= 0,
 year= 0;
+
 char*argument= NULL,*project_path= NULL,*shared_dir= NULL,
 *author_name= NULL,*project_name= NULL,*argument2= NULL;
 /*21:*/
@@ -810,7 +811,6 @@ printf("       \\                You are inside a Weaver Directory.\n"
 "                         Creates a new shader directory in shaders/\n");
 END();
 }
-
 /*:45*/
 #line 234 "./weaver_program.tex"
 
@@ -905,6 +905,7 @@ END();
 
 /*49:*/
 #line 1724 "./weaver_program.tex"
+
 if(!inside_weaver_directory&&have_arg){
 if(arg_is_valid_project){
 int err;
