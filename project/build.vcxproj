@@ -2,9 +2,6 @@
 <Project DefaultTargets="build"
 	 ToolsVersion="16.0"
 	 xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
-  <PropertyGroup>
-    <Prog>testeteste</Prog>
-  </PropertyGroup>
   <ItemGroup>
     <codeInput Include="src\*.h"/>
     <codeInput Include="src\weaver\*.h"/>
@@ -16,8 +13,10 @@
     <source Include="src\*.c" />
     <source Include="src\weaver\*.c" />
   </ItemGroup>
-  <Target Name="build" Inputs="@(codeInput)" Outputs="$(AppName).exe">
-    <Exec Command="cl.exe %(source.Identity)" Outputs="$(AppName).exe"/>
+  <Target Name="build" Inputs="@(codeInput)"
+	  Outputs="$(MSBuildThisFileDirectory).exe">
+    <Exec Command="cl.exe %(source.Identity) /Fe:$(MSBuildThisFileDirectory)"
+	  Outputs="$(MSBuildThisFileDirectory).exe"/>
   </Target>
 
 </Project>
