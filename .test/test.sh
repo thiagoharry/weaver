@@ -107,7 +107,7 @@ function test_new_project(){
     if [[ ${OSTYPE} == *"bsd"* ]]; then
 	gmake &> /dev/null
     elif [[ ${OSTYPE} ==  "msys" ]]; then
-    MSBuild.exe
+    MSBuild.exe &> /dev/null
     else
 	make &> /dev/null
     fi
