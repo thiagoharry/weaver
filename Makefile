@@ -144,8 +144,6 @@ install: uninstall
 
 	install -c project/src/weaver/database.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/metafont.h ${PROJECT_SHARE}/src/weaver
-	install -c proje
-	
 	weaver/metafont.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/trie.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/trie.c ${PROJECT_SHARE}/src/weaver
@@ -163,6 +161,9 @@ test:
 	@cp -r base/* .test/share
 	@cp -r project/* .test/share/project/
 	@bash ./.test/test.sh
+doc_en:
+	tex weaver_program_en.tex
+	dvipdf weaver_program_en.dvi
 clean:
 	rm -rf *.o *~ src/*~
 	rm -f bin/*

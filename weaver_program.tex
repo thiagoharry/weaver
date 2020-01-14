@@ -194,17 +194,22 @@ O comportamento de Weaver deve depender das seguintes variáveis:
 
 |have_arg|: Se o programa é invocado com argumento.
 
-|shared_dir|: Deverá armazenar o caminho para o diretório onde
-  estão os arquivos compartilhados da instalação de Weaver. Por
-  padrão, será igual à "\monoespaco{/usr/local/share/weaver}", mas caso exista a
-  variável de ambiente \monoespaco{WEAVER\_DIR}, então este será
-  considerado o endereço dos arquivos compartilhados.
+|shared_dir|: Deverá armazenar o caminho para o diretório onde estão
+  os arquivos compartilhados da instalação de Weaver. Por padrão, será
+  igual à ``\monoespaco{/usr/local/share/weaver}'' em sistemas Unix e
+  dentro de subpasta em ``Arquivos de Programas'' no Windows. Isso
+  pode ser mudado durante a compilação definindo a
+  macro \monoespaco{WEAVER\_DIR}.
 
 |author_name|,|project_name| e |year|: Conterão respectivamente o
   nome do usuário que está invocando Weaver, o nome do projeto atual
   (se estivermos no diretório de um) e o ano atual. Isso será
   importante para gerar as mensagens de Copyright em novos projetos
   Weaver.
+
+|block_size|: O tamanho ótimo do buffer utilizado para copiar conteúdo
+ de arquivos. Em sistemas Unix tentamos descobrir tal valor. Nos
+ demais usamos valores pré-determinados.
 
 |return_value|: Que valor o programa deve retornar caso o programa
   seja interrompido no momento atual.
@@ -225,7 +230,7 @@ int main(int argc, char **argv){@/
     arg_is_valid_function = false; /* Variáveis booleanas. */
   unsigned int project_version_major = 0, project_version_minor = 0,
     weaver_version_major = 0, weaver_version_minor = 0,
-    year = 0;
+    year = 0, block_size = 0;
   /* Strings UTF-8: */
   char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
     *author_name = NULL, *project_name = NULL, *argument2 = NULL;
@@ -390,13 +395,11 @@ diferentes e vamos precisar de cabeçalhos diferentes:
 
 \subsecao{5.3. concatenate: Concatena strings}
 
-A última função auxiliar da qual precisaremos é uma função para
-concatenar strings. Ela deve receber um número arbitrário de srings
-como argumento, mas a última string deve ser uma string vazia. E irá
-retornar a concatenação de todas as strings passadas como argumento.
-
-A função irá alocar sempre uma nova string, a qual deverá ser
-desalocada antes do programa terminar. Como exemplo,
+Esta função deve receber um número arbitrário de srings como
+argumento, mas a última string deve ser uma string vazia ou |NULL|. E
+irá retornar a concatenação de todas as strings passadas como
+argumento. A função irá alocar sempre uma nova string, a qual deverá
+ser desalocada antes do programa terminar. Como exemplo,
 |concatenate("tes", " ", "te", "")| retorna |"tes te"|.
 
 \iniciocodigo
@@ -415,7 +418,7 @@ char *concatenate(char *string, ...){
 #else
   strcpy(new_string, string);
 #endif
-  while(current_string[0] != '\0'){ // Pára quando copiamos o ""
+  while(current_string != NULL && current_string[0] != '\0'){
     current_string = va_arg(arguments, char *);
     current_size += strlen(current_string);
     realloc_return = (char *) realloc(new_string, current_size);
@@ -450,7 +453,7 @@ O uso desta função requer que usemos o seguinte cabeçalho:
 @
 \fimcodigo
 
-\subsecao{5.4. basename: Obtém o caminho do diretório de arquivo}
+\subsecao{5.4. basename: Obtém o nome de um arquivo dado seu caminho}
 
 Esta função já existe em sistemas Unix. Dado o caminho completo para
 um arquivo, ela retorna uma string apenas com o nome do arquivo. Ela
