@@ -1,5 +1,9 @@
 # weaver
+
 A Game Engine written in C which can be used to develop games in C or C++ and compiled to Linux executables or Javascript web pages
+
+This project is under heavy refactoring, so it can't be
+installed. This will be corrected soon.
 
 Check the project homepage for more info:
 https://thiagoharry.github.io/weaver/

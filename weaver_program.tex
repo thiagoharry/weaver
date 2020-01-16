@@ -207,10 +207,6 @@ O comportamento de Weaver deve depender das seguintes variáveis:
   importante para gerar as mensagens de Copyright em novos projetos
   Weaver.
 
-|block_size|: O tamanho ótimo do buffer utilizado para copiar conteúdo
- de arquivos. Em sistemas Unix tentamos descobrir tal valor. Nos
- demais usamos valores pré-determinados.
-
 |return_value|: Que valor o programa deve retornar caso o programa
   seja interrompido no momento atual.
 
@@ -230,7 +226,7 @@ int main(int argc, char **argv){@/
     arg_is_valid_function = false; /* Variáveis booleanas. */
   unsigned int project_version_major = 0, project_version_minor = 0,
     weaver_version_major = 0, weaver_version_minor = 0,
-    year = 0, block_size = 0;
+    year = 0;
   /* Strings UTF-8: */
   char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
     *author_name = NULL, *project_name = NULL, *argument2 = NULL;

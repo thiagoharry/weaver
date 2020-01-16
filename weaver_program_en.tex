@@ -2855,11 +2855,6 @@ Weaver execution depends of the following variables:
  Weaver project directory) and the current year. This is important for
  copyright messages creation.
 
-|block_size|: The optimal size for the buffer utilized while copying
- files. In Unix systems we try to discover this value. In other
- systems we use predetermined values.
-
-
 |return_value|: If the program is interrupted in this exact moment,
  what the program should return?
 
@@ -2879,7 +2874,7 @@ int main(int argc, char **argv){@/
     arg_is_valid_function = false; /* Boolean variables. */
   unsigned int project_version_major = 0, project_version_minor = 0,
     weaver_version_major = 0, weaver_version_minor = 0,
-    year = 0, block_size = 0;
+    year = 0;
   /* Strings UTF-8: */
   char *argument = NULL, *project_path = NULL, *shared_dir = NULL,
     *author_name = NULL, *project_name = NULL, *argument2 = NULL;
@@ -3135,12 +3130,11 @@ include its header:
 @
 \fimcodigo
 
-\subsecao{5.5. copy\_single\_file: Copia um único arquivo para diretório}
+\subsecao{5.5. copy\_single\_file: Copy single file to target directory}
 
-A função |copy_single_file| tenta copiar o
-arquivo cujo caminho é o primeiro argumento para o diretório cujo
-caminho é o segundo argumento. Se ela conseguir, retorna 1 e retorna 0
-caso contrário.
+The function |copy_single_file| copies the file which path is the
+first argument to the target directory which path is the second
+argument. It returns 1 if successful or 0 otherwise.
 
 \iniciocodigo
 @<Weaver Auxiliary Functions@>+=
@@ -3150,17 +3144,17 @@ int copy_single_file(char *file, char *directory){
   FILE *orig, *dst;
   // Inicializa 'block_size':
   @<Descobre tamanho do bloco do sistema de arquivos@>
-  buffer = (char *) malloc(block_size); // Aloca buffer de cópia
+  buffer = (char *) malloc(block_size); // Allocating buffer for copy
   if(buffer == NULL) return 0;
   file_dst = concatenate(directory, "/", basename(file), "");
   if(file_dst == NULL) return 0;
-  orig = fopen(file, "r"); // Abre arquivo de origem
+  orig = fopen(file, "r"); // Open origin file
   if(orig == NULL){
     free(buffer);
     free(file_dst);
     return 0;
   }
-  dst = fopen(file_dst, "w"); // Abre arquivo de destino
+  dst = fopen(file_dst, "w"); // Open destiny file
   if(dst == NULL){
     fclose(orig);
     free(buffer);
@@ -3168,7 +3162,7 @@ int copy_single_file(char *file, char *directory){
     return 0;
   }
   while((bytes_read = fread(buffer, 1, block_size, orig)) > 0){
-    fwrite(buffer, 1, bytes_read, dst); // Copia origem -> buffer -> destino
+    fwrite(buffer, 1, bytes_read, dst); // Copy origin to destiny
   }
   fclose(orig);
   fclose(dst);
@@ -3179,13 +3173,12 @@ int copy_single_file(char *file, char *directory){
 @
 \fimcodigo
 
-O mais eficiente é que o buffer usado para copiar arquivos tenha o
-mesmo tamanho do bloco do sistema de arquivos. Para obter o valor
-correto deste tamanho, usamos o seguinte trecho de código em sistemas
-Unix:
+It's more efficient when the buffer used in the copy has the same size
+than a block in the filesystem. To get the correct valuem we use this
+code in Unix systems:
 
 \iniciocodigo
-@<Descobre tamanho do bloco do sistema de arquivos@>=
+@<Discover block size@>=
 #if !defined(_WIN32)
 {
   struct stat s;
@@ -3199,27 +3192,25 @@ Unix:
 @
 \fimcodigo
 
-No Windows nós apenas iremos assumir que o tamanho é 4 KB:
+In Windows we just assume that the size is 4KB:
 
 \iniciocodigo
-@<Descobre tamanho do bloco do sistema de arquivos@>+=
+@<Discover block size@>+=
 #if defined(_WIN32)
   block_size = 4096;
 #endif
 @
 \fimcodigo
 
-\subsecao{5.6. copy\_files: Copia todos os arquivos de origem para destino}
+\subsecao{5.6. copy\_files: Copy all source files to destiny}
 
-De posse da função que copia um só arquivo, precisamos definir uma
-função para copiar todos os arquivos de dentro d eum diretório para
-outro recursivamente. Isso é algo trabalhoso, pois precisamos listar
-todo o conteúdo de um diretório para obter seus arquivos. Como fazer
-isso varia dependendo do sistema operacional.
+With a function to copy a single file, we need to define a function to
+copy all the files inside a directory recursivelly. This requises some
+work, as we need to list all the content in a directory to get its
+files. How to do this depends of the Operating System.
 
-
-Em sistemas Unix a função usará |readdir| para ler o conteúdo de
-arquivos:
+In Unix systems we use the function |readdir| to read the content of
+directories:
 
 \iniciocodigo
 @<Weaver Auxiliary Functions@>+=
@@ -3229,14 +3220,14 @@ int copy_files(char *orig, char *dst){
   struct dirent *dir;
   d = opendir(orig);
   if(d){
-    while((dir = readdir(d)) != NULL){ // Loop para ler cada arquivo
+    while((dir = readdir(d)) != NULL){ // Loop to read each file
       char *file;
       file = concatenate(orig, "/", dir -> d_name, "");
       if(file == NULL){
         return 0;
       }
 #if (defined(__linux__) || defined(_BSD_SOURCE)) && defined(DT_DIR)
-      // Se suportamos DT_DIR, não precisamos chamar a função 'stat':
+      // If we support DT_DIR, we don't need the funcion 'stat':
       if(dir -> d_type == DT_DIR){
 #else
       struct stat s;
@@ -3245,7 +3236,7 @@ int copy_files(char *orig, char *dst){
       if(err == -1) return 0;
       if(S_ISDIR(s.st_mode)){
 #endif
-      // Se concluirmos estar lidando com subdiretório via 'stat' ou 'DT_DIR':
+      // If we are dealing with a subdirectory:
         char *new_dst;
         new_dst = concatenate(dst, "/", dir -> d_name, "");
         if(new_dst == NULL){
@@ -3263,7 +3254,7 @@ int copy_files(char *orig, char *dst){
         free(new_dst);
       }
       else{
-        // Se concluimos estar diante de um arquivo usual:
+        // If we get a regular file:
         if(copy_single_file(file, dst) == 0){
           free(file);
           closedir(d);
@@ -3271,7 +3262,7 @@ int copy_files(char *orig, char *dst){
         }
       }
     free(file);
-    } // Fim do loop para ler cada arquivo
+    } // End of loop to read each file
     closedir(d);
   }
   return 1;
@@ -3280,7 +3271,7 @@ int copy_files(char *orig, char *dst){
 @
 \fimcodigo
 
-E isso requer inserir o cabeçalho:
+And this requires the following headers:
 
 \iniciocodigo
 @<Headers Included in Weaver Program@>=
@@ -3290,8 +3281,8 @@ E isso requer inserir o cabeçalho:
 @
 \fimcodigo
 
-No Windows, não é necessário inserir nenhum cabeçalho novo que já não
-está inserido. A definição da função fica assim:
+In Windows we don't need new headers. The function definition becames
+the following:
 
 \iniciocodigo
 @<Weaver Auxiliary Functions@>+=
@@ -3347,15 +3338,14 @@ int copy_files(char *orig, char *dst){
 @
 \fimcodigo
 
-\subsecao{5.7. write\_copyright: Escreve mensagem de copyright em arquivo}
+\subsecao{5.7. write\_copyright: Write copyright messages in files}
 
-Por padrão, projetos Weaver utilizam a licença GNU GPL3. Como códigos
-sob esta licença são copiados e usados estaticamente em novos
-projetos, eles precisam necessariamente ter uma licença igual ou
-compatível.
+By default Weaver projects are licensed under GNU GPL 3. As codes
+under this license are copied and utilized statically in new projects,
+the new projects needs the same license or a compatible one.
 
-O código é bastante simples e requer apenas alguns parâmetros com o
-nome do autor e ano atual:
+The code is very simple and requires just some parameters as the
+author name and the current year:
 
 \iniciocodigo
 @<Weaver Auxiliary Functions@>+=
@@ -3376,31 +3366,32 @@ void write_copyright(FILE *fp, char *author_name, char *project_name, int year){
 @
 \fimcodigo
 
-\subsecao{5.8. create\_dir: Cria novos diretórios}
+\subsecao{5.8. create\_dir: Create new directories}
 
-Esta é a função responsável por criar uma lista de diretórios. Isso é
-algo bastante simples, mas deve ficar encapsulado em sua própria
-função por causa das diferenças entre Sistemas Operacionais sobre como
-realizar a tarefa.
+This function is responsible for creating a list of directories. This
+is a very simple thing, but should be encapsulated in a function
+because of differences between Operating Systems about how to do this
+task.
 
-Esta função deve receber uma lista variável de strings como argumento,
-sendo que o último argumento precisa ser uma string vazia ou
-NULL. Para cada argumento representando um caminho, a função criará o
-diretório no caminho especificado. Por padrão, usaremos como separador
-em caminhos será o ``\monoespaco{/}'', de modo que isso fará a função
-funcionar tanto em sistemas Unix como no Windows, onde a sua
-função \monoespaco{CreateDirectoryA} entende caminhos passados com o
-separador Unix.
+This function must receive as argument a variable number of strings,
+but the last argument must be an empty string or NULL. Earch argument
+except the last represents a path. The function will create the
+directory with the specified path. By default we use
+``\monoespaco{/}'' as separator, so the function shall work both in
+Unix systems as in Windows. In the later, the
+function \monoespaco{CreateDirectoryA} accepts paths represented in
+Unix notation.
 
-Em sistemas Unix nós precisamos também especificar as permissões
-máximas que o diretório terá em termos de leitura, escrita e
-execução. Tais permissões podem ser mais restritas de acordo com a
-configuração do sistema. No Windows, que tem um sistema de permissões
-mais hierárquica, nós apenas herdamos as permissões do diretório pai.
+In Unix systems we need to specify the maximum permissions in the
+directory in terms os reading, writing and execution. The Operating
+System can then accept our recommended permissions, or ensure more
+restrictive ones depending of configuration. In Windows the permission
+logic is more hyerarquical, so we just use the same permissions as the
+parent directory.
 
-Em caso de erro, nós retornaremos -1. Se tudo deu certo, retornamos 1.
+In case of error, we return -1. Otherwise, we return 1.
 
-A definição de nossa função será então:
+The function definition is:
 
 \iniciocodigo
 @<Weaver Auxiliary Functions@>+=
@@ -3424,19 +3415,17 @@ int create_dir(char *string, ...){
 @
 \fimcodigo
 
-\subsecao{5.9. append\_file: Concatena um arquivo no outro}
+\subsecao{5.9. append\_file: Concatenate file contents}
 
-Esta será uma função diferente, pois ela será mais focada em resolver
-de maneira eficiente um único caso de uso do que apresentar uma
-interface intuitiva e consistente. Ela irá receber como entrada um
-ponteiro para um arquivo já aberto (iremos chamar esta função depois
-de já termos aberto o arquivo para escrever o copyright) e receberá
-dois outros argumentos: o diretório em que está o arquivo de origem e
-o nome do arquivo de origem, separados em duas strings. Dessa forma, o
-trabalho de concatenar as duas coisas fica com esta função, não com
-quem a está invocando.
+This is an unusual function, it was designed to solve efficiently a
+single use case, sacrificing the consistency of its interface and its
+ease of use. It gets as argument a pointer for a target file already
+opened (usually we want to use this function after we opened a file to
+write the copyright notice), as second argument it gets the path of
+parent directory of an origin file and as the third argument it gets
+the origin file name.
 
-Sua definição será:
+Its definition is:
 
 \iniciocodigo
 @<Weaver Auxiliary Functions@>+=
@@ -3446,7 +3435,7 @@ int append_file(FILE *fp, char *dir, char *file){
   char *path = concatenate(dir, file, "");
   if(path == NULL) return 0;
   FILE *origin;
-  @<Descobre tamanho do bloco do sistema de arquivos@>
+  @<Discover block size@>
   buffer = (char *) malloc(block_size);
   if(buffer == NULL){
     free(path);
@@ -3469,59 +3458,53 @@ int append_file(FILE *fp, char *dir, char *file){
 @
 \fimcodigo
 
-\secao{6. Initialization das Variáveis}
+\secao{6. Variable Initialization}
 
-\subsecao{6.1. inside\_weaver\_directory e project\_path: Onde estamos}
+\subsecao{6.1. inside\_weaver\_directory e project\_path: Where we are}
 
-A primeira das variáveis é |inside_weaver_directory|, que deve valer
-|false| se o programa foi invocado de fora de um diretório de projeto
-Weaver e |true| caso contrário.
+The first variable is |inside_weaver_directory|, which stores |false|
+if the program was invoked outside a Weaver project directory and
+|true| otherwise.
 
-Como definir se estamos em um diretório que pertence à um projeto
-Weaver? Simples. São diretórios que contém dentro de si ou em um
-diretório ancestral um diretório oculto
-chamado \monoespaco{.weaver}. Caso encontremos este diretório oculto,
-também podemos aproveitar e ajustar a variável |project_path| para
-apontar para o local onde ele está. Se não o encontrarmos, estaremos
-fora de um diretório Weaver e não precisamos mudar nenhum valor das
-duas variáveis, pois elas deverão permanecer com o valor padrão
-|NULL|.
+How should we detect if we are in a Weaver project directory? It's
+simple. They are directories which contains in them or in an ancestor
+directory a hidden directory named \monoespaco{.weaver}. If we find
+this directory, we can also adjust the variable |project_path| to
+point to where is this directory. If we don't find it, we are outside
+a Weaver directory and we don't need to change these variables default
+value, which are |false| and |NULL|.
 
-Em suma, o que precisamos é de um loop com as seguintes
-características:
+In short, we need a loop with the following characteristics:
 
-\negrito{Invariantes}: A variável |complete_path| deve sempre
-  possuir o caminho completo do diretório \monoespaco{.weaver} se ele
-  existisse no diretório atual.
+\negrito{Invariant}: The variable |complete_path| must always store
+the complete path of the directory \monoespaco{.weaver} if this
+file hypothetically existed in the current directory.
 
-\negrito{Initialization:} Inicializamos tanto o |complete_path|
-  para serem válidos de acordo com o diretório em que o programa é
-  invocado.
+\negrito{Initialization:} We initialize |complete_path| to be valid
+when we are in or initial current directory.
 
-\negrito{Manutenção:} Em cada iteração do loop nós verificamos se
-  encontramos uma condição de finalização. Caso contrário, subimos
-  para o diretório pai do qual estamos, sempre atualizando as
-  variáveis para que o invariante continue válido.
+\negrito{Maintenance:} In each iteration we check if we found a
+termination condition. If not, we change to the current directory
+parent, always updating the variables to keep valid the invariant.
 
-\negrito{Finishing}: Interrompemos a execução do loop se uma das
-  três condições ocorrerem:
+\negrito{Termination}: We terminate the loop if one of the following
+3 conditions occur:
 
-a) |complete_path == "/.weaver"|: Neste caso não podemos subir mais na
-árvore de diretórios, pois estamos na raiz do sistema de arquivos. Não
-encontramos um diretório \monoespaco{.weaver}. Isso significa que não
-estamos dentro de um projeto Weaver.
+a) |complete_path == "/.weaver"|: We can't go to a parent directory
+because we are already in the root of the filesystem. It means that we
+aren't in a Weaver directory.
 
-b) |complete_path == "C:\\.weaver"|: A letra inicial pode não ser um
-``C''. De qualquer forma, estamos na raíz do sistema dos arquivos e
-não podemos subir mais como no caso acima. Com a diferença de estarmos
-no Windows.
+b) |complete_path == "C:\\.weaver"|: In fact, the initial letter could
+be ``D'', ``E'' or any other letter, not just ``C''. It also could be
+``\\.weaver''. This means that we are in the root of a Windows
+filesystem (the last case without a drive letter represents a network
+directory) and we aren't in a Weaver directory.
 
-c) |complete_path == "./.weaver"| e tal arquivo existe e é diretório:
-Neste caso encontramos um diretório \monoespaco{.weaver} e descobrimos
-que estamos dentro de um projeto Weaver. Podemos então atualizar a
-variável |project_path| para o diretório em que paramos.
+c) |complete_path == "./.weaver"| and this file exists and is a
+directory: In this case, we were inside a Weaver directory. We can
+also update |project_path| to store the current path.
 
-O código de inicialização destas variáveis será então:
+The initialization of these variables is then:
 
 \iniciocodigo
 @<Initialization@>=
@@ -3543,7 +3526,7 @@ if(complete_path == NULL) W_ERROR();
 @
 \fimcodigo
 
-Para obtermos o diretório atual, vamos precisar do cabeçalho:
+To get the current directory, we need the header:
 
 \iniciocodigo
 @<Headers Included in Weaver Program@>=
@@ -3553,11 +3536,7 @@ Para obtermos o diretório atual, vamos precisar do cabeçalho:
 @
 \fimcodigo
 
-Agora iniciamos um loop que terminará quando |complete_path| for igual
-à \monoespaco{/.weaver} (chegamos no fim da árvore de diretórios e não
-encontramos nada) ou quando realmente existir o
-diretório \monoespaco{.weaver/} no diretório examinado. E no fim do
-loop, sempre vamos para o diretório-pai do qual estamos:
+Now we define the described loop:
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3588,9 +3567,8 @@ loop, sempre vamos para o diretório-pai do qual estamos:
 @
 \fimcodigo
 
-Como alocamos memória para |project_path| armazenar o endereço do
-projeto atual se estamos em um projeto Weaver, no final do programa
-teremos que desalocar a memória:
+We allocated memory to |project_path|, so in the end of program we
+need to free this memory:
 
 \iniciocodigo
 @<Finishing@>=
