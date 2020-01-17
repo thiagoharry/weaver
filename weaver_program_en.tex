@@ -3576,16 +3576,15 @@ if(project_path != NULL) free(project_path);
 @
 \fimcodigo
 
-\subsecao{6.2. weaver\_version\_major e weaver\_version\_minor: Versão do Programa}
+\subsecao{6.2. weaver\_version\_major e weaver\_version\_minor:
+Program Version}
 
-Para descobrirmos a versão atual do Weaver que temos, basta consultar
-o valor presente na macro |VERSION|. Então, obtemos o número de versão
-maior e menor que estão separados por um ponto (se existirem). Note
-que se não houver um ponto no nome da versão, então ela é uma versão
-de testes. Mesmo neste caso o código abaixo vai funcionar, pois a
-função |atoi| iria retornar 0 nas duas invocações por encontrar
-respectivamente uma string sem dígito algum e um fim de string sem
-conteúdo:
+To discover the current program version, we can just check the macro
+|VERSION|. Then we get the majorand minor version number parsing the
+digits separated by a dot (if they exist). If we can't find a dot in
+the version name, this is a test version and the minor and major
+version number must be treated as 0. So we can just use |atoi|
+function and this requirement will be fullfilled:
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3599,14 +3598,16 @@ conteúdo:
 @
 \fimcodigo
 
-\subsecao{6.3. project\_version\_major e project\_version\_minor: Versão do Projeto}
+\subsecao{6.3. project\_version\_major e project\_version\_minor:
+Project Version}
 
-Se estamos dentro de um projeto Weaver, temos que inicializar
-informação sobre qual versão do Weaver foi usada para atualizá-lo pela
-última vez. Isso pode ser obtido lendo o arquivo
-\italico{.weaver/version} localizado dentro do diretório Weaver. Se não
-estamos em um diretório Weaver, não precisamos inicializar tais
-valores. O número de versão maior e menor é separado por um ponto.
+If we are inside a Weaver project, we need to initialize these
+variables with Weaver major and minor version used to create the
+project, or update the project if it was updated in the past. This can
+be obtained checking the file \italico{.weaver/version} inside the
+Weaver directory. If we aren't in a Weaver directory, we don't need to
+get these values. The major and minor version usually is separated by
+a dot, following the same rules than in previous subsection.
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3629,10 +3630,10 @@ if(inside_weaver_directory){
 @
 \fimcodigo
 
-\subsecao{6.4. have\_arg, argument e argument2: Argumentos de Invocação}
+\subsecao{6.4. have\_arg, argument e argument2: Invocation Arguments}
 
-Uma das variáveis mais fáceis e triviais de se inicializar. Basta
-consultar |argc| e |argv|.
+The easiest to initialize variables. We just check for |argc| and
+|argv|.
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3642,12 +3643,12 @@ if(argc > 2) argument2 = argv[2];
 @
 \fimcodigo
 
-\subsecao{6.5. arg\_is\_path: Se argumento é diretório}
+\subsecao{6.5. arg\_is\_path: If the argument is a directory}
 
-Agora temos que verificar se no caso de termos um argumento, se ele é
-um caminho para um projeto Weaver existente ou não. Para isso,
-checamos se ao concatenarmos \monoespaco{/.weaver} no argumento
-encontramos o caminho de um diretório existente ou não.
+If we have a first argument, we need to check if it's a path for a
+directory where is a Weaver project. For this, we just
+concatenate \monoespaco{/.weaver} in the first argument and check if
+this file exist.
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3662,17 +3663,15 @@ if(have_arg){
 @
 \fimcodigo
 
-\subsecao{6.6. shared\_dir: Onde arquivos estão instalados}
+\subsecao{6.6. shared\_dir: Where the files are installed}
 
-A variável |shared_dir| deverá conter onde estão os arquivos
-compartilhados da instalação de Weaver. Tais arquivos são as próprias
-bibliotecas a serem inseridas estaticamente e modelos de código
-fonte. Se existir a macro passada durante a
-compilação \monoespaco{WEAVER\_DIR}, este será o caminho em que estão
-os arquivos. Caso contrário, assumiremos o valor padrão
-de \monoespaco{/usr/local/share/weaver} em sistemas baseados em Unix e
-o local apontado pela variável de ambiente ProgramFiles em ambientes
-Windows.
+The variable |shared_dir| shall contain where are the installed shared
+files. These files are libraries to be inserted statically and models
+of source code. If the macro \monoespaco{WEAVER\_DIR} exists because
+it was defined during compilation, this will be the path where are
+these files. Other wise, se use \monoespaco{/usr/local/share/weaver}
+in Unix systems and \monoespaco{\%PROGRAMFILES\%\\weaver} in Windows
+systems.
 
 @<Initialization@>+=
 {
@@ -3697,19 +3696,16 @@ Windows.
 @
 \fimcodigo
 
-Com isso damos poder durante a compilação para determinar onde os
-dados do motor Weaver serão armazenados no sistema. Algo mais comum de
-ser alterado em sistemas Unix que no Windows, onde espera-se que os
-programas sejam armazenados no mesmo lugar.
+With this code we allow the user to choose the install directory
+during compilation. This usually is more common in Unix systems than
+in Windows where programs are expected to be kept in the same place.
 
-No Windows o código é mais longo principalmente por termos que
-determinar manualmente o nome do local padrão de se armazenar os
-programas. O endereço pode variar de acordo com o idioma do sistema,
-com a unidade de volume em que ele está ou com o fato do programa ter
-sido compilado em máquina com 32 ou 64 bits.
+In Windows the code is longer because we need to determine manually
+where to store the files. The path can change depending of system
+language, drive unit, or if the program is 32 or 64 bits.
 
-No fim do programa devemos desalocar a memória alocada para
-|shared_dir|:
+In both cases, during program finalization, we need to free the memory
+allocated to |shared_dir|:
 
 \iniciocodigo
 @<Finishing@>+=
@@ -3717,27 +3713,26 @@ if(shared_dir != NULL) free(shared_dir);
 @
 \fimcodigo
 
-\subsecao{6.7. arg\_is\_valid\_project: Se o argumento é um nome de projeto}
+\subsecao{6.7. arg\_is\_valid\_project:
+If the argument is a project name}
 
-A próxima questão que deve ser averiguada é se o que recebemos como
-argumento, caso haja argumento, pode ser o nome de um projeto Weaver
-válido ou não. Para isso, três condições precisam ser
-satisfeitas:
+The next question is if what we got as argument, if we got something,
+could be a valid Weaver project name or not. To answer this, three
+conditions need to be fullfilled:
 
-1) O nome base do projeto deve ser formado somente por caracteres
-alfanuméricos e underline (embora uma barra possa aparecer para passar
-o caminho completo de um projeto).
+1) The project basename must be formed only by alphanumeric characters
+and underline (a ``/'' or ``\\'' can appear in the path, not in the
+basename).
 
-2) Não pode existir um arquivo com o mesmo nome do projeto no local
-indicado para a criação.
+2) A file with the same name can't already exist in the place
+indicated for the new project.
 
-3) O projeto não pode ter o nome de nenhum arquivo que costuma ficar
-no diretório base de um projeto Weaver (como ``Makefile''). Do
-contrário, na hora da compilação comandos como ``\monoespaco{gcc
-game.c -o Makefile}'' poderiam ser executados e sobrescreveriam
-arquivos importantes.
+3) The project can't have the same name as some file that exists in
+the base directory of a Weaver project (``Makefile'', for
+example). Otherwise, during compilation we would overwrite important
+files.
 
-Para isso, usamos o seguinte código:
+For this, we use the following code:
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3746,17 +3741,17 @@ if(have_arg && !arg_is_path){
   char *base = basename(argument);
   int size = strlen(base);
   int i;
-  // Checando caracteres inválidos no nome:
+  // Checking for invalid characters
   for(i = 0; i < size; i ++){
     if(!isalnum(base[i]) && base[i] != '_'){
       goto NOT_VALID;
     }
   }
-  // Checando se arquivo existe:
+  // Checking if file exists:
   if(directory_exist(argument) != DONT_EXIST){
     goto NOT_VALID;
   }
-  // Checando se conflita com arquivos de compilação:
+  // Checking for name conflicts:
   buffer = concatenate(shared_dir, "project/", base, "");
   if(buffer == NULL) W_ERROR();
   if(directory_exist(buffer) != DONT_EXIST){
@@ -3770,8 +3765,7 @@ NOT_VALID:
 @
 \fimcodigo
 
-Para podermos checar se um caractere é alfanumérico, incluimos a
-seguinte biblioteca:
+To check for alphanumeric characters, we include the following header:
 
 \iniciocodigo
 @<Headers Included in Weaver Program@>=
@@ -3779,15 +3773,14 @@ seguinte biblioteca:
 @
 \fimcodigo
 
-\subsecao{6.8. arg\_is\_valid\_module: Se o argumento pode ser um nome de módulo}
+\subsecao{6.8. arg\_is\_valid\_module: If the argument could be a module name}
 
-Checar se o argumento que recebemos pode ser um nome válido para um
-módulo só faz sentido se estivermos dentro de um diretório Weaver e se
-um argumento estiver sendo passado. Neste caso, o argumento é um nome
-válido se ele contiver apenas caracteres alfanuméricos, underline e se
-não existir no projeto um arquivo \monoespaco{.c} ou \monoespaco{.h}
-em
-\monoespaco{src/} que tenha o mesmo nome do argumento passado:
+Checking if the first argument could be a valid module name makes
+sense only if we are inside a Weaver directory (otherwise we wouldn't
+care about modules) and if we have a first argument. In this case the
+argument is a valid module name if it's formed by just alphanumeric
+characters, underline and if doesn't exist a file with the same name
+and extension \monoespaco{.c} or \monoespaco{.h} in \monoespaco{src/}:
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3801,7 +3794,7 @@ if(have_arg && inside_weaver_directory){
       goto NOT_VALID_MODULE;
     }
   }
-  // Checando por conflito de nomes:
+  // Checking name conflicts:
   buffer = concatenate(project_path, "src/", argument, ".c", "");
   if(buffer == NULL) W_ERROR();
   if(directory_exist(buffer) != DONT_EXIST){
