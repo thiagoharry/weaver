@@ -3813,13 +3813,13 @@ NOT_VALID_MODULE:
 @
 \fimcodigo
 
-\subsecao{6.9. arg\_is\_valid\_plugin: Se o argumento pode ser um nome de plugin}
+\subsecao{6.9. arg\_is\_valid\_plugin: If the argument could be a plugin name}
 
-Para que um argumento seja um nome válido para plugin, ele deve ser
-composto só por caracteres alfanuméricos ou underline e não existir no
-diretório
-\monoespaco{plugin} um arquivo com a extensão \monoespaco{.c} de mesmo
-nome. Também precisamos estar naturalmente, em um diretório Weaver.
+An argument is a valid plugin name if it's formed only by alphanumeric
+characters and underline and if doesn't exist in the
+directory \monoespaco{plugin} a file with the same name and
+extension \monoespaco{.c} or \monoespaco{.h}. We also must be inside a
+Weaver directory.
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3847,12 +3847,14 @@ NOT_VALID_PLUGIN:
 @
 \fimcodigo
 
-\subsecao{6.10. arg\_is\_valid\_function: Se o argumento pode ser um nome de função de loop principal}
+\subsecao{6.10. arg\_is\_valid\_function: If the second argument could
+be the name of a main loop}
 
-Para que essa variável seja verdadeira, é preciso existir um segundo
-argumento e ele deve ser formado somente por caracteres alfanuméricos
-ou underline. Além disso, o primeiro caractere precisa ser uma letra e
-ele não pode ter o mesmo nome de alguma palavra reservada em C.
+This variable will be true if exists a second argument formed only by
+alphanumeric characters or underline. And also the first character
+must me a letter and it can't have the same name than a reserved word
+in C or C++. The last checked versions for these languages is the
+draft C++20 and C11.
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3860,17 +3862,17 @@ if(argument2 != NULL && inside_weaver_directory &&
    !strcmp(argument, "--loop")){
   int i, size;
   char *buffer;
-  // Primeiro caractere não pode ser dígito
+  // First character isn't digit
   if(isdigit(argument2[0]))
     goto NOT_VALID_FUNCTION;
   size = strlen(argument2);
-  // Checando caracteres inválidos no nome:
+  // Checking invalid characters
   for(i = 0; i < size; i ++){
     if(!isalnum(argument2[i]) && argument2[i] != '_'){
       goto NOT_VALID_PLUGIN;
     }
   }
-  // Checando se existem arquivos com o nome indicado:
+  // Checking if file already exist
   buffer = concatenate(project_path, "src/", argument2, ".c", "");
   if(buffer == NULL) W_ERROR();
   if(directory_exist(buffer) != DONT_EXIST){
@@ -3883,41 +3885,50 @@ if(argument2 != NULL && inside_weaver_directory &&
     goto NOT_VALID_FUNCTION;
   }
   free(buffer);
-  // Checando se recebemos como argumento uma palavra reservada em C:
-  if(!strcmp(argument2, "auto") || !strcmp(argument2, "break") ||
-     !strcmp(argument2, "case") || !strcmp(argument2, "char") ||
-     !strcmp(argument2, "const") || !strcmp(argument2, "continue") ||
-     !strcmp(argument2, "default") || !strcmp(argument2, "do") ||
-     !strcmp(argument2, "int") || !strcmp(argument2, "long") ||
-     !strcmp(argument2, "register") || !strcmp(argument2, "return") ||
-     !strcmp(argument2, "short") || !strcmp(argument2, "signed") ||
-     !strcmp(argument2, "sizeof") || !strcmp(argument2, "static") ||
-     !strcmp(argument2, "struct") || !strcmp(argument2, "switch") ||
-     !strcmp(argument2, "typedef") || !strcmp(argument2, "union") ||
-     !strcmp(argument2, "unsigned") || !strcmp(argument2, "void") ||
-     !strcmp(argument2, "volatile") || !strcmp(argument2, "while") ||
-     !strcmp(argument2, "double") || !strcmp(argument2, "else") ||
-     !strcmp(argument2, "enum") || !strcmp(argument2, "extern") ||
-     !strcmp(argument2, "float") || !strcmp(argument2, "for") ||
-     !strcmp(argument2, "goto") || !strcmp(argument2, "if"))
-    goto NOT_VALID_FUNCTION;
+  // Checking reserved words
+  const char *reserved[] = {"alignas", "alignof", "and", "and_eq",
+			    "asm", "auto", "bitand", "bitor", "bool",
+			    "break", "case", "catch", "char", "char8_t",
+			    "char16_t", "char32_t", "class", "compl",
+			    "concept", "const", "consteval", "constexpr",
+			    "constinit", "const_cast", "continue",
+			    "co_await", "co_return", "co_yield",
+			    "decltype", "default", "delete", "do",
+			    "double", "dynamic_cast", "else", "enum",
+			    "explicit", "export", "extern", "false",
+			    "float", "for", "friend", "goto", "if",
+			    "inline", "int", "long", "mutable",
+			    "namespace", "new", "noexcept", "not",
+			    "not_eq", "nullptr", "operator", "or",
+			    "or_eq", "private", "protected", "public",
+			    "register", "reinterpret_cast", "requires",
+			    "restrict", "return", "short", "signed",
+			    "sizeof", "static", "static_assert",
+			    "static_cast", "struct", "switch", "template",
+			    "this", "thread_local", "throw", "true",
+			    "try", "typedef", "typeid", "typename",
+			    "union", "unsigned", "using", "virtual",
+			    "void", "volatile", "xor", "xor_eq",
+			    "wchar_t", "while", NULL};
+  for(i = 0; reserved[i] != NULL; i ++)
+    if(!strcmp(argument2, reserved[i]))
+      goto NOT_VALID_FUNCTION;
   arg_is_valid_function = true;
 }
 NOT_VALID_FUNCTION:
 @
 
-\subsecao{6.11. author\_name: Nome do criador do código}
+\subsecao{6.11. author\_name: Code creator name}
 
-A variável |author_name| deve conter o nome do usuário que está
-invocando o programa. Esta informação é útil para gerar uma mensagem
-de Copyright nos arquivos de código fonte de novos módulos.
+The variable |author_name| must contain the name of the user which is
+invoking the program. This information is useful to generate copyright
+notices in source files of new modules.
 
-Isso será feito de maneira diferente em sistemas Unix e Windows. Em
-sistemas Unix, começamos obtendo o seu UID. De posse dele, obtemos
-todas as informações de login com um |getpwuid|. Se o usuário tiver
-registrado um nome em \monoespaco{/etc/passwd}, obtemos tal nome na
-estrutura retornada pela função. Caso contrário, assumiremos o login
-como sendo o nome:
+Initialize this information is different in Unix and Windows systems.
+In Unix systems we begin getting their UID. Then we get login
+information with |getpwuid|. If the user has a registered name
+in \monoespaco{/etc/passwd}, we use this name. Otherwise, we just use
+the login name.
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3926,7 +3937,7 @@ como sendo o nome:
   struct passwd *login;
   int size;
   char *string_to_copy;
-  login = getpwuid(getuid()); // Obtém dados de usuário
+  login = getpwuid(getuid()); // Get user data
   if(login == NULL) W_ERROR();
   size = strlen(login -> pw_gecos);
   if(size > 0)
@@ -3946,13 +3957,12 @@ como sendo o nome:
 @
 \fimcodigo
 
-No Windows, o nome pode ser obtido com a função |GetUserNameExA|. Na
-primeira invocação tentamos obter o tamanho do buffer necessário para
-armazenarmos o nome e na segunda obtemos o nome em si. Em caso de
-erro, usamos a função mais antiga |GetUserNameA| que vai retornar um
-nome de usuário simples ao invés de tentar obter o nome completo, e
-para isso alocamos um espaço para o maior nome de usuário válido no
-sistema.
+In Windows the name can be obtained with the function
+|GetUserNameExA|. In the first invocation we try to get the buffer
+size to store the name and in the second we get the name. In case of
+error, we try the more ancient function |GetUserNameA| which will
+return a simpler username instead of the full name. And in this case,
+we allocate in the buffer space to store the biggest valid username.
 
 \iniciocodigo
 @<Initialization@>+=
@@ -3980,7 +3990,7 @@ sistema.
 @
 \fimcodigo
 
-Depois, precisaremos desalocar a memória ocupada por |author_name|:
+After we need to free the memory allocated to |author_name|:
 
 \iniciocodigo
 @<Finishing@>+=
@@ -3988,10 +3998,10 @@ if(author_name != NULL) free(author_name);
 @
 \fimcodigo
 
-Para que o código funcione, devemos inserir uma biblioteca diferente
-dependendo de estarmos em sistemas Unix (para
-ter \monoespaco{getpwuid}) ou em sistemas Windows (para obtermos uma
-enumeração com diferentes formatos de nomes):
+For this code work, we need to insert the correct library according
+with the Operating System. In Unix is \monoespaco{pwd.h} to
+get \monoespaco{getpwuid} and in Windows we insert the security
+header.
 
 @<Headers Included in Weaver Program@>=
 #if !defined(_WIN32)
@@ -4003,12 +4013,11 @@ enumeração com diferentes formatos de nomes):
 #endif
 @
 
-\subsecao{6.12. project\_name: Nome do projeto}
+\subsecao{6.12. project\_name: The project name}
 
-Só faz sendido falarmos no nome do projeto se estivermos dentro de um
-projeto Weaver. Neste caso, o nome do projeto pode ser encontrado em
-um dos arquivos do diretório base de tal projeto em
-\monoespaco{.weaver/name}:
+Talking about the project name makes sense only when we are in a
+Weaver project directory. In this case, the project name can be found
+in the file \monoespaco{.weaver/name} inside the base directory:
 
 \iniciocodigo
 @<Initialization@>+=
@@ -4042,7 +4051,7 @@ if(inside_weaver_directory){
 @
 \fimcodigo
 
-Depois, precisaremos desalocar a memória ocupada por |project_name|:
+After we need to free the memory allocated to |project_name|:
 
 \iniciocodigo
 @<Finishing@>+=
@@ -4050,10 +4059,10 @@ if(project_name != NULL) free(project_name);
 @
 \fimcodigo
 
-\subsecao{6.13. year: Ano atual}
+\subsecao{6.13. year: Current year}
 
-O ano atual é trivial de descobrir usando a função |localtime|,
-independente do sistema operacional:
+The current year can be obtained with the function |localtime| in
+any Operating System:
 
 \iniciocodigo
 @<Initialization@>+=
@@ -4067,8 +4076,7 @@ independente do sistema operacional:
 @
 \fimcodigo
 
-O único pré-requisito é incluirmos antes a biblioteca com funções de
-tempo:
+The prerequisite is include the headers with time functions:
 
 \iniciocodigo
 @<Headers Included in Weaver Program@>=

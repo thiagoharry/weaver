@@ -1234,8 +1234,10 @@ NOT_VALID_PLUGIN:
 Para que essa variável seja verdadeira, é preciso existir um segundo
 argumento e ele deve ser formado somente por caracteres alfanuméricos
 ou underline. Além disso, o primeiro caractere precisa ser uma letra e
-ele não pode ter o mesmo nome de alguma palavra reservada em C.
-
+ele não pode ter o mesmo nome de alguma palavra reservada em C ou C++.
+A última versão checada para obter as palavras reservadas foi o
+rascunho da especificação C++20 e o padrão C11.
+  
 \iniciocodigo
 @<Inicialização@>+=
 if(argument2 != NULL && inside_weaver_directory &&
@@ -1265,24 +1267,34 @@ if(argument2 != NULL && inside_weaver_directory &&
     goto NOT_VALID_FUNCTION;
   }
   free(buffer);
-  // Checando se recebemos como argumento uma palavra reservada em C:
-  if(!strcmp(argument2, "auto") || !strcmp(argument2, "break") ||
-     !strcmp(argument2, "case") || !strcmp(argument2, "char") ||
-     !strcmp(argument2, "const") || !strcmp(argument2, "continue") ||
-     !strcmp(argument2, "default") || !strcmp(argument2, "do") ||
-     !strcmp(argument2, "int") || !strcmp(argument2, "long") ||
-     !strcmp(argument2, "register") || !strcmp(argument2, "return") ||
-     !strcmp(argument2, "short") || !strcmp(argument2, "signed") ||
-     !strcmp(argument2, "sizeof") || !strcmp(argument2, "static") ||
-     !strcmp(argument2, "struct") || !strcmp(argument2, "switch") ||
-     !strcmp(argument2, "typedef") || !strcmp(argument2, "union") ||
-     !strcmp(argument2, "unsigned") || !strcmp(argument2, "void") ||
-     !strcmp(argument2, "volatile") || !strcmp(argument2, "while") ||
-     !strcmp(argument2, "double") || !strcmp(argument2, "else") ||
-     !strcmp(argument2, "enum") || !strcmp(argument2, "extern") ||
-     !strcmp(argument2, "float") || !strcmp(argument2, "for") ||
-     !strcmp(argument2, "goto") || !strcmp(argument2, "if"))
-    goto NOT_VALID_FUNCTION;
+  // Checando se recebemos como argumento uma palavra reservada em C/C++:
+  const char *reserved[] = {"alignas", "alignof", "and", "and_eq",
+			    "asm", "auto", "bitand", "bitor", "bool",
+			    "break", "case", "catch", "char", "char8_t",
+			    "char16_t", "char32_t", "class", "compl",
+			    "concept", "const", "consteval", "constexpr",
+			    "constinit", "const_cast", "continue",
+			    "co_await", "co_return", "co_yield",
+			    "decltype", "default", "delete", "do",
+			    "double", "dynamic_cast", "else", "enum",
+			    "explicit", "export", "extern", "false",
+			    "float", "for", "friend", "goto", "if",
+			    "inline", "int", "long", "mutable",
+			    "namespace", "new", "noexcept", "not",
+			    "not_eq", "nullptr", "operator", "or",
+			    "or_eq", "private", "protected", "public",
+			    "register", "reinterpret_cast", "requires",
+			    "restrict", "return", "short", "signed",
+			    "sizeof", "static", "static_assert",
+			    "static_cast", "struct", "switch", "template",
+			    "this", "thread_local", "throw", "true",
+			    "try", "typedef", "typeid", "typename",
+			    "union", "unsigned", "using", "virtual",
+			    "void", "volatile", "xor", "xor_eq",
+			    "wchar_t", "while", NULL};
+  for(i = 0; reserved[i] != NULL; i ++)
+    if(!strcmp(argument2, reserved[i]))
+      goto NOT_VALID_FUNCTION;
   arg_is_valid_function = true;
 }
 NOT_VALID_FUNCTION:
