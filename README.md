@@ -1,6 +1,7 @@
 # weaver
 
-A Game Engine written in C which can be used to develop games in C or C++ and compiled to Linux executables or Javascript web pages
+A Game Engine written in C which can be used to develop games in C or
+C++ and compiled to Linux executables or Javascript web pages.
 
 This project is under heavy refactoring, so it can't be
 installed. This will be corrected soon.
@@ -10,7 +11,7 @@ installed. This will be corrected soon.
 You can read the PDFs documenting all the Weaver code here:
 
 * **Weaver Program**: The program used to create and manage new Weaver
-    game projects. [In English](https://github.com/thiagoharry/weaver/blob/master/weaver_program_en.pdf)[In Portuguese](https://github.com/thiagoharry/weaver/blob/master/weaver_program.pdf)
+    game projects. [[In English]](https://github.com/thiagoharry/weaver/blob/master/weaver_program_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver/blob/master/weaver_program.pdf)
 
 ## Building
 
