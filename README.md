@@ -11,7 +11,8 @@ installed. This will be corrected soon.
 You can read the PDFs documenting all the Weaver code here:
 
 * **Weaver Program**: The program used to create and manage new Weaver
-    game projects. [[In English]](https://github.com/thiagoharry/weaver/blob/master/weaver_program_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver/blob/master/weaver_program.pdf)
+    game projects.
+    [[In English]](https://github.com/thiagoharry/weaver/blob/master/weaver_program_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver/blob/master/weaver_program.pdf)
 
 ## Building
 
