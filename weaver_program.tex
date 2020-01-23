@@ -663,7 +663,7 @@ int copy_files(char *orig, char *dst){
       if(strcmp(file.cFileName, ".") && strcmp(file.cFileName, "..")){
         path = concatenate(orig, "\\", file.cFileName, "");
         if(path == NULL){
-	  free(search_path);
+          free(search_path);
           return 0;
         }
         if(file.dwFileAttributes & FILE_ATTRIBUTE_DIRECTORY){
@@ -675,7 +675,7 @@ int copy_files(char *orig, char *dst){
             free(dst_path);
             free(path);
             FindClose(dir);
-	    free(search_path);
+            free(search_path);
             return 0;
           }
           free(dst_path);
@@ -684,7 +684,7 @@ int copy_files(char *orig, char *dst){
           if(copy_single_file(path, dst) == 0){
             free(path);
             FindClose(dir);
-	    free(search_path);
+            free(search_path);
             return 0;
           }
         }
@@ -918,8 +918,8 @@ loop, sempre vamos para o diretório-pai do qual estamos:
   size_t tmp_size = strlen(complete_path);
   // Testa se chegamos ao fim:
   while(strcmp(complete_path, "/.weaver") &&
-	strcmp(complete_path, "\\.weaver") &&
-	strcmp(complete_path + 1, ":\\.weaver")){
+               strcmp(complete_path, "\\.weaver") &&
+               strcmp(complete_path + 1, ":\\.weaver")){
     if(directory_exist(complete_path) == EXISTE_E_EH_DIRETORIO){
       inside_weaver_directory = true;
       complete_path[strlen(complete_path) - 7] = '\0'; // Apaga o '.weaver'
@@ -1269,29 +1269,29 @@ if(argument2 != NULL && inside_weaver_directory &&
   free(buffer);
   // Checando se recebemos como argumento uma palavra reservada em C/C++:
   const char *reserved[] = {"alignas", "alignof", "and", "and_eq",
-			    "asm", "auto", "bitand", "bitor", "bool",
-			    "break", "case", "catch", "char", "char8_t",
-			    "char16_t", "char32_t", "class", "compl",
-			    "concept", "const", "consteval", "constexpr",
-			    "constinit", "const_cast", "continue",
-			    "co_await", "co_return", "co_yield",
-			    "decltype", "default", "delete", "do",
-			    "double", "dynamic_cast", "else", "enum",
-			    "explicit", "export", "extern", "false",
-			    "float", "for", "friend", "goto", "if",
-			    "inline", "int", "long", "mutable",
-			    "namespace", "new", "noexcept", "not",
-			    "not_eq", "nullptr", "operator", "or",
-			    "or_eq", "private", "protected", "public",
-			    "register", "reinterpret_cast", "requires",
-			    "restrict", "return", "short", "signed",
-			    "sizeof", "static", "static_assert",
-			    "static_cast", "struct", "switch", "template",
-			    "this", "thread_local", "throw", "true",
-			    "try", "typedef", "typeid", "typename",
-			    "union", "unsigned", "using", "virtual",
-			    "void", "volatile", "xor", "xor_eq",
-			    "wchar_t", "while", NULL};
+                            "asm", "auto", "bitand", "bitor", "bool",
+                            "break", "case", "catch", "char", "char8_t",
+                            "char16_t", "char32_t", "class", "compl",
+                            "concept", "const", "consteval", "constexpr",
+                            "constinit", "const_cast", "continue",
+                            "co_await", "co_return", "co_yield",
+                            "decltype", "default", "delete", "do",
+                            "double", "dynamic_cast", "else", "enum",
+                            "explicit", "export", "extern", "false",
+                            "float", "for", "friend", "goto", "if",
+                            "inline", "int", "long", "mutable",
+                            "namespace", "new", "noexcept", "not",
+                            "not_eq", "nullptr", "operator", "or",
+                            "or_eq", "private", "protected", "public",
+                            "register", "reinterpret_cast", "requires",
+                            "restrict", "return", "short", "signed",
+                            "sizeof", "static", "static_assert",
+                            "static_cast", "struct", "switch", "template",
+                            "this", "thread_local", "throw", "true",
+                            "try", "typedef", "typeid", "typename",
+                            "union", "unsigned", "using", "virtual",
+                            "void", "volatile", "xor", "xor_eq",
+                            "wchar_t", "while", NULL};
   for(i = 0; reserved[i] != NULL; i ++)
     if(!strcmp(argument2, reserved[i]))
       goto NOT_VALID_FUNCTION;
@@ -1592,11 +1592,16 @@ antiga do motor e ele deseja que ele passe a usar uma versão mais
 nova da API.
 
 Naturalmente, isso só será feito caso a versão de Weaver instalada
-seja superior à versão do projeto ou se a versão de Weaver instalada
-for uma versão instável para testes. Entende-se neste caso que o
-usuário deseja testar a versão experimental de Weaver no projeto. Fora
-isso, não é possível fazer \italico{downgrades} de projetos, passando
-da versão 0.2 para 0.1, por exemplo.
+seja igual ou superior à versão do projeto ou se a versão de Weaver
+instalada for uma versão instável para testes. Entende-se neste caso
+que o usuário deseja testar a versão experimental de Weaver no
+projeto. Fora isso, não é possível fazer \italico{downgrades} de
+projetos, passando da versão 0.2 para 0.1, por exemplo.
+
+Se a versão do projeto e a versão instalada forem as mesmas, nós ainda
+realizamos a atualização. Isso fornece um modo útil de corrigir um
+projeto se alguém apagar ou corromper um arquivo importante
+em \monoespaco{src/weaver/}.
 
 Versões experimentais sempre são identificadas como tendo um nome
 formado somente por caracteres alfabéticos. Versões estáveis serão
@@ -1621,7 +1626,7 @@ if(arg_is_path){
   if((weaver_version_major == 0 && weaver_version_minor == 0) ||
      (weaver_version_major > project_version_major) ||
      (weaver_version_major == project_version_major &&
-      weaver_version_minor > project_version_minor)){
+      weaver_version_minor >= project_version_minor)){
     char *buffer, *buffer2;
     // |buffer| <- SHARED_DIR/project/src/weaver
     buffer = concatenate(shared_dir, "project/src/weaver/", "");
@@ -1845,9 +1850,7 @@ com nome \monoespaco{DD-XX.glsl}, onde \monoespaco{DD} é o número de
 arquivos que existia mais 1 e \monoespaco{XX} é o nome escolhido
 passado como segundo argumento para o programa. Mas se existirem
 lacunas na numeração de shaders, por exemplo existir um shader 1 e um
-3 sem existir o 2, daremos preferência para cobrir a lacuna. O
-conteúdo base de um shader será obtido de um arquivo onde o programa
-Weaver está instalado.
+3 sem existir o 2, daremos preferência para cobrir a lacuna.
 
 Depois de descobrir a numeração do novo shader, basta criarmos ele
 como um arquivo vazio e depois copiarmos o conteúdo de um modelo já

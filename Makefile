@@ -18,7 +18,7 @@ CORES=$(shell grep -c ^processor /proc/cpuinfo 2> /dev/null || sysctl hw.ncpu | 
 main: program
 all: doc program
 doc: test_cweave test_dot test_latex make-doc
-make-doc: preprocess diagram
+make-doc: diagram
 	@if [ -e .error ]; then	rm .error; \
 	else ${MAKE} --no-print-directory -j ${CORES} -f Makefile.doc; fi
 diagram: cweb/diagrams/project_dir.dot cweb/diagrams/estados.dot cweb/diagrams/estados2.dot
