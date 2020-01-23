@@ -5,22 +5,38 @@ A Game Engine written in C which can be used to develop games in C or C++ and co
 This project is under heavy refactoring, so it can't be
 installed. This will be corrected soon.
 
-Check the project homepage for more info:
-https://thiagoharry.github.io/weaver/
+## Literary programming code
 
-Weaver is a literate programming project written in brazilian
-portuguese which describes the building of a 3D game engine using the
-C language.
+You can read the PDFs documenting all the Weaver code here:
 
-To build and install the engine you can type 'make' and 'make
-install'. You must have CWEB or noweb to extract and compile the
-source code.
+* **Weaver Program**: The program used to create and manage new Weaver
+    game projects. [In English](https://github.com/thiagoharry/weaver/blob/master/weaver_program_en.pdf)[In Portuguese](https://github.com/thiagoharry/weaver/blob/master/weaver_program.pdf)
 
-To build the PDF which explains all the source code, you can type
-'make doc' and a 'weaver.pdf' will be created. You must have Knuth's
-CWEB hacked with bigger buffers for this.
+## Building
 
-If you just want to read the PDF, you can check the file 'weaver.pdf'.
+To build and install the engine you can type `make` and `make
+install`. You must have CWEB or noweb to extract and compile the
+source code. The source code is always extracted from the portuguese
+literate program, not the english version.
 
-To use the engine to compile Javascript web games from C, you should
-have Emscripten installed and configured.
+To build the portuguese PDF, Weaver uses
+[magitex](https://github.com/thiagoharry/magitex), a custom TeX format
+tuned to support portuguese characters and hyphenation and able to
+substitute the more traditional `ctangle` program in literary
+programming. If you installed `magitex`, you can type `make doc` to
+build the PDF.
+
+To build the english PDF, just type `make doc_en`. As Plain TeX deal
+correctly with english hyphenation, we just import a file with macro
+definition used in `magitex` and use Plain Tex to build the PDF.
+
+## Helping
+
+Pull requests to correct typos and grammar errors are welcome.
+
+If you want to contribute with code, this should be done in the TeX
+files. Nontrivial modifications usually require updates in the text to
+explain what the new code does. You can update just the TeX file in
+english or just the file in portuguese. After this I will update the
+other file to keep the versions in the two languages the same.
+
