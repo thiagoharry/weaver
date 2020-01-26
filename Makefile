@@ -170,5 +170,5 @@ clean:
 	rm -f project/src/weaver/*
 	rm -f src/*
 	rm -f cweb/weaver.w
-	rm -f .log
-
+	rm -f *.log
+	rm -f weaver_program.c weaver_api.c

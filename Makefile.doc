@@ -3,8 +3,10 @@ all-doc:
 	@/bin/echo -ne "Creating \033[32mweaver.pdf\033[m.........."
 	#magitex-cweb cweb/weaver.w
 	magitex-cweb weaver_program.tex
+	magitex-cweb weaver_api.tex
 	rm -f *.scn *.idx
 	#dvipdf weaver.dvi
 	dvipdf weaver_program.dvi
+	dvipdf weaver_api.dvi
 	rm -f *.aux *.toc *.idx *.ind *.ilg *.dvi
 	@echo "OK"

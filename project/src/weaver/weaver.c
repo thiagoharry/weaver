@@ -1,37 +1,47 @@
 /*3:*/
-#line 179 "./weaver_api.tex"
+#line 186 "./weaver_api.tex"
 
 #include "weaver.h"
 #include "../game.h"
 /*4:*/
-#line 193 "./weaver_api.tex"
+#line 200 "./weaver_api.tex"
 
 struct _weaver_struct W;
 /*:4*/
-#line 182 "./weaver_api.tex"
+#line 189 "./weaver_api.tex"
 
 
 /*6:*/
-#line 214 "./weaver_api.tex"
+#line 223 "./weaver_api.tex"
 
 void Winit(void){
 W.game= &_game;
-/*12:*/
-#line 295 "./weaver_api.tex"
+/*11:*/
+#line 428 "./weaver_api.tex"
+
+_running_loop= false;
+_loop_begin= false;
+/*:11*//*13:*/
+#line 456 "./weaver_api.tex"
 
 W.pending_files= 0;
-/*:12*/
-#line 217 "./weaver_api.tex"
+W.loop_name= NULL;
+/*:13*//*16:*/
+#line 498 "./weaver_api.tex"
+
+W.pending_files= 0;
+/*:16*/
+#line 226 "./weaver_api.tex"
 
 }
 /*:6*//*8:*/
-#line 233 "./weaver_api.tex"
+#line 242 "./weaver_api.tex"
 
 void Wexit(void){
 
 exit(0);
 }
 /*:8*/
-#line 184 "./weaver_api.tex"
+#line 191 "./weaver_api.tex"
 
 /*:3*/

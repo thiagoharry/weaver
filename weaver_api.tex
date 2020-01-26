@@ -57,7 +57,7 @@
 \vskip 0.5cm plus 3pt minus 3pt
 
 \resumo{Este artigo utiliza programação literária para descrever a
-API Weaver. weaver é um motor de jogos e esta API é como os
+API Weaver. Weaver é um motor de jogos e esta API é como os
 programadores interagem com ela em seus projetos. Além da API, este
 artigo também cobre como o arquivo de configuração é interpretado e
 como os laços de execução do jogo devem ser organizados. A API é
@@ -66,21 +66,24 @@ Windows e Web Assembly.}
 
 \secao{1. Introdução}
 
+\subsecao{1.1. Organização de Arquivos e Estrutura W}
+
 Quando um usuário digita \monoespaco{weaver PROJETO} na linha de
 comando, um diretório com um novo projeto Weaver e criado. Dentro
 deste diretório, o arquivo que contém o loop principal está
 em \monoespaco{src/game.c} e nele encontramos:
 
+\linha
 \alinhaverbatim
 #include "game.h"
 
-MAIN_LOOP(main_loop){ // The game loop
- LOOP_INIT: // Code executed during loop initialization
+void main_loop(void){ // Um laço principal do jogo
+ LOOP_INIT: // Código de inicialização 
 
- LOOP_BODY: // Code executed every loop iteration
+ LOOP_BODY: // Código executado a cada iteração
     if(W.keyboard[W_ANY])
         Wexit_loop();
- LOOP_END: // Code executed at the end of the loop
+ LOOP_END: // Código executado na finalização
     return;
 }
 
@@ -90,9 +93,11 @@ int main(void){
   return 0;
 }
 \alinhanormal
+\linha
 
 E dentro de \monoespaco{src/game.h}, nós encontramos:
 
+\linha
 \alinhaverbatim
 #ifndef _game_h_
 #define _game_h_
@@ -101,24 +106,26 @@ E dentro de \monoespaco{src/game.h}, nós encontramos:
 #include "includes.h"
 
 struct _game_struct{
-  // You can personalize this struct putting your variables here. But
-  // don't change it's name. Access it in W.game variable.
-  int whatever; // <- A variablejust  to prevent errors in some compilers
+  // Você pode personalizar esta estrutura declarando variáveis aqui.
+  // Mas não mude seu nome. E acesse ela por meioda variável W.game
+  int whatever; // <- Variável só pra prevenir erro em certo compilador
 } _game;
 
-MAIN_LOOP main_loop(void);
+void main_loop(void);
 
 #endif
 \alinhanormal
+\linha
 
 Notar que neste arquivo existe uma estrutura que pode ser
 personalizada pelo usuário e cumpre o papel de centralizar algumas
 variáveis com estados globais. O tipo de coisa que para um jogo deve
-ser preservada ao salvar. Ou que deve ser acessível para plugins. Ou
-que deve ser transmitida para informar o estado do jogo a clientes
-conectados à rede. Segundo o comentário acima, esta estrutura deve ser
-referenciada pela variável \monoespaco{W.game}, o que já nos indica
-que a API será organizada de modo a fornecer um \monoespaco{struct}
+ser preservada ao salvarmos o progresso de um jogador. Ou que deve ser
+acessível para plugins. Ou ainda que deve ser transmitida para
+informar o estado do jogo a clientes conectados à rede. Segundo o
+comentário acima, esta estrutura deve ser referenciada pela
+variável \monoespaco{W.game}, o que já nos indica que a API será
+organizada de modo a fornecer um \monoespaco{struct}
 chamado \monoespaco{W} onde serão centralizados os recursos da API.
 
 O arquivo \monoespaco{includes.h} é apenas um cabeçalho que inclui em
@@ -201,6 +208,8 @@ não são colocadas dentro da estrutura \monoespaco{W}. Elas são a
 função de inicialização e a função que encerra o funcionamento do
 motor.
 
+\subsecao{1.2. Funções de Inicialização e Finalização}
+
 Uma das coisas que a função de inicialização faz é inicializar os
 valores da estrutura \monoespaco{W}:
 
@@ -246,7 +255,10 @@ O uso da função \monoespaco{exit} nos obriga a inserir o cabeçalho:
 @
 \fimcodigo
 
-\subsecao{1.1. Os loops principais.}
+Os demais códigos que serão executados durante a inicialização e
+finalização serão descritos ao longo do artigo.
+
+\subsecao{1.3. Os loops principais.}
 
 Todos os jogos são organizados dentro de loops, ou laços
 principais. Eles são basicamente um código que fica iterando
@@ -256,11 +268,199 @@ ou então ao fim do programa.
 Como foi mostrado no código inicial do \monoespaco{game.c}, um loop
 principal deve ser declarado como:
 
-\inicioverbatim
-MAIN\_LOOP(nome\_do\_loop){
-  // Código do loop
+\alinhaverbatim
+void nome\_do\_loop(void){
+ LOOP\_INIT: // Código executado na inicialização
+
+ LOOP\_BODY: // Código executado a cada iteração
+    if(W.keyboard[W\_ANY])
+        Wexit\_loop();
+ LOOP\_END: // Código executado na finalização
+    return;
 }
-\fimverbatim
+\alinhanormal
+
+Antes de entendermos como devemos entrar em um loop principal
+corretamente, é importante descrever como este loop é
+executado. Nota-se que ele possui uma região de inicialização, de
+execução e finalização demarcada por rótulos escritos em letras
+maiúsculas.
+
+Interpretar isso é bastante simples. É perfeitamente possível
+interpretar o código acima como:
+
+\alinhaverbatim
+void nome\_do\_loop(void){
+  // LOOP\_INIT
+  for(;;){
+    // LOOP\_BODY
+    if(W.keyboard[W\_ANY])
+        Wexit\_loop();
+  }
+  // LOOP\_END
+}
+\alinhanormal
+
+Mas embora esta interpretação seja suficientemente adequada em certos
+contextos, não é assim que este código será traduzido. Não é em todos
+os ambientes em que é possível executar um loop infinito sem fazer com
+que a interface do jogo trave. Um exemplo é o ambiente WebAssembly de
+um navegador de Internet, onde os laços principais de um programa só
+podem ser executados se forem corretamente declarados como tais e a
+execução deles ocorre não por meio de um laço infinito, mas pela
+contínua chamada de uma função de laço principal.
+
+Por causa disso, para tornar o código mais portável devemos encarar
+toda execução de um loop principal como no código abaixo:
+
+\alinhaverbatim
+for(;;)
+  nome\_do\_loop();
+\alinhanormal
+
+E dentro da função de loop principal nós não colocamos um laço
+explícito. Ao invés disso, nós decidimos qual parte da função deve ser
+executada com ajuda dos rótulos inseridos, os quais na verdade são
+macros com lógica adicional embutida junto a alguns
+comandos \monoespaco{goto} que decidem o que será executado a cada vez
+que a função é chamada.
+
+Uma consequência disso é que não é possível lidar com variáveis
+declaradas dentro da inicialização de um loop principal. Elas ,só
+teriam um valor correto dentro da inicialização, e dentro do corpo do
+loop principal seu valor seria indefinido. Por exemplo, o seguinte
+código terá resultado indefinido e talvez não imprima nada na tela:
+
+\alinhaverbatim
+// ERRADO
+void loop(void){
+LOOP\_INIT:
+  int var = 5;
+LOOP\_BODY:
+  if(var == 5)
+    printf("var == 5\\n");
+LOOP\_END:
+}
+\alinhanormal
+
+Já o seguinte código iria imprimir na saída padrão a cada iteração do
+loop:
+
+\alinhaverbatim
+// CERTO
+static int var;
+
+void loop(void){
+LOOP\_INIT:
+  var = 5;
+LOOP\_BODY:
+  if(var == 5)
+    printf("var == 5\\n");
+LOOP\_END:
+}
+\alinhanormal
+
+Outra coisa que deve ser levada em conta é que as macros utilizadas
+escondem outro detalhe importante: não é apenas um laço principal que
+executamos, mas existem dois simultâneos. Um laço principal executa
+com uma frequência fixa: o laço que cuida da física e da lógica do
+jogo. Outro laço, nós apenas fazemos executar o mais rápido que der no
+hardware atual: o laço responsável por renderizar coisas na tela.
+
+Idealmente para cada iteração do laço de renderização executamos uma
+ou mais iterações de nosso laço de física e lógica. Isso significa que
+podemos renderizar com uma frequência maior que executamos a iteração
+responsável por realmente mover objetos, detectar colisões e ler
+entrada do usuário. Para que a cada vez nós não renderizemos
+exatamente a mesma imagem, o que derrotaria o propósito de fazermos
+isso, nós interpolamos a posição dos objetos da tela de acordo com
+seus valores de aceleração, velocidade e posição.
+
+Garantindo que a nossa física e lógica do jogo execute sempre em
+intervalos constantes, nós garantimos o determinismo necessário para
+podermos sincronizar partidas por meio de redes como a Internet. E
+renderizando os objetos na tela o mais rápido que podemos com ajuda de
+interpolação nos dá a experiência visual mais suave e natural que for
+possível.
+
+Uma referência e maiores detalhes de como implementar isso pode ser
+encontrado em [Fiedler 2004]. Nossa implementação será como mostrado
+na referência, com exceção de que nosso código será muito menos
+transparente por ter que estar contido dentro de macros sem usar loops
+explícitos.
+
+Vamos agora definir o que exatamente deverá existir em cada uma das
+macros que devem estar presentes em todo laço principal:
+
+1) \monoespaco{LOOP\_INIT}: Primeiro devemos checar variáveis que
+determinam se devemos encerrar o laço e se ainda estamos carregando
+recursos do laço (imagens, vídeos, shaders, sons). Se temos que sair e
+não estamos com qualquer recurso pendente que ainda está sendo
+carregado, apenas chamamos uma função para sair do laço (ela irá
+chamar de volta o laço-pai anterior ao laço atual ou encerrar o
+programa se ele não existir). Se temos que sair mas ainda não
+terminamos de carregar algum recurso, apenas encerramos a função. Ela
+será chamada novamente e não irá fazer nada até que os recursos
+terminem de ser carregados para que possamos sair. Depois checamos se
+esta função está sendo chamada pela primeira vez. Em caso afirmativo,
+apenas continuamos a execução. Em case negativo, fazemos um desvio
+incondicional para não termos que executar novamente o código de
+inicialização. Por fim, se não fizemos o desvio, faremos com que a
+variável |W.loop_name| passe a apontar par auma string com o nome do
+laço principal atual.
+
+Saber se devemos continuar executando ou não um laço é algo que pode
+ser controlado por uma variável global, não sendo nem necessário se
+preocupar com semáforos. Afinal, somente um laço irá executar em um
+dado momento. O mesmo pode ser feito com a variável que determina se
+estamos na primeira execução de um laço (ou o começo de um
+laço). Vamos declarar ambas as variáveis:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+bool _running_loop, _loop_begin;
+@
+\fimcodigo
+
+E vamos inicializar elas:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+_running_loop = false;
+_loop_begin = false;
+@
+\fimcodigo
+
+Saber se ainda estamos carregando arquivos (ou melhor, quantos
+arquivos pendentes ainda estamos carregando) ou o nome do laço em que
+estamos são duas informações que são úteis não só para a lógica
+interna do motor, mas também para o seu usuário. Saber se o laço ainda
+não terminou de carregar é útil para fornecer uma tela de
+carregamento. Saber durante a execução o nome do laço em que estamos é
+útil tanto para depuração como para podermos carregar recursos
+diferentes dependendo do laço em que estamos. Por causa disso, ambas
+as variáveis devem ser declaradas na estrutura |W|:
+
+\iniciocodigo
+@<Variáveis Weaver@>+=
+// Dentro da estrutura W:
+unsigned pending_files;
+char *loop_name;
+@
+\fimcodigo
+
+Na inicialização ajustamos tais variáveis como 0 e |NULL|
+respectivamente:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+W.pending_files = 0;
+W.loop_name = NULL;
+@
+\fimcodigo
+
+
+%%%%%%%%%%%%%%%%%
 
 E podemos entrar em um novo loop principal, ou iniciar o primeiro loop
 principal por meio de uma chamada \monoespaco{Wloop(nome\_do\_loop)}.
@@ -271,6 +471,9 @@ pendente que deve ser obtido antes de iniciarmos um novo loop. Se
 existir, não poderemos passar para o novo loop. Por causa disso, a
 função \monoespaco{Wloop} na verdade é uma macro que verifica isso
 antes de chamar a verdadeira função de loop:
+
+
+
 
 \iniciocodigo
 @<Macros Weaver@>+=
@@ -333,6 +536,13 @@ um novo loop devido a algum recurso assíncrono pendente.
 
 @<API Weaver: Inicialização@>
 @
+
+
+\secao{Referências}
+
+\referencia{Fiedler, G. (2004) ``Fix Your Timestep!'', acessado em
+\monoespaco{https://gafferongames.com/post/fix\_your\_timestep/}
+em 2020.}
 
 
 \fim
