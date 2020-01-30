@@ -1,6 +1,6 @@
 #include "game.h"
 
-MAIN_LOOP(main_loop){ // The game loop
+void main_loop(void){ // The game loop
  LOOP_INIT: // Code executed during loop initialization
 
  LOOP_BODY: // Code executed every loop iteration
