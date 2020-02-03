@@ -189,7 +189,7 @@ arquivo \monoespaco{weaver.c}:
 #include "weaver.h"
 #include "../game.h"
 @<API Weaver: Definições@>
-//@<API Weaver: Funções@>
+@<API Weaver: Funções@>
 @<API Weaver: Base@>
 @
 \fimcodigo
@@ -646,6 +646,81 @@ E o inicializamos:
 _lag = 0;
 @
 
+Existirão variáveis que poderão ser lidas pelo usuário com informações
+de tempo. Uma delas (\monoespaco{W.t}) conterá a quantidae de
+microssegundos desde que o jogo inicializou. Outra delas
+(\monoespaco{W.dt}) conterá o intervalo entre execuções do motor de
+física e da lógica do jogo. Ambas as variáveis precisam ser declaradas
+na estrutura \monoespaco{W}:
+
+\iniciocodigo
+@<Variáveis Weaver@>+=
+unsigned long long t;
+unsigned long dt;
+@
+\fimcodigo
+
+A primeira das variáveis, obviamente deve ser inicializada como
+zero. A segunda deve ser inicializada como tendo o mesmo valor que uma
+macro \monoespaco{W\_TIMESTEP} que pode ser definida pelo usuário para
+que assim ele controle a granularidade de execução do código mais
+pesado do motor de física e lógica do jogo. Se esta macro não for
+definida, iremos assumir um valor de 40000 microssegundos. Isso
+significa uma freuência de 25 Hz de execução do motor de física (25
+vezes por segundo).
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+#if !defined(W_TIMESTEP)
+#define W_TIMESTEP 40000
+#endif
+W.dt = W_TIMESTEP;
+W.t = 0;
+@
+\fimcodigo
+
+O código da engine de física e lógica interna do jogo deve ficar
+encapsulado em uma função chamada \monoespaco{\_update}:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+void _update(void);
+@
+\fimcodigo
+
+Por hora ainda não iremos definir o código a ser executado nesta
+função:
+
+\iniciocodigo
+@<API Weaver: Funções@>=
+void _update(void){
+  @<Código a executar todo loop@>
+}
+@
+\fimcodigo
+
+Mas com as definições que fizemos já podemos definir a nossa macro que
+marca o começo do código do laço principal:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+#define LOOP_BODY                                            \
+  _loop_begin =  false;                                      \
+  if(_loop_begin)                                            \
+    goto _BEGIN_LOOP_INITIALIZATION;                         \
+_END_LOOP_INITIALIZATION:                                    \
+  _lag += _update_time();                                    \
+  while(_lag >= W.dt){                                       \
+    _update();                                               \
+_LABEL_0
+@
+\fimcodigo
+
+Notar que a macro acima abre um laço com um \monoespaco{while}, mas
+não o encerra. Ele deverá ser encerrado pelo código inserido pela
+macro que delimita o fim do corpo do laço principal. A qual também
+deverá decrementar a variável \monoespaco{\_lag} para que este não
+seja um laço infinito.
 
 %%%%%%%%%%%%%%%%%
 

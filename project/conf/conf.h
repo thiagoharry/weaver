@@ -12,6 +12,8 @@
 // Before installing and distributing this game, set the macro to 0
 #define W_DEBUG_LEVEL 2
 
+//#define W_TIMESTEP 40000
+
 // This macro determines if we are building a native program (W_ELF) or
 // a web program to be run in a browser (W_WEB). In the first case,
 // running "make" creates an executable with the project name. In the
