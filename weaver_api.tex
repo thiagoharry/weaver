@@ -502,25 +502,29 @@ na referência, com exceção de que nosso código será muito menos
 transparente por ter que estar contido dentro de macros sem usar loops
 explícitos.
 
-Vamos agora definir o que exatamente deverá existir em cada uma das
-macros que devem estar presentes em todo laço principal:
+Vamos agora definir nas subseções seguintes o que exatamente deverá
+existir em cada uma das macros que devem estar presentes em todo laço
+principal.
 
-1) \monoespaco{LOOP\_INIT}: Primeiro devemos checar variáveis que
-determinam se devemos encerrar o laço e se ainda estamos carregando
-recursos do laço (imagens, vídeos, shaders, sons). Se temos que sair e
-não estamos com qualquer recurso pendente que ainda está sendo
-carregado, apenas chamamos uma função para sair do laço (ela irá
-chamar de volta o laço-pai anterior ao laço atual ou encerrar o
-programa se ele não existir). Se temos que sair mas ainda não
-terminamos de carregar algum recurso, apenas encerramos a função. Ela
-será chamada novamente e não irá fazer nada até que os recursos
-terminem de ser carregados para que possamos sair. Depois checamos se
-esta função está sendo chamada pela primeira vez. Em caso afirmativo,
-apenas continuamos a execução. Em case negativo, fazemos um desvio
-incondicional para não termos que executar novamente o código de
-inicialização. Por fim, se não fizemos o desvio, faremos com que a
-variável |W.loop_name| passe a apontar par auma string com o nome do
-laço principal atual.
+\subsecao{3.1. Inicialização do Loop.}
+
+Isso é o que fará a macro \monoespaco{LOOP\_INIT}:
+
+Primeiro devemos checar variáveis que determinam se devemos encerrar o
+laço e se ainda estamos carregando recursos do laço (imagens, vídeos,
+shaders, sons). Se temos que sair e não estamos com qualquer recurso
+pendente que ainda está sendo carregado, apenas chamamos uma função
+para sair do laço (ela irá chamar de volta o laço-pai anterior ao laço
+atual ou encerrar o programa se ele não existir). Se temos que sair
+mas ainda não terminamos de carregar algum recurso, apenas encerramos
+a função. Ela será chamada novamente e não irá fazer nada até que os
+recursos terminem de ser carregados para que possamos sair. Depois
+checamos se esta função está sendo chamada pela primeira vez. Em caso
+afirmativo, apenas continuamos a execução. Em case negativo, fazemos
+um desvio incondicional para não termos que executar novamente o
+código de inicialização. Por fim, se não fizemos o desvio, faremos com
+que a variável |W.loop_name| passe a apontar par auma string com o
+nome do laço principal atual.
 
 Saber se devemos continuar executando ou não um laço é algo que pode
 ser controlado por uma variável global, não sendo nem necessário se
@@ -612,23 +616,27 @@ Terminamos com o
 identificador \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION}, o qual será
 o verdadeiro nome do rótulo que existirá por trás de nossa macro.
 
-2) \monoespaco{LOOP\_BODY}: Ao chega nesta macro, devemos ajustar como
-falsa a informação de que é nossa primeira execução do laço, pois
-assim não iremos executar a inicialização novamente. Em seguida,
-aproveitamos para colocar um desvio incondicional por trás de
-um \monoespaco{if} que garanta que ele nunca seja executado para o
-rótulo que termina a macro anterior. Esse desvio nunca irá ocorrer,
-mas isso previne que o compilador reclame que o rótulo que encerra a
-última macro não é usado. Em seguida, crimaos o verdadeiro rótulo que
-marca o fim da inicialização e o começo da execução do corpo do
-laço. Neste começo de corpo do laço nós medimos o tempo que passou
-desde o último laço e armazenamos em um acumulador. Se este acumulador
-tiver um valor maior que o período de tempo entre execuções do código
-de física e lógica, então executamos o código presente no laço e o
-código associado à física. Caso contrário, só ignoramos tudo e vamos
-para a finalização onde apenas renderizamos na tela.  Caso tenha
-passado um longo tempo entre cada iteração de laço, executamos mais de
-uma vez o código do corpo do laço.
+\subsecao{3.2. Corpo do Loop.}
+
+Isso é o que fará a macro \monoespaco{LOOP\_BODY}:
+
+Ao chega nesta macro, devemos ajustar como falsa a informação de que é
+nossa primeira execução do laço, pois assim não iremos executar a
+inicialização novamente. Em seguida, aproveitamos para colocar um
+desvio incondicional por trás de um \monoespaco{if} que garanta que
+ele nunca seja executado para o rótulo que termina a macro
+anterior. Esse desvio nunca irá ocorrer, mas isso previne que o
+compilador reclame que o rótulo que encerra a última macro não é
+usado. Em seguida, crimaos o verdadeiro rótulo que marca o fim da
+inicialização e o começo da execução do corpo do laço. Neste começo de
+corpo do laço nós medimos o tempo que passou desde o último laço e
+armazenamos em um acumulador. Se este acumulador tiver um valor maior
+que o período de tempo entre execuções do código de física e lógica,
+então executamos o código presente no laço e o código associado à
+física. Caso contrário, só ignoramos tudo e vamos para a finalização
+onde apenas renderizamos na tela.  Caso tenha passado um longo tempo
+entre cada iteração de laço, executamos mais de uma vez o código do
+corpo do laço.
 
 O acumulador que usamos para saber se devemos executar a lógica e a
 física do jogo será chamado de \monoespaco{\_lag}. Declaramos ele
@@ -692,7 +700,7 @@ Por hora ainda não iremos definir o código a ser executado nesta
 função:
 
 \iniciocodigo
-@<API Weaver: Funções@>=
+@<API Weaver: Base@>+=
 void _update(void){
   @<Código a executar todo loop@>
 }
@@ -721,6 +729,275 @@ não o encerra. Ele deverá ser encerrado pelo código inserido pela
 macro que delimita o fim do corpo do laço principal. A qual também
 deverá decrementar a variável \monoespaco{\_lag} para que este não
 seja um laço infinito.
+
+\subsecao{3.3. Finalização do Loop.}
+
+Isso é o que fará a macro \monoespaco{LOOP\_END}:
+
+Primeiro para fornecer uma condição de parada para o laço começado na
+macro anterior, decrementaremos de \monoespaco{\_lag} o valor
+de \monoespaco{W.dt}. Em seguida, incrementaremos \monoespaco{W.t} com
+tal quantidade de microssegundos. Só então encerramos o bloco do laço
+dentro do qual estávamos. Fora deste laço, seguimos realizando aquilo
+que deve ser feito independente de estarmos executando o motor de
+física e de lógica de jogo ou não. Como são sempre atividades
+relacionadas à renderização na tela, isso estará dentro de uma função
+chamada \monoespaco{\_render}. Em seguida, se o nosso laço principal
+ainda está rodando, encerramos com um retorno a função para que o
+código de finalização não seja executado. Por fim, colocamos apenas
+um \monoespaco{goto} que nunca será executado para um rótulo que
+usamos para evitar avisos de compilador de que tal rótulo não está
+sendo usado.
+
+A única coisa nova que temos aqui então é a função de renderização:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+void _render(void);
+@
+\fimcodigo
+
+Por hora ainda não iremos definir o código a ser executado nesta
+função:
+
+\iniciocodigo
+@<API Weaver: Base@>+=
+void _render(void){
+  @<Código de renderização@>
+}
+@
+\fimcodigo
+
+E agora colocamos o código da macro:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+#define LOOP_END                                           \
+    _lag -=  40000;                                        \
+    W.t +=  40000;                                         \
+  }                                                        \
+  _render();                                               \
+  if(_running_loop || W.pending_files)                     \
+    return;                                                \
+  if(W.t == 0)                                             \
+    goto _LABEL_0;                                         \
+_LOOP_FINALIZATION
+@
+\fimcodigo
+
+\subsecao{3.4. Entrando em Laço Principal.}
+
+Frequantemente estaremos trocando de laços principais ao longo de um
+jogo. Mas nem sempre isso significa uma substituição completa. Alguns
+laços principais ocorrem dentro de outros laços principais. Por
+exemplo, quando acessamos um menu de configurações durante um jogo. Ou
+quando em um RPG clássico por turnos mudamos para o modo de combate
+após um encontro aleatório.
+
+Podemos então formar uma pilha de laços principais, onde ao sairmos do
+último laço voltamos para o que está empilhado imediatamente abaixo
+dele ao invés de sairmos do jogo.
+
+Sendo assim, existem duas formas de entrar em um laço principal. Uma
+delas, por meio da função que definiremos chamada \monoespaco{Wloop} e
+a segunda por meio da \monoespaco{Wsubloop}. A primeira envolve
+substituirmos o laço principal atual por um novo. A segunda enolve
+apenas criar um laço principal dentro do laço atual. A primeira é algo
+que só poderemos fazer se não houverem arquivos pendentes sendo
+carregados (possivelmente haverá uma tela de carregamento neste
+caso). Por isso apenas nos asseguramos disso por mieo de um truque com
+macros:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+#if !defined(_MSC_VER)
+void _Wloop(void (*f)(void)) __attribute__ ((noreturn));
+void Wsubloop(void (*f)(void)) __attribute__ ((noreturn));
+#else
+__declspec(noreturn) void _Wloop(void (*f)(void));
+__declspec(noreturn) void Wsubloop(void (*f)(void));
+#endif
+#define Wloop(a) ((W.pending_files)?(false):(_Wloop(a)))
+@
+\fimcodigo
+
+Nenhum dos dois tipos de função irá retornar jamais. Então
+especificamos isso tanto na convenção de compiladores como Clang e GCC
+como na do Visual Studio.
+
+Vamos precisar de uma pilha de laços principais, que representaremos
+por meio de uma sequência de ponteiros para funções. Essa nossa
+sequência será um vetor com \monoespaco{W\_MAX\_SUBLOOP}
+posições. Esta macro poderá ser controlada pelo usuário, mas se não
+estiver definida, assumiremos que será 3. Além da pilha, vamos
+precisar de uma variável para nos informar em qual profundidade da
+pilha estamos no momento (\monoespaco{\_number\_of\_loops}).
+
+A declaração destas duas variáveis será:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+#if !defined(W_MAX_SUBLOOP)
+#define W_MAX_SUBLOOP 3
+#endif
+int _number_of_loops;
+void (*_loop_stack[W_MAX_SUBLOOP]) (void);
+@
+\fimcodigo
+
+E inicializamos a contagem do número de laços como zero:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+_number_of_loops = 0;
+@
+\fimcodigo
+
+Entrar em um novo laço principal por meio de \monoespaco{Wloop}
+envolve verificar se já estamos antes em um laço. Se for o caso,
+cancelamos ele. Em seguida, carregamos o novo laço para a pilha e
+ajustamos o valor da contagem de laços em execução. Atualizamos o
+nosso valor de contagem de tempo e finalmente executamos o laço. Em
+ambiente Web Assembly em navegador de Internet isso envolve chamar
+diretamente uma função que estabelece nossa função escolhida como laço
+principal. Nos demais, basta executar a função em
+um \monoespaco{while} comum:
+
+\iniciocodigo
+@<API Weaver: Base@>+=
+void _Wloop(void (*f)(void)){
+  if(_number_of_loops > 0){
+    @<Cancela Loop Principal@>
+    _number_of_loops --;
+  }
+  @<Código antes de Loop e Subloop@>
+  @<Código andes de Loop, não de Subloop@>
+  _loop_stack[_number_of_loops] = f;
+  _number_of_loops ++;
+#if W_TARGET == W_WEB
+  emscripten_set_main_loop(f, 0, 1);
+#else
+  while(1)
+    f();
+#endif
+@
+\fimcodigo
+
+Cancelar um laço principal já existente envolve caso estejamos
+executando em ambiente Web Assembly invocar a função que interrompe o
+laço atual:
+
+\iniciocodigo
+@<Cancela Loop Principal@>=
+#if W_TARGET == W_WEB
+emscripten_cancel_main_loop();
+#endif
+@
+\fimcodigo
+
+Iniciar um novo subloop, ou sublaço, é bastante semelhante. Mas
+tratamos de maneira diferente o nosso contador de laços, já que ele
+realmente precisa ser incrementado. E também temos que checar se
+tivemos um estouro na nossa pilha de laços:
+
+\iniciocodigo
+@<API Weaver: Definições@>+=
+void Wsubloop(void (*f)(void)){
+#if W_TARGET == W_WEB
+    emscripten_cancel_main_loop();
+#endif
+  @<Código antes de Loop e Subloop@>
+  @<Código andes de Subloop, não de Loop@>
+  if(_number_of_loops >= W_MAX_SUBLOOP){
+    fprintf(stderr, "Error: Max number of subloops achieved.\n");
+    fprintf(stderr, "Please, increase W_MAX_SUBLOOP in conf/conf.h"
+            " to a value bigger than %d.\n", W_MAX_SUBLOOP);
+  }
+  _loop_stack[_number_of_loops] = f;
+  _number_of_loops ++;
+#if W_TARGET == W_WEB
+  emscripten_set_main_loop(f, 0, 1);
+#else
+  while(1)
+    f();
+#endif
+}
+@
+\fimcodigo
+
+Uma coisa que faremos tanto antes de um laço como de um sublaço é
+atualizar a variável \monoespaco{\_running\_loop} que avisa ao motor
+que realmente estamos executando um laço, e não tentando sair dele. E
+também atualizamos nosso contador de tempo:
+
+\iniciocodigo
+@<Código antes de Loop e Subloop@>=
+_running_loop = true;
+_update_time();
+@
+\fimcodigo
+
+\subsecao{3.4. Saindo do Laço Principal.}
+
+Assim como existem duas funções para entrar em laços prinicpais,
+existitão duas funções para sair. Uma delas apenas sai do laço
+prinicpal atual, voltando para o próximo laço principal da pilha se
+existit. A outra sai de todos os laços existentes e encerra o
+programa.
+
+A que sai de todos os laços já foi parcialmetne definida e é
+a \monoespaco{Wexit).
+
+Sair de um laço atual já existente envolve ajustar a variável global
+que diz que estamos executando o laço para um valor que significa que
+queremos sair do laço:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+#define Wexit_loop() (_running_loop = false)
+@
+\fimcodigo
+
+Se você verificar novamente o código inserido pelas macros presentes
+em laços principais, verá que se esta variável for falsa e não existir
+nenhum recurso ou arquivo ainda sendo carregado, então será chamada a
+função \monoespaco{\_exit\_loop}:
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+#if !defined(_MSC_VER)
+void _exit_loop(void) __attribute__ ((noreturn));
+#else
+__declspec(noreturn) void _exit_loop(void);
+#endif
+@
+\fimcodigo
+
+Já o código desta função envolve cancelar o laço atual e checar se
+existe outro na pilha. Se não existir, o programa se encerra. Se
+existir, executa código de entrada no novo laço:
+
+\iniciocodigo
+@<API Weaver: Definições@>+=
+void _exit_loop(void){
+  if(_number_of_loops <= 1)
+    Wexit();
+  else{
+    @<Código após sairmos de Subloop@>
+    _number_of_loops --;
+    @<Código antes de Loop e Subloop@>
+#if W_TARGET == W_WEB
+    emscripten_cancel_main_loop();
+    emscripten_set_main_loop(_loop_stack[_number_of_loops], 0, 1);
+#else
+  while(1)
+    _loop_stack[_number_of_loops]();
+#endif
+  }
+}
+@
+\fimcodigo
+
 
 %%%%%%%%%%%%%%%%%
 
@@ -774,19 +1051,6 @@ um novo loop devido a algum recurso assíncrono pendente.
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TODO %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-
-
-@<Funções Weaver@>
-@
-
-@<API Weaver: Finalização@>
-@
-
-@<API Weaver: Funções@>
-@
-
-@<API Weaver: Inicialização@>
-@
 
 
 \secao{Referências}
