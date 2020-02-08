@@ -563,7 +563,7 @@ as variáveis devem ser declaradas na estrutura |W|:
 @<Variáveis Weaver@>+=
 // Dentro da estrutura W:
 unsigned pending_files;
-char *loop_name;
+const char *loop_name;
 @
 \fimcodigo
 
@@ -644,7 +644,7 @@ globalmente:
 
 \iniciocodigo
 @<Cabeçalhos Weaver@>+=
-long _lag;
+unsigned long _lag;
 @
 \fimcodigo
 
@@ -874,12 +874,13 @@ void _Wloop(void (*f)(void)){
   @<Código andes de Loop, não de Subloop@>
   _loop_stack[_number_of_loops] = f;
   _number_of_loops ++;
-#if W_TARGET == W_WEB
+#if defined(__EMSCRIPTEN__)
   emscripten_set_main_loop(f, 0, 1);
 #else
   while(1)
     f();
 #endif
+}
 @
 \fimcodigo
 
@@ -889,7 +890,7 @@ laço atual:
 
 \iniciocodigo
 @<Cancela Loop Principal@>=
-#if W_TARGET == W_WEB
+#if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
 #endif
 @
@@ -903,7 +904,7 @@ tivemos um estouro na nossa pilha de laços:
 \iniciocodigo
 @<API Weaver: Definições@>+=
 void Wsubloop(void (*f)(void)){
-#if W_TARGET == W_WEB
+#if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
 #endif
   @<Código antes de Loop e Subloop@>
@@ -915,7 +916,7 @@ void Wsubloop(void (*f)(void)){
   }
   _loop_stack[_number_of_loops] = f;
   _number_of_loops ++;
-#if W_TARGET == W_WEB
+#if defined(__EMSCRIPTEN__)
   emscripten_set_main_loop(f, 0, 1);
 #else
   while(1)
@@ -924,6 +925,12 @@ void Wsubloop(void (*f)(void)){
 }
 @
 \fimcodigo
+
+Vamos incluir o cabçalho para podermos imprimir mensagens de erro:
+
+@<Cabeçalhos Weaver@>+=
+#include <stdio.h>
+@
 
 Uma coisa que faremos tanto antes de um laço como de um sublaço é
 atualizar a variável \monoespaco{\_running\_loop} que avisa ao motor
@@ -946,7 +953,7 @@ existit. A outra sai de todos os laços existentes e encerra o
 programa.
 
 A que sai de todos os laços já foi parcialmetne definida e é
-a \monoespaco{Wexit).
+a \monoespaco{Wexit}.
 
 Sair de um laço atual já existente envolve ajustar a variável global
 que diz que estamos executando o laço para um valor que significa que
@@ -986,7 +993,7 @@ void _exit_loop(void){
     @<Código após sairmos de Subloop@>
     _number_of_loops --;
     @<Código antes de Loop e Subloop@>
-#if W_TARGET == W_WEB
+#if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
     emscripten_set_main_loop(_loop_stack[_number_of_loops], 0, 1);
 #else
@@ -998,65 +1005,53 @@ void _exit_loop(void){
 @
 \fimcodigo
 
+\secao{Definições Vazias}
 
-%%%%%%%%%%%%%%%%%
-
-E podemos entrar em um novo loop principal, ou iniciar o primeiro loop
-principal por meio de uma chamada \monoespaco{Wloop(nome\_do\_loop)}.
-
-Com relação à função \monoespaco{Wloop}, a primeira coisa com a qual
-devemos nos preocupar é se não existe algum arquivo ou recurso
-pendente que deve ser obtido antes de iniciarmos um novo loop. Se
-existir, não poderemos passar para o novo loop. Por causa disso, a
-função \monoespaco{Wloop} na verdade é uma macro que verifica isso
-antes de chamar a verdadeira função de loop:
-
-
-
+As seguintes definições ainda estão em branco e estão aqui para manter
+o projeto compilando com sucesso. Esta parte não existirá na versão
+final deste documento e as partes que aparecem aqui vazias estarão
+posteriormente preenchidas e melhor explicadas.
 
 \iniciocodigo
-@<Macros Weaver@>+=
-#define Wloop(a) ((W.pending_files)?(false):(_Wloop(a)))
+@<Código andes de Subloop, não de Loop@>=
 @
 \fimcodigo
 
-A estrutura |W| deve então possuir esta variável que armazena se temos
-arquivos pendentes ou não:
-
-
-E ela deve ser inicializada como 0, incrementar se começamos a obter
-um recurso relevante assíncrono e decrementar quando terminamos.
-
-
-Com relação à verdadeira função de loop, ela é declarada da seguinte
-forma:
-
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
-#if !defined(_MSC_VER)
-void _Wloop(void (*f)(void)) __attribute__ ((noreturn));
-#else
-__declspec(noreturn) void _Wloop(void (*f)(void));
-#endif
+@<Código após sairmos de Subloop@>=
 @
 \fimcodigo
 
-Notar que a função de loop nunca retornará e a macro condicional serve
-para especificar isso tanto em uma notação que o GCC e Clang entendem
-como na notação do Visual Studio. Qualquer código presente
-imediatamente após ela será ignorado, a menos que falhemos ao iniciar
-um novo loop devido a algum recurso assíncrono pendente.
+\iniciocodigo
+@<API Weaver: Funções@>=
+@
+\fimcodigo
 
+\iniciocodigo
+@<Código a executar todo loop@>=
+@
+\fimcodigo
 
+\iniciocodigo
+@<Código de renderização@>=
+@
+\fimcodigo
 
-%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%% TODO %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+\iniciocodigo
+@<Código andes de Loop, não de Subloop@>=
+@
+\fimcodigo
 
+\iniciocodigo
+@<Macros Weaver@>=
+@
+\fimcodigo
 
 
 \secao{Referências}
 
 \referencia{Fiedler, G. (2004) ``Fix Your Timestep!'', acessado em
-\monoespaco{https://gafferongames.com/post/fix\_your\_timestep/}
+\monoespaco{https://gafferongames. com/post/fix\_your\_timestep/}
 em 2020.}
 
 
