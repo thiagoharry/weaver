@@ -40,11 +40,8 @@ endif
 
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
 web: test_emcc test_xxd shader_data make-web
-else ifeq ($(strip $(TARGET_TEST)),W_ELF)
-prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd ${TEST_PNG} ${TEST_MP3} shader_data make-prog
 else
-err:
-	$(error Invalid W_TARGET in conf/conf.h)
+prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd ${TEST_PNG} ${TEST_MP3} shader_data make-prog
 endif
 make-prog:
 	@if [ -e .error ]; then	rm .error; \

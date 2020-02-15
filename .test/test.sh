@@ -68,6 +68,39 @@ function assertExecutableExists(){
     fi
 }
 
+function assertExecutableRun(){
+    LENGTH_STRING=${#1}
+    NUMBER_OF_TESTS=$((${NUMBER_OF_TESTS} + 1))
+    echo -n ${1}
+    for (( i=2; i <= $((65-${LENGTH_STRING})); ++i )); do
+	echo -n "."
+    done
+    if  ${2} 2> /dev/null; then
+	echo "[OK]"
+	OK=$((${OK}+1))
+    else
+	echo "[FAIL]"
+	FAIL=$((${FAIL}+1))
+    fi
+}
+
+function assertExecutableDontRun(){
+    LENGTH_STRING=${#1}
+    NUMBER_OF_TESTS=$((${NUMBER_OF_TESTS} + 1))
+    echo -n ${1}
+    for (( i=2; i <= $((65-${LENGTH_STRING})); ++i )); do
+	echo -n "."
+    done
+    if  ${2} 2> /dev/null; then
+	echo "[FAIL]"
+	FAIL=$((${FAIL}+1))
+    else
+	echo "[OK]"
+	OK=$((${OK}+1))
+    fi
+}
+
+
 function print_result(){
     echo ${NUMBER_OF_TESTS}" tests: "${OK}" sucess, "${FAIL}" fails"
     echo
@@ -103,15 +136,38 @@ function test_new_project(){
     fi
     assertDirectoryExist "Testing new project creation" .test/test
     cd .test/test
+    #######
     echo -e "#include \"game.h\"\n\nint main(void){\nWinit();\nWexit();\nreturn 0;\n}\n" > src/game.c
     if [[ ${OSTYPE} == *"bsd"* ]]; then
 	gmake &> /dev/null
     elif [[ ${OSTYPE} ==  "msys" ]]; then
-    MSBuild.exe &> /dev/null
+	MSBuild.exe &> /dev/null
     else
 	make &> /dev/null
     fi
     assertExecutableExists "Testing project compilation" test
+    ########
+    rm test
+    cp ../test1.c src/game.c
+    if [[ ${OSTYPE} == *"bsd"* ]]; then
+	gmake &> /dev/null
+    elif [[ ${OSTYPE} ==  "msys" ]]; then
+	MSBuild.exe &> /dev/null
+    else
+	make &> /dev/null
+    fi
+    assertExecutableRun "Testing game main loops" ./test
+    #######
+    echo "#define W_MAX_SUBLOOP 2" > conf/conf.h
+    if [[ ${OSTYPE} == *"bsd"* ]]; then
+	gmake &> /dev/null
+    elif [[ ${OSTYPE} ==  "msys" ]]; then
+	MSBuild.exe &> /dev/null
+    else
+	make &> /dev/null
+    fi
+    assertExecutableDontRun "Testing main loop limits" ./test
+    #######
     cd - > /dev/null
     rm -rf .test/test
 }

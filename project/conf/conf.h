@@ -59,6 +59,5 @@
 #define W_CAMERA_SIZE     0.3
 
 /* Various Limits */
-#define W_MAX_SUBLOOP            16 // Max number of subloops
 #define W_MAX_SCHEDULING         16 // Max periodic functions in a loop
 #define W_MAX_INTERFACES         16 // Max number of interface elements

@@ -143,6 +143,7 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
 #ifdef __cplusplus
   extern "C" {
 #endif
+#include "../../conf/conf.h"
 @<Estrutura Global@>
 @<Cabeçalhos Weaver@>
 @<Macros Weaver@>
@@ -152,6 +153,10 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
 #endif
 @
 \fimcodigo
+
+Notar que incluímos no cabeçalho o arquivo de
+configuração \monoespaco{conf.h} responsável por controlar e
+configurar o comportamento de nosso motor.
 
 \subsecao{1.2. A Estrutura W}
 
@@ -523,8 +528,8 @@ checamos se esta função está sendo chamada pela primeira vez. Em caso
 afirmativo, apenas continuamos a execução. Em case negativo, fazemos
 um desvio incondicional para não termos que executar novamente o
 código de inicialização. Por fim, se não fizemos o desvio, faremos com
-que a variável |W.loop_name| passe a apontar par auma string com o
-nome do laço principal atual.
+que a variável |W.loop_name| passe a ser uma string com o nome do laço
+principal atual.
 
 Saber se devemos continuar executando ou não um laço é algo que pode
 ser controlado por uma variável global, não sendo nem necessário se
@@ -557,13 +562,18 @@ não terminou de carregar é útil para fornecer uma tela de
 carregamento. Saber durante a execução o nome do laço em que estamos é
 útil tanto para depuração como para podermos carregar recursos
 diferentes dependendo do laço em que estamos. Por causa disso, ambas
-as variáveis devem ser declaradas na estrutura |W|:
+as variáveis devem ser declaradas na estrutura |W|. O tamanho máximo
+de nome de um laço que podemos armazenar pode ser personalizado com a
+macro \monoespaco{W_MAX_LOOP_NAME}.
 
 \iniciocodigo
 @<Variáveis Weaver@>+=
 // Dentro da estrutura W:
+#if !defined(W_MAX_LOOP_NAME)
+#define W_MAX_LOOP_NAME 64
+#endif
 unsigned pending_files;
-const char *loop_name;
+char loop_name[W_MAX_LOOP_NAME];
 @
 \fimcodigo
 
@@ -573,7 +583,7 @@ respectivamente:
 \iniciocodigo
 @<API Weaver: Inicialização@>+=
 W.pending_files = 0;
-W.loop_name = NULL;
+W.loop_name[0] = '\0';
 @
 \fimcodigo
 
@@ -607,7 +617,7 @@ laço:
    goto _LOOP_FINALIZATION;                                          \
   if(!_loop_begin)                                                   \
     goto _END_LOOP_INITIALIZATION;                                   \
-  W.loop_name = __func__;                                            \
+  snprintf(W.loop_name, W_MAX_LOOP_NAME, "%s", __func__);            \
   _BEGIN_LOOP_INITIALIZATION
 @
 \fimcodigo
@@ -913,6 +923,7 @@ void Wsubloop(void (*f)(void)){
     fprintf(stderr, "Error: Max number of subloops achieved.\n");
     fprintf(stderr, "Please, increase W_MAX_SUBLOOP in conf/conf.h"
             " to a value bigger than %d.\n", W_MAX_SUBLOOP);
+    exit(1);
   }
   _loop_stack[_number_of_loops] = f;
   _number_of_loops ++;
@@ -934,12 +945,15 @@ Vamos incluir o cabçalho para podermos imprimir mensagens de erro:
 
 Uma coisa que faremos tanto antes de um laço como de um sublaço é
 atualizar a variável \monoespaco{\_running\_loop} que avisa ao motor
-que realmente estamos executando um laço, e não tentando sair dele. E
+que realmente estamos executando um laço ao invés de tentar sair dele,
+ajustamos a variável que diz que estamos entrando no começo de um laço
+e que portanto precisaremos executar o código de inicialização e
 também atualizamos nosso contador de tempo:
 
 \iniciocodigo
 @<Código antes de Loop e Subloop@>=
 _running_loop = true;
+_loop_begin = true;
 _update_time();
 @
 \fimcodigo
@@ -987,18 +1001,20 @@ existir, executa código de entrada no novo laço:
 \iniciocodigo
 @<API Weaver: Definições@>+=
 void _exit_loop(void){
-  if(_number_of_loops <= 1)
+  if(_number_of_loops <= 1){
     Wexit();
+    exit(1); // Esta linha apenas previne aviso na compilação
+  }
   else{
     @<Código após sairmos de Subloop@>
     _number_of_loops --;
     @<Código antes de Loop e Subloop@>
 #if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
-    emscripten_set_main_loop(_loop_stack[_number_of_loops], 0, 1);
+    emscripten_set_main_loop(_loop_stack[_number_of_loops - 1], 0, 1);
 #else
-  while(1)
-    _loop_stack[_number_of_loops]();
+    while(1)
+      _loop_stack[_number_of_loops - 1]();
 #endif
   }
 }

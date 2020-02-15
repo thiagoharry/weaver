@@ -36,8 +36,7 @@ else ifeq ($(strip $(CC)),clang)
 FINAL_CC=clang++
 endif
 else
-err:
-	$(error Invalid W_SOURCE in conf/conf.h)
+FINAL_CC=${CC}
 endif
 all: ${OBJ} ${W_OBJ} ${HEADERS} ${PLUGINS} ${MISC_OBJ} conf/conf.h
 	${FINAL_CC} ${INCLUDES} ${DEFINES} ${FLAGS} ${OBJ} ${W_OBJ} ${MISC_OBJ} -o ${PROG} ${LIB}
