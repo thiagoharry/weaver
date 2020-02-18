@@ -47,9 +47,10 @@ return result;
 
 #if defined(_WIN32)
 unsigned long _update_time(void){
-LARGE_INTEGER prev= _last_time;
+	LARGE_INTEGER prev;
+	prev.QuadPart = _last_time.QuadPart;
 QueryPerformanceCounter(&_last_time);
-return(_last_time-prev);
+return(_last_time.QuadPart-prev.QuadPart);
 }
 #endif
 /*:14*//*36:*/

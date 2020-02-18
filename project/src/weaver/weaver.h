@@ -52,6 +52,7 @@ void Wexit(void);
 #line 284 "./weaver_api.tex"
 
 #if defined(_WIN32)
+#include <windows.h>
 LARGE_INTEGER _last_time;
 #else
 #include <sys/time.h> 

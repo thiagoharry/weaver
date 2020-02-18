@@ -277,12 +277,14 @@ programa e a última.
 Então para começar devemos ter um lugar onde devemos armazenar a
 última medida de tempo que fizemos. Usaremos para isso uma variável
 global. No Windows usamos um dos tipos específicos para representar
-inteiros grandes e nos demais sistemas usamos uma estrutura de valor
-de tempo de alta resolução.
+inteiros grandes (e incluimos o cabeçalho necessário para usá-lo)
+e nos demais sistemas usamos uma estrutura de valor de tempo de
+alta resolução.
 
 \iniciocodigo
 @<Cabeçalhos Weaver@>=
 #if defined(_WIN32)
+#include <windows.h>
 LARGE_INTEGER _last_time;
 #else
 #include <sys/time.h>
@@ -368,9 +370,10 @@ função se torna muito mais simples:
 @<API Weaver: Definições@>=
 #if defined(_WIN32)
 unsigned long _update_time(void){
-  LARGE_INTEGER prev = _last_time;
+  LARGE_INTEGER prev;
+  prev.QuadPart = _last_time.QuadPart;
   QueryPerformanceCounter(&_last_time);
-  return (_last_time - prev);
+  return (_last_time.QuadPart - prev.QuadPart);
 }
 #endif
 @
