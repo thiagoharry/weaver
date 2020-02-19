@@ -147,7 +147,7 @@ function test_new_project(){
     fi
     assertExecutableExists "Testing project compilation" test
     ########
-    rm test
+    rm -f test
     cp ../test1.c src/game.c
     if [[ ${OSTYPE} == *"bsd"* ]]; then
 	gmake &> /dev/null
@@ -159,6 +159,7 @@ function test_new_project(){
     assertExecutableRun "Testing game main loops" ./test
     #######
     echo "#define W_MAX_SUBLOOP 2" > conf/conf.h
+    rm -f test
     if [[ ${OSTYPE} == *"bsd"* ]]; then
 	gmake &> /dev/null
     elif [[ ${OSTYPE} ==  "msys" ]]; then
@@ -167,6 +168,17 @@ function test_new_project(){
 	make &> /dev/null
     fi
     assertExecutableDontRun "Testing main loop limits" ./test
+    #######
+    rm -f test
+    cp ../test2.c src/game.c
+    if [[ ${OSTYPE} == *"bsd"* ]]; then
+	gmake &> /dev/null
+    elif [[ ${OSTYPE} ==  "msys" ]]; then
+	MSBuild.exe &> /dev/null
+    else
+	make &> /dev/null
+    fi
+    assertExecutableRun "Testing main loop flow" ./test
     #######
     cd - > /dev/null
     rm -rf .test/test

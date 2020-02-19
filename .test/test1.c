@@ -1,6 +1,13 @@
 #include <string.h>
 #include "game.h"
 
+/*
+  This test checks for loops and subloops relations.  It creates a
+  depth 3 subloop, changing the deepest loop sometimes. So we can
+  check if this runs successfully with W_MAX_SUBLOOP = 3 and if it
+  really fails with W_MAX_SUBLOOP = 2
+ */
+
 static bool pass=false;
 
 void loop1(void);
