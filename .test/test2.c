@@ -28,18 +28,18 @@ void loop1(void){
  LOOP_INIT:
   init ++;
   if(init > 1 || end > 0){
-    printf("A\n");
+    printf("A");
     exit(1);
   }
   W.pending_files = 30;
   rc = pthread_create(&thread, NULL, clear_pending_files, NULL);
   if(rc){
-    printf("b\n");
+    printf("B");
     exit(1);
   }
  LOOP_BODY:
   if(init > 1 || end > 0){
-    printf("C\n");
+    printf("C");
     exit(1);
   }
   middle ++;
@@ -47,8 +47,12 @@ void loop1(void){
     Wexit_loop();
  LOOP_END:
   end ++;
+  if(W.pending_files > 0){
+    printf("D");
+    exit(1);
+  }
   if(end > 1){
-    printf("D\n");
+    printf("E(%d)", end);
     exit(1);
   }
   return;

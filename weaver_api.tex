@@ -519,32 +519,29 @@ principal.
 Isso é o que fará a macro \monoespaco{LOOP\_INIT}:
 
 Primeiro devemos checar variáveis que determinam se devemos encerrar o
-laço e se ainda estamos carregando recursos do laço (imagens, vídeos,
-shaders, sons). Se temos que sair e não estamos com qualquer recurso
-pendente que ainda está sendo carregado, apenas chamamos uma função
-para sair do laço (ela irá chamar de volta o laço-pai anterior ao laço
-atual ou encerrar o programa se ele não existir). Se temos que sair
-mas ainda não terminamos de carregar algum recurso, apenas encerramos
-a função. Ela será chamada novamente e não irá fazer nada até que os
-recursos terminem de ser carregados para que possamos sair. Depois
-checamos se esta função está sendo chamada pela primeira vez. Em caso
-afirmativo, apenas continuamos a execução. Em case negativo, fazemos
-um desvio incondicional para não termos que executar novamente o
-código de inicialização. Por fim, se não fizemos o desvio, faremos com
-que a variável |W.loop_name| passe a ser uma string com o nome do laço
-principal atual.
+laço. Se estivermos, mas ainda houverem recursos sendo carregados
+(imagens, vídeos, shaders, sons), apenas retornamos da função. Se não
+houver nada sendo carregado, mas ainda não executamos a finalização
+deste laço, pulamos para executar a finalização. Se não há nada a ser
+carregado e já executamos a finalização, aí sim encerramos de vez o
+laço. Depois checamos se esta função está sendo chamada pela primeira
+vez. Em caso afirmativo, apenas continuamos a execução. Em caso
+negativo, fazemos um desvio incondicional para não termos que executar
+novamente o código de inicialização. Por fim, se não fizemos o desvio,
+faremos com que a variável |W.loop_name| passe a ser uma string com o
+nome do laço principal atual.
 
 Saber se devemos continuar executando ou não um laço é algo que pode
 ser controlado por uma variável global, não sendo nem necessário se
 preocupar com semáforos. Afinal, somente um laço irá executar em um
 dado momento. O mesmo pode ser feito com a variável que determina se
-estamos na primeira execução de um laço (ou o começo de um
-laço). Vamos declarar ambas as variáveis:
+estamos na primeira execução de um laço (ou o começo de um laço) e se
+já executamos a finalização. Vamos declarar ambas as variáveis:
 
 \iniciocodigo
 @<Cabeçalhos Weaver@>+=
 #include <stdbool.h>
-bool _running_loop, _loop_begin;
+bool _running_loop, _loop_begin, _loop_finalized;
 @
 \fimcodigo
 
@@ -554,6 +551,7 @@ E vamos inicializar elas:
 @<API Weaver: Inicialização@>+=
 _running_loop = false;
 _loop_begin = false;
+_loop_finalized = false;
 @
 \fimcodigo
 
@@ -599,6 +597,8 @@ void _exit_loop(void) __attribute__ ((noreturn));
 #else
 __declspec(noreturn) void _exit_loop(void);
 #endif
+
+
 @
 \fimcodigo
 
@@ -614,10 +614,15 @@ laço:
 \iniciocodigo
 @<Cabeçalhos Weaver@>+=
 #define LOOP_INIT                                                   \
-  if(!_running_loop && !W.pending_files)                             \
-    _exit_loop();                                                    \
-  if(!_running_loop)                                                 \
-   goto _LOOP_FINALIZATION;                                          \
+  if(!_running_loop){                                               \
+    if(W.pending_files)                                             \
+      return;                                                       \
+    if(!_loop_finalized){                                           \
+      _loop_finalized = true;                                       \
+      goto _LOOP_FINALIZATION;                                      \
+    }                                                              \
+    _exit_loop();                                                   \
+  }                                                                 \
   if(!_loop_begin)                                                   \
     goto _END_LOOP_INITIALIZATION;                                   \
   snprintf(W.loop_name, W_MAX_LOOP_NAME, "%s", __func__);            \
@@ -755,12 +760,13 @@ dentro do qual estávamos. Fora deste laço, seguimos realizando aquilo
 que deve ser feito independente de estarmos executando o motor de
 física e de lógica de jogo ou não. Como são sempre atividades
 relacionadas à renderização na tela, isso estará dentro de uma função
-chamada \monoespaco{\_render}. Em seguida, se o nosso laço principal
-ainda está rodando, encerramos com um retorno a função para que o
-código de finalização não seja executado. Por fim, colocamos apenas
-um \monoespaco{goto} que nunca será executado para um rótulo que
-usamos para evitar avisos de compilador de que tal rótulo não está
-sendo usado.
+chamada \monoespaco{\_render}. Em seguida, simplesmente retornamos. Se
+estamos executando o código aqui, é porque estávamos terminando de
+executar o corpo do link. Depois do retorno colocamos um desvio para
+um rótulo que nunca será executado e apenas nos protege de aviso do
+compilador. E enfim colocamos um rótulo imediatamente antes da
+finalização e que pode ser atingido somente por um desvio se
+detectarmos que o laço acabou e precisamos rodar a finalização.
 
 A única coisa nova que temos aqui então é a função de renderização:
 
@@ -790,10 +796,8 @@ E agora colocamos o código da macro:
     W.t +=  40000;                                         \
   }                                                        \
   _render();                                               \
-  if(_running_loop || W.pending_files)                     \
-    return;                                                \
-  if(W.t == 0)                                             \
-    goto _LABEL_0;                                         \
+  return;                                                  \
+  goto _LABEL_0;                                           \
 _LOOP_FINALIZATION
 @
 \fimcodigo
@@ -950,13 +954,15 @@ Uma coisa que faremos tanto antes de um laço como de um sublaço é
 atualizar a variável \monoespaco{\_running\_loop} que avisa ao motor
 que realmente estamos executando um laço ao invés de tentar sair dele,
 ajustamos a variável que diz que estamos entrando no começo de um laço
-e que portanto precisaremos executar o código de inicialização e
-também atualizamos nosso contador de tempo:
+e que portanto precisaremos executar o código de inicialização, a
+variável que informa que a finalização do laço ainda não foi executada
+e também atualizamos nosso contador de tempo:
 
 \iniciocodigo
 @<Código antes de Loop e Subloop@>=
 _running_loop = true;
 _loop_begin = true;
+_loop_finalized = false;
 _update_time();
 @
 \fimcodigo
