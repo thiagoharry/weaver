@@ -54,27 +54,27 @@ return(_last_time.QuadPart-prev.QuadPart);
 }
 #endif
 /*:14*//*36:*/
-#line 926 "./weaver_api.tex"
+#line 922 "./weaver_api.tex"
 
 void Wsubloop(void(*f)(void)){
 #if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
 #endif
 /*38:*/
-#line 966 "./weaver_api.tex"
+#line 962 "./weaver_api.tex"
 
 _running_loop= true;
 _loop_begin= true;
 _loop_finalized= false;
 _update_time();
 /*:38*/
-#line 931 "./weaver_api.tex"
+#line 927 "./weaver_api.tex"
 
 /*42:*/
-#line 1045 "./weaver_api.tex"
+#line 1041 "./weaver_api.tex"
 
 /*:42*/
-#line 932 "./weaver_api.tex"
+#line 928 "./weaver_api.tex"
 
 if(_number_of_loops>=W_MAX_SUBLOOP){
 fprintf(stderr,"Error: Max number of subloops achieved.\n");
@@ -92,7 +92,7 @@ f();
 #endif
 }
 /*:36*//*41:*/
-#line 1015 "./weaver_api.tex"
+#line 1011 "./weaver_api.tex"
 
 void _exit_loop(void){
 if(_number_of_loops<=1){
@@ -101,21 +101,21 @@ exit(1);
 }
 else{
 /*43:*/
-#line 1050 "./weaver_api.tex"
+#line 1046 "./weaver_api.tex"
 
 /*:43*/
-#line 1022 "./weaver_api.tex"
+#line 1018 "./weaver_api.tex"
 
 _number_of_loops--;
 /*38:*/
-#line 966 "./weaver_api.tex"
+#line 962 "./weaver_api.tex"
 
 _running_loop= true;
 _loop_begin= true;
 _loop_finalized= false;
 _update_time();
 /*:38*/
-#line 1024 "./weaver_api.tex"
+#line 1020 "./weaver_api.tex"
 
 #if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
@@ -130,7 +130,7 @@ _loop_stack[_number_of_loops-1]();
 #line 196 "./weaver_api.tex"
 
 /*44:*/
-#line 1055 "./weaver_api.tex"
+#line 1051 "./weaver_api.tex"
 
 /*:44*/
 #line 197 "./weaver_api.tex"
@@ -172,7 +172,7 @@ _lag= 0;
 W.dt= W_TIMESTEP;
 W.t= 0;
 /*:24*//*33:*/
-#line 872 "./weaver_api.tex"
+#line 868 "./weaver_api.tex"
 
 _number_of_loops= 0;
 /*:33*/
@@ -191,54 +191,54 @@ exit(0);
 
 void _update(void){
 /*45:*/
-#line 1060 "./weaver_api.tex"
+#line 1056 "./weaver_api.tex"
 
 /*:45*/
 #line 723 "./weaver_api.tex"
 
 }
 /*:26*//*29:*/
-#line 787 "./weaver_api.tex"
+#line 783 "./weaver_api.tex"
 
 void _render(void){
 /*46:*/
-#line 1065 "./weaver_api.tex"
+#line 1061 "./weaver_api.tex"
 
 /*:46*/
-#line 789 "./weaver_api.tex"
+#line 785 "./weaver_api.tex"
 
 }
 /*:29*//*34:*/
-#line 888 "./weaver_api.tex"
+#line 884 "./weaver_api.tex"
 
 void _Wloop(void(*f)(void)){
 if(_number_of_loops> 0){
 /*35:*/
-#line 913 "./weaver_api.tex"
+#line 909 "./weaver_api.tex"
 
 #if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
 #endif
 /*:35*/
-#line 891 "./weaver_api.tex"
+#line 887 "./weaver_api.tex"
 
 _number_of_loops--;
 }
 /*38:*/
-#line 966 "./weaver_api.tex"
+#line 962 "./weaver_api.tex"
 
 _running_loop= true;
 _loop_begin= true;
 _loop_finalized= false;
 _update_time();
 /*:38*/
-#line 894 "./weaver_api.tex"
+#line 890 "./weaver_api.tex"
 
 /*47:*/
-#line 1070 "./weaver_api.tex"
+#line 1066 "./weaver_api.tex"
 
 /*:47*/
-#line 895 "./weaver_api.tex"
+#line 891 "./weaver_api.tex"
 
 _loop_stack[_number_of_loops]= f;
 _number_of_loops++;

@@ -115,11 +115,11 @@ _END_LOOP_INITIALIZATION:                                    \
     _update();                                               \
 _LABEL_0
 /*:27*//*28:*/
-#line 778 "./weaver_api.tex"
+#line 774 "./weaver_api.tex"
 
 void _render(void);
 /*:28*//*30:*/
-#line 797 "./weaver_api.tex"
+#line 793 "./weaver_api.tex"
 
 #define LOOP_END                                           \
     _lag -=   40000;                                        \
@@ -130,7 +130,7 @@ void _render(void);
   goto _LABEL_0;                                           \
 _LOOP_FINALIZATION
 /*:30*//*31:*/
-#line 833 "./weaver_api.tex"
+#line 829 "./weaver_api.tex"
 
 #if !defined(_MSC_VER)
 void _Wloop(void(*f)(void))__attribute__((noreturn));
@@ -141,7 +141,7 @@ __declspec(noreturn)void Wsubloop(void(*f)(void));
 #endif
 #define Wloop(a) ((W.pending_files)?(false):(_Wloop(a)))
 /*:31*//*32:*/
-#line 860 "./weaver_api.tex"
+#line 856 "./weaver_api.tex"
 
 #if !defined(W_MAX_SUBLOOP)
 #define W_MAX_SUBLOOP 3
@@ -149,15 +149,15 @@ __declspec(noreturn)void Wsubloop(void(*f)(void));
 int _number_of_loops;
 void(*_loop_stack[W_MAX_SUBLOOP])(void);
 /*:32*//*37:*/
-#line 953 "./weaver_api.tex"
+#line 949 "./weaver_api.tex"
 
 #include <stdio.h> 
 /*:37*//*39:*/
-#line 990 "./weaver_api.tex"
+#line 986 "./weaver_api.tex"
 
 #define Wexit_loop() (_running_loop =  false)
 /*:39*//*40:*/
-#line 1001 "./weaver_api.tex"
+#line 997 "./weaver_api.tex"
 
 #if !defined(_MSC_VER)
 void _exit_loop(void)__attribute__((noreturn));
@@ -168,7 +168,7 @@ __declspec(noreturn)void _exit_loop(void);
 #line 148 "./weaver_api.tex"
 
 /*48:*/
-#line 1075 "./weaver_api.tex"
+#line 1071 "./weaver_api.tex"
 
 /*:48*/
 #line 149 "./weaver_api.tex"
