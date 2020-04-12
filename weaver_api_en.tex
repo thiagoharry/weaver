@@ -1,3 +1,4 @@
+\input tex/epsf.tex
 \font\sixteen=cmbx16
 \font\twelve=cmr12
 \font\fonteautor=cmbx12
@@ -39,7 +40,7 @@
 
 \twelve
 \vskip12pt
-\titulo{A API Weaver}
+\titulo{The Weaver API}
 \vskip12pt
 \autor{Thiago Leucz Astrizi}
 \vskip6pt
@@ -54,36 +55,26 @@
   portable code which should work under OpenBSD, Linux, Windows and
   Web Assembly environments.}
 
-\vskip 0.5cm plus 3pt minus 3pt
+\secao{1. Introduction}
 
-\resumo{Este artigo utiliza programação literária para descrever a
-API Weaver. Weaver é um motor de jogos e esta API é como os
-programadores interagem com ela em seus projetos. Além da API, este
-artigo também cobre como o arquivo de configuração é interpretado e
-como os laços de execução do jogo devem ser organizados. A API é
-código portável que deve funcionar sob ambientes OpenBSD, Linux,
-Windows e Web Assembly.}
+\subsecao{1.1. File Organization}
 
-\secao{1. Introdução}
-
-\subsecao{1.1. Organização de Arquivos}
-
-Quando um usuário digita \monoespaco{weaver PROJETO} na linha de
-comando, um diretório com um novo projeto Weaver e criado. Dentro
-deste diretório, o arquivo que contém o loop principal está
-em \monoespaco{src/game.c} e nele encontramos:
+When a user types \monoespaco{weaver PROJECT} at command line, a
+directory with a new Weaver project is created. Inside the directory,
+the file with the main loop is in \monoespaco{src/game.c} and inside
+them we find:
 
 \linha
 \alinhaverbatim
 #include "game.h"
 
-void main_loop(void){ // Um laço principal do jogo
- LOOP_INIT: // Código de inicialização 
+void main_loop(void){ // The game main loop
+ LOOP_INIT: // Initialization code 
 
- LOOP_BODY: // Código executado a cada iteração
+ LOOP_BODY: // Code executed each iteration
     if(W.keyboard[W_ANY])
         Wexit_loop();
- LOOP_END: // Código executado na finalização
+ LOOP_END: // Code executed at finalization
     return;
 }
 
@@ -95,7 +86,7 @@ int main(void){
 \alinhanormal
 \linha
 
-E dentro de \monoespaco{src/game.h}, nós encontramos:
+And inside \monoespaco{src/game.h}, we find:
 
 \linha
 \alinhaverbatim
@@ -106,9 +97,9 @@ E dentro de \monoespaco{src/game.h}, nós encontramos:
 #include "includes.h"
 
 struct _game_struct{
-  // Você pode personalizar esta estrutura declarando variáveis aqui.
-  // Mas não mude seu nome. E acesse ela por meioda variável W.game
-  int whatever; // <- Variável só pra prevenir erro em certo compilador
+  // You can customise this structure declaring variables here.
+  // But don't change it's name. And access it by its pointer: W.game
+  int whatever; // <- This variable is here to prevent compiler errors
 } _game;
 
 void main_loop(void);
@@ -117,24 +108,22 @@ void main_loop(void);
 \alinhanormal
 \linha
 
-Notar que neste arquivo existe uma estrutura que pode ser
-personalizada pelo usuário e cumpre o papel de centralizar algumas
-variáveis com estados globais. O tipo de coisa que para um jogo deve
-ser preservada ao salvarmos o progresso de um jogador. Ou que deve ser
-acessível para plugins. Ou ainda que deve ser transmitida para
-informar o estado do jogo a clientes conectados à rede. Segundo o
-comentário acima, esta estrutura deve ser referenciada pela
-variável \monoespaco{W.game}, o que já nos indica que a API será
-organizada de modo a fornecer um \monoespaco{struct}
-chamado \monoespaco{W} onde serão centralizados os recursos da API.
+In this file there's an struct which can be customized by the user and
+which is where variables with global states should be declared. The
+variables declared here are also variables which will be saved in a
+player's save file and which will be sent over a network to inform
+clients about the game state. This struct should be referenced by the
+variable \monoespaco{W.game}. This also gives us information that the
+API will be organized in a way that will exist a \monoespaco{struct}
+called \monoespaco{W} where the API resources will be centralized.
 
-O arquivo \monoespaco{includes.h} é apenas um cabeçalho que inclui em
-um projeto todos os cabeçalho de módulos criados pelo usuário (cada
-módulo é um arquivo de código C e um cabeçalho).
+The file \monoespaco{includes.h} is just a header which includes in
+the project all the other headers of modules created by the user (each
+module is a C source file and a header).
 
-Todo o código da API deve então estar presente ou ser incluída por
-macros dentro dos arquivos \monoespaco{weaver.c}
-e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
+All the API code shall be present or be included by macros in the
+files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
+\monoespaco{weaver.h} organization is:
 
 \iniciocodigo
 @(project/src/weaver/weaver.h@>=
@@ -144,9 +133,9 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
   extern "C" {
 #endif
 #include "../../conf/conf.h"
-@<Estrutura Global@>
-@<Cabeçalhos Weaver@>
-@<Macros Weaver@>
+@<Global Structure@>
+@<Weaver Headers@>
+@<Weaver Macros@>
 #ifdef __cplusplus
   }
 #endif
@@ -167,7 +156,7 @@ o \monoespaco{struct \_game\_struct \_game} que definimos
 em \monoespaco{game.h}. Podemos então começar a definir tal estrutura:
 
 \iniciocodigo
-@<Estrutura Global@>=
+@<Global Structure@>=
 // Esta estrutura conterá todas as variáveis e funções definidas pela
 // API Weaver:
 extern struct _weaver_struct{
@@ -221,7 +210,7 @@ Uma das coisas que a função de inicialização faz é inicializar os
 valores da estrutura \monoespaco{W}:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>=
+@<Weaver Headers@>=
 void Winit(void);
 @
 \fimcodigo
@@ -240,7 +229,7 @@ finalizar o uso de recursos, e deve também fechar o programa
 informando que tudo correu bem se assim realmente ocorreu:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>=
+@<Weaver Headers@>=
 void Wexit(void);
 @
 \fimcodigo
@@ -257,7 +246,7 @@ void Wexit(void){
 O uso da função \monoespaco{exit} nos obriga a inserir o cabeçalho:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>=
+@<Weaver Headers@>=
 #include <stdlib.h>
 @
 \fimcodigo
@@ -282,7 +271,7 @@ e nos demais sistemas usamos uma estrutura de valor de tempo de
 alta resolução.
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>=
+@<Weaver Headers@>=
 #if defined(_WIN32)
 #include <windows.h>
 LARGE_INTEGER _last_time;
@@ -311,7 +300,7 @@ Após a inicialização, todas as outras atualizações desta variável
 deverão ser feitas por meio da função declarada abaixo:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 unsigned long _update_time(void);
 @
 \fimcodigo
@@ -539,7 +528,7 @@ estamos na primeira execução de um laço (ou o começo de um laço) e se
 já executamos a finalização. Vamos declarar ambas as variáveis:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #include <stdbool.h>
 bool _running_loop, _loop_begin, _loop_finalized;
 @
@@ -591,7 +580,7 @@ W.loop_name[0] = '\0';
 A função que usaremos para sair do laço será esta:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #if !defined(_MSC_VER)
 void _exit_loop(void) __attribute__ ((noreturn));
 #else
@@ -612,7 +601,7 @@ Após descrever tudo isso, podemos enfim definir a macro de início de
 laço:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #define LOOP_INIT                                                   \
   if(!_running_loop){                                               \
     if(W.pending_files)                                             \
@@ -661,7 +650,7 @@ física do jogo será chamado de \monoespaco{\_lag}. Declaramos ele
 globalmente:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 unsigned long _lag;
 @
 \fimcodigo
@@ -709,7 +698,7 @@ O código da engine de física e lógica interna do jogo deve ficar
 encapsulado em uma função chamada \monoespaco{\_update}:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 void _update(void);
 @
 \fimcodigo
@@ -729,7 +718,7 @@ Mas com as definições que fizemos já podemos definir a nossa macro que
 marca o começo do código do laço principal:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #define LOOP_BODY                                            \
   _loop_begin =  false;                                      \
   if(_loop_begin)                                            \
@@ -771,7 +760,7 @@ detectarmos que o laço acabou e precisamos rodar a finalização.
 A única coisa nova que temos aqui então é a função de renderização:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 void _render(void);
 @
 \fimcodigo
@@ -790,7 +779,7 @@ void _render(void){
 E agora colocamos o código da macro:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #define LOOP_END                                           \
     _lag -=  40000;                                        \
     W.t +=  40000;                                         \
@@ -826,7 +815,7 @@ caso). Por isso apenas nos asseguramos disso por mieo de um truque com
 macros:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #if !defined(_MSC_VER)
 void _Wloop(void (*f)(void)) __attribute__ ((noreturn));
 void Wsubloop(void (*f)(void)) __attribute__ ((noreturn));
@@ -853,7 +842,7 @@ pilha estamos no momento (\monoespaco{\_number\_of\_loops}).
 A declaração destas duas variáveis será:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #if !defined(W_MAX_SUBLOOP)
 #define W_MAX_SUBLOOP 3
 #endif
@@ -946,7 +935,7 @@ void Wsubloop(void (*f)(void)){
 
 Vamos incluir o cabçalho para podermos imprimir mensagens de erro:
 
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #include <stdio.h>
 @
 
@@ -983,7 +972,7 @@ que diz que estamos executando o laço para um valor que significa que
 queremos sair do laço:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #define Wexit_loop() (_running_loop = false)
 @
 \fimcodigo
@@ -994,7 +983,7 @@ nenhum recurso ou arquivo ainda sendo carregado, então será chamada a
 função \monoespaco{\_exit\_loop}:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Weaver Headers@>+=
 #if !defined(_MSC_VER)
 void _exit_loop(void) __attribute__ ((noreturn));
 #else
@@ -1068,16 +1057,16 @@ posteriormente preenchidas e melhor explicadas.
 \fimcodigo
 
 \iniciocodigo
-@<Macros Weaver@>=
+@<Weaver Macros@>=
 @
 \fimcodigo
 
 
 \secao{Referências}
 
-\referencia{Fiedler, G. (2004) ``Fix Your Timestep!'', acessado em 2020
-em:\\
-\monoespaco{https://gafferongames.com/post/fix\_your\_timestep/}}
+\referencia{Fiedler, G. (2004) ``Fix Your Timestep!'', acessado em
+\monoespaco{https://gafferongames. com/post/fix\_your\_timestep/}
+em 2020.}
 
 
 \fim

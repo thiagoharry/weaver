@@ -164,6 +164,8 @@ test:
 doc_en:
 	tex weaver_program_en.tex
 	dvipdf weaver_program_en.dvi
+	tex weaver_api_en.tex
+	dvipdf weaver_api_en.dvi
 clean:
 	rm -rf *.o *~ src/*~
 	rm -f bin/*
