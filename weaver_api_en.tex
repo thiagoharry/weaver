@@ -143,71 +143,68 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 @
 \fimcodigo
 
-Notar que incluímos no cabeçalho o arquivo de
-configuração \monoespaco{conf.h} responsável por controlar e
-configurar o comportamento de nosso motor.
+We include in the header the configuration file \monoespaco{conf.h}
+responsible to control the settings of our engine.
 
-\subsecao{1.2. A Estrutura W}
+\subsecao{1.2. The W Structure}
 
-A tal ``estrutura global'' referenciada nos códigos acima é
-o \monoespaco{struct} chamado \monoespaco{W}. Já mencionamos no
-comentário que colocaremos nele
-o \monoespaco{struct \_game\_struct \_game} que definimos
-em \monoespaco{game.h}. Podemos então começar a definir tal estrutura:
+The global structure referenced in the previous code is a
+\monoespaco{struct} called \monoespaco{W}. We already mentioned it
+in the code comments that the
+\monoespaco{struct \_game\_struct \_game} definded in
+\monoespaco{game.h}. Now we can start to define this structure:
 
 \iniciocodigo
 @<Global Structure@>=
-// Esta estrutura conterá todas as variáveis e funções definidas pela
-// API Weaver:
+// This structure will contain all the variables and functions defined at
+// Weaver API:
 extern struct _weaver_struct{
   struct _game_struct *game;
-  @<Variáveis Weaver@>
-  //@<Funções Weaver@>
+  @<Weaver Variables@>
+  //@<Weaver Functions@>
 } W;
 @
 \fimcodigo
 
-Notar que além de \monoespaco{W.game}, existirão outras variáveis
-presentes dentro desta estrutura. Basicamente iremos centralizar
-dentro dela todas as funções públicas da nossa API. Só não estarão
-nela funções que começam com ``\_'', e que são consideradas internas e
-não deveriam ser usadas por programadores utilizando a API. Desta
-forma deixamos bem delimitado o que faz parte da API e também evitamos
-poluir com nomes o ``namespace'' global de programas em C.
+Besides \monoespaco{W.game}, there will be other variables in this
+structure. We basically will centralize all the public functions of
+our API here. Only private functions whose names starts with ``\_''
+and some initialization and finalization functions won't be inside
+the \monoespaco{W} structure. In this way we prevent the pollution of
+the global namespace.
 
-Também definiremos aqui a estrutura geral de nosso
-arquivo \monoespaco{weaver.c}:
+We will also define here the general structure of
+our \monoespaco{weaver.c} file:
 
 \iniciocodigo
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 #include "../game.h"
-@<API Weaver: Definições@>
-@<API Weaver: Funções@>
-@<API Weaver: Base@>
+@<Weaver API: Definitions@>
+@<Weaver API: Functions@>
+@<Weaver API: Base@>
 @
 \fimcodigo
 
-Nas definições declaramos novos tipos de estruturas de dados que forem
-necessárias. A primeira coisa que já podemos definir é a
-estrutura \monoespaco{W}, a qual é apenas declarada no cabeçalho:
+In ``Weaver API: Definitions'' we will declare new kind of structures.
+The first thing will be the \monoespaco{W} structure, which we already
+declared in the header:
 
 \iniciocodigo
-@<API Weaver: Definições@>=
+@<Weaver API: Definitions@>=
 struct _weaver_struct W;
 @
 \fimcodigo
 
-Na parte de funções definimos as funções a serem usadas. Já a última
-partedo arquivo contém as funções mais básicas da API. As únicas que
-não são colocadas dentro da estrutura \monoespaco{W}. Elas são a
-função de inicialização e a função que encerra o funcionamento do
-motor.
+In ``Weaver API: Functions'' we will put almost all our
+functions. Except some base functions which can't or shouldn't be put
+inside the \monoespaco{W} structure, like initialization and
+finalization functions.
 
-\subsecao{1.3. Funções de Inicialização e Finalização}
+\subsecao{1.3. Initialization and Finalization Functions}
 
-Uma das coisas que a função de inicialização faz é inicializar os
-valores da estrutura \monoespaco{W}:
+One thing that the initialization function must do is initialize the
+values inside the  \monoespaco{W} structure:
 
 \iniciocodigo
 @<Weaver Headers@>=
@@ -216,17 +213,17 @@ void Winit(void);
 \fimcodigo
 
 \iniciocodigo
-@<API Weaver: Base@>=
+@<Weaver API: Base@>=
 void Winit(void){
   W.game = &_game;
-  @<API Weaver: Inicialização@>
+  @<Weaver API: Initialization@>
 }
 @
 \fimcodigo
 
-A função de finalização deve desalocar qualquer memória pendente,
-finalizar o uso de recursos, e deve também fechar o programa
-informando que tudo correu bem se assim realmente ocorreu:
+The finalization function shall deallocate any pending memory, end
+resource usage and close the program informing if everything happened
+as expected:
 
 \iniciocodigo
 @<Weaver Headers@>=
@@ -235,15 +232,16 @@ void Wexit(void);
 \fimcodigo
 
 \iniciocodigo
-@<API Weaver: Base@>=
+@<Weaver API: Base@>=
 void Wexit(void){
-  //@<API Weaver: Finalização@>
+  //@<Weaver API: Finalization@>
   exit(0);
 }
 @
 \fimcodigo
 
-O uso da função \monoespaco{exit} nos obriga a inserir o cabeçalho:
+The \monoespaco{exit} function requires the inclusion of the standard
+header:
 
 \iniciocodigo
 @<Weaver Headers@>=
@@ -251,8 +249,8 @@ O uso da função \monoespaco{exit} nos obriga a inserir o cabeçalho:
 @
 \fimcodigo
 
-Os demais códigos que serão executados durante a inicialização e
-finalização serão descritos ao longo do artigo.
+The rest of the code executed in initialization and finalization will
+be described along the article.
 
 \secao{2. Contagem de Tempo}
 
@@ -287,7 +285,7 @@ tempo. Ela é inicializada com a primeira medida de tempo na
 inicialização:
 
 \iniciocodigo
-@<API Weaver: Inicialização@>=
+@<Weaver API: Initialization@>=
 #if defined(_WIN32)
 QueryPerformanceCounter(&_last_time);
 #else
@@ -314,7 +312,7 @@ estrutura \monoespaco{timeval} sejam armazenadas como ``unsigned''.  A
 desvantagem é que o código se torna menos claro. O código fica sendo:
 
 \iniciocodigo
-@<API Weaver: Definições@>=
+@<Weaver API: Definitions@>=
 #if !defined(_WIN32)
 unsigned long _update_time(void){
   int nsec;
@@ -356,7 +354,7 @@ de portarmos Weaver para Windows na versão beta. Por causa disso, a
 função se torna muito mais simples:
 
 \iniciocodigo
-@<API Weaver: Definições@>=
+@<Weaver API: Definitions@>=
 #if defined(_WIN32)
 unsigned long _update_time(void){
   LARGE_INTEGER prev;
@@ -537,7 +535,7 @@ bool _running_loop, _loop_begin, _loop_finalized;
 E vamos inicializar elas:
 
 \iniciocodigo
-@<API Weaver: Inicialização@>+=
+@<Weaver API: Initialization@>+=
 _running_loop = false;
 _loop_begin = false;
 _loop_finalized = false;
@@ -557,7 +555,7 @@ de nome de um laço que podemos armazenar pode ser personalizado com a
 macro \monoespaco{W\_MAX\_LOOP\_NAME}.
 
 \iniciocodigo
-@<Variáveis Weaver@>+=
+@<Weaver Variables@>+=
 // Dentro da estrutura W:
 #if !defined(W_MAX_LOOP_NAME)
 #define W_MAX_LOOP_NAME 64
@@ -571,7 +569,7 @@ Na inicialização ajustamos tais variáveis como 0 e |NULL|
 respectivamente:
 
 \iniciocodigo
-@<API Weaver: Inicialização@>+=
+@<Weaver API: Initialization@>+=
 W.pending_files = 0;
 W.loop_name[0] = '\0';
 @
@@ -657,7 +655,7 @@ unsigned long _lag;
 
 E o inicializamos:
 
-@<API Weaver: Inicialização@>+=
+@<Weaver API: Initialization@>+=
 _lag = 0;
 @
 
@@ -669,7 +667,7 @@ física e da lógica do jogo. Ambas as variáveis precisam ser declaradas
 na estrutura \monoespaco{W}:
 
 \iniciocodigo
-@<Variáveis Weaver@>+=
+@<Weaver Variables@>+=
 unsigned long long t;
 unsigned long dt;
 @
@@ -685,7 +683,7 @@ significa uma freuência de 25 Hz de execução do motor de física (25
 vezes por segundo).
 
 \iniciocodigo
-@<API Weaver: Inicialização@>+=
+@<Weaver API: Initialization@>+=
 #if !defined(W_TIMESTEP)
 #define W_TIMESTEP 40000
 #endif
@@ -707,7 +705,7 @@ Por hora ainda não iremos definir o código a ser executado nesta
 função:
 
 \iniciocodigo
-@<API Weaver: Base@>+=
+@<Weaver API: Base@>+=
 void _update(void){
   @<Código a executar todo loop@>
 }
@@ -769,7 +767,7 @@ Por hora ainda não iremos definir o código a ser executado nesta
 função:
 
 \iniciocodigo
-@<API Weaver: Base@>+=
+@<Weaver API: Base@>+=
 void _render(void){
   @<Código de renderização@>
 }
@@ -854,7 +852,7 @@ void (*_loop_stack[W_MAX_SUBLOOP]) (void);
 E inicializamos a contagem do número de laços como zero:
 
 \iniciocodigo
-@<API Weaver: Inicialização@>+=
+@<Weaver API: Initialization@>+=
 _number_of_loops = 0;
 @
 \fimcodigo
@@ -870,7 +868,7 @@ principal. Nos demais, basta executar a função em
 um \monoespaco{while} comum:
 
 \iniciocodigo
-@<API Weaver: Base@>+=
+@<Weaver API: Base@>+=
 void _Wloop(void (*f)(void)){
   if(_number_of_loops > 0){
     @<Cancela Loop Principal@>
@@ -908,7 +906,7 @@ realmente precisa ser incrementado. E também temos que checar se
 tivemos um estouro na nossa pilha de laços:
 
 \iniciocodigo
-@<API Weaver: Definições@>+=
+@<Weaver API: Definitions@>+=
 void Wsubloop(void (*f)(void)){
 #if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
@@ -997,7 +995,7 @@ existe outro na pilha. Se não existir, o programa se encerra. Se
 existir, executa código de entrada no novo laço:
 
 \iniciocodigo
-@<API Weaver: Definições@>+=
+@<Weaver API: Definitions@>+=
 void _exit_loop(void){
   if(_number_of_loops <= 1){
     Wexit();
@@ -1037,7 +1035,7 @@ posteriormente preenchidas e melhor explicadas.
 \fimcodigo
 
 \iniciocodigo
-@<API Weaver: Funções@>=
+@<Weaver API: Functions@>=
 @
 \fimcodigo
 
