@@ -252,21 +252,20 @@ header:
 The rest of the code executed in initialization and finalization will
 be described along the article.
 
-\secao{2. Contagem de Tempo}
+\secao{2. Time Counting}
 
-Weaver mede o tempo em microssegundos ($10^{-6}$s) e armazena a sua
-contagem de tempo em pelo menos 64 bits de memória. Weaver serve para
-criar programas que executam dentro de um laço principal. Então além
-do tempo total em microssegundos desde que o programa inicializou,
-também armazenamos a diferença de tempo entre a iteração atual do
-programa e a última.
+Weaver measeures elapsed time in microseconds ($10^{-6}$s) and stores
+the time counting in at least 64 bits of memory. Besides the total
+elapsed time since the program initialization, we also store the time
+difference between the current iteration in the main loop and the
+previous one.
 
-Então para começar devemos ter um lugar onde devemos armazenar a
-última medida de tempo que fizemos. Usaremos para isso uma variável
-global. No Windows usamos um dos tipos específicos para representar
-inteiros grandes (e incluimos o cabeçalho necessário para usá-lo)
-e nos demais sistemas usamos uma estrutura de valor de tempo de
-alta resolução.
+First we neet a place to store our last time measure and we use a
+global variable. In Windows we use a specific type to store large
+integers (\monoespaco{LARGE\_INTEGER}) and in other systems we use a
+\monoespaco{timeval} structure to store the time measure at high
+resolution.
+
 
 \iniciocodigo
 @<Weaver Headers@>=
@@ -280,9 +279,8 @@ struct timeval _last_time;
 @
 \fimcodigo
 
-A ideia é que esta variável armazene sempre a última medida de
-tempo. Ela é inicializada com a primeira medida de tempo na
-inicialização:
+The idea is store in this variable always the last time measure. It's
+initialized with our first time measure at initialization:
 
 \iniciocodigo
 @<Weaver API: Initialization@>=
@@ -294,8 +292,8 @@ gettimeofday(&_last_time, NULL);
 @
 \fimcodigo
 
-Após a inicialização, todas as outras atualizações desta variável
-deverão ser feitas por meio da função declarada abaixo:
+After initialization, all other updates in this variable will happen
+using the following declared function:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -303,13 +301,14 @@ unsigned long _update_time(void);
 @
 \fimcodigo
 
-Tal função irá ler o tempo atual e armazenar na variável. Ela irá
-sempre retornar a diferença de tempo em microssegundos entre a leitura
-atual e a última. Em sistemas Unix faremos isso exatamente da maneira
-recomendada pelo manual da GNU Glbc de modo a tornar a subtração de
-tempo mais portável e funcional mesmo que os elementos da
-estrutura \monoespaco{timeval} sejam armazenadas como ``unsigned''.  A
-desvantagem é que o código se torna menos claro. O código fica sendo:
+This function will read thecurrent time and store the variable. It
+will always return the difference in microseconds between the last two
+measures. In Unix systems we compute the time difference using the
+method recommended in the GNU C Library manual. This subtraction
+method is more portable and works even if the \monoespaco{timeval}
+elements are stored as ``unsigned''. The disadvantage is that the code
+is less clear and intuitive. The code is:
+
 
 \iniciocodigo
 @<Weaver API: Definitions@>=
@@ -319,7 +318,7 @@ unsigned long _update_time(void){
   unsigned long result;
   struct timeval _current_time;
   gettimeofday(&_current_time, NULL);
-  // Aqui temos algo equivalente ao "vai um" do algoritmo da subtração:
+  // Performing the carry:
   if(_current_time.tv_usec < _last_time.tv_usec){
     nsec = (_last_time.tv_usec - _current_time.tv_usec) / 1000000 + 1;
     _last_time.tv_usec -= 1000000 * nsec;
@@ -333,7 +332,7 @@ unsigned long _update_time(void){
   if(_current_time.tv_sec < _last_time.tv_sec){
     // Overflow
     result = (_current_time.tv_sec - _last_time.tv_sec) * (-1000000);
-    // Sempre positivo:
+    // This is always positive:
     result += (_current_time.tv_usec - _last_time.tv_usec);
   }
   else{
@@ -348,10 +347,8 @@ unsigned long _update_time(void){
 @
 \fimcodigo
 
-Em sistema Windows, já existe uma função que trata o tempo como sendo
-em microssegundos exatamente no formato que já era usado antes mesmo
-de portarmos Weaver para Windows na versão beta. Por causa disso, a
-função se torna muito mais simples:
+At Windows systems, there's already a function that measure time in
+microseconds. So the function becames much simpler:
 
 \iniciocodigo
 @<Weaver API: Definitions@>=
