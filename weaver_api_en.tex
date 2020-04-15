@@ -363,15 +363,14 @@ unsigned long _update_time(void){
 @
 \fimcodigo
 
-\secao{3. Os loops principais.}
+\secao{3. The main loops.}
 
-Todos os jogos são organizados dentro de loops, ou laços
-principais. Eles são basicamente um código que fica iterando
-indefinidamente até que uma condição nos leve a outro loop principal,
-ou então ao fim do programa.
+All games are organized inside main loops. They are code which
+iterates indefinitelly until some condition send the program for
+another main loop or terminate the program.
 
-Como foi mostrado no código inicial do \monoespaco{game.c}, um loop
-principal deve ser declarado como:
+As shown in the initial code at \monoespaco{game.c}, a main loop
+should be declared as:
 
 \alinhaverbatim
 void nome\_do\_loop(void){
@@ -385,14 +384,12 @@ void nome\_do\_loop(void){
 }
 \alinhanormal
 
-Antes de entendermos como devemos entrar em um loop principal
-corretamente, é importante descrever como este loop é
-executado. Nota-se que ele possui uma região de inicialização, de
-execução e finalização demarcada por rótulos escritos em letras
-maiúsculas.
+Before understanding how we should enter correctly in a main loop,
+it's important to describe how the loop is executed. Note that it has
+an initialization section, an execution section and a finalization
+section. These sections are delimited by labels in upper case.
 
-Interpretar isso é bastante simples. É perfeitamente possível
-interpretar o código acima como:
+Interpreting this is very simple. You can see the code above as:
 
 \alinhaverbatim
 void nome\_do\_loop(void){
@@ -406,38 +403,35 @@ void nome\_do\_loop(void){
 }
 \alinhanormal
 
-Mas embora esta interpretação seja suficientemente adequada em certos
-contextos, não é assim que este código será traduzido. Não é em todos
-os ambientes em que é possível executar um loop infinito sem fazer com
-que a interface do jogo trave. Um exemplo é o ambiente WebAssembly de
-um navegador de Internet, onde os laços principais de um programa só
-podem ser executados se forem corretamente declarados como tais e a
-execução deles ocorre não por meio de um laço infinito, mas pela
-contínua chamada de uma função de laço principal.
+While this interpretation is suitable in some contexts, this is not
+how the main loop code is translated. We can't run an infinite loop in
+all environments without blocking tha game interface. In Web Assembly
+environments, a game loop can be executed only if they are correctly
+declared as such and these functions shouldn't have an infinite loop,
+instead they are called successively.
 
-Por causa disso, para tornar o código mais portável devemos encarar
-toda execução de um loop principal como no código abaixo:
+Because of such differences, to create more portable code, we should
+interpret a main loop execution as:
 
 \alinhaverbatim
 for(;;)
   nome\_do\_loop();
 \alinhanormal
 
-E dentro da função de loop principal nós não colocamos um laço
-explícito. Ao invés disso, nós decidimos qual parte da função deve ser
-executada com ajuda dos rótulos inseridos, os quais na verdade são
-macros com lógica adicional embutida junto a alguns
-comandos \monoespaco{goto} que decidem o que será executado a cada vez
-que a função é chamada.
+Inside the main loop function, we don't put an explicit loop. Instead,
+we decide which section of the function we should execute with the
+help of the labels inserted. Such labels are in fact macros with
+aditional logic inside and with some \monoespaco{goto} to decide which
+section should be executed.
 
-Uma consequência disso é que não é possível lidar com variáveis
-declaradas dentro da inicialização de um loop principal. Elas ,só
-teriam um valor correto dentro da inicialização, e dentro do corpo do
-loop principal seu valor seria indefinido. Por exemplo, o seguinte
-código terá resultado indefinido e talvez não imprima nada na tela:
+Because of this, we can't declare variables in a main loop
+initialization. If so, they would have the correct value only during
+the first iteration, not in the others. For example, the following
+code would have an undefinded result and perhaps it wouldn't print
+anything in the screen:
 
 \alinhaverbatim
-// ERRADO
+// WRONG
 void loop(void){
 LOOP\_INIT:
   int var = 5;
@@ -448,11 +442,11 @@ LOOP\_END:
 }
 \alinhanormal
 
-Já o seguinte código iria imprimir na saída padrão a cada iteração do
-loop:
+But the following code is correct and print in the screen in all
+iterations because the variable is declared outside the function:
 
 \alinhaverbatim
-// CERTO
+// CORRECT
 static int var;
 
 void loop(void){
@@ -465,38 +459,34 @@ LOOP\_END:
 }
 \alinhanormal
 
-Outra coisa que deve ser levada em conta é que as macros utilizadas
-escondem outro detalhe importante: não é apenas um laço principal que
-executamos, mas existem dois simultâneos. Um laço principal executa
-com uma frequência fixa: o laço que cuida da física e da lógica do
-jogo. Outro laço, nós apenas fazemos executar o mais rápido que der no
-hardware atual: o laço responsável por renderizar coisas na tela.
+Other thing that should be considered is that in fact there's not just
+one main loop being executed in a given moment, but two of them. One
+of the loops execute in a fixed frequency: the loop handling physics
+and game logic. The other main loop runs as fast as it: the loop
+rendering graphics in the screen.
 
-Idealmente para cada iteração do laço de renderização executamos uma
-ou mais iterações de nosso laço de física e lógica. Isso significa que
-podemos renderizar com uma frequência maior que executamos a iteração
-responsável por realmente mover objetos, detectar colisões e ler
-entrada do usuário. Para que a cada vez nós não renderizemos
-exatamente a mesma imagem, o que derrotaria o propósito de fazermos
-isso, nós interpolamos a posição dos objetos da tela de acordo com
-seus valores de aceleração, velocidade e posição.
+Ideally in each physics and logic loop iteration, we execute one or
+more iterations of rendering loop. It means that we can render with a
+frequency greater than we move objects, detect collisions and read
+user input. And in each of the rendering loop iteration, we need to
+render different images, otherwise there's no point in running this
+loop faster than the physics loop. So in the rendering loop we also
+interpolate the objects positions, knowing their current speed,
+acceleration and position.
 
-Garantindo que a nossa física e lógica do jogo execute sempre em
-intervalos constantes, nós garantimos o determinismo necessário para
-podermos sincronizar partidas por meio de redes como a Internet. E
-renderizando os objetos na tela o mais rápido que podemos com ajuda de
-interpolação nos dá a experiência visual mais suave e natural que for
-possível.
+And ensuring that our game physics and logic runs always in a fixed
+interval, we ensure the necessary determinism for synchronizing games
+in networks like the Internet. And at same time, rendering as fast as
+we can with interpolation gives us a more pleasant and natural
+experience.
 
-Uma referência e maiores detalhes de como implementar isso pode ser
-encontrado em [Fiedler 2004]. Nossa implementação será como mostrado
-na referência, com exceção de que nosso código será muito menos
-transparente por ter que estar contido dentro de macros sem usar loops
-explícitos.
+For more details of how to implement thism you can check [Fiedler
+2004]. Our implementation swill be like in this reference, except that
+our code will be much less explicit because it will be hiden by macros
+without explicit loops.
 
-Vamos agora definir nas subseções seguintes o que exatamente deverá
-existir em cada uma das macros que devem estar presentes em todo laço
-principal.
+Let's define in the following subsections what exactly we will put in
+the macros present in every main loop.
 
 \subsecao{3.1. Inicialização do Loop.}
 

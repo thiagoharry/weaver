@@ -488,8 +488,8 @@ com uma frequência fixa: o laço que cuida da física e da lógica do
 jogo. Outro laço, nós apenas fazemos executar o mais rápido que der no
 hardware atual: o laço responsável por renderizar coisas na tela.
 
-Idealmente para cada iteração do laço de renderização executamos uma
-ou mais iterações de nosso laço de física e lógica. Isso significa que
+Idealmente para cada iteração do laço de física e lógica executamos uma
+ou mais iterações de nosso laço de renderização. Isso significa que
 podemos renderizar com uma frequência maior que executamos a iteração
 responsável por realmente mover objetos, detectar colisões e ler
 entrada do usuário. Para que a cada vez nós não renderizemos
