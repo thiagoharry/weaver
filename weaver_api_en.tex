@@ -488,29 +488,30 @@ without explicit loops.
 Let's define in the following subsections what exactly we will put in
 the macros present in every main loop.
 
-\subsecao{3.1. Inicialização do Loop.}
+\subsecao{3.1. Loop Initialization.}
 
-Isso é o que fará a macro \monoespaco{LOOP\_INIT}:
+This is what the macro \monoespaco{LOOP\_INIT} does:
 
-Primeiro devemos checar variáveis que determinam se devemos encerrar o
-laço. Se estivermos, mas ainda houverem recursos sendo carregados
-(imagens, vídeos, shaders, sons), apenas retornamos da função. Se não
-houver nada sendo carregado, mas ainda não executamos a finalização
-deste laço, pulamos para executar a finalização. Se não há nada a ser
-carregado e já executamos a finalização, aí sim encerramos de vez o
-laço. Depois checamos se esta função está sendo chamada pela primeira
-vez. Em caso afirmativo, apenas continuamos a execução. Em caso
-negativo, fazemos um desvio incondicional para não termos que executar
-novamente o código de inicialização. Por fim, se não fizemos o desvio,
-faremos com que a variável |W.loop_name| passe a ser uma string com o
-nome do laço principal atual.
+First it checks variables to determine if we should finish the
+loop. If so, but we still have resources being loaded (images, videos,
+shaders, sounds), we just return from the function. If we have nothing
+being loaded but we still didn't executed the finalization section, we
+use \monoespaco{goto} and go to the finalization section. If there's
+nothing being loaded and we already ran the finalization, we finally
+stop the loop.
 
-Saber se devemos continuar executando ou não um laço é algo que pode
-ser controlado por uma variável global, não sendo nem necessário se
-preocupar com semáforos. Afinal, somente um laço irá executar em um
-dado momento. O mesmo pode ser feito com a variável que determina se
-estamos na primeira execução de um laço (ou o começo de um laço) e se
-já executamos a finalização. Vamos declarar ambas as variáveis:
+If we don't need to finish the loop, but this function is being called
+for the first time, we just continue the execution. Otherwise, we use
+a \monoespaco{goto} to avoid executing more than once the
+initialization section. Finally, if we are still here, it's because we
+are running the function for the first time. So we make the variable
+|W.loop_name| represents a string with the name of current main loop.
+
+How do we know if we should keep executing the loop? We use a global
+variable. As there's only one main loop, we don't need to protect it
+with semaphores. The same can be done to know if we are executing a
+main loop for the first time, if we are in the beginning of a loop of
+if we already executed the finalization. Let's declare the variables:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -519,7 +520,7 @@ bool _running_loop, _loop_begin, _loop_finalized;
 @
 \fimcodigo
 
-E vamos inicializar elas:
+And let's initialize them:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -529,21 +530,18 @@ _loop_finalized = false;
 @
 \fimcodigo
 
-Saber se ainda estamos carregando arquivos (ou melhor, quantos
-arquivos pendentes ainda estamos carregando) ou o nome do laço em que
-estamos são duas informações que são úteis não só para a lógica
-interna do motor, mas também para o seu usuário. Saber se o laço ainda
-não terminou de carregar é útil para fornecer uma tela de
-carregamento. Saber durante a execução o nome do laço em que estamos é
-útil tanto para depuração como para podermos carregar recursos
-diferentes dependendo do laço em que estamos. Por causa disso, ambas
-as variáveis devem ser declaradas na estrutura |W|. O tamanho máximo
-de nome de um laço que podemos armazenar pode ser personalizado com a
-macro \monoespaco{W\_MAX\_LOOP\_NAME}.
+Know if we are still loading resources (usually reading files) or the
+name of the current loop is useful not only for the engine's internal
+logic, but also for the user. Knowing if we are still loading files
+permits showing a loading screen. Knowing the current loop name is
+useful for debugging and for loading different resources depending of
+the loop. Because of this, both variables shall be declared in |W|
+structure. The maximum loop name which we can store can be setted with
+the macro \monoespaco{W\_MAX\_LOOP\_NAME}.
 
 \iniciocodigo
 @<Weaver Variables@>+=
-// Dentro da estrutura W:
+// Inside W structure:
 #if !defined(W_MAX_LOOP_NAME)
 #define W_MAX_LOOP_NAME 64
 #endif
@@ -552,8 +550,8 @@ char loop_name[W_MAX_LOOP_NAME];
 @
 \fimcodigo
 
-Na inicialização ajustamos tais variáveis como 0 e |NULL|
-respectivamente:
+During initialization we set these variables as 0 and |NULL|
+respectivelly:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -562,7 +560,8 @@ W.loop_name[0] = '\0';
 @
 \fimcodigo
 
-A função que usaremos para sair do laço será esta:
+The function which exits the loop is:
+
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -571,19 +570,17 @@ void _exit_loop(void) __attribute__ ((noreturn));
 #else
 __declspec(noreturn) void _exit_loop(void);
 #endif
-
-
 @
 \fimcodigo
 
-Mas não iremos definir ela ainda. Pelo cabeçalho nota-se que é uma
-função que nunca retorna, tendo isso especificado tanto pela convenção
-do GCC e Clang como pela convenção do Visual Studio. Isso porque o que
-ela fará é apenas chamar o código do laço anterior, ou sair do
-programa dependendo do caso.
+But we still won't define it. By the header, this is a function which
+never returns, specified as such in the above code using notation from
+GCC and Clang and from Visual Studio. It's so because when it exists,
+it just calls previous main loop which never returns, or it just
+exists the program, depending of the case.
 
-Após descrever tudo isso, podemos enfim definir a macro de início de
-laço:
+After desscribing thism we can finally define the loop initialization
+macro:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -604,12 +601,12 @@ laço:
 @
 \fimcodigo
 
-Terminamos com o
-identificador \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION}, o qual será
-o verdadeiro nome do rótulo que existirá por trás de nossa macro.
+We end with th identifier \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION},
+which is the true label name from this macro (remember, this macro is
+always invoked as ``\monoespaco{LOOP\_INIT:}'' with ``:'' )  .
 
-\subsecao{3.2. Corpo do Loop.}
-
+\subsecao{3.2. Loop Body.}    
+     
 Isso é o que fará a macro \monoespaco{LOOP\_BODY}:
 
 Ao chega nesta macro, devemos ajustar como falsa a informação de que é
