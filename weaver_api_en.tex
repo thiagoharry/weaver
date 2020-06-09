@@ -607,29 +607,25 @@ always invoked as ``\monoespaco{LOOP\_INIT:}'' with ``:'' )  .
 
 \subsecao{3.2. Loop Body.}    
      
-Isso é o que fará a macro \monoespaco{LOOP\_BODY}:
+This is what the macro \monoespaco{LOOP\_BODY} does:
 
-Ao chega nesta macro, devemos ajustar como falsa a informação de que é
-nossa primeira execução do laço, pois assim não iremos executar a
-inicialização novamente. Em seguida, aproveitamos para colocar um
-desvio incondicional por trás de um \monoespaco{if} que garanta que
-ele nunca seja executado para o rótulo que termina a macro
-anterior. Esse desvio nunca irá ocorrer, mas isso previne que o
-compilador reclame que o rótulo que encerra a última macro não é
-usado. Em seguida, crimaos o verdadeiro rótulo que marca o fim da
-inicialização e o começo da execução do corpo do laço. Neste começo de
-corpo do laço nós medimos o tempo que passou desde o último laço e
-armazenamos em um acumulador. Se este acumulador tiver um valor maior
-que o período de tempo entre execuções do código de física e lógica,
-então executamos o código presente no laço e o código associado à
-física. Caso contrário, só ignoramos tudo e vamos para a finalização
-onde apenas renderizamos na tela.  Caso tenha passado um longo tempo
-entre cada iteração de laço, executamos mais de uma vez o código do
-corpo do laço.
+When we are in this macro, we shall set as false the information that
+this is our first loop execution avoiding to re-execute the
+initialization again. Then, we put an \monoespac{goto} after
+a \monoespaco{if} which never will be executed. This is done just so
+we can use the label \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION} with
+no compiler warnings of unused label. We mark with the
+label \monoespaco{\_END\_LOOP\_INITIALIZATION} the real beginning of
+our loop body. We then measure the elapsed time since the last loop
+and store in an accumulator. If this accumulator holds a value bigger
+than the time expected between execution of physics code and logic
+code, we execute thee code. Otherwise, we just ignore these code and
+jump for finalization where we just render in the screen. If a lot of
+time passed since last loop execution, we could run more than once
+this loop body code.
 
-O acumulador que usamos para saber se devemos executar a lógica e a
-física do jogo será chamado de \monoespaco{\_lag}. Declaramos ele
-globalmente:
+The accumulator which determines if we should run physics code or
+logic code will be called \monoespaco{\_lag}. It is a global variable:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -637,18 +633,18 @@ unsigned long _lag;
 @
 \fimcodigo
 
-E o inicializamos:
+This is ts initialization:
 
 @<Weaver API: Initialization@>+=
 _lag = 0;
 @
 
-Existirão variáveis que poderão ser lidas pelo usuário com informações
-de tempo. Uma delas (\monoespaco{W.t}) conterá a quantidae de
-microssegundos desde que o jogo inicializou. Outra delas
-(\monoespaco{W.dt}) conterá o intervalo entre execuções do motor de
-física e da lógica do jogo. Ambas as variáveis precisam ser declaradas
-na estrutura \monoespaco{W}:
+We need some variables which could be read by an user with information
+about time. One of them (\monoespaco{W.t}) will store the elapsed
+microseconds since the game initialization. Another one
+(\monoespaco{W.dt}) will hold the interval between executions of our
+physics engine and game logic. Both variables needs to be declared
+inside \monoespaco{W} struct:
 
 \iniciocodigo
 @<Weaver Variables@>+=
@@ -657,14 +653,12 @@ unsigned long dt;
 @
 \fimcodigo
 
-A primeira das variáveis, obviamente deve ser inicializada como
-zero. A segunda deve ser inicializada como tendo o mesmo valor que uma
-macro \monoespaco{W\_TIMESTEP} que pode ser definida pelo usuário para
-que assim ele controle a granularidade de execução do código mais
-pesado do motor de física e lógica do jogo. Se esta macro não for
-definida, iremos assumir um valor de 40000 microssegundos. Isso
-significa uma freuência de 25 Hz de execução do motor de física (25
-vezes por segundo).
+The first variable obviously shall be initialized as zero.  The second
+one shall be initialized with the same value than
+macro \monoespaco{W\_TIMESTEP}, which could be defined by the user to
+cntrol the granularity of code execution in physics and logic. If this
+macro is not defined, we assume 40000 microsecons. This ensures a
+frequency of 25 Hz for the execution of physics engine.
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -676,8 +670,8 @@ W.t = 0;
 @
 \fimcodigo
 
-O código da engine de física e lógica interna do jogo deve ficar
-encapsulado em uma função chamada \monoespaco{\_update}:
+The code of physics engine and internal logic shall be encapsuled in a
+function called \monoespaco{\_update}:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -685,8 +679,7 @@ void _update(void);
 @
 \fimcodigo
 
-Por hora ainda não iremos definir o código a ser executado nesta
-função:
+We won't at this moment define the code in this function:
 
 \iniciocodigo
 @<Weaver API: Base@>+=
@@ -696,8 +689,8 @@ void _update(void){
 @
 \fimcodigo
 
-Mas com as definições que fizemos já podemos definir a nossa macro que
-marca o começo do código do laço principal:
+With all these definitions, we already can define our macro which
+marks the beginning of the main loop:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -713,11 +706,10 @@ _LABEL_0
 @
 \fimcodigo
 
-Notar que a macro acima abre um laço com um \monoespaco{while}, mas
-não o encerra. Ele deverá ser encerrado pelo código inserido pela
-macro que delimita o fim do corpo do laço principal. A qual também
-deverá decrementar a variável \monoespaco{\_lag} para que este não
-seja um laço infinito.
+Notice that the previous macro opens a \monoespaco{while} loop, but
+don't close it. It should be closed by the code inserter by our macro
+which delimits the end of loop body. This macro also should decrement
+the variable \monoespaco{\_lag} to prevent an infinite loop.
 
 \subsecao{3.3. Finalização do Loop.}
 
