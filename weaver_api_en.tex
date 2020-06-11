@@ -711,27 +711,22 @@ don't close it. It should be closed by the code inserter by our macro
 which delimits the end of loop body. This macro also should decrement
 the variable \monoespaco{\_lag} to prevent an infinite loop.
 
-\subsecao{3.3. Finalização do Loop.}
+\subsecao{3.3. Loop Finalization.}
 
-Isso é o que fará a macro \monoespaco{LOOP\_END}:
+This is what our macro \monoespaco{LOOP\_END} will do:
 
-Primeiro para fornecer uma condição de parada para o laço começado na
-macro anterior, decrementaremos de \monoespaco{\_lag} o valor
-de \monoespaco{W.dt}. Em seguida, incrementaremos \monoespaco{W.t} com
-tal quantidade de microssegundos. Só então encerramos o bloco do laço
-dentro do qual estávamos. Fora deste laço, seguimos realizando aquilo
-que deve ser feito independente de estarmos executando o motor de
-física e de lógica de jogo ou não. Como são sempre atividades
-relacionadas à renderização na tela, isso estará dentro de uma função
-chamada \monoespaco{\_render}. Em seguida, simplesmente retornamos. Se
-estamos executando o código aqui, é porque estávamos terminando de
-executar o corpo do link. Depois do retorno colocamos um desvio para
-um rótulo que nunca será executado e apenas nos protege de aviso do
-compilador. E enfim colocamos um rótulo imediatamente antes da
-finalização e que pode ser atingido somente por um desvio se
-detectarmos que o laço acabou e precisamos rodar a finalização.
+First to ensure that the loop from last macro ends, we decrement from
+\monoespaco{\_lag} the value of \monoespaco{W.dt}. Next we increment
+\monoespaco{W.t} with that ammount of microseconds. And next we end
+the block of the loop. Outside the loop we keep doing activities not
+related with the physics engine and game logic. As these activities
+are tipically about rendering, we put them in a function called 
+\monoespaco{\_render}. Next we return. After the return we put a
+\monoespaco{goto} to a label which never will be executed to protect us
+from compiler warnings. Finally, we put a label signaling the
+beginning of finalization.
 
-A única coisa nova que temos aqui então é a função de renderização:
+The only new thing here is the rendering function:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -739,8 +734,7 @@ void _render(void);
 @
 \fimcodigo
 
-Por hora ainda não iremos definir o código a ser executado nesta
-função:
+For now we are not defining the code inside this function:
 
 \iniciocodigo
 @<Weaver API: Base@>+=
@@ -750,7 +744,7 @@ void _render(void){
 @
 \fimcodigo
 
-E agora colocamos o código da macro:
+And now we define the macro code:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -765,7 +759,7 @@ _LOOP_FINALIZATION
 @
 \fimcodigo
 
-\subsecao{3.4. Entrando em Laço Principal.}
+\subsecao{3.4. Entering in a main loop.}
 
 Frequantemente estaremos trocando de laços principais ao longo de um
 jogo. Mas nem sempre isso significa uma substituição completa. Alguns
