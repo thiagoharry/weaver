@@ -804,7 +804,7 @@ _LOOP_FINALIZATION
 
 \subsecao{3.4. Entrando em Laço Principal.}
 
-Frequantemente estaremos trocando de laços principais ao longo de um
+Frequentemente estaremos trocando de laços principais ao longo de um
 jogo. Mas nem sempre isso significa uma substituição completa. Alguns
 laços principais ocorrem dentro de outros laços principais. Por
 exemplo, quando acessamos um menu de configurações durante um jogo. Ou
@@ -888,7 +888,7 @@ void _Wloop(void (*f)(void)){
     _number_of_loops --;
   }
   @<Código antes de Loop e Subloop@>
-  @<Código andes de Loop, não de Subloop@>
+  @<Código antes de Loop, não de Subloop@>
   _loop_stack[_number_of_loops] = f;
   _number_of_loops ++;
 #if defined(__EMSCRIPTEN__)
@@ -925,7 +925,7 @@ void Wsubloop(void (*f)(void)){
     emscripten_cancel_main_loop();
 #endif
   @<Código antes de Loop e Subloop@>
-  @<Código andes de Subloop, não de Loop@>
+  @<Código antes de Subloop, não de Loop@>
   if(_number_of_loops >= W_MAX_SUBLOOP){
     fprintf(stderr, "Error: Max number of subloops achieved.\n");
     fprintf(stderr, "Please, increase W_MAX_SUBLOOP in conf/conf.h"
@@ -955,8 +955,9 @@ atualizar a variável \monoespaco{\_running\_loop} que avisa ao motor
 que realmente estamos executando um laço ao invés de tentar sair dele,
 ajustamos a variável que diz que estamos entrando no começo de um laço
 e que portanto precisaremos executar o código de inicialização, a
-variável que informa que a finalização do laço ainda não foi executada
-e também atualizamos nosso contador de tempo:
+variável que informa que a finalização do laço ainda não foi
+executada. Estas são as variáveis que controlam o fluxo de execução do
+laço. Também atualizamos nosso contador de tempo:
 
 \iniciocodigo
 @<Código antes de Loop e Subloop@>=
@@ -1038,7 +1039,7 @@ final deste documento e as partes que aparecem aqui vazias estarão
 posteriormente preenchidas e melhor explicadas.
 
 \iniciocodigo
-@<Código andes de Subloop, não de Loop@>=
+@<Código antes de Subloop, não de Loop@>=
 @
 \fimcodigo
 
@@ -1063,7 +1064,7 @@ posteriormente preenchidas e melhor explicadas.
 \fimcodigo
 
 \iniciocodigo
-@<Código andes de Loop, não de Subloop@>=
+@<Código antes de Loop, não de Subloop@>=
 @
 \fimcodigo
 

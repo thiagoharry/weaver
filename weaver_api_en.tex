@@ -761,25 +761,22 @@ _LOOP_FINALIZATION
 
 \subsecao{3.4. Entering in a main loop.}
 
-Frequantemente estaremos trocando de laços principais ao longo de um
-jogo. Mas nem sempre isso significa uma substituição completa. Alguns
-laços principais ocorrem dentro de outros laços principais. Por
-exemplo, quando acessamos um menu de configurações durante um jogo. Ou
-quando em um RPG clássico por turnos mudamos para o modo de combate
-após um encontro aleatório.
+Frequently we will change which main loop we will execute during the
+game execution. But not always this means a complete
+substitution. Some main loops runs inside other main loops. For
+example, when we enter a configuration menu during the game. Or when
+in a classic turn-based japanese RPG we enter in the combat loop after
+a random encounter.
 
-Podemos então formar uma pilha de laços principais, onde ao sairmos do
-último laço voltamos para o que está empilhado imediatamente abaixo
-dele ao invés de sairmos do jogo.
+We can use a stack of main loops, where when we exit the last main
+loop, we enter the next loop in the stack.
 
-Sendo assim, existem duas formas de entrar em um laço principal. Uma
-delas, por meio da função que definiremos chamada \monoespaco{Wloop} e
-a segunda por meio da \monoespaco{Wsubloop}. A primeira envolve
-substituirmos o laço principal atual por um novo. A segunda enolve
-apenas criar um laço principal dentro do laço atual. A primeira é algo
-que só poderemos fazer se não houverem arquivos pendentes sendo
-carregados (possivelmente haverá uma tela de carregamento neste
-caso). Por isso apenas nos asseguramos disso por mieo de um truque com
+So exists two forms of entering a main loop. In one of them, using a
+function which we will call \monoespaco{Wloop} and the other with the
+second function \monoespaco{Wsubloop}. In the first we substitute one
+loop for another, and we can doo this only if there are no pending
+files being loaded (in this case, usually we will be in a loading
+screen, but not necessarily). We can ensure this using tricks with
 macros:
 
 \iniciocodigo
@@ -795,19 +792,19 @@ __declspec(noreturn) void Wsubloop(void (*f)(void));
 @
 \fimcodigo
 
-Nenhum dos dois tipos de função irá retornar jamais. Então
-especificamos isso tanto na convenção de compiladores como Clang e GCC
-como na do Visual Studio.
+The two functions to enter main loops never will return. We specified
+this above using both Clang and GCC conventions and also Visual Studio
+convention.
 
-Vamos precisar de uma pilha de laços principais, que representaremos
-por meio de uma sequência de ponteiros para funções. Essa nossa
-sequência será um vetor com \monoespaco{W\_MAX\_SUBLOOP}
-posições. Esta macro poderá ser controlada pelo usuário, mas se não
-estiver definida, assumiremos que será 3. Além da pilha, vamos
-precisar de uma variável para nos informar em qual profundidade da
-pilha estamos no momento (\monoespaco{\_number\_of\_loops}).
+We also need a stack of main loops, which will be stored as an array
+of pointers for functions. The array will
+have \monoespaco{W\_MAX\_SUBLOOP} positions.This macro will be
+controlled by the user, but if it is not defined, we will assume
+3. The choice is completely arbitrary. Besides the stack, we need a
+variable to store the depth of main loop stack:
+(\monoespaco{\_number\_of\_loops}).
 
-A declaração destas duas variáveis será:
+We declare these variables as:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -819,7 +816,7 @@ void (*_loop_stack[W_MAX_SUBLOOP]) (void);
 @
 \fimcodigo
 
-E inicializamos a contagem do número de laços como zero:
+And initialize the counting of number of loops as zero:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -827,25 +824,23 @@ _number_of_loops = 0;
 @
 \fimcodigo
 
-Entrar em um novo laço principal por meio de \monoespaco{Wloop}
-envolve verificar se já estamos antes em um laço. Se for o caso,
-cancelamos ele. Em seguida, carregamos o novo laço para a pilha e
-ajustamos o valor da contagem de laços em execução. Atualizamos o
-nosso valor de contagem de tempo e finalmente executamos o laço. Em
-ambiente Web Assembly em navegador de Internet isso envolve chamar
-diretamente uma função que estabelece nossa função escolhida como laço
-principal. Nos demais, basta executar a função em
-um \monoespaco{while} comum:
+Entering in a main loop using \monoespaco{Wloop} means verifying if we
+are already in a main loop or not. If we are, we cancel the previous
+loop. Next, we load he next loop to the stack and adjust the counting
+of main loops. We also update our time measuring and finally run the
+loop. In Web Assembly running in web browsers, this means calling
+directly a function which determines the program main loop. In other
+environments, we just run the function in a um \monoespaco{while}:
 
 \iniciocodigo
 @<Weaver API: Base@>+=
 void _Wloop(void (*f)(void)){
   if(_number_of_loops > 0){
-    @<Cancela Loop Principal@>
+    @<Cancel Main Loop@>
     _number_of_loops --;
   }
-  @<Código antes de Loop e Subloop@>
-  @<Código andes de Loop, não de Subloop@>
+  @<Code Before Loop and Subloop@>
+  @<Code before Loop, not Subloop@>
   _loop_stack[_number_of_loops] = f;
   _number_of_loops ++;
 #if defined(__EMSCRIPTEN__)
@@ -858,22 +853,20 @@ void _Wloop(void (*f)(void)){
 @
 \fimcodigo
 
-Cancelar um laço principal já existente envolve caso estejamos
-executando em ambiente Web Assembly invocar a função que interrompe o
-laço atual:
+Cancelling a main loop involves calling a function if we are running
+in Web Assembly environment:
 
 \iniciocodigo
-@<Cancela Loop Principal@>=
+@<Cancel Main Loop@>=
 #if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
 #endif
 @
 \fimcodigo
 
-Iniciar um novo subloop, ou sublaço, é bastante semelhante. Mas
-tratamos de maneira diferente o nosso contador de laços, já que ele
-realmente precisa ser incrementado. E também temos que checar se
-tivemos um estouro na nossa pilha de laços:
+Start a new subloop is similar. But we update differently our main
+loop counter, as it needs to be incremented. And we also need to check
+for stack overflows:
 
 \iniciocodigo
 @<Weaver API: Definitions@>+=
@@ -881,8 +874,8 @@ void Wsubloop(void (*f)(void)){
 #if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
 #endif
-  @<Código antes de Loop e Subloop@>
-  @<Código andes de Subloop, não de Loop@>
+  @<Code Before Loop and Subloop@>
+  @<Code before Subloop, not Loop@>
   if(_number_of_loops >= W_MAX_SUBLOOP){
     fprintf(stderr, "Error: Max number of subloops achieved.\n");
     fprintf(stderr, "Please, increase W_MAX_SUBLOOP in conf/conf.h"
@@ -901,22 +894,22 @@ void Wsubloop(void (*f)(void)){
 @
 \fimcodigo
 
-Vamos incluir o cabçalho para podermos imprimir mensagens de erro:
+Let's include a header for error message printing:
 
 @<Weaver Headers@>+=
 #include <stdio.h>
 @
 
-Uma coisa que faremos tanto antes de um laço como de um sublaço é
-atualizar a variável \monoespaco{\_running\_loop} que avisa ao motor
-que realmente estamos executando um laço ao invés de tentar sair dele,
-ajustamos a variável que diz que estamos entrando no começo de um laço
-e que portanto precisaremos executar o código de inicialização, a
-variável que informa que a finalização do laço ainda não foi executada
-e também atualizamos nosso contador de tempo:
+One necessary update before entering a main loop updating
+\monoespaco{\_running\_loop}, variable which tells the game engine
+that we should run the current game loop, not exit it. We also update
+a variable which stores if we are in the beginning of loop, and so
+needs to run initialization code. And also the variable which stores
+that we never executed this loop finalization. These are variables
+which control the main loop flow. We also update our time measure.
 
 \iniciocodigo
-@<Código antes de Loop e Subloop@>=
+@<Code Before Loop and Subloop@>=
 _running_loop = true;
 _loop_begin = true;
 _loop_finalized = false;
@@ -974,7 +967,7 @@ void _exit_loop(void){
   else{
     @<Código após sairmos de Subloop@>
     _number_of_loops --;
-    @<Código antes de Loop e Subloop@>
+    @<Code Before Loop and Subloop@>
 #if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
     emscripten_set_main_loop(_loop_stack[_number_of_loops - 1], 0, 1);
@@ -995,7 +988,7 @@ final deste documento e as partes que aparecem aqui vazias estarão
 posteriormente preenchidas e melhor explicadas.
 
 \iniciocodigo
-@<Código andes de Subloop, não de Loop@>=
+@<Code before Subloop, not Loop@>=
 @
 \fimcodigo
 
@@ -1020,7 +1013,7 @@ posteriormente preenchidas e melhor explicadas.
 \fimcodigo
 
 \iniciocodigo
-@<Código andes de Loop, não de Subloop@>=
+@<Code before Loop, not Subloop@>=
 @
 \fimcodigo
 
