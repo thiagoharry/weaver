@@ -64,7 +64,6 @@ directory with a new Weaver project is created. Inside the directory,
 the file with the main loop is in \monoespaco{src/game.c} and inside
 them we find:
 
-\linha
 \alinhaverbatim
 #include "game.h"
 
@@ -84,11 +83,9 @@ int main(void){
   return 0;
 }
 \alinhanormal
-\linha
 
 And inside \monoespaco{src/game.h}, we find:
 
-\linha
 \alinhaverbatim
 #ifndef _game_h_
 #define _game_h_
@@ -106,7 +103,6 @@ void main_loop(void);
 
 #endif
 \alinhanormal
-\linha
 
 In this file there's an struct which can be customized by the user and
 which is where variables with global states should be declared. The
@@ -374,12 +370,12 @@ should be declared as:
 
 \alinhaverbatim
 void nome\_do\_loop(void){
- LOOP\_INIT: // Código executado na inicialização
+ LOOP\_INIT: // Code executed at initialization
 
- LOOP\_BODY: // Código executado a cada iteração
+ LOOP\_BODY: // Code executed in each iteration
     if(W.keyboard[W\_ANY])
         Wexit\_loop();
- LOOP\_END: // Código executado na finalização
+ LOOP\_END: // Code executed at finalization
     return;
 }
 \alinhanormal
@@ -611,7 +607,7 @@ This is what the macro \monoespaco{LOOP\_BODY} does:
 
 When we are in this macro, we shall set as false the information that
 this is our first loop execution avoiding to re-execute the
-initialization again. Then, we put an \monoespac{goto} after
+initialization again. Then, we put an \monoespaco{goto} after
 a \monoespaco{if} which never will be executed. This is done just so
 we can use the label \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION} with
 no compiler warnings of unused label. We mark with the
@@ -684,7 +680,7 @@ We won't at this moment define the code in this function:
 \iniciocodigo
 @<Weaver API: Base@>+=
 void _update(void){
-  @<Código a executar todo loop@>
+  @<Code to execute every loop@>
 }
 @
 \fimcodigo
@@ -739,7 +735,7 @@ For now we are not defining the code inside this function:
 \iniciocodigo
 @<Weaver API: Base@>+=
 void _render(void){
-  @<Código de renderização@>
+  @<Render Code@>
 }
 @
 \fimcodigo
@@ -917,20 +913,18 @@ _update_time();
 @
 \fimcodigo
 
-\subsecao{3.4. Saindo do Laço Principal.}
+\subsecao{3.4. Exit from Main Loop.}
 
-Assim como existem duas funções para entrar em laços prinicpais,
-existitão duas funções para sair. Uma delas apenas sai do laço
-prinicpal atual, voltando para o próximo laço principal da pilha se
-existit. A outra sai de todos os laços existentes e encerra o
-programa.
+As there are two functions to enter in a main loop, there are two
+functions to exit. One of them exits the current main loop returning
+to the previous in the stack if it exists. The other exits all the
+main loops and stops the program.
 
-A que sai de todos os laços já foi parcialmetne definida e é
-a \monoespaco{Wexit}.
+The function to exit from all main loops was already partially defined
+and is the \monoespaco{Wexit} function.
 
-Sair de um laço atual já existente envolve ajustar a variável global
-que diz que estamos executando o laço para um valor que significa que
-queremos sair do laço:
+Exit from a main loop involves adjust the global variable which stores
+if we should execute the current main loop or exits from it:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -938,10 +932,9 @@ queremos sair do laço:
 @
 \fimcodigo
 
-Se você verificar novamente o código inserido pelas macros presentes
-em laços principais, verá que se esta variável for falsa e não existir
-nenhum recurso ou arquivo ainda sendo carregado, então será chamada a
-função \monoespaco{\_exit\_loop}:
+If you check again the code inserted by macros in main loops, you will
+notice that if this variable is false, if there are no pending files
+being loaded, then the function \monoespaco{\_exit\_loop} is called:
 
 \iniciocodigo
 @<Weaver Headers@>+=
@@ -953,19 +946,20 @@ __declspec(noreturn) void _exit_loop(void);
 @
 \fimcodigo
 
-Já o código desta função envolve cancelar o laço atual e checar se
-existe outro na pilha. Se não existir, o programa se encerra. Se
-existir, executa código de entrada no novo laço:
+The code of this function involves cancelling the current main loop
+and checking if there is another main loop in the stack. If not, the
+program exits.  If exists, we run again the initialization code in
+that main loop and start running it:
 
 \iniciocodigo
 @<Weaver API: Definitions@>+=
 void _exit_loop(void){
   if(_number_of_loops <= 1){
     Wexit();
-    exit(1); // Esta linha apenas previne aviso na compilação
+    exit(1); // This line prevents compiler warnings
   }
   else{
-    @<Código após sairmos de Subloop@>
+    @<Code after Exiting Subloop@>
     _number_of_loops --;
     @<Code Before Loop and Subloop@>
 #if defined(__EMSCRIPTEN__)
@@ -980,12 +974,12 @@ void _exit_loop(void){
 @
 \fimcodigo
 
-\secao{Definições Vazias}
+\secao{Empty Definitions}
 
-As seguintes definições ainda estão em branco e estão aqui para manter
-o projeto compilando com sucesso. Esta parte não existirá na versão
-final deste documento e as partes que aparecem aqui vazias estarão
-posteriormente preenchidas e melhor explicadas.
+The following section and definitions are intentionally blank and are
+here to ensure correct compilation of the project. This part won't
+exist in the final version of this document and the currently blank
+parts after will be written and better explained.
 
 \iniciocodigo
 @<Code before Subloop, not Loop@>=
@@ -993,7 +987,7 @@ posteriormente preenchidas e melhor explicadas.
 \fimcodigo
 
 \iniciocodigo
-@<Código após sairmos de Subloop@>=
+@<Code after Exiting Subloop@>=
 @
 \fimcodigo
 
@@ -1003,12 +997,12 @@ posteriormente preenchidas e melhor explicadas.
 \fimcodigo
 
 \iniciocodigo
-@<Código a executar todo loop@>=
+@<Code to execute every loop@>=
 @
 \fimcodigo
 
 \iniciocodigo
-@<Código de renderização@>=
+@<Render Code@>=
 @
 \fimcodigo
 
@@ -1023,7 +1017,7 @@ posteriormente preenchidas e melhor explicadas.
 \fimcodigo
 
 
-\secao{Referências}
+\secao{References}
 
 \referencia{Fiedler, G. (2004) ``Fix Your Timestep!'', acessado em
 \monoespaco{https://gafferongames. com/post/fix\_your\_timestep/}

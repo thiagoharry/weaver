@@ -73,7 +73,6 @@ comando, um diretório com um novo projeto Weaver e criado. Dentro
 deste diretório, o arquivo que contém o loop principal está
 em \monoespaco{src/game.c} e nele encontramos:
 
-\linha
 \alinhaverbatim
 #include "game.h"
 
@@ -93,7 +92,6 @@ int main(void){
   return 0;
 }
 \alinhanormal
-\linha
 
 E dentro de \monoespaco{src/game.h}, nós encontramos:
 
@@ -970,13 +968,13 @@ _update_time();
 
 \subsecao{3.4. Saindo do Laço Principal.}
 
-Assim como existem duas funções para entrar em laços prinicpais,
+Assim como existem duas funções para entrar em laços principais,
 existitão duas funções para sair. Uma delas apenas sai do laço
-prinicpal atual, voltando para o próximo laço principal da pilha se
-existit. A outra sai de todos os laços existentes e encerra o
+principal atual, voltando para o próximo laço principal da pilha se
+existir. A outra sai de todos os laços existentes e encerra o
 programa.
 
-A que sai de todos os laços já foi parcialmetne definida e é
+A que sai de todos os laços já foi parcialmente definida e é
 a \monoespaco{Wexit}.
 
 Sair de um laço atual já existente envolve ajustar a variável global
