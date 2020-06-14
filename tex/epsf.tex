@@ -1,0 +1,2981 @@
+\catcode`@=11
+\font\tenit@=cmti10 % text italic
+\font\tennegit@=cmbxti10 % Negrito e itálico
+\font\tennegsl@=cmbxsl10 % Negrito e inclinado
+\font\tensl@=cmsl10 % slanted roman
+\font\tenrm@=cmr10 % roman text
+\font\tenbf@=cmbx10 % boldface extended
+\font\tentt@=cmtt10 % typewriter
+\font\tennegtt@=cmbtt10 % Negrito monoespaço?
+\font\teni@=cmmi10 % math italic
+\font\tensy@=cmsy10 % math symbols
+\font\tenex@=cmex10 % math extension
+\font\sevenrm@=cmr7 % Usado em subscritos e sobrescritos
+\font\fiverm@=cmr5 % Usado em subsubscritos e sobresobrescritos
+\font\seveni@=cmmi7 % Sobrescritos e subscritos matemáticos
+\font\fivei@=cmmi5 % Subsubscritos itálicos
+\font\sevensy@=cmsy7 % Símbolos subscritos
+\font\fivesy@=cmsy5 % Símbolos subsubscritos
+\font\sevenbf@=cmbx7 % Subscritos negritos
+\font\fivebf@=cmbx5 % Subsubscritos negritos
+\dimendef\epsfrsize@=20
+\dimendef\pspoints@=21
+\dimendef\epsftsize@=22
+\dimendef\epsfxsize@=23    % horizontal size after scaling
+\dimendef\epsfysize@=24    % vertical size after scaling
+\dimendef\epsftmp@=25
+\def\loop@#1\repeat@{\def\body{#1}\iterate@}
+\def\iterate@{\body \let\next\iterate@ \else\let\next\relax\fi \next}
+\let\repeat@=\fi % this makes \loop...\if...\repeat skippable
+\outer\def\newif@#1{\count@\escapechar \escapechar-1
+  \expandafter\expandafter\expandafter
+   \def\@if#1{true}{\let#1=\iftrue}%
+  \expandafter\expandafter\expandafter
+   \def\@if#1{false}{\let#1=\iffalse}%
+  \@if#1{false}\escapechar\count@} % the condition starts out false
+\def\@if#1#2{\csname\expandafter\if@\string#1#2\endcsname}
+{\uccode`1=`i \uccode`2=`f \uppercase{\gdef\if@12{}}}
+
+
+\newif@ \ifepsfatend     % need to scan to LAST %%BoundingBox comment?
+\newif@ \ifepsfbbfound   % success?
+\newif@ \ifepsfdraft     % use draft mode?
+\newif@ \ifepsffileok    % continue looking for the bounding box?
+\newif@ \ifepsfframe     % frame the bounding box?
+\newif@ \ifepsfshow      % show PostScript file, or just bounding box?
+\epsfshowtrue          % default is to display PostScript file
+\newif@ \ifepsfshowfilename % show the file name if \epsfshowfalse specified?
+\dimendef\epsfframemargin=10 % margin between box and frame
+\dimendef\epsfframethickness=11 % thickness of frame rules
+\dimendef\epsfxsize@=12    % horizontal size after scaling
+\dimendef\epsfysize@=13    % vertical size after scaling
+
+%
+\pspoints@ = 1bp        % Adobe points are `big'
+\epsfxsize@ = 0pt       % default value, means `use natural size'
+\epsfysize@ = 0pt       % ditto
+\epsfframemargin = 0pt % default value: frame box flush around picture
+\epsfframethickness = 0.4pt % TeX's default rule thickness
+%
+
+
+\def\space@@{ }
+
+\gdef \epsfbox@ #1{%
+    \global \def \epsfllx {72}%
+    \global \def \epsflly {72}%
+    \global \def \epsfurx {540}%
+    \global \def \epsfury {720}%
+    \def \testit@ {#1}%
+    \epsfnormal@{#1}
+}%
+%
+% We use \epsfgetlitbb if the user specified an explicit bounding box,
+% and \epsfnormal otherwise.  Because \epsfgetbb can be called
+% separately to retrieve the bounding box, we move the verbose
+% printing the bounding box extents and size on the terminal to
+% \epsfstatus.  Therefore, when the user provided the bounding box,
+% \epsfgetbb will not be called, so we must call \epsfsetsize and
+% \epsfstatus ourselves.
+%
+%
+\def \epsfnormal@ #1{%
+    \epsfgetbb@{#1}%
+    \epsfsetgraph@{#1}%
+}%
+%
+\def \epsfgetbb@ #1{%
+%
+%   The first thing we need to do is to open the
+%   PostScript file, if possible.
+%
+    \openin0=#1
+    \ifeof0
+        \errmessage{Could not open file #1, ignoring it}%
+    \else                       %process the file
+        {%                      %start a group to contain catcode changes
+            % Make all special characters, except space, to be of type
+            % `other' so we process the file in almost verbatim mode
+            % (TeXbook, p. 344).
+          \catcode`\\=12\catcode`\{=12\catcode`\}=12\catcode`\$=12%
+          \catcode`&=12\catcode`\#=12\catcode`\^=12\catcode`\^^K=12%
+          \catcode`\_=12%
+          \catcode`\^^A=12\catcode`\%=12\catcode`\~=12\catcode`\ =10
+
+            \epsffileoktrue        %true while we are looping
+            \epsfatendfalse        %[02-Jul-1996]: add forgotten initialization
+            \loop@                  %reading lines from the EPS file
+                \read 0 to \epsffileline
+                \ifeof 0 %then no more input
+                \epsffileokfalse   %so set completion flag
+            \else                  %otherwise process one line
+                \expandafter \epsfaux \epsffileline :. \\%
+            \fi
+            \ifepsffileok
+            \repeat@
+            \ifepsfbbfound
+            \fi
+        }%                      %end catcode changes
+        \closein0
+    \fi                         %end of file processing
+    \epsfsetsize@                %compute size parameters
+}%
+%
+% Clipping control:
+\def \epsfclipon  {\def \epsfclipstring { clip}}%
+\def \epsfclipoff {\def \epsfclipstring {\ifepsfdraft \space@@ clip\fi}}%
+\epsfclipoff % default for dvips is OFF
+%
+% The special that is emitted by \epsfsetgraph comes from this macro.
+% It is defined separately to allow easy customization by other
+% packages that first \input epsf.tex, then redefine \epsfspecial.
+% This macro is invoked in the lower-left corner of a box of the
+% width and height determined from the arguments to \epsffile, or
+% from the %%BoundingBox in the EPS file itself.
+%
+% This version is for dvips:
+\def \epsfspecial #1{%
+     \epsftmp@=10\epsfxsize@
+     \divide \epsftmp@ by \pspoints@
+     \ifnum \epsfrsize@ = 0%
+       \relax
+       \special{PSfile=\ifepsfdraft psdraft.ps\else#1\fi\space@@
+		llx=\epsfllx\space@@
+		lly=\epsflly\space@@
+		urx=\epsfurx\space@@
+		ury=\epsfury\space@@
+		rwi=\number\epsftmp@\space@@
+		\epsfclipstring
+               }%
+     \else
+       \epsfrsize@=10\epsfysize@
+       \divide \epsfrsize@ by \pspoints@
+       \special{PSfile=\ifepsfdraft psdraft.ps\else#1\fi\space@@
+		llx=\epsfllx\space@@
+		lly=\epsflly\space@@
+		urx=\epsfurx\space@@
+		ury=\epsfury\space@@
+		rwi=\number\epsftmp@\space@@
+		rhi=\number\epsfrsize@
+		\epsfclipstring
+               }%
+     \fi
+}%
+%
+% \epsfframe macro adapted from the TeXbook, exercise 21.3, p. 223, 331.
+% but modified to set the box width to the natural width, rather
+% than the line width, and to include space for margins and rules
+\def \epsfframe #1%
+{%
+ % method for detecting latex suggested by Robin Fairbairns, May 2005.
+  \ifx \documentstyle \epsfundefined
+    \relax
+  \else
+%    \leavevmode                   % so we can put this inside
+                                  % a latex centered environment
+    % The \leavevmode breaks under plain when this is inside a box,
+    % because it forces the figure to be the entire \hsize.  On the
+    % other hand, we need the \leavevmode for it to work in LaTeX,
+    % because the {center} environment works by adjusting TeX's
+    % paragraph parameters.
+    %
+    % Compare the LaTeX sequence
+    % \begin{center}
+    %   \epsfbox{tip.eps}q
+    % \end{center}
+    % (needs the \leavevmode to put the q right next to the image)
+    %
+    % with the plain TeX sequence:
+    % \leftline{\vbox{\epsfbox{tip.eps}}q}
+    % (had the q all the way over to the right, when \leavevmode was used)
+  \fi
+  %
+  \setbox0 = \hbox{#1}%
+  \dimen0 = \wd0                                % natural width of argument
+  \advance \dimen0 by 2\epsfframemargin         % plus width of 2 margins
+  \advance \dimen0 by 2\epsfframethickness      % plus width of 2 rule lines
+  \relax
+  \hbox{%
+    \vbox
+    {%
+      \hrule height \epsfframethickness depth 0pt
+      \hbox to \dimen0
+      {%
+	\hss
+	\vrule width \epsfframethickness
+	\kern \epsfframemargin
+	\vbox {\kern \epsfframemargin \box0 \kern \epsfframemargin }%
+	\kern \epsfframemargin
+	\vrule width \epsfframethickness
+	\hss
+      }% end hbox
+      \hrule height 0pt depth \epsfframethickness
+    }% end vbox
+  }% end hbox
+  \relax
+}%
+%
+\def \epsfsetgraph@ #1%
+{%
+   %
+   % Make the vbox and stick in a \special that the DVI driver can
+   % parse.  \vfil and \hfil are used to place the \special origin at
+   % the lower-left corner of the vbox.  \epsfspecial can be redefined
+   % to produce alternate \special syntaxes.
+   %
+   \ifvmode \noindent \fi
+   \relax
+   \hfil\hbox{% so we can put this in \begin{center}...\end{center}
+     \ifepsfframe \expandafter \epsfframe \fi
+     {\vbox to\epsfysize@
+     {%
+        \ifepsfshow
+            % output \special{} at lower-left corner of figure box
+            \vfil
+            \hbox to \epsfxsize@{\epsfspecial{#1}\hfil}%
+        \else
+            \vfil
+            \hbox to\epsfxsize@{%
+               \hss
+               \ifepsfshowfilename
+               {%
+                  \epsfframemargin=3pt % local change of margin
+                  \epsfframe{{\tt #1}}%
+               }%
+               \fi
+               \hss
+            }%
+            \vfil
+        \fi
+     }%
+   }}%
+   \relax
+   %
+   % Reset \epsfxsize@ and \epsfysize@, as documented above.
+   %
+   \global \epsfxsize@ = 0pt
+   \global \epsfysize@ = 0pt
+}%
+%
+%   Now we have to calculate the scale and offset values to use.
+%   First we compute the natural sizes.
+%
+\def \epsfsetsize@
+{%
+   \epsfrsize@ = \epsfury \pspoints@
+   \advance \epsfrsize@ by -\epsflly \pspoints@
+   \epsftsize@ = \epsfurx \pspoints@
+   \advance \epsftsize@ by -\epsfllx \pspoints@
+%
+%   If `epsfxsize' is 0, we default to the natural size of the picture.
+%   Otherwise we scale the graph to be \epsfxsize@ wide.
+%
+   \epsfxsize@ = \epsfsize{\epsftsize@}{\epsfrsize@}%
+   \epsfxsize@ = \epsftsize@
+   \epsfysize@ = \epsfrsize@
+   \epsfrsize@ = 0pt
+}%
+%
+%   We still need to define the tricky \epsfaux macro. This requires
+%   a couple of magic constants for comparison purposes.
+%
+{\catcode`\%=12 \global \let \epsfpercent=%\global \def \epsfbblit {%BoundingBox}}%
+\global \def \epsfatend@{(atend)}%
+%
+%   So we're ready to check for `%BoundingBox:' and to grab the
+%   values if they are found.
+%
+%   If we find a line
+%
+%   %%BoundingBox: (atend)
+%
+%   then we ignore it, but set a flag to force parsing all of the
+%   file, so the last %%BoundingBox parsed will be the one used.  This
+%   is necessary, because EPS files can themselves contain other EPS
+%   files with their own %%BoundingBox comments.
+%
+%   If we find a line
+%
+%   %%BoundingBox: llx lly urx ury
+%
+%   then we save the 4 values in \epsfllx, \epsflly, \epsfurx, \epsfury.
+%   Then, if we have not previously parsed an (atend), we flag completion
+%   and can stop reading the file.  Otherwise, we must keep on reading
+%   to end of file so that we find the values on the LAST %%BoundingBox.
+\long \def \epsfaux#1#2:#3\\%
+{%
+   \def \testit@ {#2}%           % save second character up to just before colon
+   \ifx#1\epsfpercent           % then first char is percent (quick test)
+       \ifx \testit@ \epsfbblit  % then (slow test) we have %%BoundingBox
+            \epsfgrab #3 . . . \\%
+            \ifx \epsfllx\epsfatend@ % then ignore %%BoundingBox: (atend)
+                \global \epsfatendtrue
+            \else               % else found %%BoundingBox: llx lly urx ury
+                \ifepsfatend    % then keep parsing ALL %%BoundingBox lines
+                \else           % else stop after first one parsed
+                    \epsffileokfalse
+                \fi
+                \global \epsfbbfoundtrue
+            \fi
+       \fi
+   \fi
+}%
+%
+%   Here we grab the values and stuff them in the appropriate definitions.
+%
+\def \epsfempty {}%
+\def \epsfgrab #1 #2 #3 #4 #5\\{%
+   \global \def \epsfllx {#1}\ifx \epsfllx\epsfempty
+      \epsfgrab #2 #3 #4 #5 .\\\else
+   \global \def \epsflly {#2}%
+   \global \def \epsfurx {#3}\global \def \epsfury {#4}\fi
+}%
+%
+%   We default the epsfsize macro.
+%
+\def \epsfsize #1#2{\epsfxsize@}%
+%
+%   Finally, another definition for compatibility with older macros.
+%
+\let \epsffile = \epsfbox
+
+\def\espaco#1{{\dimen0=#1\divide\dimen0 by 3\ifvmode\vskip#1
+          plus\dimen0 minus\dimen0\else\hskip#1 plus\dimen0
+minus\dimen0\relax\fi}}
+\def\linha{{\hrule\vskip1pt}}
+\def\imagem#1{\epsfbox@{#1}}
+\def\\{\char"5C}
+\def\fim{\par\vfill\par\penalty-20000\end}
+% Suporte a texto colorido:
+\def\usoucor@{0}
+\def\cor#1#2{\if\usoucor@0\special{color push rgb 0 0 0}\fi%
+           \gdef\usoucor@{1}%w
+           \special{color push rgb #1}#2\special{color pop}}
+% Texto colorido em caixa colorida:
+\def\caixacor#1#2#3{%
+        \if\usoucor@0\special{color push rgb 0 0 0}\fi%
+        \gdef\usoucor@{1}%
+        {\setbox0=\hbox{#3}\skip0=\ht0%
+        \advance\skip0 by 0.5ex%
+        \hbox{\cor{#1}{\vrule height \skip0 width \wd0 depth \dp0}%
+\hskip-\wd0\box0}}}
+
+{\catcode`\^^M=13 %
+  \gdef\obeylines@{\parfillskip=0pt\catcode`\^^M13 \gdef^^M{\hbox{}\par}}%
+  \global\let^^M\par} % Se ^^M aparecer em um \write
+% E para cancelarmos o \obeylines usamos:
+\def\dontobeylines@{\tenrm@\parfillskip=0pt plus 1fil\catcode`\^^M=5\everypar{}}
+% Obedece espaços:
+\def\obeyspaces@{\catcode`\ 13}
+{\catcode`&=11\gdef\sh&{}
+        \gdef\space@{\hskip1.21ex\sh&}
+        \catcode`&=4}
+{\obeyspaces@\global\let =\space@}
+% Comandos de justificação e texto:
+\def\alinhaesquerda{\tenrm@\dontobeylines@\rightskip 0em plus 2em
+     \leftskip 0pt \spaceskip.3333em\xspaceskip.5em\parindent=20pt
+     \sfcode`\.3000 \sfcode`\?3000 \sfcode`\!3000 \sfcode`\:2000 \sfcode`\;1500
+     \sfcode`\,1250
+     \catcode`\{=1\catcode`\}=2\catcode`\$=3\catcode`\&=4\catcode`\#=6
+     \catcode`\^=7\catcode`\_=8\catcode`\^^I=10\catcode`\~=13\catcode`\%=14
+     \catcode`\ =10}
+\def\alinhaversoesquerdo{\tenrm@\obeylines@\rightskip0pt plus 1fil\leftskip0pt%
+     \xspaceskip0pt\parindent=20pt
+     \sfcode`\.3000 \sfcode`\?3000 \sfcode`\!3000 \sfcode`\:2000 \sfcode`\;1500
+     \sfcode`\,1250
+     \catcode`\{=1\catcode`\}=2\catcode`\$=3\catcode`\&=4\catcode`\#=6
+     \catcode`\^=7\catcode`\_=8\catcode`\^^I=10\catcode`\~=13\catcode`\%=14
+     \catcode`\ =10}
+\def\alinhadireita{\tenrm@\dontobeylines@\leftskip 0em plus 2em \rightskip0pt
+     \spaceskip.3333em\xspaceskip.5em\parindent=20pt
+     \sfcode`\.3000 \sfcode`\?3000 \sfcode`\!3000 \sfcode`\:2000 \sfcode`\;1500
+     \sfcode`\,1250
+     \catcode`\{=1\catcode`\}=2\catcode`\$=3\catcode`\&=4\catcode`\#=6
+     \catcode`\^=7\catcode`\_=8\catcode`\^^I=10\catcode`\~=13\catcode`\%=14
+     \catcode`\ =10}
+\def\alinhaversodireito{\tenrm@\obeylines@\rightskip0pt\leftskip0pt plus 1fil%
+     \xspaceskip0pt\parindent=20pt
+     \sfcode`\.3000 \sfcode`\?3000 \sfcode`\!3000 \sfcode`\:2000 \sfcode`\;1500
+     \sfcode`\,1250
+     \catcode`\{=1\catcode`\}=2\catcode`\$=3\catcode`\&=4\catcode`\#=6
+     \catcode`\^=7\catcode`\_=8\catcode`\^^I=10\catcode`\~=13\catcode`\%=14
+     \catcode`\ =10}
+\def\alinhacentro{\tenrm@\dontobeylines@\rightskip 0em plus 2em \leftskip 0em plus 2em%
+                  \spaceskip.3333em \xspaceskip.5em\parindent=20pt
+     \sfcode`\.3000 \sfcode`\?3000 \sfcode`\!3000 \sfcode`\:2000 \sfcode`\;1500
+     \sfcode`\,1250
+     \catcode`\{=1\catcode`\}=2\catcode`\$=3\catcode`\&=4\catcode`\#=6
+     \catcode`\^=7\catcode`\_=8\catcode`\^^I=10\catcode`\~=13\catcode`\%=14
+     \catcode`\ =10}
+\def\alinhaversocentro{\tenrm@\obeylines@\rightskip0pt plus 1fil%
+       \leftskip0pt plus 1 fil\xspaceskip0pt\parindent=20pt
+     \sfcode`\.3000 \sfcode`\?3000 \sfcode`\!3000 \sfcode`\:2000 \sfcode`\;1500
+     \sfcode`\,1250
+     \catcode`\{=1\catcode`\}=2\catcode`\$=3\catcode`\&=4\catcode`\#=6
+     \catcode`\^=7\catcode`\_=8\catcode`\^^I=10\catcode`\~=13\catcode`\%=14
+\catcode`\ =10}
+\def\alinhaverbatim{\alinhaversoesquerdo\parindent=0pt\tentt@
+     \sfcode`\.0 \sfcode`\?0 \sfcode`\!0 \sfcode`\:0 \sfcode`\;0
+     \sfcode`\,0
+     \catcode`\{=12\catcode`\}=12\catcode`\$=12\catcode`\&=12\catcode`\#=12
+     \catcode`\^=12\catcode`\_=12\catcode`\^^I=12\catcode`\~=12\catcode`\%=12
+     \obeyspaces@\obeylines@}
+\def\alinhanormal{\tenrm@\dontobeylines@\leftskip0pt\rightskip0pt\spaceskip0pt%
+                  \xspaceskip0pt\parindent=20pt
+     \sfcode`\.3000 \sfcode`\?3000 \sfcode`\!3000 \sfcode`\:2000 \sfcode`\;1500
+     \sfcode`\,1250
+     \catcode`\{=1\catcode`\}=2\catcode`\$=3\catcode`\&=4\catcode`\#=6
+     \catcode`\^=7\catcode`\_=8\catcode`\^^I=10\catcode`\~=13\catcode`\%=14
+\catcode`\ =10}
+\catcode`@=12
+\catcode`&=11
+\catcode`@=0
+\catcode`|=13 % Para inserir porções de código em texto
+
+
+\countdef\parte&=50 \parte&=0
+\countdef\capitulo&=51 \capitulo&=0
+\countdef\secao&=52 \secao&=0
+\countdef\subsecao&=53 \subsecao&=0
+\countdef\ss&=54 \ss&=0
+\countdef\sss&=55 \sss&=0
+\countdef\ssss&=56 \ssss&=0
+\countdef\sssss&=57 \sssss&=0
+\countdef\ssssss&=58 \ssssss&=0
+\countdef\sssssss&=59 \sssssss&=0
+\countdef\ssssssss&=60 \ssssssss&=0
+\countdef\aux&=61 \aux&=0
+
+% Fontes
+\font\twentyone&=cmr17 scaled 1200  % Para @**
+\font\twentyonett&=cmtt12 scaled 1700
+
+\font\twenty&=cmr17 scaled 1176     % Para @  e @*0
+\font\twentytt&=cmtt12 scaled 1666
+
+\font\nineteen&=cmr17 scaled 1118   % Para @*1
+\font\nineteentt&=cmtt12 scaled 1583
+
+\font\eighteen&=cmr17 scaled 1059   % Para @*2
+\font\eighteentt&=cmtt12 scaled 1500
+
+\font\seventeen&=cmr17              % Para @*3
+\font\seventeentt&=cmtt12 scaled 1417
+
+\font\sixteen&=cmr17 scaled 941     % Para @*4
+\font\sixteentt&=cmtt12 scaled 1333
+
+\font\fifteen&=cmr12 scaled 1250   % Para @*5
+\font\fifteentt&=cmtt12 scaled 1250
+
+\font\fourteen&=cmr12 scaled 1167  % Para @*6
+\font\fourteentt&=cmtt12 scaled 1167
+
+\font\thirteen&=cmr12 scaled 1083  % Para @*7
+\font\thirteentt&=cmtt12 scaled 1083
+
+\font\twelve&=cmr12              % Para @*8
+\font\twelvett&=cmtt12
+
+\font\eleven&=cmr12 scaled 917     % Para @*9
+\font\eleventt&=cmtt12 scaled 917
+
+\font\tenrm&=cmr10                  % Para voltar ao normal.
+
+\font\tenbf&=cmbx10 % boldface extended
+\font\tentt&=cmtt10 % typewriter
+
+% Definições
+\gdef\.{.} % O . é redefinido como comando em alguns contextos. Pode
+           % ser útil então poder usar \. para inserir um ponto.
+
+% Redefinindo o alinha verbatim para podermos usar os caracteres
+% especiais como '|' dentro dele:
+\let\alinhaverbatim&\alinhaverbatim
+\let\alinhanormal&\alinhanormal
+
+\gdef\alinhaverbatim{\alinhaverbatim&\catcode`|=12}
+\gdef\alinhanormal{\alinhanormal&\catcode`|=13}
+
+\gdef|{\gdef|{\fimsh&@alinhanormal&@catcode`\\=0@gdef@cm&{0}@gdef@c&{0} }%
+       \ifvmode\indent\fi\alinhaverbatim&\gdef\c&{1}\catcode`\\=12@gdef@cm&{1}%
+       \iniciosh&}
+\gdef\naparte&{0} % Estamos formatando o título de uma parte?
+\gdef\big&{0}     % Estamos formatando o título de um capítulo ou seção?
+\gdef\c&{0}       % Estamos formatando código C?
+\gdef\cm&{0}      % Estamos em códig C inline?
+{\catcode`.=13\gdef.{\if\naparte&1%
+                       \vskip5mm%
+                     \else%
+                       \if\big&1%
+                         \vskip5mm%
+                       \else%
+                         \if\c&1%
+                           \char"2E%
+                         \else%
+                            \vskip3mm%
+                         \fi%
+                       \fi%
+                     \fi\if\c& 1\tentt&\else\tenrm&\fi%
+                     \if\c&0%
+                       \let\monoespaco=\monoespaco&%
+                       \catcode`.=12\par\alinhanormal&%
+                     \fi\if\naparte&1\vfill\quebra\fi%
+        \if\c&0\gdef\naparte&{0}\gdef\big&{0}\fi\sh&}}
+\let\monoespaco&=\monoespaco
+\def@*#1{\fimcodigo&\catcode`.=13
+        \if#1*\quebra\ \vfill\rightskip 0em plus 1fil \leftskip 0em plus 2fil
+              \twentyone&\advance\parte& by 1  % @**
+              \def\monoespaco##1{{\twentyonett& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0\sssss&=0\ssss&=0\sss&=0\ss&=0%
+              \subsecao&=0\secao&=0%
+              \gdef\naparte&{1}\noindent Parte \the\parte&:\else
+        \if#10\vfil\quebra\twenty&\vskip5mm\advance\capitulo& by 1 % @*0
+             \def\monoespaco##1{{\twentytt& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0\sssss&=0\ssss&=0\sss&=0\ss&=0%
+              \global\subsecao&=0\global\secao&=0%
+             \vfill\rightskip 0em plus 1fil \leftskip 0em plus 2fil
+             \gdef\big&{1}\noindent Capítulo \the\capitulo&:\else
+         \if#11\nineteen&\vskip5mm\advance\secao& by 1 % @*1
+              \def\monoespaco##1{{\nineteentt& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0\sssss&=0\ssss&=0\sss&=0\ss&=0%
+              \subsecao&=0%
+              \gdef\big&{1}\noindent\the\capitulo&.\the\secao&\ - \else
+         \if#12\eighteen&\vskip3mm\advance\subsecao& by 1 % @*2
+              \def\monoespaco##1{{\eighteentt& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0\sssss&=0\ssss&=0\sss&=0\ss&=0%
+               \noindent\the\capitulo&.\the\secao&.\the\subsecao&-\else
+         \if#13\seventeen&\vskip3mm\advance\ss& by 1 % @*3
+              \def\monoespaco##1{{\seventeentt& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0\sssss&=0\ssss&=0\sss&=0%
+               \noindent\the\capitulo&.\the\secao&.\the\subsecao&.\the\ss&-\else
+         \if#14\sixteen&\vskip3mm\advance\sss& by 1 % @*4
+              \def\monoespaco##1{{\sixteentt& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0\sssss&=0\ssss&=0%
+               \noindent\the\capitulo&.\the\secao&.\the\subsecao&.\the\ss&.%
+               \the\sss&-\else
+         \if#15\fifteen&\vskip3mm\advance\ssss& by 1 % @*5
+              \def\monoespaco##1{{\fifteentt& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0\sssss&=0%
+               \noindent\the\capitulo&.\the\secao&.\the\subsecao&.\the\ss&.%
+               \the\sss&.\the\ssss&-\else
+         \if#16\fourteen&\vskip3mm\advance\sssss& by 1 % @*6
+              \def\monoespaco##1{{\fourteentt& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0%
+               \noindent\the\capitulo&.\the\secao&.\the\subsecao&.\the\ss&.%
+               \the\sss&.\the\ssss&.\the\sssss&-\else
+         \if#17\thirteen&\vskip3mm\advance\ssssss& by 1 % @*7
+              \def\monoespaco##1{{\thirteentt& ##1}}%
+              \ssssssss&=0\sssssss&=0%
+               \noindent\the\capitulo&.\the\secao&.\the\subsecao&.\the\ss&.%
+               \the\sss&.\the\ssss&.\the\sssss&.\the\ssssss&-\else
+         \if#18\twelve&\vskip3mm\advance\sssssss& by 1 % @*8
+              \def\monoespaco##1{{\twelvett& ##1}}%
+              \ssssssss&=0%
+               \noindent\the\capitulo&.\the\secao&.\the\subsecao&.\the\ss&.%
+               \the\sss&.\the\ssss&.\the\sssss&.\the\ssssss&.\the\sssssss&-\else
+         \if#19\eleven&\vskip3mm\advance\ssssssss& by 1 % @*9
+              \def\monoespaco##1{{\eleventt& ##1}}%
+               \noindent\the\capitulo&.\the\secao&.\the\subsecao&.\the\ss&.%
+               \the\sss&.\the\ssss&.\the\sssss&.\the\ssssss&.\the\sssssss&.%
+               \the\ssssssss&-\else
+\vfil\quebra\twenty&\vskip5mm\advance\capitulo& by 1 % @*0
+             \def\monoespaco##1{{\twentytt& ##1}}%
+              \ssssssss&=0\sssssss&=0\ssssss&=0\sssss&=0\ssss&=0\sss&=0\ss&=0%
+              \global\subsecao&=0\global\secao&=0%
+             \vfill\rightskip 0em plus 1fil \leftskip 0em plus 2fil
+             \gdef\big&{1}\noindent Capítulo \the\capitulo&: #1%
+             \fi\fi\fi\fi\fi\fi\fi\fi\fi\fi\fi}
+
+\def\chomp&#1{\relax}
+\gdef\<#1@>#2{%
+  \linha\espaco{1mm}\noindent\negrito{Section: #1%
+  \if#2+
+    (continuação)%
+  \fi:}%
+  \alinhacodigo\vskip1mm\chomp&}
+\def@({@global@catcode`_=11\linha\espaco{1mm}\noindent\negrito{File:} \apar&}
+\def\apar&#1@>#2{%
+  \monoespaco{#1}%
+  \if#2+
+    \negrito{(continuação)}%
+  \fi\negrito{:}%
+  \alinhacodigo\vskip1mm\chomp&}
+
+% Esta macro é usada em todos os comandos conhecidos por encerrarem
+% código C:
+\def\fimcodigo&{@fimsh&@if@c&1@catcode`\\=0@alinhanormal&@linha@vskip1mm%
+        @gdef@c&{0}@fi}
+
+\gdef\space&{\hskip 0.5em\sh&}
+% Cor especial para macros:
+
+@gdef@macro&{0}
+% Preparando cor especial para strings:
+@gdef@string&{0}
+@gdef@comentario&{0}
+@gdef@insercao&{0}
+{\catcode`"=13@gdef"{%
+  @if@comentario&0%
+    @if@string&0%
+      @gdef@string&{1}@special{color push rgb 0.2 0.8 0.2}@char'42%
+    @else%
+      @gdef@string&{0}@char'42@special{color pop}%
+    @fi%
+  @else%
+    @char'42%
+  @fi}}
+{\catcode`(=13@gdef({@char'50@sh&}}
+{\catcode`:=13@gdef:{@char'72@sh&}}
+% Ativa syntax hightlight:
+\def\iniciosh&{%
+@everypar{%
+  @if@comentario& 1%
+    @gdef@comentario&{0}@special{color pop}%
+  @fi%
+  @if@cm&0@hbox{@cor{0.92 0.92 0.92}{@vrule height 2ex width @hsize depth @maxdepth}}%
+  @hskip-@hsize@fi@tentt&@sh&%
+  }%
+  @if@cm& 0%
+    @catcode`|=11%
+  @fi%
+@catcode`_=11@catcode`0=11@catcode`1=11%
+@catcode`2=11@catcode`3=11@catcode`4=11@catcode`5=11@catcode`6=11%
+@catcode`7=11@catcode`8=11@catcode`9=11@catcode`"=13@catcode`(=13%
+@catcode`:=13@catcode`.=13%
+@gdef@<{@hskip0ptplus1fil@relax@negrito{$<$Section to be inserted:} %
+        @special{color push rgb 1 0 0}@tenbf&@gdef@insercao&{1}}%
+@gdef@>{@special{color pop}$>$@gdef@insercao&{0}@tentt&@relax}%
+@gdef@ {@fimcodigo&@space&}
+@gdef@sh&##1{%
+  @if@macro& 1@special{color pop}@gdef@macro&{0}@fi%
+  @if@string& 0%
+    @if@comentario& 2%
+      @if##1*%
+        @let@prox&@terminacomentario&%
+      @else%
+        @let@prox&@relax%
+      @fi%
+    @else%
+      @if@comentario& 1%
+        @let@prox&@relax%
+      @else%
+        @if@insercao& 1%
+          @let@prox&@relax%
+        @else%
+          @ifcat##1a%
+            @let@prox&@letra&%
+          @else%
+            @if##1/%
+              @let@prox&@lecomentario&%
+            @else%
+              @if##1####%
+                @gdef@macro&{1}@special{color push rgb 0 0 0.5}@let@prox&@relax%
+              @else%
+                @let@prox&@relax%
+              @fi%
+            @fi%
+          @fi%
+        @fi%
+      @fi%
+    @fi%
+  @else%
+    @let@prox&@relax%
+  @fi@prox&##1}%
+@gdef@letra&##1{% Invocada quando temos a 1a letra de palavra
+  @if##1i%
+    @let@next&@letrai&%
+  @else%
+    @if##1a%
+      @let@next&@letraa&%
+    @else%
+      @if##1b%
+        @let@next&@letrab&%
+      @else%
+        @if##1c%
+          @let@next&@letrac&%
+        @else%
+          @if##1d%
+            @let@next&@letrad&%
+          @else%
+            @if##1e%
+              @let@next&@letrae&%
+            @else%
+              @if##1f%
+                @let@next&@letraf&%
+              @else%
+                @if##1g%
+                  @let@next&@letrag&%
+                @else%
+                  @if##1l%
+                    @let@next&@letral&%
+                  @else%
+                    @if##1r%
+                      @let@next&@letrar&%
+                    @else%
+                      @if##1s%
+                        @let@next&@letras&%
+                      @else%
+                        @if##1t%
+                          @let@next&@letrat&%
+                        @else%
+                          @if##1u%
+                            @let@next&@letrau&%
+                          @else%
+                            @if##1v%
+                              @let@next&@letrav&%
+                            @else%
+                              @if##1w%
+                                @let@next&@letraw&%
+                              @else%
+                                ##1@let@next&@relax%
+                              @fi%
+                            @fi%
+                          @fi%
+                        @fi%
+                      @fi
+                    @fi
+                  @fi%
+                @fi%
+              @fi%
+            @fi%
+          @fi%
+        @fi%
+      @fi%
+    @fi%
+  @fi@next&}%
+@gdef@terminacomentario&##1##2{%
+  @if##2/%
+    */@gdef@comentario&{0}@special{color pop}%
+  @else%
+    *@expandafter##2%
+  @fi%
+}%
+@gdef@lecomentario&##1##2{%
+  @if##2/%
+    @gdef@comentario&{1}@special{color push rgb 0.5 0.5 0.5}//%
+  @else%
+    @if##2*%
+      @gdef@comentario&{2}@special{color push rgb 0.5 0.5 0.5}/*%
+    @else%
+      /@expandafter@expandafter@expandafter##2%
+    @fi
+  @fi%
+}%
+@gdef@letrag&##1{% Temos 'g'
+  @ifcat##1a%
+    @letraG&##1%
+  @else%
+    g@expandafter##1%    
+  @fi%
+}%
+@gdef@letraG&##1{% Temos 'g'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letrago&%
+  @else%
+    g##1%
+  @fi%
+}%
+@gdef@letraw&##1{% Temos 'w'
+  @ifcat##1a%
+    @letraW&##1%
+  @else%
+    w@expandafter##1%    
+  @fi%
+}%
+@gdef@letraW&##1{% Temos 'w'+letra
+  @if##1h%
+    @expandafter@expandafter@expandafter@letrawh&%
+  @else%
+    w##1%
+  @fi%
+}%
+@gdef@letrawh&##1{% Temos 'wh'
+  @ifcat##1a%
+    @letraWH&##1%
+  @else%
+    wh@expandafter##1%    
+  @fi%
+}%
+@gdef@letraWH&##1{% Temos 'wh'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letrawhi&%
+  @else%
+    wh##1%
+  @fi%
+}%
+@gdef@letrawhi&##1{% Temos 'whi'
+  @ifcat##1a%
+    @letraWHI&##1%
+  @else%
+    whi@expandafter##1%    
+  @fi%
+}%
+@gdef@letraWHI&##1{% Temos 'whi'+letra
+  @if##1l%
+    @expandafter@expandafter@expandafter@letrawhil&%
+  @else%
+    whi##1%
+  @fi%
+}%
+@gdef@letrawhil&##1{% Temos 'whil'
+  @ifcat##1a%
+    @letraWHIL&##1%
+  @else%
+    whil@expandafter##1%    
+  @fi%
+}%
+@gdef@letraWHIL&##1{% Temos 'whil'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letrawhile&%
+  @else%
+    whil##1%
+  @fi%
+}%
+@gdef@letrawhile&##1{% Temos 'while'
+  @ifcat##1a%
+    while##1%
+  @else%
+    @cor{0 0.5 0.5}{while}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrav&##1{% Temos 'v'
+  @ifcat##1a%
+    @letraV&##1%
+  @else%
+    v@expandafter##1%    
+  @fi%
+}%
+@gdef@letraV&##1{% Temos 'v'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letravo&%
+  @else%
+    v##1%
+  @fi%
+}%
+@gdef@letravo&##1{% Temos 'vo'
+  @ifcat##1a%
+    @letraVO&##1%
+  @else%
+    vo@expandafter##1%    
+  @fi%
+}%
+@gdef@letraVO&##1{% Temos 'vo'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letravoi&%
+  @else%
+    @if##1l%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letravol&%
+    @else%
+      vo##1%
+    @fi%
+  @fi%
+}%
+@gdef@letravol&##1{% Temos 'vol'
+  @ifcat##1a%
+    @letraVOL&##1%
+  @else%
+    vol@expandafter##1%    
+  @fi%
+}%
+@gdef@letraVOL&##1{% Temos 'vol'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letravola&%
+  @else%
+    vol##1%
+  @fi%
+}%
+@gdef@letravola&##1{% Temos 'vola'
+  @ifcat##1a%
+    @letraVOLA&##1%
+  @else%
+    vola@expandafter##1%    
+  @fi%
+}%
+@gdef@letraVOLA&##1{% Temos 'vola'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letravolat&%
+  @else%
+    vola##1%
+  @fi%
+}%
+@gdef@letravolat&##1{% Temos 'volat'
+  @ifcat##1a%
+    @letraVOLAT&##1%
+  @else%
+    volat@expandafter##1%    
+  @fi%
+}%
+@gdef@letraVOLAT&##1{% Temos 'volat'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letravolati&%
+  @else%
+    volat##1%
+  @fi%
+}%
+@gdef@letravolati&##1{% Temos 'volati'
+  @ifcat##1a%
+    @letraVOLATI&##1%
+  @else%
+    volati@expandafter##1%    
+  @fi%
+}%
+@gdef@letraVOLATI&##1{% Temos 'volati'+letra
+  @if##1l%
+    @expandafter@expandafter@expandafter@letravolatil&%
+  @else%
+    volati##1%
+  @fi%
+}%
+@gdef@letravolatil&##1{% Temos 'volatil'
+  @ifcat##1a%
+    @letraVOLATIL&##1%
+  @else%
+    volatil@expandafter##1%    
+  @fi%
+}%
+@gdef@letraVOLATIL&##1{% Temos 'volatil'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letravolatile&%
+  @else%
+    volatil##1%
+  @fi%
+}%
+@gdef@letravolatile&##1{% Temos 'volatile'
+  @ifcat##1a%
+    volatile##1%
+  @else%
+    @cor{0 0.5 0.5}{volatile}@expandafter##1%    
+  @fi%
+}%
+@gdef@letravoi&##1{% Temos 'voi'
+  @ifcat##1a%
+    @letraVOI&##1%
+  @else%
+    voi@expandafter##1%    
+  @fi%
+}%
+@gdef@letraVOI&##1{% Temos 'voi'+letra
+  @if##1d%
+    @expandafter@expandafter@expandafter@letravoid&%
+  @else%
+    voi##1%
+  @fi%
+}%
+@gdef@letravoid&##1{% Temos 'void'
+  @ifcat##1a%
+    void##1%
+  @else%
+    @cor{0 0.5 0}{void}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrau&##1{% Temos 'u'
+  @ifcat##1a%
+    @letraU&##1%
+  @else%
+    u@expandafter##1%    
+  @fi%
+}%
+@gdef@letraU&##1{% Temos 'u'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letraun&%
+  @else%
+    u##1%
+  @fi%
+}%
+@gdef@letraun&##1{% Temos 'un'
+  @ifcat##1a%
+    @letraUN&##1%
+  @else%
+    un@expandafter##1%    
+  @fi%
+}%
+@gdef@letraUN&##1{% Temos 'un'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letrauni&%
+  @else%
+    @if##1s%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrauns&%
+    @else%
+      un##1%
+    @fi%
+  @fi%
+}%
+@gdef@letrauni&##1{% Temos 'uni'
+  @ifcat##1a%
+    @letraUNI&##1%
+  @else%
+    uni@expandafter##1%    
+  @fi%
+}%
+@gdef@letraUNI&##1{% Temos 'uni'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letraunio&%
+  @else%
+    uni##1%
+  @fi%
+}%
+@gdef@letrauns&##1{% Temos 'uns'
+  @ifcat##1a%
+    @letraUNS&##1%
+  @else%
+    uns@expandafter##1%    
+  @fi%
+}%
+@gdef@letraUNS&##1{% Temos 'uns'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letraunsi&%
+  @else%
+    uns##1%
+  @fi%
+}%
+@gdef@letraunsi&##1{% Temos 'unsi'
+  @ifcat##1a%
+    @letraUNSI&##1%
+  @else%
+    unsi@expandafter##1%    
+  @fi%
+}%
+@gdef@letraUNSI&##1{% Temos 'unsi'+letra
+  @if##1g%
+    @expandafter@expandafter@expandafter@letraunsig&%
+  @else%
+    unsi##1%
+  @fi%
+}%
+@gdef@letraunsig&##1{% Temos 'unsig'
+  @ifcat##1a%
+    @letraUNSIG&##1%
+  @else%
+    unsig@expandafter##1%    
+  @fi%
+}%
+@gdef@letraUNSIG&##1{% Temos 'unsig'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letraunsign&%
+  @else%
+    unsig##1%
+  @fi%
+}%
+@gdef@letraunsign&##1{% Temos 'unsign'
+  @ifcat##1a%
+    @letraUNSIGN&##1%
+  @else%
+    unsign@expandafter##1%    
+  @fi%
+}%
+@gdef@letraUNSIGN&##1{% Temos 'unsign'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letraunsigne&%
+  @else%
+    unsign##1%
+  @fi%
+}%
+@gdef@letraunsigne&##1{% Temos 'unsigne'
+  @ifcat##1a%
+    @letraUNSIGNE&##1%
+  @else%
+    unsigne@expandafter##1%    
+  @fi%
+}%
+@gdef@letraUNSIGNE&##1{% Temos 'unsigne'+letra
+  @if##1d%
+    @expandafter@expandafter@expandafter@letraunsigned&%
+  @else%
+    unsigne##1%
+  @fi%
+}%
+@gdef@letraunsigned&##1{% Temos 'unsigned'
+  @ifcat##1a%
+    unsigned##1%
+  @else%
+    @cor{0 0.5 0}{unsigned}@expandafter##1%    
+  @fi%
+}%
+@gdef@letraunio&##1{% Temos 'unio'
+  @ifcat##1a%
+    @letraUNIO&##1%
+  @else%
+    unio@expandafter##1%    
+  @fi%
+}%
+@gdef@letraUNIO&##1{% Temos 'unio'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letraunion&%
+  @else%
+    unio##1%
+  @fi%
+}%
+@gdef@letraunion&##1{% Temos 'union'
+  @ifcat##1a%
+    union##1%
+  @else%
+    @cor{0 0.5 0}{union}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrat&##1{% Temos 't'
+  @ifcat##1a%
+    @letraT&##1%
+  @else%
+    t@expandafter##1%    
+  @fi%
+}%
+@gdef@letraT&##1{% Temos 't'+letra
+  @if##1y%
+    @expandafter@expandafter@expandafter@letraty&%
+  @else%
+    t##1%
+  @fi%
+}%
+@gdef@letraty&##1{% Temos 'ty'
+  @ifcat##1a%
+    @letraTY&##1%
+  @else%
+    ty@expandafter##1%    
+  @fi%
+}%
+@gdef@letraTY&##1{% Temos 'ty'+letra
+  @if##1p%
+    @expandafter@expandafter@expandafter@letratyp&%
+  @else%
+    ty##1%
+  @fi%
+}%
+@gdef@letratyp&##1{% Temos 'typ'
+  @ifcat##1a%
+    @letraTYP&##1%
+  @else%
+    typ@expandafter##1%    
+  @fi%
+}%
+@gdef@letraTYP&##1{% Temos 'typ'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letratype&%
+  @else%
+    typ##1%
+  @fi%
+}%
+@gdef@letratype&##1{% Temos 'type'
+  @ifcat##1a%
+    @letraTYPE&##1%
+  @else%
+    type@expandafter##1%    
+  @fi%
+}%
+@gdef@letraTYPE&##1{% Temos 'type'+letra
+  @if##1d%
+    @expandafter@expandafter@expandafter@letratyped&%
+  @else%
+    type##1%
+  @fi%
+}%
+@gdef@letratyped&##1{% Temos 'typed'
+  @ifcat##1a%
+    @letraTYPED&##1%
+  @else%
+    typed@expandafter##1%    
+  @fi%
+}%
+@gdef@letraTYPED&##1{% Temos 'typed'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letratypede&%
+  @else%
+    typed##1%
+  @fi%
+}%
+@gdef@letratypede&##1{% Temos 'typede'
+  @ifcat##1a%
+    @letraTYPEDE&##1%
+  @else%
+    typede@expandafter##1%    
+  @fi%
+}%
+@gdef@letraTYPEDE&##1{% Temos 'typede'+letra
+  @if##1f%
+    @expandafter@expandafter@expandafter@letratypedef&%
+  @else%
+    typede##1%
+  @fi%
+}%
+@gdef@letratypedef&##1{% Temos 'typedef'
+  @ifcat##1a%
+    typedef##1%
+  @else%
+    @cor{0 0.5 0.5}{typedef}@expandafter##1%    
+  @fi%
+}%
+@gdef@letras&##1{% Temos 's'
+  @ifcat##1a%
+    @letraS&##1%
+  @else%
+    s@expandafter##1%    
+  @fi%
+}%
+@gdef@letraS&##1{% Temos 's'+letra
+  @if##1h%
+    @expandafter@expandafter@expandafter@letrash&%
+  @else%
+    @if##1i%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrasi&%
+    @else%
+      @if##1t%
+        @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@letrast&%
+      @else%
+        @if##1w%
+          @expandafter@expandafter@expandafter@expandafter@expandafter%
+          @expandafter@expandafter@expandafter@expandafter@expandafter%
+          @expandafter@expandafter@expandafter@expandafter@expandafter%
+          @expandafter@expandafter@expandafter@expandafter@expandafter%
+          @expandafter@expandafter@expandafter@expandafter@expandafter%
+          @expandafter@expandafter@expandafter@expandafter@expandafter%
+          @expandafter@letrasw&%
+        @else%
+          s##1%
+        @fi
+      @fi%
+    @fi%
+  @fi%
+}%
+@gdef@letrasw&##1{% Temos 'sw'
+  @ifcat##1a%
+    @letraSW&##1%
+  @else%
+    sw@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSW&##1{% Temos 'sw'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letraswi&%
+  @else%
+    sw##1%
+  @fi%
+}%
+@gdef@letraswi&##1{% Temos 'swi'
+  @ifcat##1a%
+    @letraSWI&##1%
+  @else%
+    swi@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSWI&##1{% Temos 'sw'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letraswit&%
+  @else%
+    swi##1%
+  @fi%
+}%
+@gdef@letraswit&##1{% Temos 'swit'
+  @ifcat##1a%
+    @letraSWIT&##1%
+  @else%
+    swit@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSWIT&##1{% Temos 'sw'+letra
+  @if##1c%
+    @expandafter@expandafter@expandafter@letraswitc&%
+  @else%
+    swit##1%
+  @fi%
+}%
+@gdef@letraswitc&##1{% Temos 'switc'
+  @ifcat##1a%
+    @letraSWITC&##1%
+  @else%
+    switc@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSWITC&##1{% Temos 'sw'+letra
+  @if##1h%
+    @expandafter@expandafter@expandafter@letraswitch&%
+  @else%
+    switc##1%
+  @fi%
+}%
+@gdef@letraswitch&##1{% Temos 'switch'
+  @ifcat##1a%
+    switch##1%
+  @else%
+    @cor{0 0.5 0.5}{switch}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrast&##1{% Temos 'st'
+  @ifcat##1a%
+    @letraST&##1%
+  @else%
+    st@expandafter##1%    
+  @fi%
+}%
+@gdef@letraST&##1{% Temos 'st'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letrasta&%
+  @else%
+    @if##1r%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrastr&%
+    @else%
+      st##1%
+    @fi%
+  @fi%
+}%
+@gdef@letrastr&##1{% Temos 'str'
+  @ifcat##1a%
+    @letraSTR&##1%
+  @else%
+    str@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSTR&##1{% Temos 'str'+letra
+  @if##1u%
+    @expandafter@expandafter@expandafter@letrastru&%
+  @else%
+    str##1%
+  @fi%
+}%
+@gdef@letrastru&##1{% Temos 'stru'
+  @ifcat##1a%
+    @letraSTRU&##1%
+  @else%
+    stru@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSTRU&##1{% Temos 'stru'+letra
+  @if##1c%
+    @expandafter@expandafter@expandafter@letrastruc&%
+  @else%
+    stru##1%
+  @fi%
+}%
+@gdef@letrastruc&##1{% Temos 'struc'
+  @ifcat##1a%
+    @letraSTRUC&##1%
+  @else%
+    struc@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSTRUC&##1{% Temos 'struc'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letrastruct&%
+  @else%
+    struc##1%
+  @fi%
+}%
+@gdef@letrastruct&##1{% Temos 'struct'
+  @ifcat##1a%
+    struct##1%
+  @else%
+    @cor{0 0.5 0}{struct}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrasta&##1{% Temos 'sta'
+  @ifcat##1a%
+    @letraSTA&##1%
+  @else%
+    sta@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSTA&##1{% Temos 'sta'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letrastat&%
+  @else%
+    sta##1%
+  @fi%
+}%
+@gdef@letrastat&##1{% Temos 'stat'
+  @ifcat##1a%
+    @letraSTAT&##1%
+  @else%
+    stat@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSTAT&##1{% Temos 'stat'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letrastati&%
+  @else%
+    stat##1%
+  @fi%
+}%
+@gdef@letrastati&##1{% Temos 'stati'
+  @ifcat##1a%
+    @letraSTATI&##1%
+  @else%
+    stati@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSTATI&##1{% Temos 'stati'+letra
+  @if##1c%
+    @expandafter@expandafter@expandafter@letrastatic&%
+  @else%
+    stati##1%
+  @fi%
+}%
+@gdef@letrastatic&##1{% Temos 'static'
+  @ifcat##1a%
+    static##1%
+  @else%
+    @cor{0 0.5 0.5}{static}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrasi&##1{% Temos 'si'
+  @ifcat##1a%
+    @letraSI&##1%
+  @else%
+    si@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSI&##1{% Temos 'si'+letra
+  @if##1g%
+    @expandafter@expandafter@expandafter@letrasig&%
+  @else%
+    @if##1z%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrasiz&%
+    @else%
+      si##1%
+    @fi%
+  @fi%
+}%
+@gdef@letrasiz&##1{% Temos 'siz'
+  @ifcat##1a%
+    @letraSIZ&##1%
+  @else%
+    siz@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSIZ&##1{% Temos 'siz'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letrasize&%
+  @else%
+    siz##1%
+  @fi%
+}%
+@gdef@letrasize&##1{% Temos 'size'
+  @ifcat##1a%
+    @letraSIZE&##1%
+  @else%
+    size@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSIZE&##1{% Temos 'size'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letrasizeo&%
+  @else%
+    size##1%
+  @fi%
+}%
+@gdef@letrasizeo&##1{% Temos 'sizeo'
+  @ifcat##1a%
+    @letraSIZEO&##1%
+  @else%
+    sizeo@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSIZEO&##1{% Temos 'sizeo'+letra
+  @if##1f%
+    @expandafter@expandafter@expandafter@letrasizeof&%
+  @else%
+    sizeo##1%
+  @fi%
+}%
+@gdef@letrasizeof&##1{% Temos 'sizeof'
+  @ifcat##1a%
+    sizeof##1%
+  @else%
+    @cor{0 0.5 0.5}{sizeof}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrasig&##1{% Temos 'sig'
+  @ifcat##1a%
+    @letraSIG&##1%
+  @else%
+    sig@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSIG&##1{% Temos 'sig'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letrasign&%
+  @else%
+    sig##1%
+  @fi%
+}%
+@gdef@letrasign&##1{% Temos 'sign'
+  @ifcat##1a%
+    @letraSIGN&##1%
+  @else%
+    sign@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSIGN&##1{% Temos 'sign'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letrasigne&%
+  @else%
+    sign##1%
+  @fi%
+}%
+@gdef@letrasigne&##1{% Temos 'signe'
+  @ifcat##1a%
+    @letraSIGNE&##1%
+  @else%
+    signe@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSIGNE&##1{% Temos 'signe'+letra
+  @if##1d%
+    @expandafter@expandafter@expandafter@letrasigned&%
+  @else%
+    signe##1%
+  @fi%
+}%
+@gdef@letrasigned&##1{% Temos 'signed'
+  @ifcat##1a%
+    signed##1%
+  @else%
+    @cor{0 0.5 0}{signed}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrash&##1{% Temos 'sh'
+  @ifcat##1a%
+    @letraSH&##1%
+  @else%
+    sh@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSH&##1{% Temos 'sh'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letrasho&%
+  @else%
+    sh##1%
+  @fi%
+}%
+@gdef@letrasho&##1{% Temos 'sho'
+  @ifcat##1a%
+    @letraSHO&##1%
+  @else%
+    sho@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSHO&##1{% Temos 'sho'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letrashor&%
+  @else%
+    sho##1%
+  @fi%
+}%
+@gdef@letrashor&##1{% Temos 'shor'
+  @ifcat##1a%
+    @letraSHOR&##1%
+  @else%
+    shor@expandafter##1%    
+  @fi%
+}%
+@gdef@letraSHOR&##1{% Temos 'shor'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letrashort&%
+  @else%
+    shor##1%
+  @fi%
+}%
+@gdef@letrashort&##1{% Temos 'shor'
+  @ifcat##1a%
+    short##1%
+  @else%
+    @cor{0 0.5 0}{short}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrar&##1{% Temos 'r'
+  @ifcat##1a%
+    @letraR&##1%
+  @else%
+    r@expandafter##1%    
+  @fi%
+}%
+@gdef@letraR&##1{% Temos 'r'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letrare&%
+  @else%
+    r##1%
+  @fi%
+}%
+@gdef@letrare&##1{% Temos 're'
+  @ifcat##1a%
+    @letraRE&##1%
+  @else%
+    re@expandafter##1%    
+  @fi%
+}%
+@gdef@letraRE&##1{% Temos 're'+letra
+  @if##1g%
+    @expandafter@expandafter@expandafter@letrareg&%
+  @else%
+    @if##1s%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrares&%
+    @else%
+      @if##1t%
+        @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@letraret&
+      @else%
+        re##1%
+      @fi%
+    @fi
+  @fi%
+}%
+@gdef@letraret&##1{% Temos 'ret'
+  @ifcat##1a%
+    @letraRET&##1%
+  @else%
+    ret@expandafter##1%    
+  @fi%
+}%
+@gdef@letraRET&##1{% Temos 'ret'+letra
+  @if##1u%
+    @expandafter@expandafter@expandafter@letraretu&%
+  @else%
+    ret##1%
+  @fi%
+}%
+@gdef@letraretu&##1{% Temos 'retu'
+  @ifcat##1a%
+    @letraRETU&##1%
+  @else%
+    retu@expandafter##1%    
+  @fi%
+}%
+@gdef@letraRETU&##1{% Temos 'retu'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letraretur&%
+  @else%
+    retu##1%
+  @fi%
+}%
+@gdef@letraretur&##1{% Temos 'retur'
+  @ifcat##1a%
+    @letraRETUR&##1%
+  @else%
+    retur@expandafter##1%    
+  @fi%
+}%
+@gdef@letraRETUR&##1{% Temos 'retur'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letrareturn&%
+  @else%
+    retur##1%
+  @fi%
+}%
+@gdef@letrareturn&##1{% Temos 'retur'
+  @ifcat##1a%
+    return##1%
+  @else%
+    @cor{0 0.5 0.5}{return}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrares&##1{% Temos 'res'
+  @ifcat##1a%
+    @letraRES&##1%
+  @else%
+    res@expandafter##1%    
+  @fi%
+}%
+@gdef@letraRES&##1{% Temos 'res'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letrarest&%
+  @else%
+    res##1%
+  @fi%
+}%
+@gdef@letrarest&##1{% Temos 'rest'
+  @ifcat##1a%
+    @letraREST&##1%
+  @else%
+    rest@expandafter##1%    
+  @fi%
+}%
+@gdef@letraREST&##1{% Temos 'rest'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letrarestr&%
+  @else%
+    rest##1%
+  @fi%
+}%
+@gdef@letrarestr&##1{% Temos 'restr'
+  @ifcat##1a%
+    @letraRESTR&##1%
+  @else%
+    restr@expandafter##1%    
+  @fi%
+}%
+@gdef@letraRESTR&##1{% Temos 'restr'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letrarestri&%
+  @else%
+    restr##1%
+  @fi%
+}%
+@gdef@letrarestri&##1{% Temos 'restri'
+  @ifcat##1a%
+    @letraRESTRI&##1%
+  @else%
+    restri@expandafter##1%    
+  @fi%
+}%
+@gdef@letraRESTRI&##1{% Temos 'restri'+letra
+  @if##1c%
+    @expandafter@expandafter@expandafter@letrarestric&%
+  @else%
+    restri##1%
+  @fi%
+}%
+@gdef@letrarestric&##1{% Temos 'restric'
+  @ifcat##1a%
+    @letraRESTRIC&##1%
+  @else%
+    restric@expandafter##1%    
+  @fi%
+}%
+@gdef@letraRESTRIC&##1{% Temos 'restric'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letrarestrict&%
+  @else%
+    restric##1%
+  @fi%
+}%
+@gdef@letrarestrict&##1{% Temos 'restrict'
+  @ifcat##1a%
+    restrict&##1%
+  @else%
+    @cor{0 0.5 0.5}{restrict}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrareg&##1{% Temos 'reg'
+  @ifcat##1a%
+    @letraREG&##1%
+  @else%
+    reg@expandafter##1%    
+  @fi%
+}%
+@gdef@letraREG&##1{% Temos 'reg'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letraregi&%
+  @else%
+    reg##1%
+  @fi%
+}%
+@gdef@letraregi&##1{% Temos 'regi'
+  @ifcat##1a%
+    @letraREGI&##1%
+  @else%
+    regi@expandafter##1%    
+  @fi%
+}%
+@gdef@letraREGI&##1{% Temos 'regi'+letra
+  @if##1s%
+    @expandafter@expandafter@expandafter@letraregis&%
+  @else%
+    regi##1%
+  @fi%
+}%
+@gdef@letraregis&##1{% Temos 'regis'
+  @ifcat##1a%
+    @letraREGIS&##1%
+  @else%
+    regis@expandafter##1%    
+  @fi%
+}%
+@gdef@letraREGIS&##1{% Temos 'regis'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letraregist&%
+  @else%
+    regis##1%
+  @fi%
+}%
+@gdef@letraregist&##1{% Temos 'regist'
+  @ifcat##1a%
+    @letraREGIST&##1%
+  @else%
+    regist@expandafter##1%    
+  @fi%
+}%
+@gdef@letraREGIST&##1{% Temos 'regist'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letraregiste&%
+  @else%
+    regist##1%
+  @fi%
+}%
+@gdef@letraregiste&##1{% Temos 'registe'
+  @ifcat##1a%
+    @letraREGISTE&##1%
+  @else%
+    registe@expandafter##1%    
+  @fi%
+}%
+@gdef@letraREGISTE&##1{% Temos 'registe'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letraregister&%
+  @else%
+    registe##1%
+  @fi%
+}%
+@gdef@letraregister&##1{% Temos 'register'
+  @ifcat##1a%
+    register##1%
+  @else%
+    @cor{0 0.5 0.5}{register}@expandafter##1%    
+  @fi%
+}%
+@gdef@letral&##1{% Temos 'l'
+  @ifcat##1a%
+    @letraL&##1%
+  @else%
+    l@expandafter##1%    
+  @fi%
+}%
+@gdef@letraL&##1{% Temos 'l'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letralo&%
+  @else%
+    l##1%
+  @fi%
+}%
+@gdef@letralo&##1{% Temos 'lo'
+  @ifcat##1a%
+    @letraLO&##1%
+  @else%
+    lo@expandafter##1%    
+  @fi%
+}%
+@gdef@letraLO&##1{% Temos 'lo'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letralon&%
+  @else%
+    lo##1%
+  @fi%
+}%
+@gdef@letralon&##1{% Temos 'lon'
+  @ifcat##1a%
+    @letraLON&##1%
+  @else%
+    lon@expandafter##1%    
+  @fi%
+}%
+@gdef@letraLON&##1{% Temos 'lon'+letra
+  @if##1g%
+    @expandafter@expandafter@expandafter@letralong&%
+  @else%
+    lon##1%
+  @fi%
+}%
+@gdef@letralong&##1{% Temos 'lon'
+  @ifcat##1a%
+    long##1%
+  @else%
+    @cor{0 0.5 0}{long}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrago&##1{% Temos 'go'
+  @ifcat##1a%
+    @letraGO&##1%
+  @else%
+    go@expandafter##1%    
+  @fi%
+}%
+@gdef@letraGO&##1{% Temos 'go'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letragot&%
+  @else%
+    go##1%
+  @fi%
+}%
+@gdef@letragot&##1{% Temos 'got'
+  @ifcat##1a%
+    @letraGOT&##1%
+  @else%
+    got@expandafter##1%    
+  @fi%
+}%
+@gdef@letraGOT&##1{% Temos 'got'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letragoto&%
+  @else%
+    got##1%
+  @fi%
+}%
+@gdef@letragoto&##1{% Temos 'got'
+  @ifcat##1a%
+    goto##1%
+  @else%
+    @cor{0 0.5 0.5}{goto}@expandafter##1%    
+  @fi%
+}%
+@gdef@letraf&##1{% Temos 'f'
+  @ifcat##1a%
+    @letraF&##1%
+  @else%
+    f@expandafter##1%    
+  @fi%
+}%
+@gdef@letraF&##1{% Temos 'f'+letra
+  @if##1l%
+    @expandafter@expandafter@expandafter@letrafl&%
+  @else%
+    @if##1o%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrafo&%
+    @else%
+      f##1%
+    @fi%
+  @fi%
+}%
+@gdef@letrafo&##1{% Temos 'fo'
+  @ifcat##1a%
+    @letraFO&##1%
+  @else%
+    fo@expandafter##1%    
+  @fi%
+}%
+@gdef@letraFO&##1{% Temos 'fo'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letrafor&%
+  @else%
+    fo##1%
+  @fi%
+}%
+@gdef@letrafor&##1{% Temos 'for'
+  @ifcat##1a%
+    for##1%
+  @else%
+    @cor{0 0.5 0.5}{for}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrafl&##1{% Temos 'fl'
+  @ifcat##1a%
+    @letraFL&##1%
+  @else%
+    fl@expandafter##1%    
+  @fi%
+}%
+@gdef@letraFL&##1{% Temos 'fl'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letraflo&%
+  @else%
+    fl##1%
+  @fi%
+}%
+@gdef@letraflo&##1{% Temos 'flo'
+  @ifcat##1a%
+    @letraFLO&##1%
+  @else%
+    flo@expandafter##1%    
+  @fi%
+}%
+@gdef@letraFLO&##1{% Temos 'flo'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letrafloa&%
+  @else%
+    flo##1%
+  @fi%
+}%
+@gdef@letrafloa&##1{% Temos 'floa'
+  @ifcat##1a%
+    @letraFLOA&##1%
+  @else%
+    floa@expandafter##1%    
+  @fi%
+}%
+@gdef@letraFLOA&##1{% Temos 'floa'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letrafloat&%
+  @else%
+    floa##1%
+  @fi%
+}%
+@gdef@letrafloat&##1{% Temos 'float'
+  @ifcat##1a%
+    float##1%
+  @else%
+    @cor{0 0.5 0}{float}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrae&##1{% Temos 'e'
+  @ifcat##1a%
+    @letraE&##1%
+  @else%
+    e@expandafter##1%    
+  @fi%
+}%
+@gdef@letraE&##1{% Temos 'e'+letra
+  @if##1l%
+    @expandafter@expandafter@expandafter@letrael&%
+  @else%
+    @if##1n%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letraen&%
+    @else%
+      @if##1x%
+        @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@letraex&%
+      @else%
+        e##1%
+      @fi
+    @fi
+  @fi%
+}%
+@gdef@letraex&##1{% Temos 'ex'
+  @ifcat##1a%
+    @letraEX&##1%
+  @else%
+    ex@expandafter##1%    
+  @fi%
+}%
+@gdef@letraEX&##1{% Temos 'ex'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letraext&%
+  @else%
+    ex##1%
+  @fi%
+}%
+@gdef@letraext&##1{% Temos 'ext'
+  @ifcat##1a%
+    @letraEXT&##1%
+  @else%
+    ext@expandafter##1%    
+  @fi%
+}%
+@gdef@letraEXT&##1{% Temos 'ext'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letraexte&%
+  @else%
+    ext##1%
+  @fi%
+}%
+@gdef@letraexte&##1{% Temos 'exte'
+  @ifcat##1a%
+    @letraEXTE&##1%
+  @else%
+    exte@expandafter##1%    
+  @fi%
+}%
+@gdef@letraEXTE&##1{% Temos 'exte'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letraexter&%
+  @else%
+    exte##1%
+  @fi%
+}%
+@gdef@letraexter&##1{% Temos 'exter'
+  @ifcat##1a%
+    @letraEXTER&##1%
+  @else%
+    exter@expandafter##1%    
+  @fi%
+}%
+@gdef@letraEXTER&##1{% Temos 'exter'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letraextern&%
+  @else%
+    exter##1%
+  @fi%
+}%
+@gdef@letraextern&##1{% Temos 'extern'
+  @ifcat##1a%
+    extern##1%
+  @else%
+    @cor{0 0.5 0.5}{extern}@expandafter##1%    
+  @fi%
+}%
+@gdef@letraen&##1{% Temos 'en'
+  @ifcat##1a%
+    @letraEN&##1%
+  @else%
+    en@expandafter##1%    
+  @fi%
+}%
+@gdef@letraEN&##1{% Temos 'en'+letra
+  @if##1u%
+    @expandafter@expandafter@expandafter@letraenu&%
+  @else%
+    en##1%
+  @fi%
+}%
+@gdef@letraenu&##1{% Temos 'enu'
+  @ifcat##1a%
+    @letraENU&##1%
+  @else%
+    enu@expandafter##1%    
+  @fi%
+}%
+@gdef@letraENU&##1{% Temos 'enu'+letra
+  @if##1m%
+    @expandafter@expandafter@expandafter@letraenum&%
+  @else%
+    enu##1%
+  @fi%
+}%
+@gdef@letraenum&##1{% Temos 'enum'
+  @ifcat##1a%
+    enum##1%
+  @else%
+    @cor{0 0.5 0.5}{enum}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrael&##1{% Temos 'el'
+  @ifcat##1a%
+    @letraEL&##1%
+  @else%
+    el@expandafter##1%    
+  @fi%
+}%
+@gdef@letraEL&##1{% Temos 'el'+letra
+  @if##1s%
+    @expandafter@expandafter@expandafter@letraels&%
+  @else%
+    el##1%
+  @fi%
+}%
+@gdef@letraels&##1{% Temos 'els'
+  @ifcat##1a%
+    @letraELS&##1%
+  @else%
+    els@expandafter##1%    
+  @fi%
+}%
+@gdef@letraELS&##1{% Temos 'els'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letraelse&%
+  @else%
+    els##1%
+  @fi%
+}%
+@gdef@letraelse&##1{% Temos 'else'
+  @ifcat##1a%
+    else##1%
+  @else%
+    @cor{0 0.5 0.5}{else}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrad&##1{% Temos 'd'
+  @ifcat##1a%
+    @letraD&##1%
+  @else%
+    d@expandafter##1%    
+  @fi%
+}%
+@gdef@letraD&##1{% Temos 'd'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letrade&%
+  @else%
+    @if##1o%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrado&%
+    @else%
+      d##1%
+    @fi%
+  @fi%
+}%
+@gdef@letrado&##1{% Temos 'do'
+  @ifcat##1a%
+    @letraDO&##1%
+  @else%
+    @cor{0 0.5 0.5}{do}@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDO&##1{% Temos 'do'+letra
+  @if##1u%
+    @expandafter@expandafter@expandafter@letradou&%
+  @else%
+    do##1%
+  @fi%
+}%
+@gdef@letradou&##1{% Temos 'dou'
+  @ifcat##1a%
+    @letraDOU&##1%
+  @else%
+    dou@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDOU&##1{% Temos 'dou'+letra
+  @if##1b%
+    @expandafter@expandafter@expandafter@letradoub&%
+  @else%
+    dou##1%
+  @fi%
+}%
+@gdef@letradoub&##1{% Temos 'doub'
+  @ifcat##1a%
+    @letraDOUB&##1%
+  @else%
+    doub@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDOUB&##1{% Temos 'doub'+letra
+  @if##1l%
+    @expandafter@expandafter@expandafter@letradoubl&%
+  @else%
+    doub##1%
+  @fi%
+}%
+@gdef@letradoubl&##1{% Temos 'doubl'
+  @ifcat##1a%
+    @letraDOUBL&##1%
+  @else%
+    doubl@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDOUBL&##1{% Temos 'doubl'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letradouble&%
+  @else%
+    doubl##1%
+  @fi%
+}%
+@gdef@letradouble&##1{% Temos 'double'
+  @ifcat##1a%
+    double##1%
+  @else%
+    @cor{0 0.5 0}{double}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrade&##1{% Temos 'de'
+  @ifcat##1a%
+    @letraDE&##1%
+  @else%
+    de@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDE&##1{% Temos 'de'+letra
+  @if##1f%
+    @expandafter@expandafter@expandafter@letradef&%
+  @else%
+    de##1%
+  @fi%
+}%
+@gdef@letradef&##1{% Temos 'def'
+  @ifcat##1a%
+    @letraDEF&##1%
+  @else%
+    def@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDEF&##1{% Temos 'def'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letradefa&%
+  @else%
+    def##1%
+  @fi%
+}%
+@gdef@letradefa&##1{% Temos 'defa'
+  @ifcat##1a%
+    @letraDEFA&##1%
+  @else%
+    defa@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDEFA&##1{% Temos 'defa'+letra
+  @if##1u%
+    @expandafter@expandafter@expandafter@letradefau&%
+  @else%
+    defa##1%
+  @fi%
+}%
+@gdef@letradefau&##1{% Temos 'defau'
+  @ifcat##1a%
+    @letraDEFAU&##1%
+  @else%
+    defau@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDEFAU&##1{% Temos 'defau'+letra
+  @if##1l%
+    @expandafter@expandafter@expandafter@letradefaul&%
+  @else%
+    defau##1%
+  @fi%
+}%
+@gdef@letradefaul&##1{% Temos 'defaul'
+  @ifcat##1a%
+    @letraDEFAUL&##1%
+  @else%
+    defaul@expandafter##1%    
+  @fi%
+}%
+@gdef@letraDEFAUL&##1{% Temos 'defaul'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letradefault&%
+  @else%
+    defaul##1%
+  @fi%
+}%
+@gdef@letradefault&##1{% Temos 'default'
+  @ifcat##1a%
+    default##1%
+  @else%
+    @cor{0 0.5 0.5}{default}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrac&##1{% Temos a letra 'c'
+  @ifcat##1a%
+    @letraC&##1%
+  @else%
+    c@expandafter##1%    
+  @fi%
+}%
+@gdef@letraC&##1{% Temos a letra 'c'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letraca&%
+  @else%
+    @if##1h%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrach&%
+    @else%
+      @if##1o%
+        @expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@expandafter@expandafter@letraco&%
+      @else%
+        c##1%
+      @fi
+    @fi%
+  @fi%
+}%
+@gdef@letraco&##1{% Temos 'co'
+  @ifcat##1a%
+    @letraCO&##1%
+  @else%
+    co@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCO&##1{% Temos 'co'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letracon&%
+  @else%
+    @if##1m%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letracom&%
+    @else%
+      co##1%
+    @fi
+  @fi%
+}%
+@gdef@letracom&##1{% Temos 'com'
+  @ifcat##1a%
+    @letraCOM&##1%
+  @else%
+    com@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCOM&##1{% Temos 'com'+letra
+  @if##1p%
+    @expandafter@expandafter@expandafter@letracomp&%
+  @else%
+    com##1%
+  @fi%
+}%
+@gdef@letracomp&##1{% Temos 'comp'
+  @ifcat##1a%
+    @letraCOMP&##1%
+  @else%
+    comp@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCOMP&##1{% Temos 'comp'+letra
+  @if##1l%
+    @expandafter@expandafter@expandafter@letracompl&%
+  @else%
+    comp##1%
+  @fi%
+}%
+@gdef@letracompl&##1{% Temos 'compl'
+  @ifcat##1a%
+    @letraCOMPL&##1%
+  @else%
+    compl@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCOMPL&##1{% Temos 'compl'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letracomple&%
+  @else%
+    compl##1%
+  @fi%
+}%
+@gdef@letracomple&##1{% Temos 'comple'
+  @ifcat##1a%
+    @letraCOMPLE&##1%
+  @else%
+    comple@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCOMPLE&##1{% Temos 'comple'+letra
+  @if##1x%
+    @expandafter@expandafter@expandafter@letracomplex&%
+  @else%
+    comple##1%
+  @fi%
+}%
+@gdef@letracomplex&##1{% Temos 'complex'
+  @ifcat##1a%
+    complex##1%
+  @else%
+    @cor{0 0.5 0}{complex}@expandafter##1%    
+  @fi%
+}%
+@gdef@letracon&##1{% Temos 'con'
+  @ifcat##1a%
+    @letraCON&##1%
+  @else%
+    con@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCON&##1{% Temos 'con'+letra
+  @if##1s%
+    @expandafter@expandafter@expandafter@letracons&%
+  @else%
+    @if##1t%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter@expandafter@letracont&%
+    @else%
+      con##1%
+    @fi%
+  @fi%
+}%
+@gdef@letracons&##1{% Temos 'cons'
+  @ifcat##1a%
+    @letraCONS&##1%
+  @else%
+    cons@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCONS&##1{% Temos 'cons'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letraconst&%
+  @else%
+    cons##1%
+  @fi%
+}%
+@gdef@letracont&##1{% Temos 'cont'
+  @ifcat##1a%
+    @letraCONT&##1%
+  @else%
+    cont@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCONT&##1{% Temos 'cont'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letraconti&%
+  @else%
+    cont##1%
+  @fi%
+}%
+@gdef@letraconti&##1{% Temos 'conti'
+  @ifcat##1a%
+    @letraCONTI&##1%
+  @else%
+    conti@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCONTI&##1{% Temos 'conti'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letracontin&%
+  @else%
+    conti##1%
+  @fi%
+}%
+@gdef@letracontin&##1{% Temos 'contin'
+  @ifcat##1a%
+    @letraCONTIN&##1%
+  @else%
+    contin@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCONTIN&##1{% Temos 'contin'+letra
+  @if##1u%
+    @expandafter@expandafter@expandafter@letracontinu&%
+  @else%
+    contin##1%
+  @fi%
+}%
+@gdef@letracontinu&##1{% Temos 'continu'
+  @ifcat##1a%
+    @letraCONTINU&##1%
+  @else%
+    continu@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCONTINU&##1{% Temos 'continu'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letracontinue&%
+  @else%
+    continu##1%
+  @fi%
+}%
+@gdef@letracontinue&##1{% Temos 'continue'
+  @ifcat##1a%
+    continue##1%
+  @else%
+    @cor{0 0.5 0.5}{continue}@expandafter##1%    
+  @fi%
+}%
+@gdef@letraconst&##1{% Temos 'const'
+  @ifcat##1a%
+    const##1%
+  @else%
+    @cor{0 0.5 0.5}{const}@expandafter##1%    
+  @fi%
+}%
+@gdef@letrach&##1{% Temos 'ch'
+  @ifcat##1a%
+    @letraCH&##1%
+  @else%
+    ch@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCH&##1{% Temos 'ch'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letracha&%
+  @else%
+    ch##1%
+  @fi%
+}%
+@gdef@letracha&##1{% Temos 'cha'
+  @ifcat##1a%
+    @letraCHA&##1%
+  @else%
+    cha@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCHA&##1{% Temos 'cha'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letrachar&%
+  @else%
+    cha##1%
+  @fi%
+}%
+@gdef@letrachar&##1{% Temos 'char'
+  @ifcat##1a%
+    char##1%
+  @else%
+    @cor{0 0.5 0}{char}@expandafter##1%
+  @fi%
+}%
+@gdef@letraca&##1{% Temos a letra 'ca'
+  @ifcat##1a%
+    @letraCA&##1%
+  @else%
+    ca@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCA&##1{% Temos a letra 'ca'+letra
+  @if##1s%
+    @expandafter@expandafter@expandafter@letracas&%
+  @else%
+    ca##1%
+  @fi%
+}%
+@gdef@letracas&##1{% Temos 'cas'
+  @ifcat##1a%
+    @letraCAS&##1%
+  @else%
+    cas@expandafter##1%    
+  @fi%
+}%
+@gdef@letraCAS&##1{% Temos a letra 'cas'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letracase&%
+  @else%
+    cas##1%
+  @fi%
+}%
+@gdef@letracase&##1{% Temos 'case'
+  @ifcat##1a%
+    case##1%
+  @else%
+    @cor{0 0.5 0.5}{case}@expandafter##1%
+  @fi%
+}%
+@gdef@letrab&##1{% Temos a letra 'b'
+  @ifcat##1a%
+    @letraB&##1%
+  @else%
+    b@expandafter##1%    
+  @fi%
+}%
+@gdef@letraB&##1{% Temos a letra 'b'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letrabr&%
+  @else%
+    @if##1o%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter@expandafter@letrabo&%
+    @else%
+      b##1%
+    @fi%    
+  @fi%
+}%
+@gdef@letrabo&##1{% Temos 'bo'
+  @ifcat##1a%
+    @letraBO&##1%
+  @else%
+    bo@expandafter##1%    
+  @fi%
+}%
+@gdef@letraBO&##1{% Temos 'bo'+letra
+  @if##1o%
+    @expandafter@expandafter@expandafter@letraboo&%
+  @else%
+    bo##1%
+  @fi%
+}%
+@gdef@letraboo&##1{% Temos 'boo'
+  @ifcat##1a%
+    @letraBOO&##1%
+  @else%
+    boo@expandafter##1%    
+  @fi%
+}%
+@gdef@letraBOO&##1{% Temos 'boo'+letra
+  @if##1l%
+    @expandafter@expandafter@expandafter@letrabool&%
+  @else%
+    boo##1%
+  @fi%
+}%
+@gdef@letrabool&##1{% Temos 'bool'
+  @ifcat##1a%
+    bool##1%
+  @else%
+    @cor{0 0.5 0}{bool}@expandafter##1%
+  @fi%
+}%
+@gdef@letrabr&##1{% Temos 'br'
+  @ifcat##1a%
+    @letraBR&##1%
+  @else%
+    br@expandafter##1%    
+  @fi%
+}%
+@gdef@letraBR&##1{% Temos 'br'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letrabre&%
+  @else%
+    br##1%
+  @fi%
+}%
+@gdef@letrabre&##1{% Temos 'bre'
+  @ifcat##1a%
+    @letraBRE&##1%
+  @else%
+    bre@expandafter##1%    
+  @fi%
+}%
+@gdef@letraBRE&##1{% Temos 'bre'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letrabrea&%
+  @else%
+    bre##1%
+  @fi%
+}%
+@gdef@letrabrea&##1{% Temos 'brea'
+  @ifcat##1a%
+    @letraBREA&##1%
+  @else%
+    brea@expandafter##1%    
+  @fi%
+}%
+@gdef@letraBREA&##1{% Temos 'brea'+letra
+  @if##1k%
+    @expandafter@expandafter@expandafter@letrabreak&%
+  @else%
+    brea##1%
+  @fi%
+}%
+@gdef@letrabreak&##1{% Temos 'break'
+  @ifcat##1a%
+    break##1%
+  @else%
+    @cor{0 0.5 0.5}{break}@expandafter##1%    
+  @fi%
+}%
+@gdef@letraa&##1{% Temos a letra 'a'
+  @ifcat##1a%
+    @letraA&##1%
+  @else%
+    a@expandafter##1%    
+  @fi%
+}%
+@gdef@letraA&##1{% Temos a letra 'a'+letra
+  @if##1u%
+    @expandafter@expandafter@expandafter@letraau&%
+  @else%
+    a##1%
+  @fi%
+}%
+@gdef@letraau&##1{% Temos 'au'
+  @ifcat##1a%
+    @letraAU&##1%
+  @else%
+    au@expandafter##1%    
+  @fi%
+}%
+@gdef@letraAU&##1{% Temos 'au'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letraaut&%
+  @else%
+    au##1%
+  @fi%
+}%
+@gdef@letraaut&##1{% Temos 'aut'
+  @ifcat##1a%
+    @letraAUT&##1%
+  @else%
+    aut@expandafter##1%
+  @fi%
+}%
+@gdef@letraAUT&##1{% Temos 'aut+letra'
+  @if##1o%
+    @expandafter@expandafter@expandafter@letraauto&%
+  @else%
+    aut##1%
+  @fi%
+}%
+@gdef@letraauto&##1{% Temos 'auto'
+  @ifcat##1a%
+    auto##1%
+  @else%
+    @cor{0 0.5 0.5}{auto}@expandafter##1%
+  @fi%
+}%
+@gdef@letrai&##1{% Invocada quando a 1a letra é i
+  @ifcat##1a%
+    @letraI&##1%
+  @else%
+    i@expandafter##1%
+  @fi}%
+@gdef@letraI&##1{% Invocada quando a 1a letra é i+letra
+  @if##1f%
+    @expandafter@expandafter@expandafter@letraif&%
+  @else%
+    @if##1n%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrain&%
+    @else%
+      @if##1m%
+        @expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@expandafter@expandafter%
+        @expandafter@expandafter@expandafter@expandafter@expandafter%
+        @letraim&%
+      @else%
+        i##1%
+      @fi%
+    @fi%
+  @fi%
+}%
+@gdef@letraif&##1{% Lemos um 'if' e checamos se palavra terminou
+  @ifcat##1a%
+    if##1%
+  @else%
+    @cor{0 0.5 0.5}{if}@expandafter##1%
+  @fi}%
+@gdef@letraim&##1{% Lemos um 'im'
+  @ifcat##1a%
+    @letraIM&##1%
+  @else%
+    im@expandafter##1%
+  @fi}%
+@gdef@letraIM&##1{% Lemos um 'im'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letraima&%
+  @else%
+    im##1%
+  @fi%
+}%
+@gdef@letraima&##1{% Lemos um 'ima'
+  @ifcat##1a%
+    @letraIMA&##1%
+  @else%
+    ima@expandafter##1%
+  @fi}%
+@gdef@letraIMA&##1{% Lemos um 'ima'+letra
+  @if##1g%
+    @expandafter@expandafter@expandafter@letraimag&%
+  @else%
+    ima##1%
+  @fi%
+}%
+@gdef@letraimag&##1{% Lemos um 'imag'
+  @ifcat##1a%
+    @letraIMAG&##1%
+  @else%
+    imag@expandafter##1%
+  @fi}%
+@gdef@letraIMAG&##1{% Lemos um 'imag'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letraimagi&%
+  @else%
+    imag##1%
+  @fi%
+}%
+@gdef@letraimagi&##1{% Lemos um 'imagi'
+  @ifcat##1a%
+    @letraIMAGI&##1%
+  @else%
+    imagi@expandafter##1%
+  @fi}%
+@gdef@letraIMAGI&##1{% Lemos um 'imagi'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letraimagin&%
+  @else%
+    imagi##1%
+  @fi%
+}%
+@gdef@letraimagin&##1{% Lemos um 'imagin'
+  @ifcat##1a%
+    @letraIMAGIN&##1%
+  @else%
+    imagin@expandafter##1%
+  @fi}%
+@gdef@letraIMAGIN&##1{% Lemos um 'imagin'+letra
+  @if##1a%
+    @expandafter@expandafter@expandafter@letraimagina&%
+  @else%
+    imagin##1%
+  @fi%
+}%
+@gdef@letraimagina&##1{% Lemos um 'imagina'
+  @ifcat##1a%
+    @letraIMAGINA&##1%
+  @else%
+    imagina@expandafter##1%
+  @fi}%
+@gdef@letraIMAGINA&##1{% Lemos um 'imagina'+letra
+  @if##1r%
+    @expandafter@expandafter@expandafter@letraimaginar&%
+  @else%
+    imagina##1%
+  @fi%
+}%
+@gdef@letraimaginar&##1{% Lemos um 'imaginar'
+  @ifcat##1a%
+    @letraIMAGINAR&##1%
+  @else%
+    imaginar@expandafter##1%
+  @fi}%
+@gdef@letraIMAGINAR&##1{% Lemos um 'imaginar'+letra
+  @if##1y%
+    @expandafter@expandafter@expandafter@letraimaginary&%
+  @else%
+    imaginar##1%
+  @fi%
+}%
+@gdef@letraimaginary&##1{% Lemos um 'imaginary'
+  @ifcat##1a%
+    imaginary##1%
+  @else%
+    @cor{0 0.5 0}{imaginary}@expandafter##1%
+  @fi}%
+@gdef@letrain&##1{% Lemos um 'in'
+  @ifcat##1a%
+    @letraIN&##1%
+  @else%
+    in@expandafter##1%
+  @fi}%
+@gdef@letraIN&##1{% Lemos um 'in'+letra
+  @if##1t%
+    @expandafter@expandafter@expandafter@letraint&%
+  @else%
+    @if##1l%
+      @expandafter@expandafter@expandafter@expandafter@expandafter@expandafter%
+      @expandafter@letrainl&%
+    @else%
+      in##1%
+    @fi
+  @fi%
+}%
+@gdef@letrainl&##1{% Lemos um 'inl'
+  @ifcat##1a%
+    @letraINL&##1%
+  @else%
+    inl@expandafter##1%
+  @fi}%
+@gdef@letraINL&##1{% Lemos um 'inl'+letra
+  @if##1i%
+    @expandafter@expandafter@expandafter@letrainli&%
+  @else%
+    inl##1%
+  @fi%
+}%
+@gdef@letrainli&##1{% Lemos um 'inli'
+  @ifcat##1a%
+    @letraINLI&##1%
+  @else%
+    inli@expandafter##1%
+  @fi}%
+@gdef@letraINLI&##1{% Lemos um 'inli'+letra
+  @if##1n%
+    @expandafter@expandafter@expandafter@letrainlin&%
+  @else%
+    inli##1%
+  @fi%
+}%
+@gdef@letrainlin&##1{% Lemos um 'inlin'
+  @ifcat##1a%
+    @letraINLIN&##1%
+  @else%
+    inlin@expandafter##1%
+  @fi}%
+@gdef@letraINLIN&##1{% Lemos um 'inlin'+letra
+  @if##1e%
+    @expandafter@expandafter@expandafter@letrainline&%
+  @else%
+    inlin##1%
+  @fi%
+}%
+@gdef@letrainline&##1{% Lemos um 'inline'
+  @ifcat##1a%
+    inline##1%
+  @else%
+    @cor{0 0.5 0.5}{inline}@expandafter##1%
+  @fi}%
+@gdef@letraint&##1{% Lemos um 'int'
+  @ifcat##1a%
+    int##1%
+  @else%
+    @cor{0 0.5 0}{int}@expandafter##1%
+  @fi}%
+}
+\def\fimsh&{@gdef@sh&{}@everypar{}@catcode`_=8@catcode`0=12@catcode`1=12%
+  @catcode`2=12@catcode`3=12@catcode`4=12@catcode`5=12@catcode`6=12%
+  @catcode`7=12@catcode`8=12@catcode`9=12@catcode`"=12@catcode`(=12%
+  @catcode`:=12  @catcode`|=13@catcode`.=12%
+  @if@comentario& 1@special{color pop}@gdef@comentario&{0}@fi%
+  @if@macro& 1@special{color pop}@gdef@macro&{0}@fi%
+  @gdef@<##1@>##2{%
+  @linha@espaco{1mm}@noindent@negrito{Section: ##1%
+  @if##2+
+    (continuation)%
+  @fi:}%
+  @alinhacodigo@vskip1mm@chomp&}@gdef@ {@space&}%
+  @gdef|{@gdef|{@fimsh&@alinhanormal&@catcode`\\=0@gdef@cm&{0}@gdef@c&{0} }%
+  @ifvmode@indent@fi@alinhaverbatim&@gdef@c&{1}@catcode`\\=12@gdef@cm&{1}@iniciosh&}}
+
+% O @ agora precisa ser usado como comando
+\def@@{\char"40}
+
+% Um espaço agora pode terminar a região de código C:
+\def\space&{ }
+
+
+% A região de código C funcionará de modo semelhante ao modo
+% verbatim. A diferença é que o '\' passará a ser considerado
+% caractere comum. Desta forma, comandos só poderão ser digitados com
+% o '@.
+\def\alinhacodigo{\linha\alinhaverbatim&\gdef\c&{1}\catcode`\\=12@iniciosh&}
+
+\catcode`&=4 % @ não será mais usado em nomes de sequencias de controle
+
+
+\endinput

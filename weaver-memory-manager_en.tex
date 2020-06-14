@@ -1,0 +1,1176 @@
+\input tex/epsf.tex
+\font\sixteen=cmbx16
+\font\twelve=cmr12
+\font\fonteautor=cmbx12
+\font\fonteemail=cmtt10
+\font\twelvenegit=cmbxti12
+\font\twelvebold=cmbx12
+\font\trezebold=cmbx13
+\font\twelveit=cmsl12
+\font\monodoze=cmtt12
+\font\it=cmti12
+\voffset=0,959994cm % 3,5cm de margem superior e 2,5cm inferior
+\parskip=6pt
+
+\def\titulo#1{{\noindent\sixteen\hbox to\hsize{\hfill#1\hfill}}}
+\def\autor#1{{\noindent\fonteautor\hbox to\hsize{\hfill#1\hfill}}}
+\def\email#1{{\noindent\fonteemail\hbox to\hsize{\hfill#1\hfill}}}
+\def\negrito#1{{\twelvebold#1}}
+\def\italico#1{{\twelveit#1}}
+\def\monoespaco#1{{\monodoze#1}}
+\def\iniciocodigo{\lineskip=0pt\parskip=0pt}
+\def\fimcodigo{\twelve\parskip=0pt plus 1pt\lineskip=1pt}
+
+\long\def\abstract#1{\parshape 10 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+\noindent{{\twelvenegit Abstract: }\twelveit #1}}
+
+\def\resumo#1{\parshape  10 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+0.8cm 13.4cm 0.8cm 13.4cm 0.8cm 13.4cm
+\noindent{{\twelvenegit Resumo: }\twelveit #1}}
+
+\def\secao#1{\vskip12pt\noindent{\trezebold#1}\parshape 1 0cm 15cm}
+\def\subsecao#1{\vskip12pt\noindent{\twelvebold#1}}
+\def\referencia#1{\vskip6pt\parshape 5 0cm 15cm 0.5cm 14.5cm 0.5cm 14.5cm
+0.5cm 14.5cm 0.5cm 14.5cm {\twelve\noindent#1}}
+
+%@* .
+
+\twelve
+\vskip12pt
+\titulo{Weaver Memory Manager}
+\vskip12pt
+\autor{Thiago Leucz Astrizi}
+\vskip6pt
+\email{thiago@@bitbitbit.com.br}
+\vskip6pt
+
+\abstract{This article describes using literary programming a memory
+manager written for Weaver Game Engine. It aims to be a very simple
+and fast memory manager for programs where memory is allocated and
+freed in a stack-based order and we know the maximum ammount of memory
+that the program will need. It allows users creating markings during
+the program execution that after allows them to free at once all the
+memory allocated after the last marking. After the memory manager
+creation, we also run some benchmarks comparing its performance
+against malloc from standard library running at Linux, Windows and
+in a web browser using Web Assembly.}
+
+
+\secao{1. Introduction}
+
+\subsecao{1.1. Memory Managers in Game Engines}
+
+Many game engines run custom memory managers instead of using the
+system's library to obtain more memory dinamically. According with
+[Gregory 2019], this happens because implementations
+like \italico{malloc} and \italico{free} could be relatively slow when
+used in games compared with custom memory managers. Custom memory
+managers also can deal with memory fragmentation.
+
+Gregory identifies five design pattern for managing memory in games:
+
+\negrito{Stack-based Allocators:} These allocators always return sequential
+regions of memory and deallocations must happen in reverse order than
+allocation. The implementation is very simple and it is easy to ensure
+spatial locality of used memory regions. All the memory allocatyed
+since some specific time of execution could be rapidly deallocated
+with a single function call.
+
+\negrito{Pool Allocators:} This technique can be used when we know that we
+will need at most $n$ elements, all with the same size. We can
+allocate previously the memory for these elements and keep their
+memory region always at disposal using variables to store when a given
+region is occupied by an element and when we can treat it as free
+memory.
+
+\negrito{Alligned Allocations:} Different types of data and computer architectures
+can have different alignment restrictions for
+memory. In \itelico{Playstation 3}, for example, any memory position
+passed using DMA (\italico{Direct Memory Access}) must be 128-bit
+aligned. This means that its address must be a multiple of 128 bits.
+
+\negrito{Single Frame and Double-Buffered Memory Allocators:} A game engine
+runs all its computations in frames, and in each frame a new image is
+sent to the screen. Some allocated variables must have a lifetime of
+only one or two frames, and could be deallocated automatically after
+this time.
+
+\negrito{Memory Defragmenter:} When memory is allocated and freed
+in unpredictable order, small unused memory regions could
+accumulate. Sometimes they are too small to be useful, and they are
+many and so they waste considerable ammounts of memory. To avoid this,
+instead ofusing pointers for allocated objects, we could use indexes
+which indentifies the pointers. This way, allocated memory could be
+moved incrementally and peridically to avoid fragmentation and their
+pointers can be updated.
+
+This article objective is to define a stack-based allocator with
+support for memory alignment and which can store two stacks in its
+memory region. Manage which stack to use is user's
+responsability. This technique is described in [Ranck, 2000] which
+shows how it was used in the game \italico{Hydro Thunder} made
+by \italico{Midway}.
+
+Pool allocators won't be supported here, but they can easily be built
+using the allocator defined here. The fragmentation problem also won't
+be addressed, as stack-based allocators usually do not have memory
+fragmentation when correctly used.
+
+\subsecao{1.2. Ambientes de Execução}
+
+Neste artigo vamos nos preocupar em garantir que as funções definidas
+rodem com sucesso em quatro ambientes diferentes: Windows 10, macOS
+Sierra, Linux e Web Assembly. Os três primeiros são os três sistemas
+operacionais para computadores pessoais. O último é uma especificação
+de máquina virtual especializada em interpretar um subconjunto
+otimizado de Javascript, criada para permitir a execução de programas
+de computador completos dentro de ambientes como navegadores de
+Internet. Seu desenvolvimento partiu do método apresentado por [Zakai,
+2011] que ofereceu um modo de compilar código em C e C++ para
+Javascript de maneira otimizada.
+
+Para desenvolver de maneira portável nos quatro ambientes, serão
+usadas macros condicionais e as diferentes formas de obter memória no
+diferentes sistemas será comparada.
+
+\subsecao{1.3. Programação Literária e Notação Usada no Artigo}
+
+Este artigo utiliza a técnica de ``Programação Literária'' para
+desenvolver o seu gerenciador de memória. Esta técnica foi apresentada
+em [Knuth, 1984] e consiste e uma filosofia de desenvolvimento de
+\italico{software} na qual um programador desenvolve um programa escrevendo
+e explicando didaticamente o código necessário, se preocupando em
+deixar o seu funcionamento claro para as pessoas que lerem a
+explicação. Ferramentas automáticas são então utilizadas para extrair
+o código existente na expicação, mudar a ordem do código conforme for
+mais adequado para o compilador e produzir à partir do código extraído
+um programa executável.
+
+Por exemplo, neste artigo serão definidos dois arquivos
+diferentes: \monoespaco{memory.c} e \monoespaco{memory.h}, os quais
+podem ser inseridos estaticamente em qualquer projeto, ou compilados
+como uma biblioteca compartilhada. O que colocaremos
+em \monoespaco{memory.h} será:
+
+\iniciocodigo
+@(src/memory.h@>=
+#ifndef WEAVER_MEMORY_MANAGER
+#define WEAVER_MEMORY_MANAGER
+#ifdef __cplusplus
+extern "C" {
+#endif
+@<Declarações de Memória@>
+#ifdef __cplusplus
+}
+#endif
+#endif
+@
+\fimcodigo
+
+As duas primeiras linhas assim como a última são macros de segurança
+que impedem que as funções e variáveis declaradas ali sejam declaradas
+redundantemente se alguém incluir mais de uma vez o arquivo em um
+código-fonte. As demais linhas contém macros que checam se estamos
+compilando usando C++ ao invés de C. Se for o caso, nós declaramos
+todas as funções que existem neste arquivo como funções do tipo C,
+para que o compilador C++ saiba que elas não serão modificadas por
+meio de sobrecarga de operadores e que por isso não é necessário
+armazenar informações adicionais além do nome da função para
+reconhecê-la.
+
+No meio do código acima, deixamos indicado em letras vermelhas que
+iremos adicionais mais tarde ali um novo trecho de código chamado
+``Declarações de Memória'', com a declaraçãol das funções que iremos
+usar. Folheando o artigo, você encontrará nas páginas seguintes um
+outro trecho de código cujo título não será \monoespaco{memory.h}, mas
+sim ``Declarações de Memória''. Será ali que o código que vai nesta
+parte do arquivo será encontrado. Pdem existir mais de um trecho de
+código com este título. Isso significa que para produzir o código
+funcional utilizado pelo compilador, devemos concatenar todos estes
+trechos com o mesmo título e colocar na parte indicada deste
+arquivo. Isso nos permite colocar a declaração de funções à medida que
+formos explicando elas no código, sem precisar declarar todas de uma
+vez só porque elas pertencem a um mesmo trecho de código.
+
+\subsecao{1.4. Funções a serem Definidas}
+
+Nosso gerenciador de memória irá definir um total de 6 novas
+funções. A primeira recebe um tamanho em bytes e retorna uma região
+contínua de memória a ser gerenciada (que chamamos de ``arena''):
+
+\iniciocodigo
+@<Declarações de Memória@>=
+#include <stdlib.h> // Include 'size_t'
+void *Wcreate_arena(size_t size);
+@
+\fimcodigo
+
+A segunda recebe uma arena criada pela primeira e libera toda a memória
+reservada nela. Se haviam elementos não-desalocados na arena, retornamos
+false, caso contrário retornamos verdadeiro:
+
+\iniciocodigo
+@<Declarações de Memória@>+=
+#include <stdbool.h> // Include 'bool'
+bool Wdestroy_arena(void *);
+@
+\fimcodigo
+
+A terceira equivale a um \monoespaco{malloc} e recebe uma arena, um
+número que será uma potência de dois ou zero que representa o
+alinhamento em bits que a memória alocada precisará respeitar, um
+número que indica se queremos alocar da pilha esquerda (0) ou direita
+(1) da arena e um tamanho em bytes. A função sempre retornará um
+endereço múltiplo do alinhamento, assumindo que ele é uma potência
+de dois:
+
+\iniciocodigo
+@<Declarações de Memória@>+=
+void *Walloc(void *arena, unsigned alignment, int right, size_t size);
+@
+\fimcodigo
+
+A quarta função serve para colocar uma marcação, a qual chamamos de
+``ponto de memória'' dentro de uma arena onde alocamos memória. Essa
+marcação pode ser usada para determinar que alocações ocorreram antes
+e quais ocorreram depois que ela foi feita. A região indica se essa
+marcação deve ser colocada na região de alocação esquerda (0) ou
+direita (1). Também especificamos um alinhamento como na função de
+alocação. A função retorna se foi bem-sucedida ou não.
+
+\iniciocodigo
+@<Declarações de Memória@>+=
+bool Wmempoint(void *arena, unsigned alignment, int regiao);
+@
+\fimcodigo
+
+A última função usa a marcação criada pela função anterior e desaloca
+de uma só vez toda a memória alocada com \monoespaco{Walloc} desde que
+a última marcação foi criada. Ela recebe uma flag para saber se isso
+deve ser feito na região esquerda (0) ou direita (1):
+
+\iniciocodigo
+@<Declarações de Memória@>+=
+void Wtrash(void *arena, int regiao);
+@
+\fimcodigo
+
+\secao{2. Implementação}
+
+\subsecao{2.1. Obtendo uma Região de Memória Inicial}
+
+Em um gerenciador de memória de propósito geral nós não temos como
+saber qual a quantidade máxima de memória que iremos precisar. Mas em
+um gerenciador de memória usado em jogos, é essencial que
+estabeleçamos um limite máximo de uso de memória. Em tais casos,
+estamos menos interessados em obter resultados precisos de computação
+e mais interessados em garantir um desempenho contínuo, sem perda de
+performance súbita como quando esgotamos a memória principal e temos
+que usar memória \italico{swap}. Nestes casos é interessante alocar de
+uma só vez a quantidade máxima de memória que nos comprometemos a usar
+e gerenciar esta mesma quantidade durante o tempo de execução do
+programa.
+
+O modo que utilizaremos para obter essa quantidade de memória inicial
+varia dependendo do ambiente de execução. Pode-se usar até mesmo
+um \monoespaco{malloc} para fazer isso, embora aqui nós iremos
+preferir usar a alternativa que desperdice menos memória possível. Se
+possível uma que retorne exatamente o valor que queremos sem gastar
+qualquer valor adicional preenchendo informações e estruturas de dado
+adicionais.
+
+Tanto em qualquer sistema Unix (Linux, OpenBSD, macOS) como quando
+compilamos para WebAssembly com o compilador Emscripten, a escolha
+mais econômica é usar o \monoespaco{mmap}. Ee é uma função bastante
+ampla que permite mapear para a memória qualquer coisa, de arquivos em
+disco até simplesmente alocar uma região nova de memória para um
+programa.
+
+Para podermos usar \monoespaco{mmap}, só temos que inserir o cabeçalho
+adequado:
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>=
+#if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
+#include <sys/mman.h>
+#endif
+@
+\fimcodigo
+
+Tendo definido o cabeçalho, para usar a função para alocar uma região
+de tamanho $M$ que não está associada a nenhum arquivo, somente à
+memória física e que pode tanto ser lida como escrita, invocamos ela
+da seguinte forma:
+
+\iniciocodigo
+@<Alocar em `arena' região de `M' bytes@>=
+#if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
+arena = mmap(NULL, M, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON,
+             -1, 0);
+#endif
+@
+\fimcodigo
+
+Os argumentos que foram setados para nulo, zero ou -1 são apenas
+argumentos que não são necessários no modo que estamos usando
+o \monoespaco{mmap}.
+
+Assim como nós criamos uma nova região de memória para usarmos, depois
+vai ser necessário desfazer ela. Neste caso, usamos
+o \monoespaco{munmap}:
+
+\iniciocodigo
+@<Desalocar `arena' de tamanho `M' bytes@>=
+#if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
+munmap(arena, M);
+#endif
+@
+\fimcodigo
+
+Em ambientes Windows, a função equivalente a isso é a
+a \monoespaco{CreateFileMapping}, com a diferença de que ela retorna
+um controlador que precisa de uma função adicional para por fim obter
+um ponteiro para a região alocada. Felizmente, segundo a documentação
+da API do Windows, é permitido fechar tal controlador com
+o \monoespaco{CloseHandle} antes de desalocar e desfazer a região
+para a qual o ponteiro aponta. Graças à isso, conseguimos manter a
+simetria entre o código Windows e das demais plataformas, pois como o
+controlador será fechado aqui, não precisamos memorizá-lo com uma
+estrutura adicional a ser encerrada futuramente.
+
+\iniciocodigo
+@<Alocar em `arena' região de `M' bytes@>+=
+#if defined(_WIN32)
+{
+  HANDLE handle;
+  handle = CreateFileMappingA(INVALID_HANDLE_VALUE, NULL,
+                              PAGE_READWRITE,
+                              (DWORD) ((DWORDLONG) M) / ((DWORDLONG) 4294967296),
+                              (DWORD) ((DWORDLONG) M) % ((DWORDLONG) 4294967296),
+                              NULL);
+  arena = MapViewOfFile(handle, FILE_MAP_READ | FILE_MAP_WRITE, 0, 0, 0);
+  CloseHandle(handle);
+}
+#endif
+@
+\fimcodigo
+
+Para desalocar a região alocada usaremos o \monoespaco{UnmapViewOfFile}:
+
+\iniciocodigo
+@<Desalocar `arena' de tamanho `M' bytes@>+=
+#if defined(_WIN32)
+UnmapViewOfFile(arena);
+#endif
+@
+\fimcodigo
+
+Usar as funções acima requer os seguintes cabeçalhos:
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>+=
+#if defined(_WIN32)
+#include <windows.h>  // Include 'CreateFileMapping', 'MapViewOfFIle',
+#include <memoryapi.h> // 'UnmapViewOfFile', 'CloseHandle'
+#endif
+@
+\fimcodigo
+
+\subsecao{2.2. Obtendo o Tamanho da Página}
+
+Em um computador real, em contraste com uma máquina virtual, quando um
+programa pede memória para o Sistema Operacional, ele sempre irá
+receber memória em múltiplos do tamanho da página usada internamente
+pela máquina. Tipicamente o tamanho de uma página é de 4 KiB. Sendo
+assim, não adianta pedirmos quantidade de memória que não seja
+múltiplo de 4 KiB. Se pedirmos apenas 2 KiB, continuaremos recebendo 4
+KiB. Se pedirmos 5 KiB, receberemos 8 KiB.
+
+É importante então que nestes ambientes, nosso gerenciador esteja
+ciente disso e que mesmo que um usuário peça uma quantidade de memória
+que não seja múltipla do tamanho da página, ele sempe irá ajustar o
+pedido para um valor múltiplo para assim não desperdiçar memória.
+
+Na maioria dos sistemas Unix, desde que compatíveis com o POSIX,
+podemos obter facilmente o tamanho de uma página por meio da
+função \monoespaco{sysconf}:
+
+\iniciocodigo
+@<Obter tamanho de página `p'@>=
+#if defined(__unix__)
+p = sysconf(_SC_PAGESIZE);
+#endif
+@
+\fimcodigo
+
+A documentação do macOS afirma que ele possui tal função que é
+compatível com o POSIX. Contudo, a documentação não menciona a opção
+de obter o tamanho da página por ela. Ao invés disso, a documentação
+menciona usar a função BSD \monoespaco{getpagesize} para obter tal
+informação. Para nos mantermos seguindo a documentação, faremos isso
+então:
+
+\iniciocodigo
+@<Obter tamanho de página `p'@>+=
+#if defined(__APPLE__)
+p = getpagesize();
+#endif
+@
+\fimcodigo
+
+Tanto a função BSD acima como a função POSIX estão definidas no mesmo
+cabeçalho:
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>+=
+#if defined(__APPLE__) || defined(__unix__)
+#include <unistd.h>
+#endif
+@
+\fimcodigo
+
+No Windows, o modo de obter o tamanho da página é por meio da função
+mais complexa \monoespaco{GetSystemInfo} que retorna também uma série
+de informações adicionais sobre o sistema que não precisaremos usar no
+momento.
+
+\iniciocodigo
+@<Obter tamanho de página `p'@>+=
+#if defined(_WIN32)
+{
+  SYSTEM_INFO info;
+  GetSystemInfo(&info);
+  p = info.dwPageSize;
+}
+#endif
+@
+\fimcodigo
+
+E para usar esta função, a documentação nos aconselha incluir
+diretamente o cabeçalho \monoespaco{windows.h}:
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>+=
+#if defined(_WIN32)
+#include <windows.h> // Include 'GetSystemInfo'
+#endif
+@
+\fimcodigo
+
+
+Por fim, o caso do ambiente WebAssembly. Neste ambiente, a memória
+dinâmica é obtida por meio de uma seção de memória linear que começa
+com um tamaho padrão e pode crescer por meio de um
+operador \monoespaco{grow\_memory}, o qual também é configurado com um
+tamanho máximo. De qualquer forma, aqui também a quantidade de memória
+alocada é múltipla de uma página. O tamanho da página na máquina
+virtual WebAssembly é documentado como sendo sempre o mesmo:
+
+\iniciocodigo
+@<Obter tamanho de página `p'@>+=
+#if defined(__EMSCRIPTEN__)
+p = 64 * 1024; // 64 KiB
+#endif
+@
+\fimcodigo
+
+\subsecao{2.3. Sobre Execução em Diferentes Threads}
+
+É importante garantir que o código definido aqui não deixe de
+funcionar quando invocado simultaneamente por mais de um trecho de
+código. Para isso, iremos apenas garantir um \italico{mutex} para que
+o nosso gerenciador de memória não tenha a mesma região de memória
+sendo acessada por mais de uma \italico{thread}. Caso tenhamos um caso
+no qual várias threads precise alocar memória simultaneamente, pode
+ser mais vantajoso dar para cada uma delas a sua própria região de
+memória para evitar que cada uma delas bloqueie todas as outras
+durante sua alocação.
+
+Nem todos os ambientes suportam threads. A máquina virtual Web
+Assembly, ao menos a versão implementada nos navegadores de Internet
+não oferece suporte à elas, exceto em versões experimentais. Sendo
+assim, definiremos código para nosos mutex somente para os demais
+ambientes. No caso do Windows, iremos preferir usar a API para
+``Seções Críticas'' ao invés de usar diretamente um mutex. O principal
+motivo é evitar uma chamada de sistema para o Kernel caso ninguém
+esteja usando nosso Mutex. As seções críticas conseguem isso apenas
+trazendo a restrição de não poderem ser compartilhadas com outros
+programas. No mais, as seções críticas funcionam de maneira análoga a
+um mutex.
+
+Em sistemas baseados em Unix, incluimos o cabeçalho da biblioteca
+POSIX ``pthreads''. No Windows, os cabeçalhos relevantes já foram
+incluídos no \monoespaco{windows.h}.
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>+=
+#if defined(__unix__) || defined(__APPLE__)
+#include <pthread.h>
+#endif
+@
+\fimcodigo
+
+Um mutex é declarado da seguinte forma:
+
+\iniciocodigo
+@<Declaração de Mutex@>=
+#if defined(__unix__) || defined(__APPLE__)
+pthread_mutex_t mutex;
+#endif
+#if defined(_WIN32)
+CRITICAL_SECTION mutex;
+#endif
+@
+\fimcodigo
+
+Quando o mutex é inicializado, colocamos em uma variável booleana
+chamada \monoespaco{error} se ocorreu algum problema. No caso da
+biblioteca \italico{pthreads}, sua função de inicialização já retorna
+valor não-nulo se ocorreu um problema. No Windows, o sistema garante
+que a função de inicialização nunca falhe. Nos dois casos assumimos
+que temos um ponteiro genérico para o nosso mutex.
+
+\iniciocodigo
+@<Inicialização de `*mutex'@>=
+#if defined(__unix__) || defined(__APPLE__)
+error = pthread_mutex_init((pthread_mutex_t *) mutex, NULL);
+#endif
+#if defined(_WIN32)
+InitializeCriticalSection((CRITICAL_SECTION *) mutex);
+#endif
+@
+\fimcodigo
+
+O código para destruir um mutex é o exposto abaixo. Neste caso não
+iremos nos preocupar com casos de erro.
+
+\iniciocodigo
+@<Finaliza `*mutex'@>=
+#if defined(__unix__) || defined(__APPLE__)
+pthread_mutex_destroy((pthread_mutex_t *) mutex);
+#endif
+#if defined(_WIN32)
+DeleteCriticalSection((CRITICAL_SECTION *) mutex);
+#endif
+@
+\fimcodigo
+
+A operação clássica de \italico{wait} para requerer o uso do mutex:
+
+\iniciocodigo
+@<`*mutex':WAIT()@>=
+#if defined(__unix__) || defined(__APPLE__)
+pthread_mutex_lock((pthread_mutex_t *) mutex);
+#endif
+#if defined(_WIN32)
+EnterCriticalSection((CRITICAL_SECTION *) mutex);
+#endif
+@
+\fimcodigo
+
+E a função de \italico{signal} para liberar um mutex que foi pedido
+pela thread:
+
+\iniciocodigo
+@<`*mutex':SIGNAL()@>=
+#if defined(__unix__) || defined(__APPLE__)
+pthread_mutex_unlock((pthread_mutex_t *) mutex);
+#endif
+#if defined(_WIN32)
+LeaveCriticalSection((CRITICAL_SECTION *) mutex);
+#endif
+@
+\fimcodigo
+
+\subsecao{2.3. Cabeçalho de Arenas de Memória}
+
+Logo após alocarmos uma região de memória (ou ``arena''), a primeira
+coisa a fazer é reservar os seus bytes iniciais para armazenar
+informações gerais sobre ela. As informações que desejamos são: o
+tamanho total de espaço que temos (\monoespaco{remaining\_space}), o
+tamanho total da arena (\monoespaco{total\_size}) e ponteiros para o
+começo de uma região livre na pilha de memória esquerda e direita que
+iremos alocar (\monoespaco{left\_free}, \monoespaco{right\_free}). Na
+variável \monoespaco{right\_allocations} armazenamos a quantidade
+total alocada na pilha de memória direita e
+em \monoespaco{left\_allocations} a quantidade de memória alocada na
+pilha esquerda.
+
+Precisaremos também de um mutex como o que definimos para proteger a
+arena de ser manipulada simultaneamente por duas threads.
+
+Outra informação que podemos precisar só em momentos de depuração é a
+quantidade mínima de memória que chegamos a ter ao longo do tempo de
+vida da arena. Isso é útil de armazenar porque após encerrarmos a
+arena e descobrirmos que alocamos para a arena muita memória que não
+foi usada, podemos querer diminuir o tamanho que demos a ela. Usaremos
+a variável \monoespaco{smallest\_remaining\_space} para armazenar isso
+e ela só estará definida se a macro \monoespaco{W\_DEBUG\_MEMORY}
+estiver definida.
+
+Teremos também dois ponteiros: \monoespaco{left\_point}
+e \monoespaco{right\_point}. Estes serão ponteiros para pontos de
+memória, informações sobre o estado daarena de memória em um ponto
+específico do tempo para que ela possa ser restaurada àquele
+estado. Tais pontos de memória serão melhor definidos na seção 2.9.
+
+O cabeçalho de nossa arena de memória terá então a seguinte forma:
+
+\iniciocodigo
+@<Cabeçalho da Arena@>=
+struct arena_header{
+  @<Declaração de Mutex@>
+  void *left_free, *right_free;
+  void *left_point, *right_point;
+  size_t remaining_space, total_size, right_allocations, left_allocations;
+#if defined(W_DEBUG_MEMORY)
+  size_t smallest_remaining_space;
+#endif
+};
+@
+\fimcodigo
+
+Assumimos que nós temos um ponteiro para a arena de memória
+recém-obtida, o qual chamamos de \monoespaco{arena} e que nós temos o
+tamanho total em bytes que está alocado nela na
+variável \monoespaco{M}, então conseguimos inicializar o cabeçalho ali
+com o código abaixo. Para calcular as próximas posições onde iremos
+inserir, convertemos o ponteiro para o começo da arena para um
+ponteiro de caractere para podermos fazer nossos cálculos com
+aritmética de ponteiro com múltiplos de 1 byte. O próximo espaço que
+temos livre para a pilha de memória esquerda é o byte imediatamente
+após o cabeçalho. Já a pilha direita fica com o último byte da arena.
+
+\iniciocodigo
+@<Inicializa cabeçalho em `arena' de tamanho `M'@>=
+{
+  struct arena_header *header = (struct arena_header *) arena;
+  header -> right_free = ((char *) header) + M - 1;
+  header -> left_free = ((char *) header) + sizeof(struct arena_header);
+  header -> remaining_space = M - sizeof(struct arena_header);
+  header -> right_allocations = 0;
+  header -> left_allocations = 0;
+  header -> total_size = M;
+  header -> left_point = NULL;
+  header -> right_point = NULL;
+#if defined(W_DEBUG_MEMORY)
+  header ->  smallest_remaining_space = header -> remaining_space;
+#endif
+  { // Mutex initialization
+    void *mutex = &(header -> mutex);
+    @<Inicialização de `*mutex'@>
+  }
+}
+@
+\fimcodigo
+
+\subsecao{2.4. O Código de Alocação de Nova Arena}
+
+Com o código que definirmos já temos como definir a
+função \monoespaco{Wcreate\_arena}. O que a função terá que fazer
+são as 6 operações abaixo:
+
+1. Receber do usuário um tamanho \monoespaco{t} para alocar.
+
+2. Descobrir qual o tamanho da página \monoespaco{p} no sistema atual.
+
+3. Obter \monoespaco{M}, sendo igual ao menor múltiplo
+de \monoespaco{p} maior que \monoespaco{t}. Se \monoespaco{M} for
+menor que o espaço necessário para o cabeçalho da arena, ele se torna
+igual ao menor múltiplo de \monoespaco{p} que é maior que o tamanho do
+cabeçalho.
+
+4. Alocamos uma nova arena de tamanho \monoespaco{M}.
+
+5. Inicializamos o seu cabeçalho.
+
+6. Retornamos o ponteiro para o começo da arena, onde está seu cabeçalho,
+ou \monoespaco{NULL} em caso de problemas.
+
+O código para fazer isso será então:
+
+\iniciocodigo
+@<Definição de `Wcreate\_arena'@>=
+void *Wcreate_arena(size_t t){
+  bool error = false;
+  void *arena;
+  size_t p, M, header_size = sizeof(struct arena_header);
+  // Operation 2:
+  @<Obter tamanho de página `p'@>
+  // Operation 3:
+  M = (((t - 1) / p) + 1) * p;
+  if(M < header_size)
+    M = (((header_size - 1) / p) + 1) * p;
+  // Operation 4:
+  @<Alocar em `arena' região de `M' bytes@>
+  // Operation 5:
+  @<Inicializa cabeçalho em `arena' de tamanho `M'@>
+  // Operation 6:
+  if(error) return NULL;
+  return arena;
+}
+@
+\fimcodigo
+
+\subsecao{2.5. A Função ``Wdestroy\_arena''}
+
+Uma vez que fornecemos uma forma de criar novas arenas, vamos definir
+também a função que irá finalizá-las. Esta é uma função mais simples
+que fará quatro coisas:
+
+1. Destruirá o mutex associado à arena.
+
+2. Imprimirá um aviso na tela se existe alguma coisa ainda alocada na
+arena.
+
+3. Se estamos em modo de depuração, imprimirá a quantidade de memória
+que nunca chegou a ser usada pela arena.
+
+4. Devolverá para o Sistema Operacional a memória que ele pediu para a
+arena.
+
+\iniciocodigo
+@<Definição de `Wdestroy\_arena'@>=
+bool Wdestroy_arena(void *arena){
+  struct arena_header *header = (struct arena_header *) arena;
+  void *mutex = (void *) &(header -> mutex);
+  size_t M = header -> total_size;
+  bool ret = true;
+  @<Finaliza `*mutex'@>
+  if(header -> total_size != header -> remaining_space +
+     sizeof(struct arena_header))
+    ret = false;
+#if defined(W_DEBUG_MEMORY)
+  printf("Unused memory: %zu/%zu (%f%%)\n",
+         header -> smallest_remaining_space, header -> total_size,
+         100.0 *
+         ((float) header -> smallest_remaining_space) / header -> total_size);
+#endif
+  @<Desalocar `arena' de tamanho `M' bytes@>
+  return ret;
+}
+@
+\fimcodigo
+
+Embora isso nos faça ter que incluir o cabeçalho das funções de
+entrada e saída padrão se estivermos em modo de depuração:
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>+=
+#if defined(W_DEBUG_MEMORY)
+#include <stdio.h>
+#endif
+@
+\fimcodigo
+
+\subsecao{2.6. Mantendo o Alinhamento em Memória Alocada}
+
+Quando vamos alocar uma nova memória começamos com um endereço $p$ que
+está disponível no qual iremos colocar nossa memória alocada. Mas
+devemos respeitar o alinhamento $a$, o qual é uma potência de 2 ou o
+número zero (que significa ``qualquer alinhamento''). O modo de fazer
+isso depende se estamos na pilha esquerda (posição inicial da memória
+na arena) ou direita (posição final da memória na arena). Pois uma das
+pilhas de memória cresce para posições maiores e outra para menores.
+
+No caso da memória da pilha esquerda, vamos querer colocar nossa
+alocação em um endereço $p$, mas podemos ter que deslocar $p$ um pouco
+mais para os próximos endereços para poder alinhar a memória. Fazemos
+isso considerando que $a-1$ representa tanto o pior caso de quantidade de
+posições que vamos deslocar $p$ como uma máscara de bits que devem ser
+nulos para que o endereço seja válido, pelo fato de $a$ ser uma potência de
+dois. Sendo assim, nosso código de alinhamento é:
+
+\iniciocodigo
+@<Alinha `p' e marca `offset' de acordo com `a' (esquerda)@>=
+offset = 0;
+if (a > 1){
+  void *new_p = ((char *) p) + (a - 1);
+  new_p = (void *) (((uintptr_t) new_p) & (~((uintptr_t) a - 1)));
+  offset = ((char *) new_p) - ((char *) p);
+  p = new_p;
+}
+@
+\fimcodigo
+
+Para podermos usar o tipo \monoespaco{uintptr\_t} usamos a biblioteca
+abaixo. Esse tipo é a maneira portável de podermos usar operações
+bit-a-bit em ponteiros.
+
+\iniciocodigo
+@<Incluir Cabeçalhos Necessários@>+=
+#include <stdint.h>
+@
+\fimcodigo
+
+
+Já na pilha direita, vamos querer alocar em um endereço $p$, mas
+possivelmente teremos que dimminuir o endereço inicial para mantê-lo
+alinhado ao invés de aumentá-lo. Com isso não é necessário somar
+o endereço inicial com o valor de pior caso $a-1$, basta remover
+diretamente os bits finais que forem necessários para o alinhamento:
+
+\iniciocodigo
+@<Alinha `p' e marca `offset' de acordo com `a' (direita)@>=
+offset = 0;
+if (a > 1){
+  void *new_p = (void *) (((uintptr_t) p) & (~((uintptr_t) a - 1)));
+  offset = ((char *) p) - ((char *) new_p);
+  p = new_p;
+}
+@
+\fimcodigo
+
+\subsecao{2.7. Alocando Memória}
+
+Antes de alocar memória, temos que verificar se existe espaço
+disponível. Fazemos isso checando os valores do cabeçalho da arena
+e comparando com o valor que temos que alocar, considerando o pior
+caso de alinhamento, onde precisaremos de um espaço adicional de
+$a-1$. Se não houver espaço, o valor $p$ a ser retornado terá que ser
+\monoespaco{NULL}.
+
+Se vamos alocar na pilha esquerda, o nosso endereço alocado será a
+próxima posição depois desse cabeçalho após passar por uma correção de
+alinhamento. Também vamos atualizar o quanto está sendo alocado na
+variável \monoespaco{left\_allocations}.
+
+Se vamos alocar na pilha direita, obtemos o valor do endereço alocado
+indo para a próxima região livre marcada no cabeçalho da arena e
+subtraímos do endereço o tamanho que queremos alocar sem o cabeçalho,
+somando 1 ao resultado. Assim teremos à nossa direita a quantidade
+certa de memória que precisamos retornar ao usuário. Mas antes disso,
+novamente fazemos a correção necessária de alinhamento. E como é a
+pilha direita, armazenamos quanto foi alocado no cabeçalho da arena na
+variável \monoespaco{right\_allocations}.
+
+Uma vez que isso foi feito, basta atualizarmos o cabeçalho da arena
+com as próximas posições livres, já que a anterior acabamos de ocupar,
+e também calculando um novo valor para o espaço livre que ainda
+temos.Feito isso,
+\monoespaco{p} está pronto para ser retornado.
+
+\iniciocodigo
+@<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>=
+{
+  int offset;
+  struct arena_header *header = (struct arena_header *) arena;
+  if(header -> remaining_space >= t + ((a == 0)?(0):(a - 1))){
+    if(right){
+      p = ((char *) header -> right_free) - t + 1;
+      @<Alinha `p' e marca `offset' de acordo com `a' (direita)@>
+      header -> right_free = (char *) p - 1;
+      header -> right_allocations += (t + offset);
+    }
+    else{
+      p = header -> left_free;
+      @<Alinha `p' e marca `offset' de acordo com `a' (esquerda)@>
+      header -> left_free = (char *) p + t;
+      header -> left_allocations += (t + offset);
+    }
+    header -> remaining_space -= (t + offset);
+#if defined(W_DEBUG_MEMORY)
+    if(header -> remaining_space < header -> smallest_remaining_space)
+      header -> smallest_remaining_space = header -> remaining_space;
+#endif
+  }
+}
+@
+\fimcodigo
+
+\subsecao{2.8. A Função Walloc}
+
+Podemos agora juntar as peças para definir a função de alocação. Ela
+irá receber \monoespaco{arena} (arena onde o usuário deseja alocar),
+\monoespaco{a} (o alinhamento), \monoespaco{right} (1 se desejamos
+alocar na pilha direita e 0 na esquerda) e \monoespaco{t} (tamanho que
+o usuário deseja alocar).
+
+A primeira coisa a fazer é dar um ``wait'' no mutex da arena. Depois
+fazemos a alocação e então damos um ``signal'' no mutex. Será preciso
+termos também uma variável \monoespaco{p} que é o que iremos retornar
+e apontará para a região de memória requisitada pelo usuário.
+
+
+\iniciocodigo
+@<Definição de `Walloc'@>=
+void *Walloc(void *arena, unsigned a, int right, size_t t){
+  struct arena_header *header = (struct arena_header *) arena;
+  void *mutex = (void *) &(header -> mutex);
+  void *p = NULL;
+  @<`*mutex':WAIT()@>
+  @<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>
+  @<`*mutex':SIGNAL()@>
+  return p;
+}
+@
+\fimcodigo
+
+\subsecao{2.9. Definição dos Pontos de Memória}
+
+Caso tenhamos uma arena que já foi usada e tem armazenada regiões
+alocadas, mas queiramos nos livrar de todas as alocações e começar de
+novo, para isso basta reiniciarmos os valores armazenados no cabeçalho
+da arena. Os ponteiros para a próxima posição livre e o espaço livre
+disponível precisa ser atualizado para ficar igual ao valor inicial.
+
+Mas estamos mais interessados não em reiniciar uma arena inteira, mas
+somente as suas alocações na pilha esquerda ou na direita. Na pilha
+direita ou esquerda nós sabemos exatamente quanto foi alocado graças à
+variável \monoespaco{right\_allocations}
+ou \monoespaco{left\_allocations} que armazenamos no cabeçalho da
+arena. Então reiniciamos os valores facilmente para esvaziar somente a
+pilha na qual estamos interessados:
+
+\iniciocodigo
+@<Reinicia memória de pilha em `arena'@>=
+{
+  struct arena_header *header = arena;
+  if(right){
+    header -> right_free = ((char *) arena) + header -> total_size - 1;
+    header -> remaining_space += header -> right_allocations;
+    header -> right_allocations = 0;
+  }
+  else{
+    header -> left_free = ((char *) arena) + sizeof(struct arena_header);
+    header -> remaining_space += header -> left_allocations;
+    header -> left_allocations = 0;
+  }
+}
+@
+\fimcodigo
+
+Mas e se quisermos salvar na arena de memória as informações de
+alocação atuais para restaurar mais tarde (chamamos tais informações
+de ``ponto de memória'')? A única informação que precisamos armazenar
+é o conteúdo de \monoespaco{left\_allocations} no caso da pilha
+esquerda e \monoespaco{right\_allocations} na pilha direita.
+
+O ponteiro para a próxima região livre \monoespaco{left\_free}
+ou \monoespaco{right\_free} pode ser atualizado movendo ele um número
+de posições igual à diferença entre a quantidade de alocações atuais e
+a alocação armazenada. O novo valor para a quantidade de espaço livre
+pode ser obtida somando o valor atual à esta mesma diferença entre
+valores de alocações.
+
+Entretanto, queremos poder armazenar não um único ponto de memória,
+mas uma lista de qualquer tamanho deles. Queremos que eles formem uma
+lista encadeada simples. Sendo assim, um ponto de memória é definido
+pelo seguinte cabeçalho:
+
+\iniciocodigo
+@<Cabeçalho de Ponto de Memória@>=
+struct memory_point{
+  size_t allocations; // Left or right
+  struct memory_point *last_memory_point;
+};
+@
+\fimcodigo
+
+\subsecao{2.10. Criação de Ponto de Memória}
+
+Criar um novo ponto de memória significa enviar um sinal
+de \italico{wait} para o mutex, alocar memória para o ponto de
+memória, inicializá-lo e atualizar informações na arena sobre qual o
+último ponto de memória, levando em conta se colocamos ele na memória
+esquerda ou direita. Em seguida podemos liberar o mutex com
+um \italico{signal}:
+
+\iniciocodigo
+@<Definição de `Wmempoint'@>=
+bool Wmempoint(void *arena, unsigned a, int right){
+  struct arena_header *header = (struct arena_header *) arena;
+  void *mutex = (void *) &(header -> mutex);
+  char *p = NULL;
+  struct memory_point *point;
+  size_t allocations, t = sizeof(struct memory_point);
+  @<`*mutex':WAIT()@>
+  if(right)
+    allocations = header -> right_allocations;
+  else
+    allocations = header -> left_allocations;
+  @<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>
+  point = (struct memory_point *) p;
+  if(point != NULL){
+    point -> allocations = allocations;
+    if(right){
+      point -> last_memory_point = header -> right_point;
+      header -> right_point = point;
+    }
+    else{
+      point -> last_memory_point = header -> left_point;
+      header -> left_point = point;
+    }
+  }
+  @<`*mutex':SIGNAL()@>
+  if(point == NULL)
+    return false;
+  return true;
+}
+@
+\fimcodigo
+
+\subsecao{2.10. Restauração de Ponto de Memória}
+
+Restaurar o ponto de memória anterior significa mudar o estado da
+pilha de memória (esquerda ou direita) exatamente como era antes do
+ponto de memória ser salvo pela última vez. Se ele nunca foi salvo,
+esvaziamos toda a pilha de memória. A função que fará isso será
+a \monoespaco{Wtrash}:
+
+\iniciocodigo
+@<Definição de `Wtrash'@>+=
+void Wtrash(void *arena, int right){
+  struct arena_header *head = (struct arena_header *) arena;
+  void *mutex = (void *) &(head -> mutex);
+  struct memory_point *point;
+  @<`*mutex':WAIT()@>
+  if(right){
+    point = head -> right_point;
+  }
+  else{
+    point = head -> left_point;
+  }
+  if(point == NULL){
+    @<Reinicia memória de pilha em `arena'@>
+  }
+  else{
+    if(right){
+      head -> remaining_space += (head -> right_allocations -
+                                  point -> allocations);
+      head -> right_point = point -> last_memory_point;
+      head -> right_allocations = point -> allocations;
+    }
+    else{
+      head -> remaining_space += (head -> left_allocations -
+                                  point -> allocations);
+      head -> left_point = point -> last_memory_point;
+      head -> left_allocations = point -> allocations;
+    }
+  }
+  @<`*mutex':SIGNAL()@>
+}
+@
+\fimcodigo
+
+
+\subsecao{2.11. Organização Final do Arquivo-Fonte}
+
+Salvaremos todo o código de definição de funções que fizemos no
+arquivo abaixo que poderá então ser compilado:
+
+\iniciocodigo
+@(src/memory.c@>=
+@<Incluir Cabeçalhos Necessários@>
+#include "memory.h"
+@<Cabeçalho da Arena@>
+@<Cabeçalho de Ponto de Memória@>
+@<Definição de `Wcreate\_arena'@>
+@<Definição de `Wdestroy\_arena'@>
+@<Definição de `Walloc'@>
+@<Definição de `Wmempoint'@>
+@<Definição de `Wtrash'@>
+@
+\fimcodigo
+
+\secao{3. Desempenho}
+
+Para medir o desempenho deste código, foi escrito um programa que
+executa cada uma das funções definidas aqui cem mil vezes e obtém
+a média e o desvio padrão, comparando tais medidas com as
+funções \monoespaco{malloc} e \monoespaco{free} do sistema. Execuções
+do programa com desvio padrão mais altos foram descartados por assumir
+que o Sistema Operacional estava realizando tarefas não-relacionadas à
+execução da função e que isso prejudicou a medida.
+
+Em todas as alocações, escolhemos o valor de 5 KiB para que assim
+evitar que as implementações de \monoespaco{malloc} tenham que lidar
+com problemas de alinhamento de memória e assim serem penalizadas. Mas
+o valor também permite que observemos o custo que estas funções tem de
+pedirem mais memória para o Sistema Operacional, pois é um valor
+relativamente alto, maior que o tamanho de uma página na máquina
+usada. Na função \monoespaco{Walloc}, optamos por pedir qualquer
+alinhamento e por sempre usar a pilha esquerda para as alocações, pois
+é a pilha que teria o melhor desempenho devido à localidade espacial
+das alocações.
+
+É importante notar que embora as funçõe aqui definidas tenham sido
+projetadas para executar sempre em tempo constante, independente do
+tamanho do espaço de memória alocado, as funções \monoespaco{malloc}
+e \monoespaco{free} de cada um dos sistemas nem sempre segue esta
+mesma filosofia. Durante as medições, a quantidade de memória alocada
+e foi mudada para verificar se isso alterava os tempos de
+execução. Quando detectamos que uma função não executa em tempo
+constante, nossa maior preocupação foi checar para quais valores a
+função tem um desempenho equivalente e para quais tem um desempenho
+pior no computador usado nos testes. Não arriscamos previsões muito
+precisas quanto ao comportamento da função sem uma análise de sua
+implementação.
+
+\subsecao{3.1. OpenBSD}
+
+No OpenBSD a função \monoespaco{free} não parece executar em tempo
+constante para diferentes tamanhos de memórias liberadas. O tempo de
+execução dela parece crescer linearmente à medida que a quantidade a
+ser liberada cresce exponencialmente, o que parece indicar uma
+complexicade logarítmica. Na máquina usada nos testes, o desempenho
+dela ficou próximo somente quando o espaço a ser desalocado tinha na
+ordem de 100 bytes. O desempenho mostrado abaixo é para o teste
+particular de alocações de 5 KiB repetidas por cem mil vezes.
+
+Da mesma forma, para valores pequenos, a função \monoespaco{malloc}
+demonstra um desempenho equivalente à \monoespaco{Walloc}, indicando
+que o desempenho menor mostrado no gráfico abaixo se deve ao custo de
+pedir mais memória por meio de uma chamada de sistema ao Sistema
+Operacional.
+
+% OpenBSD:
+% Malloc:     6.30530874us +- 25.124535168us
+% Free:      22.00978538us +- 12.809965439us
+% Walloc:     2.50560902us +-  0.228082461us
+% Wmempoint:  2.26598656us +-  0.505975457us
+% Wtrash:     2.22814472us +-  0.166606876us
+
+% Linux
+% Malloc:     2.71246735us +-  0.801445880us
+% Free:       0.87757830us +-  0.141186377us
+% Walloc:     0.76750440us +-  0.218803555us
+% Wmempoint:  0.75614315us +-  0.155982817us
+% Wtrash:     0.75579410us +-  0.066124620us
+
+% Windows 10
+% Malloc:    1.59881us +- 11.466939064us
+% Free:      0.57427us +-  9.402517112us
+% Walloc:    0.00003us +-  0.005477171us
+% Wmempoint: 0.00515us +-  0.233332428us
+% Wtrash:    0.00045us +-  0.097825831us
+
+% Web Assembly (Firefox Quantum 67.04)
+% Malloc:    2.399475651us +-  48.931141529us
+% Free:      0.489213791us +-  22.130980751us
+% Walloc:    0.394548569us +-  19.744325980us
+% Wmempoint: 0.451152325us +-  21.208728454us
+% Wtrash:    0.398001614us +-  19.744481718us
+
+
+\secao{Referências}
+
+\referencia{Gregory, J. (2019) ``Game Engine Architecture'', CRC Press, terceira
+edição.}
+
+\referencia{Zakai, A. (2011) ``Emscripten: an LLVM-to-JavaScript compiler'',
+Proceedings of the ACM international conference companion on Object
+oriented programming systems languages and applications companion,
+p. 301--312.}
+
+\referencia{Knuth, D. E. (1984) ``Literate Programming'', The Computer Journal,
+volume 27, edição 2, p. 97--111}
+
+\referencia{Ranck, S. (2000) ``Game Programming Gems'', Charles River Media,
+volume 1, edição 1, p. 92--100}
+
+
+\fim
