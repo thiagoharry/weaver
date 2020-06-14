@@ -52,10 +52,10 @@ and fast memory manager for programs where memory is allocated and
 freed in a stack-based order and we know the maximum ammount of memory
 that the program will need. It allows users creating markings during
 the program execution that after allows them to free at once all the
-memory allocated after the last marking. After the memory manager
-creation, we also run some benchmarks comparing its performance
-against malloc from standard library running at Linux, Windows and
-in a web browser using Web Assembly.}
+memory allocated after the last marking. The article shows the results
+of running some benchmarks comparing its performance against malloc
+from standard library running at Linux, OpenBSD, Windows and in a web
+browser using Web Assembly.}
 
 \vskip 0.5cm plus 3pt minus 3pt
 
@@ -64,11 +64,10 @@ gerenciador de memória escrito para o Motor de Jogos Weaver. Ele é
 voltado a programas onde a memória é alocada e liberada seguindo uma
 ordem baseada em pilha e a quantidade máxima de memória é
 conhecida. Ele fornece a possibilidade de criar marcações durante a
-execução do programa de modo que depois possam liberar toda a memória
-alocada desde a última marcação. Depois da criação do gerenciador de
-memória, também comparamos o desempenho dele com o {\it malloc} da
-biblioteca C padrão rodando em Linux, Windows e em um navegador de
-Internet usando {\it Web Assembly}.}
+execução do programa de modo que depois possa liberar toda a memória
+alocada desde a última marcação. Também é comparado o desempenho dele
+com o {\it malloc} da biblioteca C padrão rodando em Linux, OpenBSD,
+Windows e em um navegador de Internet usando {\it Web Assembly}.}
 
 \secao{1. Introdução}
 
@@ -171,6 +170,8 @@ podem ser inseridos estaticamente em qualquer projeto, ou compilados
 como uma biblioteca compartilhada. O que colocaremos
 em \monoespaco{memory.h} será:
 
+\quebra
+
 \iniciocodigo
 @(src/memory.h@>=
 #ifndef WEAVER_MEMORY_MANAGER
@@ -220,7 +221,7 @@ contínua de memória a ser gerenciada (que chamamos de ``arena''):
 \iniciocodigo
 @<Declarações de Memória@>=
 #include <stdlib.h> // Include 'size_t'
-void *Wcreate_arena(size_t size);
+void *_Wcreate_arena(size_t size);
 @
 \fimcodigo
 
@@ -231,7 +232,7 @@ false, caso contrário retornamos verdadeiro:
 \iniciocodigo
 @<Declarações de Memória@>+=
 #include <stdbool.h> // Include 'bool'
-bool Wdestroy_arena(void *);
+bool _Wdestroy_arena(void *);
 @
 \fimcodigo
 
@@ -245,7 +246,7 @@ de dois:
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-void *Walloc(void *arena, unsigned alignment, int right, size_t size);
+void *_Walloc(void *arena, unsigned alignment, int right, size_t size);
 @
 \fimcodigo
 
@@ -259,18 +260,18 @@ alocação. A função retorna se foi bem-sucedida ou não.
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-bool Wmempoint(void *arena, unsigned alignment, int regiao);
+bool _Wmempoint(void *arena, unsigned alignment, int regiao);
 @
 \fimcodigo
 
 A última função usa a marcação criada pela função anterior e desaloca
-de uma só vez toda a memória alocada com \monoespaco{Walloc} desde que
+de uma só vez toda a memória alocada com \monoespaco{\_Walloc} desde que
 a última marcação foi criada. Ela recebe uma flag para saber se isso
 deve ser feito na região esquerda (0) ou direita (1):
 
 \iniciocodigo
 @<Declarações de Memória@>+=
-void Wtrash(void *arena, int regiao);
+void _Wtrash(void *arena, int regiao);
 @
 \fimcodigo
 
@@ -686,7 +687,7 @@ após o cabeçalho. Já a pilha direita fica com o último byte da arena.
 \subsecao{2.4. O Código de Alocação de Nova Arena}
 
 Com o código que definirmos já temos como definir a
-função \monoespaco{Wcreate\_arena}. O que a função terá que fazer
+função \monoespaco{\_Wcreate\_arena}. O que a função terá que fazer
 são as 6 operações abaixo:
 
 1. Receber do usuário um tamanho \monoespaco{t} para alocar.
@@ -709,8 +710,8 @@ ou \monoespaco{NULL} em caso de problemas.
 O código para fazer isso será então:
 
 \iniciocodigo
-@<Definição de `Wcreate\_arena'@>=
-void *Wcreate_arena(size_t t){
+@<Definição de `\_Wcreate\_arena'@>=
+void *_Wcreate_arena(size_t t){
   bool error = false;
   void *arena;
   size_t p, M, header_size = sizeof(struct arena_header);
@@ -731,7 +732,7 @@ void *Wcreate_arena(size_t t){
 @
 \fimcodigo
 
-\subsecao{2.5. A Função ``Wdestroy\_arena''}
+\subsecao{2.5. A Função ``\_Wdestroy\_arena''}
 
 Uma vez que fornecemos uma forma de criar novas arenas, vamos definir
 também a função que irá finalizá-las. Esta é uma função mais simples
@@ -749,8 +750,8 @@ que nunca chegou a ser usada pela arena.
 arena.
 
 \iniciocodigo
-@<Definição de `Wdestroy\_arena'@>=
-bool Wdestroy_arena(void *arena){
+@<Definição de `\_Wdestroy\_arena'@>=
+bool _Wdestroy_arena(void *arena){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   size_t M = header -> total_size;
@@ -897,7 +898,7 @@ temos.Feito isso,
 @
 \fimcodigo
 
-\subsecao{2.8. A Função Walloc}
+\subsecao{2.8. A Função \_Walloc}
 
 Podemos agora juntar as peças para definir a função de alocação. Ela
 irá receber \monoespaco{arena} (arena onde o usuário deseja alocar),
@@ -912,8 +913,8 @@ e apontará para a região de memória requisitada pelo usuário.
 
 
 \iniciocodigo
-@<Definição de `Walloc'@>=
-void *Walloc(void *arena, unsigned a, int right, size_t t){
+@<Definição de `\_Walloc'@>=
+void *_Walloc(void *arena, unsigned a, int right, size_t t){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   void *p = NULL;
@@ -996,8 +997,8 @@ esquerda ou direita. Em seguida podemos liberar o mutex com
 um \italico{signal}:
 
 \iniciocodigo
-@<Definição de `Wmempoint'@>=
-bool Wmempoint(void *arena, unsigned a, int right){
+@<Definição de `\_Wmempoint'@>=
+bool _Wmempoint(void *arena, unsigned a, int right){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   char *p = NULL;
@@ -1035,11 +1036,11 @@ Restaurar o ponto de memória anterior significa mudar o estado da
 pilha de memória (esquerda ou direita) exatamente como era antes do
 ponto de memória ser salvo pela última vez. Se ele nunca foi salvo,
 esvaziamos toda a pilha de memória. A função que fará isso será
-a \monoespaco{Wtrash}:
+a \monoespaco{\_Wtrash}:
 
 \iniciocodigo
-@<Definição de `Wtrash'@>+=
-void Wtrash(void *arena, int right){
+@<Definição de `\_Wtrash'@>+=
+void _Wtrash(void *arena, int right){
   struct arena_header *head = (struct arena_header *) arena;
   void *mutex = (void *) &(head -> mutex);
   struct memory_point *point;
@@ -1084,11 +1085,11 @@ arquivo abaixo que poderá então ser compilado:
 #include "memory.h"
 @<Cabeçalho da Arena@>
 @<Cabeçalho de Ponto de Memória@>
-@<Definição de `Wcreate\_arena'@>
-@<Definição de `Wdestroy\_arena'@>
-@<Definição de `Walloc'@>
-@<Definição de `Wmempoint'@>
-@<Definição de `Wtrash'@>
+@<Definição de `\_Wcreate\_arena'@>
+@<Definição de `\_Wdestroy\_arena'@>
+@<Definição de `\_Walloc'@>
+@<Definição de `\_Wmempoint'@>
+@<Definição de `\_Wtrash'@>
 @
 \fimcodigo
 
@@ -1108,12 +1109,12 @@ com problemas de alinhamento de memória e assim serem penalizadas. Mas
 o valor também permite que observemos o custo que estas funções tem de
 pedirem mais memória para o Sistema Operacional, pois é um valor
 relativamente alto, maior que o tamanho de uma página na máquina
-usada. Na função \monoespaco{Walloc}, optamos por pedir qualquer
+usada. Na função \monoespaco{\_Walloc}, optamos por pedir qualquer
 alinhamento e por sempre usar a pilha esquerda para as alocações, pois
 é a pilha que teria o melhor desempenho devido à localidade espacial
 das alocações.
 
-É importante notar que embora as funçõe aqui definidas tenham sido
+É importante notar que embora as funções aqui definidas tenham sido
 projetadas para executar sempre em tempo constante, independente do
 tamanho do espaço de memória alocado, as funções \monoespaco{malloc}
 e \monoespaco{free} de cada um dos sistemas nem sempre segue esta
@@ -1122,8 +1123,8 @@ e foi mudada para verificar se isso alterava os tempos de
 execução. Quando detectamos que uma função não executa em tempo
 constante, nossa maior preocupação foi checar para quais valores a
 função tem um desempenho equivalente e para quais tem um desempenho
-pior no computador usado nos testes. Não arriscamos previsões muito
-precisas quanto ao comportamento da função sem uma análise de sua
+pior no computador usado nos testes. Não serão feitas previsões muito
+quanto ao comportamento exato da função sem uma análise de sua
 implementação.
 
 \subsecao{3.1. OpenBSD}
@@ -1133,44 +1134,223 @@ constante para diferentes tamanhos de memórias liberadas. O tempo de
 execução dela parece crescer linearmente à medida que a quantidade a
 ser liberada cresce exponencialmente, o que parece indicar uma
 complexicade logarítmica. Na máquina usada nos testes, o desempenho
-dela ficou próximo somente quando o espaço a ser desalocado tinha na
-ordem de 100 bytes. O desempenho mostrado abaixo é para o teste
-particular de alocações de 5 KiB repetidas por cem mil vezes.
+dela ficou próximo ao do \monoespaco{Wfree} somente quando o espaço a
+ser desalocado tinha cerca de 100 bytes. O desempenho mostrado
+abaixo é para o teste particular de alocações de 5 KiB repetidas por
+cem mil vezes.
 
-Da mesma forma, para valores pequenos, a função \monoespaco{malloc}
-demonstra um desempenho equivalente à \monoespaco{Walloc}, indicando
-que o desempenho menor mostrado no gráfico abaixo se deve ao custo de
-pedir mais memória por meio de uma chamada de sistema ao Sistema
-Operacional.
+Para valores pequenos, a função \monoespaco{malloc} demonstra um
+desempenho equivalente à \monoespaco{\_Walloc}, indicando que o
+desempenho menor mostrado na tabela abaixo se deve ao custo de pedir
+mais memória por meio de uma chamada de sistema ao Sistema
+Operacional. Contudo, ao contrário da função \monoespaco{free}, não
+foi observado um aumento contínuo no tempo de execução à medida que a
+quantidade de memória pedida aumenta.
 
-% OpenBSD:
-% Malloc:     6.30530874us +- 25.124535168us
-% Free:      22.00978538us +- 12.809965439us
-% Walloc:     2.50560902us +-  0.228082461us
-% Wmempoint:  2.26598656us +-  0.505975457us
-% Wtrash:     2.22814472us +-  0.166606876us
+% http://gnuplot.sourceforge.net/demo/transparent.html
 
-% Linux
-% Malloc:     2.71246735us +-  0.801445880us
-% Free:       0.87757830us +-  0.141186377us
-% Walloc:     0.76750440us +-  0.218803555us
-% Wmempoint:  0.75614315us +-  0.155982817us
-% Wtrash:     0.75579410us +-  0.066124620us
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Função OpenBSD\hidewidth&&\omit\hidewidth
+Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&6,30530874&&25,124535168&\cr\linha
+&&\monoespaco{free}&&22,00978538&&12,809965439&\cr\linha
+&&\monoespaco{\_Walloc}&&2,50560902&&0,228082461&\cr\linha
+&&\monoespaco{\_Wmempoint}&&2,26598656&&0,505975457&\cr\linha
+&&\monoespaco{\_Wtrash}&&2,22814472&&0,166606876&\cr\linha}}
 
-% Windows 10
-% Malloc:    1.59881us +- 11.466939064us
-% Free:      0.57427us +-  9.402517112us
-% Walloc:    0.00003us +-  0.005477171us
-% Wmempoint: 0.00515us +-  0.233332428us
-% Wtrash:    0.00045us +-  0.097825831us
+Podemos observar a diferença entre as funções no gráfico abaixo que
+mostra a densidade de probabilidade de cada uma das funções acima
+executar em um dado intervalo de tempo em microssegundos de acordo com
+os dados acima:
 
-% Web Assembly (Firefox Quantum 67.04)
-% Malloc:    2.399475651us +-  48.931141529us
-% Free:      0.489213791us +-  22.130980751us
-% Walloc:    0.394548569us +-  19.744325980us
-% Wmempoint: 0.451152325us +-  21.208728454us
-% Wtrash:    0.398001614us +-  19.744481718us
+\imagem{images/openbsd.eps}
 
+Nota-se que nossas funções implementadas quase sempre executam em
+menos de 3 microssegundos enquando as funções nativas do OpenBSD levam
+um tempo que é bastante próximo de uma distribuição linear entre 0 e
+um valor máximo. O desvio padrão neste caso é relevante, pois
+interfere no pior caso observado e por isso deve ser levado em conta
+ao avaliar o desempenho de uma função de biblioteca.
+
+\subsecao{3.2. Linux (Ubuntu 19.04)}
+
+Ao contrário do OpenBSD que implementa medidas adicionais no alocador
+de memória para randomizar os endereços obtidos e que sempre retorna
+imediatamente a memória liberada para o kernel, o Linux tem suas
+funções mais orientadas a ter um desempenho maior, mesmo que com menos
+medidas de segurança. Todas as funções estadas demonstram executar em
+tempo constante no Linux. Os dados obtidos são:
+
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Função Linux\hidewidth&&\omit\hidewidth
+Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&2,71246735&&0,801445880&\cr\linha
+&&\monoespaco{free}&&0,87757830&&0,141186377&\cr\linha
+&&\monoespaco{\_Walloc}&&0,76750440&&0,218803555&\cr\linha
+&&\monoespaco{\_Wmempoint}&&0,75614315&&0,155982817&\cr\linha
+&&\monoespaco{\_Wtrash}&&0,75579410&&0,066124620&\cr\linha}}
+
+Todas as funções então apresentam um desempenho bastante semelhante,
+pró\-xi\-mo de 1 microssegundo de tempo. Só a
+função \monoespaco{malloc} da biblioteca padrão que apresenta um
+desempenho pior e com maior variação. Comparando os piores casos, a
+nossa função \monoespaco{\_Walloc} executa cerca de quatro vezes mais
+rápido.
+
+\imagem{images/linux.eps}
+
+\subsecao{3.3. Windows 10}
+
+O Windows 10 se destaca por ter tempos médios relativamente baixos em
+suas funções, mas desvios padrão altos, o que indica que embora o
+desempenho seja alto, ocasionalmente pode-se ter azar e ter que passar
+por uma espera maior para que a chamada de sistema termine devolvendo
+a memória pedida. Apesar dos tempos baixos de execução das funções de
+gerenciamento de memória, nossa implementação conseguiu tempos ainda
+menores e sem o problema do desvio padrão alto.
+
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Função Windows\hidewidth&&\omit\hidewidth
+Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&1,59881&&11,466939064&\cr\linha
+&&\monoespaco{free}&&0,57427&&9.402517112&\cr\linha
+&&\monoespaco{\_Walloc}&&0,00003&&0.005477171&\cr\linha
+&&\monoespaco{\_Wmempoint}&&0,00515&&0,233332428&\cr\linha
+&&\monoespaco{\_Wtrash}&&0,00045&&0,097825831&\cr\linha}}
+
+O comportamento das funções no Windows parece indicar uma diferença de
+filosofia na implementação comparada à implementação Linux. No Windows
+a prioridade parece ser deixar o tempo médio das funções menor, mesmo
+que para isso tenha-se que lidar com um pior caso muito ruim, mas que
+dificilmente acontece. No Linux a prioridade era evitar surpresas
+ruins com o pior caso, mesmo que para isso o tempo médio de execução
+fique um pouco maior.
+
+\imagem{images/windows.eps}
+
+\subsecao{3.4. Web Assembly (Firefox Quantum 67.04)}
+
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Web Assembly
+(Firefox)\hidewidth&&\omit\hidewidth Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&2,399475651&&48.931141529&\cr\linha
+&&\monoespaco{free}&&0,489213791&&22,130980751&\cr\linha
+&&\monoespaco{\_Walloc}&&0,394548569&&19,744325980&\cr\linha
+&&\monoespaco{\_Wmempoint}&&0,451152325&&21,208728454&\cr\linha
+&&\monoespaco{\_Wtrash}&&0,398001614&&19,744481718&\cr\linha}}
+
+\imagem{images/web_firefox.eps}
+
+Executando em um ambiente Web Assembly em um navegador de Internet,
+compreensivelmente todas as funções passaram a ter desvio padrão
+maior. A surpresa é que o tempo médio muitas vezes foi menor comparado
+ao do Sistema Operacional (os testes de Web Assembly foram feitos no
+Linux) e as nossas funções, ainda demonstraram desvio menor que as
+funções da biblioteca do sistema.
+
+No gráfico não é possível distinguir as funções \monoespaco{\_Walloc}
+e \monoespaco{\_Wtrash}, já que ambas tiveram comportamento praticamente
+idêntico nos testes.
+
+\subsecao{3.5. Web Assembly (Microsoft Edge 40.15254.369)}
+
+Executando o código em Web Assembly no Microsoft Edge do Windows 10
+tivemos um desempenho semelhante ao Web Assembly do Firefox. A
+diferença é que as funções tendem a gastar um tempo um pouco mais
+previsível, com um desvio padrão menor. O tempo médio ficou apenas
+ligeiramente menor. Aqui o \monoespaco{malloc} sendo executado no
+navegador de Internet teve um desempenho médio melhor que
+o \monoespaco{malloc} executando nativamente.
+
+\vbox{%A forma mais geral de remover espaçamento entre linhas:
+\baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
+\def\linha{\noalign{\hrule}}
+\def\hidewidth{\hskip-1000pt plus 1fill}
+\def\col{\hbox{\vrule height12pt depth3.5pt width0pt}}
+\halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
+\hfil#& \vrule#& \hfil#\hfil& \vrule#&
+\hfil#& \vrule#\tabskip=0pt\cr\linha
+&&\omit\hidewidth Web Assembly
+(Edge)\hidewidth&&\omit\hidewidth Média ($\mu$s)\hidewidth&&
+\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\monoespaco{malloc}&&1,075476093&&36,039479231&\cr\linha
+&&\monoespaco{free}&&0,620922375&&24,892216258&\cr\linha
+&&\monoespaco{\_Walloc}&&0,366360054&&18,970295969&\cr\linha
+&&\monoespaco{\_Wmempoint}&&0,346548996&&19,232215457&\cr\linha
+&&\monoespaco{\_Wtrash}&&0,302235565&&17,317682053&\cr\linha}}
+
+O gráfico abaixo está exatamente na mesma escala que o anterior do
+desempenho no Firefox.
+
+\imagem{images/web_edge.eps}
+
+\secao{4. Conclusão}
+
+Em todos os casos de teste, as funções que desenvolvemos apresentaram
+um desempenho de tempo melhor e mais previsível em comparação às
+funções de gerenciamento de memória nativas. O desempenho ocorre
+principalmente devido a não precisarmos realizar chamadas de sistema
+para alocar mais memória, uma chamada de sistema ocorre na
+inicialização e depois disso apenas gerenciamos esta mesma memória
+alocada.
+
+Isso traz a desvantagem de termos que especificar logo no começo da
+execução de um programa qual a quantidade máxima de memória que ele
+poderá usar. Outra desvantagem existente é não termos mais acesso à
+uma função \monoespaco{free}. Toda a desalocação deve ocorrer em
+blocos. Em aplicações que podem se adaptar à este esquema, elas podem
+obter melhoras de desempenho ainda maiores, pois sucessivas chamadas
+de uma função \monoespaco{free} podem ser substituídas por uma só
+chamada de função \monoespaco{\_Wtrash}.
+
+Em alguns casos, pode-se usar em
+sequência \monoespaco{\_Wmempoint}, \monoespaco{\_Walloc}
+e \monoespaco{\_Wtrash} para simular um uso de \monoespaco{malloc}
+seguido de \monoespaco{free} para quando quer se alocar algo
+temporariamente para ser desalocado em seguida. Para este caso, em
+todos os sistemas testados chamar as três primeiras funções é mais
+rápido que chamar as duas últimas e o desempenho continua melhor.
+
+Todas as desvantagens expostas não são um problema em algumas
+aplicações como o desenvolvimento de jogos. Neles de qualquer forma
+não se deve usar mais recursos do que o que é especificado de antemão
+e a estrutura de um jogo se adapta à um gerenciador de memória baseado
+em pilhas de alocação. O uso das funções definidas aqui pode então
+trazer vantagens como diminuição de tempo de carregamento de recursos
+graças à alocações mais rápidas, que em um jogo tipicamente ocorrem na
+inicialização de um novo cenário ou fase do jogo.
 
 \secao{Referências}
 

@@ -105,9 +105,9 @@ void test_Wcreate_arena(void){
   void *arena1, *arena2, *arena3;
   size_t real_size1, real_size2;
   struct arena_header *header1, *header2;
-  arena1 = Wcreate_arena(0);
-  arena2 = Wcreate_arena(10 * page_size - 1);
-  arena3 = Wcreate_arena(8);
+  arena1 = _Wcreate_arena(0);
+  arena2 = _Wcreate_arena(10 * page_size - 1);
+  arena3 = _Wcreate_arena(8);
   header1 = (struct arena_header *) arena1;
   header2 = (struct arena_header *) arena2;
   real_size1 = header1 -> remaining_space + size_header;
@@ -136,14 +136,14 @@ void test_Wcreate_arena(void){
 	 header1 -> right_point == NULL &&
 	 header2 -> right_point == NULL);
   assert("No memory leak in creation and destruction of arena",
-	 Wdestroy_arena(arena3));
-  Wdestroy_arena(arena1);
-  Wdestroy_arena(arena2);
+	 _Wdestroy_arena(arena3));
+  _Wdestroy_arena(arena1);
+  _Wdestroy_arena(arena2);
 }
 
 void test_using_arena(void){
   bool error = false;
-  void *arena = Wcreate_arena(10 * page_size);
+  void *arena = _Wcreate_arena(10 * page_size);
   int i;
   for(i = sizeof(struct arena_header); i < 10 * page_size; i ++)
     ((char *) arena)[i] = 'A';
@@ -151,21 +151,21 @@ void test_using_arena(void){
     if(((char *) arena)[i] != 'A')
       error = true;
   assert("Write and read data in arena", !error);
-  Wdestroy_arena(arena);
+  _Wdestroy_arena(arena);
 }
 
 void test_alignment(void){
   int i, align = 1;
-  void *arena = Wcreate_arena(2048);
+  void *arena = _Wcreate_arena(2048);
   long long a[14];
   for(i = 0; i < 7; i ++){
     align *= 2;
-    a[i] = (long long) Walloc(arena, align, 0, 4);
+    a[i] = (long long) _Walloc(arena, align, 0, 4);
   }
   align  = 1;
   for(i = 7; i < 14; i ++){
     align *= 2;
-    a[i] = (long long) Walloc(arena, align, 1, 4);
+    a[i] = (long long) _Walloc(arena, align, 1, 4);
   }
   assert("Testing left memory alignment",
 	 a[0] % 2 == 0 && a[1] % 4 == 0 && a[2] % 8 == 0 && a[3] % 16 == 0 &&
@@ -173,7 +173,7 @@ void test_alignment(void){
   assert("Testing right memory alignment",
 	 a[7] % 2 == 0 && a[8] % 4 == 0 && a[9] % 8 == 0 && a[10] % 16 == 0 &&
 	 a[11] % 32 == 0 && a[12] % 64 == 0 && a[13] % 128 == 0);
-  Wdestroy_arena(arena);
+  _Wdestroy_arena(arena);
 }
 
 void test_allocation(void){
@@ -181,14 +181,14 @@ void test_allocation(void){
   bool allocations_inside_arena = true, can_read_write = true,
     success_in_allocation = true, correct_address = true;
   char *a[20];
-  void *arena = Wcreate_arena(16 * 20 + sizeof(struct arena_header *));
-  void *arena2 = Wcreate_arena(page_size);
-  void *p = Walloc(arena, 0, 1, page_size + 1);
+  void *arena = _Wcreate_arena(16 * 20 + sizeof(struct arena_header *));
+  void *arena2 = _Wcreate_arena(page_size);
+  void *p = _Walloc(arena, 0, 1, page_size + 1);
   char write = 'a';
   struct arena_header *header = (struct arena_header *) arena;
   size_t size = header -> remaining_space;
   for(i = 0; i < 10; i ++){
-    a[i] = (char *) Walloc(arena, 0, 0, 16);
+    a[i] = (char *) _Walloc(arena, 0, 0, 16);
     if(a[i] == NULL)
       success_in_allocation = false;
     if(i > 0 && ((char *) a[i] != (char *) a[i-1] + 16)){
@@ -197,7 +197,7 @@ void test_allocation(void){
     size -= 16;
   }
   for(i = 10; i < 20; i ++){
-    a[i] = (char *) Walloc(arena, 0, 1, 16);
+    a[i] = (char *) _Walloc(arena, 0, 1, 16);
     if(a[i] == NULL)
       success_in_allocation = false;
     if(i > 10 && ((char *) a[i] != (char *) a[i-1] - 16)){
@@ -230,8 +230,8 @@ void test_allocation(void){
   assert("Can read and write in allocated memory", can_read_write);
   assert("Impossible allocations return NULL", p == NULL);
   assert("Impossible allocations don't leak memory",
-	 Wdestroy_arena(arena2));
-  assert("Memory leaks are detectable",	!Wdestroy_arena(arena));
+	 _Wdestroy_arena(arena2));
+  assert("Memory leaks are detectable",	!_Wdestroy_arena(arena));
 }
 
 struct memory_point{
@@ -240,44 +240,44 @@ struct memory_point{
 };
 
 void test_memorypoint(void){
-  void *arena = Wcreate_arena(10 * page_size);
+  void *arena = _Wcreate_arena(10 * page_size);
   struct arena_header *header = (struct arena_header *) arena;
   bool pointers_ok = true;
-  Wmempoint(arena, 0, 0);
-  Wmempoint(arena, 0, 1);
+  _Wmempoint(arena, 0, 0);
+  _Wmempoint(arena, 0, 1);
   pointers_ok = pointers_ok &&  header -> right_point != NULL;
   pointers_ok = pointers_ok &&  header -> left_point != NULL;
-  Wtrash(arena, 0);
-  Wtrash(arena, 1);
-  assert("Testing trashable heap", pointers_ok && Wdestroy_arena(arena));
+  _Wtrash(arena, 0);
+  _Wtrash(arena, 1);
+  assert("Testing trashable heap", pointers_ok && _Wdestroy_arena(arena));
 }
 
 void test_memorypoint2(void){
-  void *arena = Wcreate_arena(10 * page_size), *p1, *p2, *p3, *p4;
+  void *arena = _Wcreate_arena(10 * page_size), *p1, *p2, *p3, *p4;
   struct arena_header *header = (struct arena_header *) arena;
   size_t space = header -> remaining_space;
   // Left arena
-  p1 = Walloc(arena, 0, 0, 8 * page_size);
-  Wtrash(arena, 0);
-  p1 = Walloc(arena, 0, 0, 8 * page_size);
-  Wtrash(arena, 0);
-  p2 = Walloc(arena, 0, 0, 4 * page_size);
-  Wmempoint(arena, 0, 0);
-  p2 = Walloc(arena, 0, 0, 4 * page_size);
-  Wtrash(arena, 0);
-  p2 = Walloc(arena, 0, 0, 4 * page_size);
-  Wtrash(arena, 0);
+  p1 = _Walloc(arena, 0, 0, 8 * page_size);
+  _Wtrash(arena, 0);
+  p1 = _Walloc(arena, 0, 0, 8 * page_size);
+  _Wtrash(arena, 0);
+  p2 = _Walloc(arena, 0, 0, 4 * page_size);
+  _Wmempoint(arena, 0, 0);
+  p2 = _Walloc(arena, 0, 0, 4 * page_size);
+  _Wtrash(arena, 0);
+  p2 = _Walloc(arena, 0, 0, 4 * page_size);
+  _Wtrash(arena, 0);
   // Right arena
-  p3 = Walloc(arena, 0, 1, 8 * page_size);
-  Wtrash(arena, 1);
-  p3 = Walloc(arena, 0, 1, 8 * page_size);
-  Wtrash(arena, 1);
-  p4 = Walloc(arena, 0, 1, 4 * page_size);
-  Wmempoint(arena, 0, 1);
-  p4 = Walloc(arena, 0, 1, 4 * page_size);
-  Wtrash(arena, 1);
-  p4 = Walloc(arena, 0, 1, 4 * page_size);
-  Wtrash(arena, 1);
+  p3 = _Walloc(arena, 0, 1, 8 * page_size);
+  _Wtrash(arena, 1);
+  p3 = _Walloc(arena, 0, 1, 8 * page_size);
+  _Wtrash(arena, 1);
+  p4 = _Walloc(arena, 0, 1, 4 * page_size);
+  _Wmempoint(arena, 0, 1);
+  p4 = _Walloc(arena, 0, 1, 4 * page_size);
+  _Wtrash(arena, 1);
+  p4 = _Walloc(arena, 0, 1, 4 * page_size);
+  _Wtrash(arena, 1);
   assert("Trash function freeing space", p1 != NULL && p2 != NULL &&
 	 p3 != NULL && p4 != NULL);
   assert("Memory is cleaned after trash function",
@@ -286,25 +286,25 @@ void test_memorypoint2(void){
 	 header -> right_allocations == 0 &&
 	 header -> right_point == NULL &&
 	 header -> left_point == NULL);
-  Wdestroy_arena(arena);
+  _Wdestroy_arena(arena);
 }
 
 void test_memorypoint3(void){
-  void *arena = Wcreate_arena(10 * page_size);
+  void *arena = _Wcreate_arena(10 * page_size);
   char *p1, *p2, *p3, *p4;
   bool integrity_ok = true;
   int i;
   // Left memory
-  Wmempoint(arena, 4, 0);
-  p1 = (char *) Walloc(arena, 4, 0, 16);
+  _Wmempoint(arena, 4, 0);
+  p1 = (char *) _Walloc(arena, 4, 0, 16);
   for(i = 0; i < 16; i ++)
     p1[i] = 'A';
-  Wmempoint(arena, 4, 0);
-  p2 = Walloc(arena, 4, 0, 16);
+  _Wmempoint(arena, 4, 0);
+  p2 = _Walloc(arena, 4, 0, 16);
   for(i = 0; i < 16; i ++)
     p2[i] = 'B';
-  Wtrash(arena, 0);
-  p2 = Walloc(arena, 4, 0, 16);
+  _Wtrash(arena, 0);
+  p2 = _Walloc(arena, 4, 0, 16);
   for(i = 0; i < 16; i ++)
     p2[i] = 'C';
   for(i = 0; i < 16; i ++)
@@ -313,18 +313,18 @@ void test_memorypoint3(void){
   for(i = 0; i < 16; i ++)
     if(p2[i] != 'C')
       integrity_ok = false;
-  Wtrash(arena, 0);
+  _Wtrash(arena, 0);
   // Right memory
-  Wmempoint(arena, 4, 1);
-  p3 = (char *) Walloc(arena, 4, 1, 16);
+  _Wmempoint(arena, 4, 1);
+  p3 = (char *) _Walloc(arena, 4, 1, 16);
   for(i = 0; i < 16; i ++)
     p3[i] = 'A';
-  Wmempoint(arena, 4, 1);
-  p4 = Walloc(arena, 4, 1, 16);
+  _Wmempoint(arena, 4, 1);
+  p4 = _Walloc(arena, 4, 1, 16);
   for(i = 0; i < 16; i ++)
     p4[i] = 'B';
-  Wtrash(arena, 1);
-  p4 = Walloc(arena, 4, 1, 16);
+  _Wtrash(arena, 1);
+  p4 = _Walloc(arena, 4, 1, 16);
   for(i = 0; i < 16; i ++)
     p4[i] = 'C';
   for(i = 0; i < 16; i ++)
@@ -333,31 +333,31 @@ void test_memorypoint3(void){
   for(i = 0; i < 16; i ++)
     if(p4[i] != 'C')
       integrity_ok = false;
-  Wtrash(arena, 1);
+  _Wtrash(arena, 1);
   assert("Testing integrity with memory points", integrity_ok &&
-	 Wdestroy_arena(arena));
+	 _Wdestroy_arena(arena));
 }
 
 void test_memorypoint4(void){
-  void *arena1 = Wcreate_arena(10 * page_size);
-  void *arena2 = Wcreate_arena(10 * page_size);
-  Wmempoint(arena1, 2, 0);
-  Wtrash(arena2, 0);
-  Wtrash(arena2, 0);
-  Wtrash(arena2, 0);
-  Wtrash(arena2, 1);
-  Wtrash(arena2, 1);
-  Wtrash(arena2, 1);
+  void *arena1 = _Wcreate_arena(10 * page_size);
+  void *arena2 = _Wcreate_arena(10 * page_size);
+  _Wmempoint(arena1, 2, 0);
+  _Wtrash(arena2, 0);
+  _Wtrash(arena2, 0);
+  _Wtrash(arena2, 0);
+  _Wtrash(arena2, 1);
+  _Wtrash(arena2, 1);
+  _Wtrash(arena2, 1);
   assert("Memory leaks from memory points are detectable",
-	 !Wdestroy_arena(arena1));
+	 !_Wdestroy_arena(arena1));
   assert("Wtrash function in empty memory stacks don't cause problems",
-	 Wdestroy_arena(arena2));
+	 _Wdestroy_arena(arena2));
 }
 
 #define THREAD_NUMBER 1000
 
 #if defined(_WIN32)
-DWORD WINAPI thread_function(void *arena){
+DWORD _WINAPI thread_function(void *arena){
 #else
 void *thread_function(void *arena){
 #endif
@@ -365,13 +365,13 @@ void *thread_function(void *arena){
   int size, i;
   if(rand() % 10){
     size = rand() % 128;
-    data = Walloc(arena, 4, rand() % 2, size);
+    data = _Walloc(arena, 4, rand() % 2, size);
     if(data != NULL)
       for(i = 0; i < size; i ++)
 	((char *) data)[i] = 'W';
   }
   else{
-    Wmempoint(arena, rand() % 2, 0);
+    _Wmempoint(arena, rand() % 2, 0);
   }
 #if defined(_WIN32)
   return 0;
@@ -387,7 +387,7 @@ void test_threads(void){
   pthread_t thread[THREAD_NUMBER];
 #endif
   int i;
-  void *arena1 = Wcreate_arena(500 * THREAD_NUMBER);
+  void *arena1 = _Wcreate_arena(500 * THREAD_NUMBER);
   for(i = 0; i < THREAD_NUMBER; i ++)
 #if defined(_WIN32)
     thread[i] = CreateThread(NULL, 0, thread_function, arena1, 0, NULL);
@@ -396,16 +396,16 @@ void test_threads(void){
 #endif
   for(i = 0; i < THREAD_NUMBER; i ++)
 #if defined(_WIN32)
-    WaitForSingleObject(thread[i], INFINITE);
+    _WaitForSingleObject(thread[i], INFINITE);
 #else
     pthread_join(thread[i], NULL);  
 #endif
   for(i = 0; i < THREAD_NUMBER; i ++){
-    Wtrash(arena1, 0);
-    Wtrash(arena1, 1);
+    _Wtrash(arena1, 0);
+    _Wtrash(arena1, 1);
   }
   assert("Memory manager works when used in multiple threads",
-	 Wdestroy_arena(arena1));
+	 _Wdestroy_arena(arena1));
   
 }
 

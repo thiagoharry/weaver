@@ -33,13 +33,13 @@ double standard_deviation;
 void *malloc_data[N];
 
 void measure_walloc(void){
-  void *arena = Wcreate_arena(ALLOC_SIZE * N + 1024);
+  void *arena = _Wcreate_arena(ALLOC_SIZE * N + 1024);
   int i;
   void *v;
   double elapsed, sum = 0, dif_squared = 0;
   for(i = 0; i < N; i ++){
     TIMER_START();
-    v = Walloc(arena, 0, 0, ALLOC_SIZE);
+    v = _Walloc(arena, 0, 0, ALLOC_SIZE);
     TIMER_END();
 	((char*)v)[0] = 'W';
     measures[i] = elapsed;
@@ -90,12 +90,12 @@ void measure_free(void){
 }
 
 void measure_wmempoint_wtrash(void){
-  void *arena = Wcreate_arena(ALLOC_SIZE * N + 1024);
+  void *arena = _Wcreate_arena(ALLOC_SIZE * N + 1024);
   int i;
   double elapsed, sum = 0, dif_squared = 0;
   for(i = 0; i < N; i ++){
     TIMER_START();
-    Wmempoint(arena, 0, 0);
+    _Wmempoint(arena, 0, 0);
     TIMER_END();
     measures[i] = elapsed;
   }
@@ -110,7 +110,7 @@ void measure_wmempoint_wtrash(void){
   dif_squared = 0;
   for(i = 0; i < N; i ++){
     TIMER_START();
-    Wtrash(arena, 0);
+    _Wtrash(arena, 0);
     TIMER_END();
     measures[i] = elapsed;
   }

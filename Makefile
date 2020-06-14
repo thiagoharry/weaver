@@ -1,7 +1,7 @@
 CC=gcc
 FLAGS=-Wall -O2
 
-doc:
+report:
 	magitex-cweb weaver-memory-manager.tex
 	dvipdf weaver-memory-manager.dvi
 src: weaver-memory-manager.tex
