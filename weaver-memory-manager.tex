@@ -241,8 +241,9 @@ número que será uma potência de dois ou zero que representa o
 alinhamento em bits que a memória alocada precisará respeitar, um
 número que indica se queremos alocar da pilha esquerda (0) ou direita
 (1) da arena e um tamanho em bytes. A função sempre retornará um
-endereço múltiplo do alinhamento, assumindo que ele é uma potência
-de dois:
+endereço múltiplo do alinhamento, assumindo que ele é uma potência de
+dois. E retornará \monoespac{NULL} se não houver espaço o bastante na
+arena:
 
 \iniciocodigo
 @<Declarações de Memória@>+=

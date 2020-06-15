@@ -119,41 +119,38 @@ using the allocator defined here. The fragmentation problem also won't
 be addressed, as stack-based allocators usually do not have memory
 fragmentation when correctly used.
 
-\subsecao{1.2. Ambientes de Execução}
+\subsecao{1.2. Executon Environments}
 
-Neste artigo vamos nos preocupar em garantir que as funções definidas
-rodem com sucesso em quatro ambientes diferentes: Windows 10, macOS
-Sierra, Linux e Web Assembly. Os três primeiros são os três sistemas
-operacionais para computadores pessoais. O último é uma especificação
-de máquina virtual especializada em interpretar um subconjunto
-otimizado de Javascript, criada para permitir a execução de programas
-de computador completos dentro de ambientes como navegadores de
-Internet. Seu desenvolvimento partiu do método apresentado por [Zakai,
-2011] que ofereceu um modo de compilar código em C e C++ para
-Javascript de maneira otimizada.
+In this article we will focus in creating functions which to run in
+four different environments: Windows 10, MacOS Sierra, Linux and Web
+Assembly. The three first are operating systems for personal
+computers. Thelast one is a virtual machine specification specialized
+in run a optimized subset of javascript. It permits the execution of
+complex computer programs in environments like web browsers. Its
+development started as a method proposed by [Zakai, 2011] who
+presented a novel way to compile code in C and C++ for javascript with
+advanced optimization techniques.
 
-Para desenvolver de maneira portável nos quatro ambientes, serão
-usadas macros condicionais e as diferentes formas de obter memória no
-diferentes sistemas será comparada.
+To develop portable code in all four environments, we will use
+conditional macros and different methods of obtaining memory in all
+different systems will be compared.
 
-\subsecao{1.3. Programação Literária e Notação Usada no Artigo}
+\subsecao{1.3. Literary Programming and this Article Notation}
 
-Este artigo utiliza a técnica de ``Programação Literária'' para
-desenvolver o seu gerenciador de memória. Esta técnica foi apresentada
-em [Knuth, 1984] e consiste e uma filosofia de desenvolvimento de
-\italico{software} na qual um programador desenvolve um programa escrevendo
-e explicando didaticamente o código necessário, se preocupando em
-deixar o seu funcionamento claro para as pessoas que lerem a
-explicação. Ferramentas automáticas são então utilizadas para extrair
-o código existente na expicação, mudar a ordem do código conforme for
-mais adequado para o compilador e produzir à partir do código extraído
-um programa executável.
+This article utilizes the technique of ``Literary Programming'' in the
+development of the memory manager. This technique was presented in
+[Knuth, 1984] and consists in a philosophy of software development
+where the programmer develop the software writting and explaining
+didatically all the necessary code, focusing in writting a clear
+explanation for people reading the explanation. Automatic tools are
+employed to extract the code from the explanation, change the order of
+the code when necessary and produce an executable program from the
+extracted code.
 
-Por exemplo, neste artigo serão definidos dois arquivos
-diferentes: \monoespaco{memory.c} e \monoespaco{memory.h}, os quais
-podem ser inseridos estaticamente em qualquer projeto, ou compilados
-como uma biblioteca compartilhada. O que colocaremos
-em \monoespaco{memory.h} será:
+For example, in this article will be defined two different files:
+\monoespaco{memory.c} and \monoespaco{memory.h}, both could be statically
+included in any project, or compiled as a shared library. What the file
+\monoespaco{memory.h} contains is:
 
 \iniciocodigo
 @(src/memory.h@>=
@@ -162,7 +159,7 @@ em \monoespaco{memory.h} será:
 #ifdef __cplusplus
 extern "C" {
 #endif
-@<Declarações de Memória@>
+@<Memory Declarations@>
 #ifdef __cplusplus
 }
 #endif
@@ -170,95 +167,94 @@ extern "C" {
 @
 \fimcodigo
 
-As duas primeiras linhas assim como a última são macros de segurança
-que impedem que as funções e variáveis declaradas ali sejam declaradas
-redundantemente se alguém incluir mais de uma vez o arquivo em um
-código-fonte. As demais linhas contém macros que checam se estamos
-compilando usando C++ ao invés de C. Se for o caso, nós declaramos
-todas as funções que existem neste arquivo como funções do tipo C,
-para que o compilador C++ saiba que elas não serão modificadas por
-meio de sobrecarga de operadores e que por isso não é necessário
-armazenar informações adicionais além do nome da função para
-reconhecê-la.
+The two first lines and the last one are security macros to avoid that
+functions and variables declared there be included more than once,
+even if an user includes this header file more than once using include
+macros. The other lines contains macros to check if we are compiling
+using C++ instead of C. In this case we declare all functions in this
+file as C style functions to warn the compiler that they are not
+modifiable by operator overloading and because of this is not
+necessary to store additional information besides the function name to
+recognize them.
 
-No meio do código acima, deixamos indicado em letras vermelhas que
-iremos adicionais mais tarde ali um novo trecho de código chamado
-``Declarações de Memória'', com a declaraçãol das funções que iremos
-usar. Folheando o artigo, você encontrará nas páginas seguintes um
-outro trecho de código cujo título não será \monoespaco{memory.h}, mas
-sim ``Declarações de Memória''. Será ali que o código que vai nesta
-parte do arquivo será encontrado. Pdem existir mais de um trecho de
-código com este título. Isso significa que para produzir o código
-funcional utilizado pelo compilador, devemos concatenar todos estes
-trechos com o mesmo título e colocar na parte indicada deste
-arquivo. Isso nos permite colocar a declaração de funções à medida que
-formos explicando elas no código, sem precisar declarar todas de uma
-vez só porque elas pertencem a um mesmo trecho de código.
+In the code above, we use the red letters to indicate that in the
+future we will insert new code there called ``Memory Declarations'',
+with all the necessary function declaraions. Searching in this
+article, you can find in the next pages another pieces of code where
+the title is not \monoespaco{memory.h} as above, but ``Memory
+Declarations''. These pieces of code will be inserted in the code
+above. And could be more than one piece of code with he same title. In
+this case, to produce functional code for the compiler, we should
+concatenate all these pieces of code with the same title and put in
+the part marked as red in the source code. his allow us to introduce
+function declarations as we explain them in the article, not needing
+to declare all them once just because they are part of the same piece
+of code.
 
-\subsecao{1.4. Funções a serem Definidas}
+\subsecao{1.4. Functions to be Defined}
 
-Nosso gerenciador de memória irá definir um total de 6 novas
-funções. A primeira recebe um tamanho em bytes e retorna uma região
-contínua de memória a ser gerenciada (que chamamos de ``arena''):
+Our memory manager will define a total of 6 new functions. The first
+one receives a size in bytes and return a new contiguous region of
+memory to be managed. We call this region a ``arena'':
 
 \iniciocodigo
-@<Declarações de Memória@>=
+@<Memory Declarations@>=
 #include <stdlib.h> // Include 'size_t'
 void *Wcreate_arena(size_t size);
 @
 \fimcodigo
 
-A segunda recebe uma arena criada pela primeira e libera toda a memória
-reservada nela. Se haviam elementos não-desalocados na arena, retornamos
-false, caso contrário retornamos verdadeiro:
+The second function receives an arena created by the first function
+and free all the reserved memory. If that arena had not deallocated
+elements, we return false (a program could print a warning to the user
+if the function return false) and otherwise the function returns true:
 
 \iniciocodigo
-@<Declarações de Memória@>+=
+@<Memory Declarations@>+=
 #include <stdbool.h> // Include 'bool'
 bool Wdestroy_arena(void *);
 @
 \fimcodigo
 
-A terceira equivale a um \monoespaco{malloc} e recebe uma arena, um
-número que será uma potência de dois ou zero que representa o
-alinhamento em bits que a memória alocada precisará respeitar, um
-número que indica se queremos alocar da pilha esquerda (0) ou direita
-(1) da arena e um tamanho em bytes. A função sempre retornará um
-endereço múltiplo do alinhamento, assumindo que ele é uma potência
-de dois:
+The third one is equivalent to \monoespaco{malloc} and receives an
+arena, a number which should be a power of two or zero representing a
+bit alignment which should be respected, another number which selects
+if we should allocate in ther left (0) or right (1) stack, and finally
+a size in bytes. The function always returns an address multiple of
+the alignment if a power of two was passed. And it
+returns \monoespaco{NULL} in case of no enough memory in the arena:
 
 \iniciocodigo
-@<Declarações de Memória@>+=
+@<Memory Declarations@>+=
 void *Walloc(void *arena, unsigned alignment, int right, size_t size);
 @
 \fimcodigo
 
-A quarta função serve para colocar uma marcação, a qual chamamos de
-``ponto de memória'' dentro de uma arena onde alocamos memória. Essa
-marcação pode ser usada para determinar que alocações ocorreram antes
-e quais ocorreram depois que ela foi feita. A região indica se essa
-marcação deve ser colocada na região de alocação esquerda (0) ou
-direita (1). Também especificamos um alinhamento como na função de
-alocação. A função retorna se foi bem-sucedida ou não.
+The fourth function puts a marking, which we will call ``memory
+point'' in our arena. This marking can be used to determine which
+allocations happened before and after the marking. The last argument
+also selects if we should put the marking in the left (0) or right (1)
+stack. We also specify an aligment like in the previous allocation
+function. The function returns if this was sucessful or not:
 
 \iniciocodigo
-@<Declarações de Memória@>+=
-bool Wmempoint(void *arena, unsigned alignment, int regiao);
+@<Memory Declarations@>+=
+bool Wmempoint(void *arena, unsigned alignment, int region);
 @
 \fimcodigo
 
-A última função usa a marcação criada pela função anterior e desaloca
-de uma só vez toda a memória alocada com \monoespaco{Walloc} desde que
-a última marcação foi criada. Ela recebe uma flag para saber se isso
-deve ser feito na região esquerda (0) ou direita (1):
+The last function use the marking of the previous function and
+deallocate all the allocated memory since the last marking was
+created. It receives a flag to know if this should be done with the
+left (0) or right (1) stack.
 
 \iniciocodigo
-@<Declarações de Memória@>+=
-void Wtrash(void *arena, int regiao);
+@<Memory Declarations@>+=
+void Wtrash(void *arena, int region);
 @
 \fimcodigo
 
-\secao{2. Implementação}
+\secao{2. Implementation}
 
 \subsecao{2.1. Obtendo uma Região de Memória Inicial}
 
