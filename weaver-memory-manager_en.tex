@@ -256,37 +256,33 @@ void Wtrash(void *arena, int region);
 
 \secao{2. Implementation}
 
-\subsecao{2.1. Obtendo uma Região de Memória Inicial}
+\subsecao{2.1. Obtaining a Beginning Region of Memory}
 
-Em um gerenciador de memória de propósito geral nós não temos como
-saber qual a quantidade máxima de memória que iremos precisar. Mas em
-um gerenciador de memória usado em jogos, é essencial que
-estabeleçamos um limite máximo de uso de memória. Em tais casos,
-estamos menos interessados em obter resultados precisos de computação
-e mais interessados em garantir um desempenho contínuo, sem perda de
-performance súbita como quando esgotamos a memória principal e temos
-que usar memória \italico{swap}. Nestes casos é interessante alocar de
-uma só vez a quantidade máxima de memória que nos comprometemos a usar
-e gerenciar esta mesma quantidade durante o tempo de execução do
-programa.
+In a general purpose memory manager we don't need to know the maximum
+ammount of memory needed in our program. But in a game memory manager,
+it is essential to estabilish a maximum limit for memory usage. In
+this case we are more interested in ensuring a continuous performance
+instead of getting a precise result for some computation. We want to
+avoid at all costs the subit performance decrease when a supported
+machine don't have more memory and needs to use memory swap. In some
+architectures, we do not even have a disk to use swap memory and
+consuming all RAM can make the game crash. Because of this, in games
+we can allocate during initialization the maximum ammount of needed
+memory and never use more memory than what was allocated in this
+moment.
 
-O modo que utilizaremos para obter essa quantidade de memória inicial
-varia dependendo do ambiente de execução. Pode-se usar até mesmo
-um \monoespaco{malloc} para fazer isso, embora aqui nós iremos
-preferir usar a alternativa que desperdice menos memória possível. Se
-possível uma que retorne exatamente o valor que queremos sem gastar
-qualquer valor adicional preenchendo informações e estruturas de dado
-adicionais.
+How we obtain this initial memory varies according with the execution
+environment. We could use a simple \monoespaco{malloc} for this, but
+we will prefer alternatives with less waste of memory. Ideally a
+function which returns a raw region of memory, without aditional
+informations or data structures.
 
-Tanto em qualquer sistema Unix (Linux, OpenBSD, macOS) como quando
-compilamos para WebAssembly com o compilador Emscripten, a escolha
-mais econômica é usar o \monoespaco{mmap}. Ee é uma função bastante
-ampla que permite mapear para a memória qualquer coisa, de arquivos em
-disco até simplesmente alocar uma região nova de memória para um
-programa.
+Both in Unix systems (Linux, OpenBSD, MacOS) as in Web Assembly
+compiled usng Emscripten, the more economical choice is
+using \monoespaco{mmap}. It is a very customizable function which can
+map to memory anithing, from disk files to new allocated regions.
 
-Para podermos usar \monoespaco{mmap}, só temos que inserir o cabeçalho
-adequado:
+To use  \monoespaco{mmap}, we need the following headers:
 
 \iniciocodigo
 @<Incluir Cabeçalhos Necessários@>=
@@ -296,13 +292,12 @@ adequado:
 @
 \fimcodigo
 
-Tendo definido o cabeçalho, para usar a função para alocar uma região
-de tamanho $M$ que não está associada a nenhum arquivo, somente à
-memória física e que pode tanto ser lida como escrita, invocamos ela
-da seguinte forma:
+After defining the headers, to allocate a region of $M$ bytes not
+associated with any file, which can be read and written, we invoke the
+function with the following arguments:
 
 \iniciocodigo
-@<Alocar em `arena' região de `M' bytes@>=
+@<Allocate in 'arena' region of 'M' bytes@>=
 #if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
 arena = mmap(NULL, M, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON,
              -1, 0);
@@ -310,35 +305,33 @@ arena = mmap(NULL, M, PROT_READ|PROT_WRITE, MAP_PRIVATE|MAP_ANON,
 @
 \fimcodigo
 
-Os argumentos que foram setados para nulo, zero ou -1 são apenas
-argumentos que não são necessários no modo que estamos usando
-o \monoespaco{mmap}.
+The null, zero and -1 arguments are just the ones not necessary in
+this usage of \monoespaco{mmap}.
 
-Assim como nós criamos uma nova região de memória para usarmos, depois
-vai ser necessário desfazer ela. Neste caso, usamos
-o \monoespaco{munmap}:
+As we can create a new region of memory, we can also destroy that
+region, deallocating it. In this case, we should
+use \monoespaco{munmap}:
 
 \iniciocodigo
-@<Desalocar `arena' de tamanho `M' bytes@>=
+@<Deallocate 'arena' of size 'M' bytes@>=
 #if defined(__EMSCRIPTEN__) || defined(__unix__) || defined(__APPLE__)
 munmap(arena, M);
 #endif
 @
 \fimcodigo
 
-Em ambientes Windows, a função equivalente a isso é a
-a \monoespaco{CreateFileMapping}, com a diferença de que ela retorna
-um controlador que precisa de uma função adicional para por fim obter
-um ponteiro para a região alocada. Felizmente, segundo a documentação
-da API do Windows, é permitido fechar tal controlador com
-o \monoespaco{CloseHandle} antes de desalocar e desfazer a região
-para a qual o ponteiro aponta. Graças à isso, conseguimos manter a
-simetria entre o código Windows e das demais plataformas, pois como o
-controlador será fechado aqui, não precisamos memorizá-lo com uma
-estrutura adicional a ser encerrada futuramente.
+In Windows environments, the equivalent function is 
+\monoespaco{CreateFileMapping}, with the difference that it returns
+a handle which needs another function to give us a pointer to the
+allocated region. Fortunately, according with Windows API
+documentation, we can close that handle with \monoespaco{CloseHandle}
+before deallocate and undo the reserver region. Thanks for this, we
+can keep the simmetry between Windows and other platform's code, as we
+can close the handle in this code without needing to memorize it in
+some additional structure:
 
 \iniciocodigo
-@<Alocar em `arena' região de `M' bytes@>+=
+@<Allocate in 'arena' region of 'M' bytes@>+=
 #if defined(_WIN32)
 {
   HANDLE handle;
@@ -354,20 +347,22 @@ estrutura adicional a ser encerrada futuramente.
 @
 \fimcodigo
 
-Para desalocar a região alocada usaremos o \monoespaco{UnmapViewOfFile}:
+
+To deallocate the region in Windows, we
+use \monoespaco{UnmapViewOfFile}:
 
 \iniciocodigo
-@<Desalocar `arena' de tamanho `M' bytes@>+=
+@<Deallocate 'arena' of size 'M' bytes@>+=
 #if defined(_WIN32)
 UnmapViewOfFile(arena);
 #endif
 @
 \fimcodigo
 
-Usar as funções acima requer os seguintes cabeçalhos:
+Using the previous functions require the following headers:
 
 \iniciocodigo
-@<Incluir Cabeçalhos Necessários@>+=
+@<Include Headers@>+=
 #if defined(_WIN32)
 #include <windows.h>  // Include 'CreateFileMapping', 'MapViewOfFIle',
 #include <memoryapi.h> // 'UnmapViewOfFile', 'CloseHandle'
@@ -375,66 +370,61 @@ Usar as funções acima requer os seguintes cabeçalhos:
 @
 \fimcodigo
 
-\subsecao{2.2. Obtendo o Tamanho da Página}
+\subsecao{2.2. Obtaining Page Size}
 
-Em um computador real, em contraste com uma máquina virtual, quando um
-programa pede memória para o Sistema Operacional, ele sempre irá
-receber memória em múltiplos do tamanho da página usada internamente
-pela máquina. Tipicamente o tamanho de uma página é de 4 KiB. Sendo
-assim, não adianta pedirmos quantidade de memória que não seja
-múltiplo de 4 KiB. Se pedirmos apenas 2 KiB, continuaremos recebendo 4
-KiB. Se pedirmos 5 KiB, receberemos 8 KiB.
+In a real computer, contrasting with some virtual machines, when a
+program asks for memory for the Operating System, it always receive
+memory in multiples of the page size used internally by the
+machine. Tipically the page size is 4 KiB. In this case, it's useless
+asking for non-multiples of KiB. If we ask for just 2 KiB, we keep
+receiving 4 KiB. If we ask for 5 KiB, we receive 8KiB.
 
-É importante então que nestes ambientes, nosso gerenciador esteja
-ciente disso e que mesmo que um usuário peça uma quantidade de memória
-que não seja múltipla do tamanho da página, ele sempe irá ajustar o
-pedido para um valor múltiplo para assim não desperdiçar memória.
+It's important that in these environments, our memory manager be aware
+of this and even if the user asks for a non-multiple of page size
+ammount of memory, it always should adjust the requested size for a
+multiple of page size, avoiding the waste of memory.
 
-Na maioria dos sistemas Unix, desde que compatíveis com o POSIX,
-podemos obter facilmente o tamanho de uma página por meio da
-função \monoespaco{sysconf}:
+In the majority of Unix systems, if they are POSIX compatible, we can
+get the page size using the function \monoespaco{sysconf}:
 
 \iniciocodigo
-@<Obter tamanho de página `p'@>=
+@<Get page size `p'@>=
 #if defined(__unix__)
 p = sysconf(_SC_PAGESIZE);
 #endif
 @
 \fimcodigo
 
-A documentação do macOS afirma que ele possui tal função que é
-compatível com o POSIX. Contudo, a documentação não menciona a opção
-de obter o tamanho da página por ela. Ao invés disso, a documentação
-menciona usar a função BSD \monoespaco{getpagesize} para obter tal
-informação. Para nos mantermos seguindo a documentação, faremos isso
-então:
+In MacOS, while its documentation says that the system is POSIX
+compatible, it also recommends using the BSD
+function \monoespaco{getpagesize} to get this information. So to
+follow the documentation guidelines, we use this code:
 
 \iniciocodigo
-@<Obter tamanho de página `p'@>+=
+@<Get page size `p'@>+=
 #if defined(__APPLE__)
 p = getpagesize();
 #endif
 @
 \fimcodigo
 
-Tanto a função BSD acima como a função POSIX estão definidas no mesmo
-cabeçalho:
+Both the BSD function as the POSIX function are defined in the same header:
 
 \iniciocodigo
-@<Incluir Cabeçalhos Necessários@>+=
+@<Include Headers@>+=
 #if defined(__APPLE__) || defined(__unix__)
 #include <unistd.h>
 #endif
 @
 \fimcodigo
 
-No Windows, o modo de obter o tamanho da página é por meio da função
-mais complexa \monoespaco{GetSystemInfo} que retorna também uma série
-de informações adicionais sobre o sistema que não precisaremos usar no
-momento.
+In Windows, we can get the page size using the more
+complex \monoespaco{GetSystemInfo}, which also returns a series of
+additional information about the system, which we don't need to keep
+at the moment.
 
 \iniciocodigo
-@<Obter tamanho de página `p'@>+=
+@<Get page size `p'@>+=
 #if defined(_WIN32)
 {
   SYSTEM_INFO info;
@@ -445,35 +435,33 @@ momento.
 @
 \fimcodigo
 
-E para usar esta função, a documentação nos aconselha incluir
-diretamente o cabeçalho \monoespaco{windows.h}:
+To use this function, the documentation recommends to include
+directly \monoespaco{windows.h} header:
 
 \iniciocodigo
-@<Incluir Cabeçalhos Necessários@>+=
+@<Include Headers@>+=
 #if defined(_WIN32)
 #include <windows.h> // Include 'GetSystemInfo'
 #endif
 @
 \fimcodigo
 
-
-Por fim, o caso do ambiente WebAssembly. Neste ambiente, a memória
-dinâmica é obtida por meio de uma seção de memória linear que começa
-com um tamaho padrão e pode crescer por meio de um
-operador \monoespaco{grow\_memory}, o qual também é configurado com um
-tamanho máximo. De qualquer forma, aqui também a quantidade de memória
-alocada é múltipla de uma página. O tamanho da página na máquina
-virtual WebAssembly é documentado como sendo sempre o mesmo:
+Finally the Web Assembly environment. Here the dynamically allocated
+memory is obtained from a contiguous region of memory which starts
+with a fixed size and can grow calling the
+operator \monoespaco{grow\_memory}, which also is configured with a
+maximum size. Anyway, here the memory is also allocaten in multiples
+of a fixed value. But the value is always 64 KiB:
 
 \iniciocodigo
-@<Obter tamanho de página `p'@>+=
+@<Get page size `p'@>+=
 #if defined(__EMSCRIPTEN__)
 p = 64 * 1024; // 64 KiB
 #endif
 @
 \fimcodigo
 
-\subsecao{2.3. Sobre Execução em Diferentes Threads}
+\subsecao{2.3. Running in Multiple Threads}
 
 É importante garantir que o código definido aqui não deixe de
 funcionar quando invocado simultaneamente por mais de um trecho de
@@ -502,7 +490,7 @@ POSIX ``pthreads''. No Windows, os cabeçalhos relevantes já foram
 incluídos no \monoespaco{windows.h}.
 
 \iniciocodigo
-@<Incluir Cabeçalhos Necessários@>+=
+@<Include Headers@>+=
 #if defined(__unix__) || defined(__APPLE__)
 #include <pthread.h>
 #endif
@@ -695,13 +683,13 @@ void *Wcreate_arena(size_t t){
   void *arena;
   size_t p, M, header_size = sizeof(struct arena_header);
   // Operation 2:
-  @<Obter tamanho de página `p'@>
+  @<Get page size `p'@>
   // Operation 3:
   M = (((t - 1) / p) + 1) * p;
   if(M < header_size)
     M = (((header_size - 1) / p) + 1) * p;
   // Operation 4:
-  @<Alocar em `arena' região de `M' bytes@>
+  @<Allocate in 'arena' region of 'M' bytes@>
   // Operation 5:
   @<Inicializa cabeçalho em `arena' de tamanho `M'@>
   // Operation 6:
@@ -745,7 +733,7 @@ bool Wdestroy_arena(void *arena){
          100.0 *
          ((float) header -> smallest_remaining_space) / header -> total_size);
 #endif
-  @<Desalocar `arena' de tamanho `M' bytes@>
+  @<Deallocate 'arena' of size 'M' bytes@>
   return ret;
 }
 @
@@ -755,7 +743,7 @@ Embora isso nos faça ter que incluir o cabeçalho das funções de
 entrada e saída padrão se estivermos em modo de depuração:
 
 \iniciocodigo
-@<Incluir Cabeçalhos Necessários@>+=
+@<Include Headers@>+=
 #if defined(W_DEBUG_MEMORY)
 #include <stdio.h>
 #endif
@@ -797,7 +785,7 @@ abaixo. Esse tipo é a maneira portável de podermos usar operações
 bit-a-bit em ponteiros.
 
 \iniciocodigo
-@<Incluir Cabeçalhos Necessários@>+=
+@<Include Headers@>+=
 #include <stdint.h>
 @
 \fimcodigo
@@ -1060,7 +1048,7 @@ arquivo abaixo que poderá então ser compilado:
 
 \iniciocodigo
 @(src/memory.c@>=
-@<Incluir Cabeçalhos Necessários@>
+@<Include Headers@>
 #include "memory.h"
 @<Cabeçalho da Arena@>
 @<Cabeçalho de Ponto de Memória@>
