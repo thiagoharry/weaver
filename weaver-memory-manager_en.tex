@@ -463,31 +463,27 @@ p = 64 * 1024; // 64 KiB
 
 \subsecao{2.3. Running in Multiple Threads}
 
-É importante garantir que o código definido aqui não deixe de
-funcionar quando invocado simultaneamente por mais de um trecho de
-código. Para isso, iremos apenas garantir um \italico{mutex} para que
-o nosso gerenciador de memória não tenha a mesma região de memória
-sendo acessada por mais de uma \italico{thread}. Caso tenhamos um caso
-no qual várias threads precise alocar memória simultaneamente, pode
-ser mais vantajoso dar para cada uma delas a sua própria região de
-memória para evitar que cada uma delas bloqueie todas as outras
-durante sua alocação.
+It's important to ensure that he code defined here works even when
+invoked simultaneously in different parts of code. For this we will
+need mutexes to ensure that the same region of memory won't be
+accessed by more than one thread at same time. If more than one thread
+wants toallocate memory, probably will be more efficient give to each
+one its own arena to avoid that each thread block the others in the
+process.
 
-Nem todos os ambientes suportam threads. A máquina virtual Web
-Assembly, ao menos a versão implementada nos navegadores de Internet
-não oferece suporte à elas, exceto em versões experimentais. Sendo
-assim, definiremos código para nosos mutex somente para os demais
-ambientes. No caso do Windows, iremos preferir usar a API para
-``Seções Críticas'' ao invés de usar diretamente um mutex. O principal
-motivo é evitar uma chamada de sistema para o Kernel caso ninguém
-esteja usando nosso Mutex. As seções críticas conseguem isso apenas
-trazendo a restrição de não poderem ser compartilhadas com outros
-programas. No mais, as seções críticas funcionam de maneira análoga a
-um mutex.
+Not all environments supports threads. n the virtual machne Web
+Assembl, at least in the version implemented in web browsers at the
+time of this writting, don't support threads except in experimental
+versions. In Windows we also would prefer to use ``critical sections''
+instead of a mutex. The main reason is avoiding a system call to the
+kernel when a mutex is not blocked. The critical sections ensure this
+with the rrelevant drawback of not being able to be shared between
+different programs. Besides that, the critical sections are equivalent
+to mutexes.
 
-Em sistemas baseados em Unix, incluimos o cabeçalho da biblioteca
-POSIX ``pthreads''. No Windows, os cabeçalhos relevantes já foram
-incluídos no \monoespaco{windows.h}.
+In Unix based systems, we include the POSIX header ``pthreads''. In
+Windows, the relevant heraders are already included in
+\monoespaco{windows.h}.
 
 \iniciocodigo
 @<Include Headers@>+=
@@ -497,7 +493,7 @@ incluídos no \monoespaco{windows.h}.
 @
 \fimcodigo
 
-Um mutex é declarado da seguinte forma:
+A mutex is declared with the following code:
 
 \iniciocodigo
 @<Declaração de Mutex@>=
@@ -510,15 +506,15 @@ CRITICAL_SECTION mutex;
 @
 \fimcodigo
 
-Quando o mutex é inicializado, colocamos em uma variável booleana
-chamada \monoespaco{error} se ocorreu algum problema. No caso da
-biblioteca \italico{pthreads}, sua função de inicialização já retorna
-valor não-nulo se ocorreu um problema. No Windows, o sistema garante
-que a função de inicialização nunca falhe. Nos dois casos assumimos
-que temos um ponteiro genérico para o nosso mutex.
+When the mutex is initialized, we store in a boolean
+variable \monoespaco{error} if some problem happened. In the case of
+the library \italico{pthreads}, its initialization function already
+returns a non-null value if some problem happened. In Windows, the
+operating system ensures that the function never fails. In both cases
+we assume that we have a generic pointer for our mutex:
 
 \iniciocodigo
-@<Inicialização de `*mutex'@>=
+@<Initialize `*mutex'@>=
 #if defined(__unix__) || defined(__APPLE__)
 error = pthread_mutex_init((pthread_mutex_t *) mutex, NULL);
 #endif
@@ -528,11 +524,11 @@ InitializeCriticalSection((CRITICAL_SECTION *) mutex);
 @
 \fimcodigo
 
-O código para destruir um mutex é o exposto abaixo. Neste caso não
-iremos nos preocupar com casos de erro.
+The code to destroy the mutex is below. In this case we don't need to
+care about errors:
 
 \iniciocodigo
-@<Finaliza `*mutex'@>=
+@<Ending `*mutex'@>=
 #if defined(__unix__) || defined(__APPLE__)
 pthread_mutex_destroy((pthread_mutex_t *) mutex);
 #endif
@@ -542,7 +538,8 @@ DeleteCriticalSection((CRITICAL_SECTION *) mutex);
 @
 \fimcodigo
 
-A operação clássica de \italico{wait} para requerer o uso do mutex:
+The classical operation of \italico{wait} when a thread try to enter a
+critical section protected by mutexes:
 
 \iniciocodigo
 @<`*mutex':WAIT()@>=
@@ -555,8 +552,8 @@ EnterCriticalSection((CRITICAL_SECTION *) mutex);
 @
 \fimcodigo
 
-E a função de \italico{signal} para liberar um mutex que foi pedido
-pela thread:
+And this is the function \italico{signal} to free a mutex resedved by
+the thread:
 
 \iniciocodigo
 @<`*mutex':SIGNAL()@>=
@@ -569,42 +566,46 @@ LeaveCriticalSection((CRITICAL_SECTION *) mutex);
 @
 \fimcodigo
 
-\subsecao{2.3. Cabeçalho de Arenas de Memória}
+\subsecao{2.3. Memory Arena Header}
 
-Logo após alocarmos uma região de memória (ou ``arena''), a primeira
-coisa a fazer é reservar os seus bytes iniciais para armazenar
-informações gerais sobre ela. As informações que desejamos são: o
-tamanho total de espaço que temos (\monoespaco{remaining\_space}), o
-tamanho total da arena (\monoespaco{total\_size}) e ponteiros para o
-começo de uma região livre na pilha de memória esquerda e direita que
-iremos alocar (\monoespaco{left\_free}, \monoespaco{right\_free}). Na
-variável \monoespaco{right\_allocations} armazenamos a quantidade
-total alocada na pilha de memória direita e
-em \monoespaco{left\_allocations} a quantidade de memória alocada na
-pilha esquerda.
+After allocating a region of memory (or ``arena''), the first
+requirement to initialize it is reserving the initial byes to store
+general informations abou the region. The necessary informations are:
+remaining size in bytes (\monoespaco{remaining\_space}), arena total
+size (\monoespaco{total\_size}) and pointers to the beginning of the
+next free region in the left and right stack
+(\monoespaco{left\_free}, \monoespaco{right\_free}).
+In \monoespaco{right\_allocations} we store the quantity in bytes
+allocated in right stack and in \monoespaco{left\_allocations} the
+quantity in bytes of memory allocated in the left stack.
 
-Precisaremos também de um mutex como o que definimos para proteger a
-arena de ser manipulada simultaneamente por duas threads.
+We also need a mutex to protect the arena header of being manipulated
+by two threads at same time.
 
-Outra informação que podemos precisar só em momentos de depuração é a
-quantidade mínima de memória que chegamos a ter ao longo do tempo de
-vida da arena. Isso é útil de armazenar porque após encerrarmos a
-arena e descobrirmos que alocamos para a arena muita memória que não
-foi usada, podemos querer diminuir o tamanho que demos a ela. Usaremos
-a variável \monoespaco{smallest\_remaining\_space} para armazenar isso
-e ela só estará definida se a macro \monoespaco{W\_DEBUG\_MEMORY}
-estiver definida.
+Another information useful during debugging is the maximum ammount of
+memory that our arena allocated during its lifetime. This is useful
+because after deallocating the arena we can check if we gave too much
+memory to it that in the end wasn't used. In this case, we could want
+to lower the ammount os memory reserved to it. We will obtain this
+information wih the variable \monoespaco{smallest\_remaining\_space}
+that store the minimum value of remaining space during the arena
+lifetime. This variable will be defined only if the
+macro \monoespaco{W\_DEBUG\_MEMORY} is defined. We prefer to store the
+minimum ammount of remaining space instead of the maximum ammount of
+used space because is usually easier to read values which should be
+small, close to zero, instead of values which usually should be big,
+close to the total arena size.
 
-Teremos também dois ponteiros: \monoespaco{left\_point}
-e \monoespaco{right\_point}. Estes serão ponteiros para pontos de
-memória, informações sobre o estado daarena de memória em um ponto
-específico do tempo para que ela possa ser restaurada àquele
-estado. Tais pontos de memória serão melhor definidos na seção 2.9.
+We will also have two other pointers: \monoespaco{left\_point}
+and \monoespaco{right\_point}. They are pointers for ``memory
+points'', information about the arena status during a specific moment
+which permit us to restore the arena to that given status. These
+memory points will be better defined at section 2.9.
 
-O cabeçalho de nossa arena de memória terá então a seguinte forma:
+The header in our memory arena have the following format:
 
 \iniciocodigo
-@<Cabeçalho da Arena@>=
+@<Arena Header@>=
 struct arena_header{
   @<Declaração de Mutex@>
   void *left_free, *right_free;
@@ -617,19 +618,18 @@ struct arena_header{
 @
 \fimcodigo
 
-Assumimos que nós temos um ponteiro para a arena de memória
-recém-obtida, o qual chamamos de \monoespaco{arena} e que nós temos o
-tamanho total em bytes que está alocado nela na
-variável \monoespaco{M}, então conseguimos inicializar o cabeçalho ali
-com o código abaixo. Para calcular as próximas posições onde iremos
-inserir, convertemos o ponteiro para o começo da arena para um
-ponteiro de caractere para podermos fazer nossos cálculos com
-aritmética de ponteiro com múltiplos de 1 byte. O próximo espaço que
-temos livre para a pilha de memória esquerda é o byte imediatamente
-após o cabeçalho. Já a pilha direita fica com o último byte da arena.
+Let's assume that we have a pointer for a non-initialized arena, which
+we call \monoespaco{arena} and that we know as \monoespaco{M} the
+arena size in bytes. With these information we can initialize the
+arena header with the fllowing code. To compute the next empty
+positions where we could store data, we convert the arena pointer for
+a characere pointer. Doing his we ensure that the pointer arithmetic
+will work with multiples of 1 byte. The next free space in the left
+stack is the first byte after the header. And the next free space in
+the right stack is the last byte in the arena.
 
 \iniciocodigo
-@<Inicializa cabeçalho em `arena' de tamanho `M'@>=
+@<Initialize header in `arena' with size `M'@>=
 {
   struct arena_header *header = (struct arena_header *) arena;
   header -> right_free = ((char *) header) + M - 1;
@@ -645,39 +645,38 @@ após o cabeçalho. Já a pilha direita fica com o último byte da arena.
 #endif
   { // Mutex initialization
     void *mutex = &(header -> mutex);
-    @<Inicialização de `*mutex'@>
+    @<Initialize `*mutex'@>
   }
 }
 @
 \fimcodigo
 
-\subsecao{2.4. O Código de Alocação de Nova Arena}
+\subsecao{2.4. Allocating New Arena}
 
-Com o código que definirmos já temos como definir a
-função \monoespaco{Wcreate\_arena}. O que a função terá que fazer
-são as 6 operações abaixo:
+With the previously defined code we already can define the
+function \monoespaco{Wcreate\_arena}. This function is responsible for
+the following 6 operations:
 
-1. Receber do usuário um tamanho \monoespaco{t} para alocar.
+1. Get from the user a size \monoespaco{t} in bytes to allocate.
 
-2. Descobrir qual o tamanho da página \monoespaco{p} no sistema atual.
+2. Discover the page size \monoespaco{p} in our environment.
 
-3. Obter \monoespaco{M}, sendo igual ao menor múltiplo
-de \monoespaco{p} maior que \monoespaco{t}. Se \monoespaco{M} for
-menor que o espaço necessário para o cabeçalho da arena, ele se torna
-igual ao menor múltiplo de \monoespaco{p} que é maior que o tamanho do
-cabeçalho.
+3. Get \monoespaco{M}, as the lesser multiple of
+\monoespaco{p} greater than \monoespaco{t}. If \monoespaco{M} is
+smaller than the arena header size, it becomes equal the lesser
+multiple than \monoespaco{p} greater than header size.
 
-4. Alocamos uma nova arena de tamanho \monoespaco{M}.
+4. Allocate a new arena of size \monoespaco{M}.
 
-5. Inicializamos o seu cabeçalho.
+5. Initialize its header.
 
-6. Retornamos o ponteiro para o começo da arena, onde está seu cabeçalho,
-ou \monoespaco{NULL} em caso de problemas.
+6. Return a pointer for the beginning of arena, where its header is
+stored, or \monoespaco{NULL} in case of problems.
 
-O código para fazer isso será então:
+The code to do this is:
 
 \iniciocodigo
-@<Definição de `Wcreate\_arena'@>=
+@<Definition for `Wcreate\_arena'@>=
 void *Wcreate_arena(size_t t){
   bool error = false;
   void *arena;
@@ -691,7 +690,7 @@ void *Wcreate_arena(size_t t){
   // Operation 4:
   @<Allocate in 'arena' region of 'M' bytes@>
   // Operation 5:
-  @<Inicializa cabeçalho em `arena' de tamanho `M'@>
+  @<Initialize header in `arena' with size `M'@>
   // Operation 6:
   if(error) return NULL;
   return arena;
@@ -699,7 +698,7 @@ void *Wcreate_arena(size_t t){
 @
 \fimcodigo
 
-\subsecao{2.5. A Função ``Wdestroy\_arena''}
+\subsecao{2.5. The function ``Wdestroy\_arena''}
 
 Uma vez que fornecemos uma forma de criar novas arenas, vamos definir
 também a função que irá finalizá-las. Esta é uma função mais simples
@@ -723,7 +722,7 @@ bool Wdestroy_arena(void *arena){
   void *mutex = (void *) &(header -> mutex);
   size_t M = header -> total_size;
   bool ret = true;
-  @<Finaliza `*mutex'@>
+  @<Ending `*mutex'@>
   if(header -> total_size != header -> remaining_space +
      sizeof(struct arena_header))
     ret = false;
@@ -1050,9 +1049,9 @@ arquivo abaixo que poderá então ser compilado:
 @(src/memory.c@>=
 @<Include Headers@>
 #include "memory.h"
-@<Cabeçalho da Arena@>
+@<Arena Header@>
 @<Cabeçalho de Ponto de Memória@>
-@<Definição de `Wcreate\_arena'@>
+@<Definition for `Wcreate\_arena'@>
 @<Definição de `Wdestroy\_arena'@>
 @<Definição de `Walloc'@>
 @<Definição de `Wmempoint'@>

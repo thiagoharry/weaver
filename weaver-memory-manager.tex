@@ -621,13 +621,17 @@ Precisaremos também de um mutex como o que definimos para proteger a
 arena de ser manipulada simultaneamente por duas threads.
 
 Outra informação que podemos precisar só em momentos de depuração é a
-quantidade mínima de memória que chegamos a ter ao longo do tempo de
+quantidade máxima de memória que chegamos a ter ao longo do tempo de
 vida da arena. Isso é útil de armazenar porque após encerrarmos a
 arena e descobrirmos que alocamos para a arena muita memória que não
 foi usada, podemos querer diminuir o tamanho que demos a ela. Usaremos
 a variável \monoespaco{smallest\_remaining\_space} para armazenar isso
 e ela só estará definida se a macro \monoespaco{W\_DEBUG\_MEMORY}
-estiver definida.
+estiver definida. Nós preferimos armazenar o menor espaço restante ao
+invés do maior espaço usado durante o tempo de vida da arena porque
+geralmente é mais fácil ler valores que devem ser pequenos e próximos
+de zero do que valores que devem ser grandes, próximos do tamanho
+total da arena.
 
 Teremos também dois ponteiros: \monoespaco{left\_point}
 e \monoespaco{right\_point}. Estes serão ponteiros para pontos de
