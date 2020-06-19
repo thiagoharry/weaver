@@ -856,9 +856,9 @@ $a-1$. Se não houver espaço, o valor $p$ a ser retornado terá que ser
 \monoespaco{NULL}.
 
 Se vamos alocar na pilha esquerda, o nosso endereço alocado será a
-próxima posição depois desse cabeçalho após passar por uma correção de
-alinhamento. Também vamos atualizar o quanto está sendo alocado na
-variável \monoespaco{left\_allocations}.
+próxima posição depois desse cabeçalho e das coisas alocadas antes
+após passar por uma correção de alinhamento. Também vamos atualizar o
+quanto está sendo alocado na variável \monoespaco{left\_allocations}.
 
 Se vamos alocar na pilha direita, obtemos o valor do endereço alocado
 indo para a próxima região livre marcada no cabeçalho da arena e

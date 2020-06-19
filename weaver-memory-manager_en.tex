@@ -700,23 +700,21 @@ void *Wcreate_arena(size_t t){
 
 \subsecao{2.5. The function ``Wdestroy\_arena''}
 
-Uma vez que fornecemos uma forma de criar novas arenas, vamos definir
-também a função que irá finalizá-las. Esta é uma função mais simples
-que fará quatro coisas:
+Once we provided a function to create new arenas, we need to define a
+function to destroy and deallocate them. This is a simpler function to
+do four things:
 
-1. Destruirá o mutex associado à arena.
+1. Destroy the arena mutex.
 
-2. Imprimirá um aviso na tela se existe alguma coisa ainda alocada na
-arena.
+2. Print a warning if there are still allocated memory in the arena.
 
-3. Se estamos em modo de depuração, imprimirá a quantidade de memória
-que nunca chegou a ser usada pela arena.
+3. If we are in debug mode, print the ammount of memory which never
+was used int he arena.
 
-4. Devolverá para o Sistema Operacional a memória que ele pediu para a
-arena.
+4. Free to the operating system the arena memory.
 
 \iniciocodigo
-@<Definição de `Wdestroy\_arena'@>=
+@<Definition for `Wdestroy\_arena'@>=
 bool Wdestroy_arena(void *arena){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
@@ -738,8 +736,8 @@ bool Wdestroy_arena(void *arena){
 @
 \fimcodigo
 
-Embora isso nos faça ter que incluir o cabeçalho das funções de
-entrada e saída padrão se estivermos em modo de depuração:
+If we are in debug mode, we need to include the correct header to
+print messages in the screen:
 
 \iniciocodigo
 @<Include Headers@>+=
@@ -749,26 +747,25 @@ entrada e saída padrão se estivermos em modo de depuração:
 @
 \fimcodigo
 
-\subsecao{2.6. Mantendo o Alinhamento em Memória Alocada}
+\subsecao{2.6. Keeping Memory Alignment in Allocations}
 
-Quando vamos alocar uma nova memória começamos com um endereço $p$ que
-está disponível no qual iremos colocar nossa memória alocada. Mas
-devemos respeitar o alinhamento $a$, o qual é uma potência de 2 ou o
-número zero (que significa ``qualquer alinhamento''). O modo de fazer
-isso depende se estamos na pilha esquerda (posição inicial da memória
-na arena) ou direita (posição final da memória na arena). Pois uma das
-pilhas de memória cresce para posições maiores e outra para menores.
+When we allocate new memory, we begin with an available address $p$ in
+which we will put our allocated memory. But we should respect the
+alignment $a$: a power of two or the number zero (meaning ``any
+alignment''). How to do this depends if we are in the left stack
+(initial positions in the arena) or right stack (ending positions in
+the arena). One of the stacks grows from lesser to greater addresses
+and the other grows form greater to lesser addresses.
 
-No caso da memória da pilha esquerda, vamos querer colocar nossa
-alocação em um endereço $p$, mas podemos ter que deslocar $p$ um pouco
-mais para os próximos endereços para poder alinhar a memória. Fazemos
-isso considerando que $a-1$ representa tanto o pior caso de quantidade de
-posições que vamos deslocar $p$ como uma máscara de bits que devem ser
-nulos para que o endereço seja válido, pelo fato de $a$ ser uma potência de
-dois. Sendo assim, nosso código de alinhamento é:
+In the left stack, we want to put our allocation in the address $p$,
+but we may need to shift $p$ by some positions to respect the
+alignment. We consider that $a-1$ is the worst case of how many bytes
+we need to shift. As $a$ is a power of two, $a-1$ is also a bitmask of
+what bits should be zero in the final address. Using these
+informations, we can ensure memory alignment with:
 
 \iniciocodigo
-@<Alinha `p' e marca `offset' de acordo com `a' (esquerda)@>=
+@<Align `p' and store `offset' according with `a' (left)@>=
 offset = 0;
 if (a > 1){
   void *new_p = ((char *) p) + (a - 1);
@@ -779,9 +776,8 @@ if (a > 1){
 @
 \fimcodigo
 
-Para podermos usar o tipo \monoespaco{uintptr\_t} usamos a biblioteca
-abaixo. Esse tipo é a maneira portável de podermos usar operações
-bit-a-bit em ponteiros.
+We need the casting to \monoespaco{uintptr\_t} because we want to do
+bit-to-bit operations in pointers. So we need the header below:
 
 \iniciocodigo
 @<Include Headers@>+=
@@ -789,15 +785,14 @@ bit-a-bit em ponteiros.
 @
 \fimcodigo
 
-
-Já na pilha direita, vamos querer alocar em um endereço $p$, mas
-possivelmente teremos que dimminuir o endereço inicial para mantê-lo
-alinhado ao invés de aumentá-lo. Com isso não é necessário somar
-o endereço inicial com o valor de pior caso $a-1$, basta remover
-diretamente os bits finais que forem necessários para o alinhamento:
+In the right stack, we will try to allocate in address $p$, but we
+probably need to lower the initial address to keep the alignment. So
+we don't need to sum the initial address with the worst case value
+$a-1$. We can just remove directly the ending bits of using bit
+mask $a-1$:
 
 \iniciocodigo
-@<Alinha `p' e marca `offset' de acordo com `a' (direita)@>=
+@<Align `p' and store `offset' according with `a' (right)@>=
 offset = 0;
 if (a > 1){
   void *new_p = (void *) (((uintptr_t) p) & (~((uintptr_t) a - 1)));
@@ -807,50 +802,48 @@ if (a > 1){
 @
 \fimcodigo
 
-\subsecao{2.7. Alocando Memória}
+\subsecao{2.7. Allocating Memmory}
 
-Antes de alocar memória, temos que verificar se existe espaço
-disponível. Fazemos isso checando os valores do cabeçalho da arena
-e comparando com o valor que temos que alocar, considerando o pior
-caso de alinhamento, onde precisaremos de um espaço adicional de
-$a-1$. Se não houver espaço, o valor $p$ a ser retornado terá que ser
-\monoespaco{NULL}.
+Before memory allocation, we need to check if we have enough space in
+the arena. We just need to read values from arena header and compare
+them with the value which we need to allocate, considering the worst
+case in alignment, where we need additional $a-1$ bytes. If we don't
+have enough space, we need to return \monoespaco{NULL}.
 
-Se vamos alocar na pilha esquerda, o nosso endereço alocado será a
-próxima posição depois desse cabeçalho após passar por uma correção de
-alinhamento. Também vamos atualizar o quanto está sendo alocado na
-variável \monoespaco{left\_allocations}.
+f we are allocating in the left stack, our allocation address will be
+the next position after the header and previously allocated blocks
+after passing for alignment correction. We also need to update how
+many bytes are already allocated in
+variable \monoespaco{left\_allocations}.
 
-Se vamos alocar na pilha direita, obtemos o valor do endereço alocado
-indo para a próxima região livre marcada no cabeçalho da arena e
-subtraímos do endereço o tamanho que queremos alocar sem o cabeçalho,
-somando 1 ao resultado. Assim teremos à nossa direita a quantidade
-certa de memória que precisamos retornar ao usuário. Mas antes disso,
-novamente fazemos a correção necessária de alinhamento. E como é a
-pilha direita, armazenamos quanto foi alocado no cabeçalho da arena na
-variável \monoespaco{right\_allocations}.
+If we are allocating in the right stack, we check the next free region
+stored in the header and subtract from the address the size of the new
+allocation minus 1. This ensure that the allocated region have he
+right size and that the found address can be returned to the user. Of
+course, before returning we also need to do the alignment
+correction. And as we are updating the right stack, we store the new
+allocation size in the variable \monoespaco{right\_allocations}.
 
-Uma vez que isso foi feito, basta atualizarmos o cabeçalho da arena
-com as próximas posições livres, já que a anterior acabamos de ocupar,
-e também calculando um novo valor para o espaço livre que ainda
-temos.Feito isso,
-\monoespaco{p} está pronto para ser retornado.
+Once this is done, we only need to update in the arena header what are
+the next free regions, as we occupied the previous one. We also need
+to compute a newvalue for variable \monoespaco{remaining\_space}. Only
+after this we can return \monoespaco{p}.
 
 \iniciocodigo
-@<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>=
+@<Allocating `p' with size `t' in `arena', alignment `a'@>=
 {
   int offset;
   struct arena_header *header = (struct arena_header *) arena;
   if(header -> remaining_space >= t + ((a == 0)?(0):(a - 1))){
     if(right){
       p = ((char *) header -> right_free) - t + 1;
-      @<Alinha `p' e marca `offset' de acordo com `a' (direita)@>
+      @<Align `p' and store `offset' according with `a' (right)@>
       header -> right_free = (char *) p - 1;
       header -> right_allocations += (t + offset);
     }
     else{
       p = header -> left_free;
-      @<Alinha `p' e marca `offset' de acordo com `a' (esquerda)@>
+      @<Align `p' and store `offset' according with `a' (left)@>
       header -> left_free = (char *) p + t;
       header -> left_allocations += (t + offset);
     }
@@ -864,52 +857,53 @@ temos.Feito isso,
 @
 \fimcodigo
 
-\subsecao{2.8. A Função Walloc}
+\subsecao{2.8. The Walloc Function}
 
-Podemos agora juntar as peças para definir a função de alocação. Ela
-irá receber \monoespaco{arena} (arena onde o usuário deseja alocar),
-\monoespaco{a} (o alinhamento), \monoespaco{right} (1 se desejamos
-alocar na pilha direita e 0 na esquerda) e \monoespaco{t} (tamanho que
-o usuário deseja alocar).
+We can combine the previous code to define the allocation function. It
+will get \monoespaco{arena} (the arena where we will allocate),
+\monoespaco{a} (the alignment), \monoespaco{right} (1 if we should
+allocate in the right stack and 0 if we should allocate in the left
+stack) and \monoespaco{t} (size in bytes for the region to be
+allocated).
 
-A primeira coisa a fazer é dar um ``wait'' no mutex da arena. Depois
-fazemos a alocação e então damos um ``signal'' no mutex. Será preciso
-termos também uma variável \monoespaco{p} que é o que iremos retornar
-e apontará para a região de memória requisitada pelo usuário.
-
+First we use a ``wait'' in the arena mutex. After we do the allocation
+and then use a ``signal'' to free the mutex. We also need a
+variable \monoespaco{p} to be returned and tha should point to the
+newly allocated memory.
 
 \iniciocodigo
-@<Definição de `Walloc'@>=
+@<Definition for `Walloc'@>=
 void *Walloc(void *arena, unsigned a, int right, size_t t){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   void *p = NULL;
   @<`*mutex':WAIT()@>
-  @<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>
+  @<Allocating `p' with size `t' in `arena', alignment `a'@>
   @<`*mutex':SIGNAL()@>
   return p;
 }
 @
 \fimcodigo
 
-\subsecao{2.9. Definição dos Pontos de Memória}
+\subsecao{2.9. Definition for Memory Points}
 
-Caso tenhamos uma arena que já foi usada e tem armazenada regiões
-alocadas, mas queiramos nos livrar de todas as alocações e começar de
-novo, para isso basta reiniciarmos os valores armazenados no cabeçalho
-da arena. Os ponteiros para a próxima posição livre e o espaço livre
-disponível precisa ser atualizado para ficar igual ao valor inicial.
+If we have an arena that is being utilized and is storing allocated
+regions, but we want to free at once all allocations and restart the
+arena, we could do this just restarting the values stored in arena
+header. The pointers for the next free regions and the variable with
+the remaining free space should also be reset to the initial values.
 
-Mas estamos mais interessados não em reiniciar uma arena inteira, mas
-somente as suas alocações na pilha esquerda ou na direita. Na pilha
-direita ou esquerda nós sabemos exatamente quanto foi alocado graças à
-variável \monoespaco{right\_allocations}
-ou \monoespaco{left\_allocations} que armazenamos no cabeçalho da
-arena. Então reiniciamos os valores facilmente para esvaziar somente a
-pilha na qual estamos interessados:
+If we are interested not in restart all the arena, but just the left
+of right stack, we can just check how many bytes were allocated in the
+corresponding stack thanks for the
+variables \monoespaco{right\_allocations}
+and \monoespaco{left\_allocations} stored in arena header. These
+values can be easily reseted and this empties only the corresponding
+stack:
+
 
 \iniciocodigo
-@<Reinicia memória de pilha em `arena'@>=
+@<Restart memory in stack from `arena'@>=
 {
   struct arena_header *header = arena;
   if(right){
@@ -926,26 +920,23 @@ pilha na qual estamos interessados:
 @
 \fimcodigo
 
-Mas e se quisermos salvar na arena de memória as informações de
-alocação atuais para restaurar mais tarde (chamamos tais informações
-de ``ponto de memória'')? A única informação que precisamos armazenar
-é o conteúdo de \monoespaco{left\_allocations} no caso da pilha
-esquerda e \monoespaco{right\_allocations} na pilha direita.
+But what if instead of resetting all allocations we were interested in
+restore the state to a previous one saved in the past? We call the
+previous state a ``memory point''. To save the state, we need only to
+store the content of variables \monoespaco{left\_allocations} for the
+left stack and \monoespaco{right\_allocations} for the right stack.
 
-O ponteiro para a próxima região livre \monoespaco{left\_free}
-ou \monoespaco{right\_free} pode ser atualizado movendo ele um número
-de posições igual à diferença entre a quantidade de alocações atuais e
-a alocação armazenada. O novo valor para a quantidade de espaço livre
-pode ser obtida somando o valor atual à esta mesma diferença entre
-valores de alocações.
+The pointer for the next free region \monoespaco{left\_free}
+or \monoespaco{right\_free} can be updated moving it a number of
+positions equal to the difference between the current quantity of
+allocated memory and the quantity from a previous memory point.
 
-Entretanto, queremos poder armazenar não um único ponto de memória,
-mas uma lista de qualquer tamanho deles. Queremos que eles formem uma
-lista encadeada simples. Sendo assim, um ponto de memória é definido
-pelo seguinte cabeçalho:
+Howeber, we want to store not a single one memory point, but a list of
+them. We can organize all stored memory points as a linked list. So we
+can define a memory point with the following header:
 
 \iniciocodigo
-@<Cabeçalho de Ponto de Memória@>=
+@<Memory Point Header@>=
 struct memory_point{
   size_t allocations; // Left or right
   struct memory_point *last_memory_point;
@@ -975,7 +966,7 @@ bool Wmempoint(void *arena, unsigned a, int right){
     allocations = header -> right_allocations;
   else
     allocations = header -> left_allocations;
-  @<Alocação de `p', tamanho `t' em `arena', alinhamento `a'@>
+  @<Allocating `p' with size `t' in `arena', alignment `a'@>
   point = (struct memory_point *) p;
   if(point != NULL){
     point -> allocations = allocations;
@@ -1018,7 +1009,7 @@ void Wtrash(void *arena, int right){
     point = head -> left_point;
   }
   if(point == NULL){
-    @<Reinicia memória de pilha em `arena'@>
+    @<Restart memory in stack from `arena'@>
   }
   else{
     if(right){
@@ -1050,10 +1041,10 @@ arquivo abaixo que poderá então ser compilado:
 @<Include Headers@>
 #include "memory.h"
 @<Arena Header@>
-@<Cabeçalho de Ponto de Memória@>
+@<Memory Point Header@>
 @<Definition for `Wcreate\_arena'@>
-@<Definição de `Wdestroy\_arena'@>
-@<Definição de `Walloc'@>
+@<Definition for `Wdestroy\_arena'@>
+@<Definition for `Walloc'@>
 @<Definição de `Wmempoint'@>
 @<Definição de `Wtrash'@>
 @
