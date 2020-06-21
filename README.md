@@ -16,6 +16,11 @@ You can read the PDFs documenting all the Weaver code here:
 * **Weaver API**: How the code is organized and the API functions are defined and work together.
     [[In English]](https://github.com/thiagoharry/weaver/blob/master/weaver_api_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver/blob/master/weaver_api.pdf)
 
+The Weaver API uses several subsystems in its code. You can read about
+each subsystem separately:
+
+* **Memory Manager**: [[In English]](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager.pdf)
+
 ## Building
 
 To build and install the engine you can type `make` and `make
