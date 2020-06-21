@@ -4,6 +4,9 @@ FLAGS=-Wall -O2
 report:
 	magitex-cweb weaver-memory-manager.tex
 	dvipdf weaver-memory-manager.dvi
+doc_en:
+	tex weaver-memory-manager_en.tex
+	dvipdf weaver-memory-manager_en.dvi
 src: weaver-memory-manager.tex
 	ctangle weaver-memory-manager.tex
 	rm weaver-memory-manager.c

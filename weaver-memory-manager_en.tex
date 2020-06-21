@@ -88,7 +88,7 @@ memory.
 
 \negrito{Alligned Allocations:} Different types of data and computer architectures
 can have different alignment restrictions for
-memory. In \itelico{Playstation 3}, for example, any memory position
+memory. In \italico{Playstation 3}, for example, any memory position
 passed using DMA (\italico{Direct Memory Access}) must be 128-bit
 aligned. This means that its address must be a multiple of 128 bits.
 
@@ -200,7 +200,7 @@ memory to be managed. We call this region a ``arena'':
 \iniciocodigo
 @<Memory Declarations@>=
 #include <stdlib.h> // Include 'size_t'
-void *Wcreate_arena(size_t size);
+void *_Wcreate_arena(size_t size);
 @
 \fimcodigo
 
@@ -212,7 +212,7 @@ if the function return false) and otherwise the function returns true:
 \iniciocodigo
 @<Memory Declarations@>+=
 #include <stdbool.h> // Include 'bool'
-bool Wdestroy_arena(void *);
+bool _Wdestroy_arena(void *);
 @
 \fimcodigo
 
@@ -226,7 +226,7 @@ returns \monoespaco{NULL} in case of no enough memory in the arena:
 
 \iniciocodigo
 @<Memory Declarations@>+=
-void *Walloc(void *arena, unsigned alignment, int right, size_t size);
+void *_Walloc(void *arena, unsigned alignment, int right, size_t size);
 @
 \fimcodigo
 
@@ -239,7 +239,7 @@ function. The function returns if this was sucessful or not:
 
 \iniciocodigo
 @<Memory Declarations@>+=
-bool Wmempoint(void *arena, unsigned alignment, int region);
+bool _Wmempoint(void *arena, unsigned alignment, int region);
 @
 \fimcodigo
 
@@ -250,7 +250,7 @@ left (0) or right (1) stack.
 
 \iniciocodigo
 @<Memory Declarations@>+=
-void Wtrash(void *arena, int region);
+void _Wtrash(void *arena, int region);
 @
 \fimcodigo
 
@@ -654,7 +654,7 @@ the right stack is the last byte in the arena.
 \subsecao{2.4. Allocating New Arena}
 
 With the previously defined code we already can define the
-function \monoespaco{Wcreate\_arena}. This function is responsible for
+function \monoespaco{\_Wcreate\_arena}. This function is responsible for
 the following 6 operations:
 
 1. Get from the user a size \monoespaco{t} in bytes to allocate.
@@ -676,8 +676,8 @@ stored, or \monoespaco{NULL} in case of problems.
 The code to do this is:
 
 \iniciocodigo
-@<Definition for `Wcreate\_arena'@>=
-void *Wcreate_arena(size_t t){
+@<Definition for `\_Wcreate\_arena'@>=
+void *_Wcreate_arena(size_t t){
   bool error = false;
   void *arena;
   size_t p, M, header_size = sizeof(struct arena_header);
@@ -698,7 +698,7 @@ void *Wcreate_arena(size_t t){
 @
 \fimcodigo
 
-\subsecao{2.5. The function ``Wdestroy\_arena''}
+\subsecao{2.5. The function ``\_Wdestroy\_arena''}
 
 Once we provided a function to create new arenas, we need to define a
 function to destroy and deallocate them. This is a simpler function to
@@ -714,8 +714,8 @@ was used int he arena.
 4. Free to the operating system the arena memory.
 
 \iniciocodigo
-@<Definition for `Wdestroy\_arena'@>=
-bool Wdestroy_arena(void *arena){
+@<Definition for `\_Wdestroy\_arena'@>=
+bool _Wdestroy_arena(void *arena){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   size_t M = header -> total_size;
@@ -857,7 +857,7 @@ after this we can return \monoespaco{p}.
 @
 \fimcodigo
 
-\subsecao{2.8. The Walloc Function}
+\subsecao{2.8. The \_Walloc Function}
 
 We can combine the previous code to define the allocation function. It
 will get \monoespaco{arena} (the arena where we will allocate),
@@ -872,8 +872,8 @@ variable \monoespaco{p} to be returned and tha should point to the
 newly allocated memory.
 
 \iniciocodigo
-@<Definition for `Walloc'@>=
-void *Walloc(void *arena, unsigned a, int right, size_t t){
+@<Definition for `\_Walloc'@>=
+void *_Walloc(void *arena, unsigned a, int right, size_t t){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   void *p = NULL;
@@ -953,8 +953,8 @@ if we stored it in the left or right stack. Finally we free the mutex
 with \italico{signal}:
 
 \iniciocodigo
-@<Definition for `Wmempoint'@>=
-bool Wmempoint(void *arena, unsigned a, int right){
+@<Definition for `\_Wmempoint'@>=
+bool _Wmempoint(void *arena, unsigned a, int right){
   struct arena_header *header = (struct arena_header *) arena;
   void *mutex = (void *) &(header -> mutex);
   char *p = NULL;
@@ -991,11 +991,11 @@ bool Wmempoint(void *arena, unsigned a, int right){
 Restore a memory point means restoring the state of the memory stack
 (at left or right) exactly as it was before saving the last memory
 point. If here is no memory point saved, we empty all the memory
-stack. For this we use the function \monoespaco{Wtrash}:
+stack. For this we use the function \monoespaco{\_Wtrash}:
 
 \iniciocodigo
-@<Definition for `Wtrash'@>+=
-void Wtrash(void *arena, int right){
+@<Definition for `\_Wtrash'@>+=
+void _Wtrash(void *arena, int right){
   struct arena_header *head = (struct arena_header *) arena;
   void *mutex = (void *) &(head -> mutex);
   struct memory_point *point;
@@ -1040,11 +1040,11 @@ compiled:
 #include "memory.h"
 @<Arena Header@>
 @<Memory Point Header@>
-@<Definition for `Wcreate\_arena'@>
-@<Definition for `Wdestroy\_arena'@>
-@<Definition for `Walloc'@>
-@<Definition for `Wmempoint'@>
-@<Definition for `Wtrash'@>
+@<Definition for `\_Wcreate\_arena'@>
+@<Definition for `\_Wdestroy\_arena'@>
+@<Definition for `\_Walloc'@>
+@<Definition for `\_Wmempoint'@>
+@<Definition for `\_Wtrash'@>
 @
 \fimcodigo
 
@@ -1065,7 +1065,7 @@ implementations with problems with memory alignment. At the same time
 this was expected to be higher enough to make \monoespaco{malloc}
 implementations ask for more memory to the Operating System, as this
 value is higher than the page system in the tested system. In the
-function \monoespaco{Walloc}, we opted for always use the left stack,
+function \monoespaco{\_Walloc}, we opted for always use the left stack,
 as this should be the faster stack benefiting from spatial locality.
 
 It's important to notice that while the functions defined here in this
@@ -1132,12 +1132,12 @@ consideration evaluating the performance of this function.
 
 \subsecao{3.2. Linux (Ubuntu 19.04)}
 
-Ao contrário do OpenBSD que implementa medidas adicionais no alocador
-de memória para randomizar os endereços obtidos e que sempre retorna
-imediatamente a memória liberada para o kernel, o Linux tem suas
-funções mais orientadas a ter um desempenho maior, mesmo que com menos
-medidas de segurança. Todas as funções estadas demonstram executar em
-tempo constante no Linux. Os dados obtidos são:
+Contrary to OpenBSD which implements additional measures in the
+allocator to randomize the obtained addresses and that always return
+freed memory to the kernel imediately, Linux implementations
+for \monoespaco{malloc} and \monoespaco{free} are more performance
+oriented, opting to use less security measures. All tested functions
+run in constant time. The data obtained are:
 
 \vbox{%A forma mais geral de remover espaçamento entre linhas:
 \baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
@@ -1147,33 +1147,31 @@ tempo constante no Linux. Os dados obtidos são:
 \halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
 \hfil#& \vrule#& \hfil#\hfil& \vrule#&
 \hfil#& \vrule#\tabskip=0pt\cr\linha
-&&\omit\hidewidth Função Linux\hidewidth&&\omit\hidewidth
-Média ($\mu$s)\hidewidth&&
-\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\omit\hidewidth Linux Function\hidewidth&&\omit\hidewidth
+Means ($\mu$s)\hidewidth&&
+\omit\hidewidth Standard Deviation ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&2,71246735&&0,801445880&\cr\linha
 &&\monoespaco{free}&&0,87757830&&0,141186377&\cr\linha
 &&\monoespaco{\_Walloc}&&0,76750440&&0,218803555&\cr\linha
 &&\monoespaco{\_Wmempoint}&&0,75614315&&0,155982817&\cr\linha
 &&\monoespaco{\_Wtrash}&&0,75579410&&0,066124620&\cr\linha}}
 
-Todas as funções então apresentam um desempenho bastante semelhante,
-pró\-xi\-mo de 1 microssegundo de tempo. Só a
-função \monoespaco{malloc} da biblioteca padrão que apresenta um
-desempenho pior e com maior variação. Comparando os piores casos, a
-nossa função \monoespaco{\_Walloc} executa cerca de quatro vezes mais
-rápido.
+All the functions have a very similar performance, running in about 1
+microsecond. Only \monoespaco{malloc} function from standard library
+present a worst performance and with more deviation. Comparing the
+worst cases, our function runs about four times faster.
 
 \imagem{images/linux.eps}
 
 \subsecao{3.3. Windows 10}
 
-O Windows 10 se destaca por ter tempos médios relativamente baixos em
-suas funções, mas desvios padrão altos, o que indica que embora o
-desempenho seja alto, ocasionalmente pode-se ter azar e ter que passar
-por uma espera maior para que a chamada de sistema termine devolvendo
-a memória pedida. Apesar dos tempos baixos de execução das funções de
-gerenciamento de memória, nossa implementação conseguiu tempos ainda
-menores e sem o problema do desvio padrão alto.
+Windows 10 stands out for having very short execution times in
+average, but higher standard deviations. While the functions are fast,
+sometimes we can have bad luck needing to wait for longer periods
+before receiving the requested memory. Despite the fast native
+implementation compared with other systems, our implementation managed
+to achieve even shorter execution times with much smaller standard
+deviation.
 
 \vbox{%A forma mais geral de remover espaçamento entre linhas:
 \baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
@@ -1183,22 +1181,22 @@ menores e sem o problema do desvio padrão alto.
 \halign to15cm{\col#& \vrule#\tabskip=1em plus2em&
 \hfil#& \vrule#& \hfil#\hfil& \vrule#&
 \hfil#& \vrule#\tabskip=0pt\cr\linha
-&&\omit\hidewidth Função Windows\hidewidth&&\omit\hidewidth
-Média ($\mu$s)\hidewidth&&
-\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+&&\omit\hidewidth Windows Function\hidewidth&&\omit\hidewidth
+Mean ($\mu$s)\hidewidth&&
+\omit\hidewidth Standard Deviation ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&1,59881&&11,466939064&\cr\linha
 &&\monoespaco{free}&&0,57427&&9.402517112&\cr\linha
 &&\monoespaco{\_Walloc}&&0,00003&&0.005477171&\cr\linha
 &&\monoespaco{\_Wmempoint}&&0,00515&&0,233332428&\cr\linha
 &&\monoespaco{\_Wtrash}&&0,00045&&0,097825831&\cr\linha}}
 
-O comportamento das funções no Windows parece indicar uma diferença de
-filosofia na implementação comparada à implementação Linux. No Windows
-a prioridade parece ser deixar o tempo médio das funções menor, mesmo
-que para isso tenha-se que lidar com um pior caso muito ruim, mas que
-dificilmente acontece. No Linux a prioridade era evitar surpresas
-ruins com o pior caso, mesmo que para isso o tempo médio de execução
-fique um pouco maior.
+The defferent behaviour in Windws functions indicates the differen
+philosophies between Windows and Linus implementations. In Windows the
+priority appears to be achieving smaller averages for execution times,
+even if sometimes we need to deal with a rare worst case scenario
+where the performance becames terrible. In Linux the priority is
+avoiding unpleasant surprises with the worst case scenario, even if
+this makes our average case slower.
 
 \imagem{images/windows.eps}
 
@@ -1213,8 +1211,8 @@ fique um pouco maior.
 \hfil#& \vrule#& \hfil#\hfil& \vrule#&
 \hfil#& \vrule#\tabskip=0pt\cr\linha
 &&\omit\hidewidth Web Assembly
-(Firefox)\hidewidth&&\omit\hidewidth Média ($\mu$s)\hidewidth&&
-\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+(Firefox)\hidewidth&&\omit\hidewidth Mean ($\mu$s)\hidewidth&&
+\omit\hidewidth Standard Deviation ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&2,399475651&&48.931141529&\cr\linha
 &&\monoespaco{free}&&0,489213791&&22,130980751&\cr\linha
 &&\monoespaco{\_Walloc}&&0,394548569&&19,744325980&\cr\linha
@@ -1223,26 +1221,25 @@ fique um pouco maior.
 
 \imagem{images/web_firefox.eps}
 
-Executando em um ambiente Web Assembly em um navegador de Internet,
-compreensivelmente todas as funções passaram a ter desvio padrão
-maior. A surpresa é que o tempo médio muitas vezes foi menor comparado
-ao do Sistema Operacional (os testes de Web Assembly foram feitos no
-Linux) e as nossas funções, ainda demonstraram desvio menor que as
-funções da biblioteca do sistema.
+While running Web Assembly environment in a web browser, predictably
+all our functions presented bigger standard deviations. The big
+surprise is that the average time sometimes managed to be smaller
+comparing with the Operating System (this test was done in Linux). Our
+functions also presented less standard deviation than functions from
+system libraries.
 
-No gráfico não é possível distinguir as funções \monoespaco{\_Walloc}
-e \monoespaco{\_Wtrash}, já que ambas tiveram comportamento praticamente
-idêntico nos testes.
+In the above graph, we can't distinguish the
+functions \monoespaco{\_Walloc} and \monoespaco{\_Wtrash}, because
+both achieved practically identical performance.
 
 \subsecao{3.5. Web Assembly (Microsoft Edge 40.15254.369)}
 
-Executando o código em Web Assembly no Microsoft Edge do Windows 10
-tivemos um desempenho semelhante ao Web Assembly do Firefox. A
-diferença é que as funções tendem a gastar um tempo um pouco mais
-previsível, com um desvio padrão menor. O tempo médio ficou apenas
-ligeiramente menor. Aqui o \monoespaco{malloc} sendo executado no
-navegador de Internet teve um desempenho médio melhor que
-o \monoespaco{malloc} executando nativamente.
+Running Web Assembly code in Microsoft Edge at Windows 10 we got a
+performance similar to Web Assembly running at Firefox. The difference
+is that here the functions spend a more predictably time running, with
+a smaller standard deviation. Here \monoespaco{malloc} running in the
+web browser had a better running time in average comparing
+with \monoespaco{malloc} running natively.
 
 \vbox{%A forma mais geral de remover espaçamento entre linhas:
 \baselineskip-1000pt\lineskip0pt\lineskiplimit16383.99999pt\tabskip0pt
@@ -1253,59 +1250,55 @@ o \monoespaco{malloc} executando nativamente.
 \hfil#& \vrule#& \hfil#\hfil& \vrule#&
 \hfil#& \vrule#\tabskip=0pt\cr\linha
 &&\omit\hidewidth Web Assembly
-(Edge)\hidewidth&&\omit\hidewidth Média ($\mu$s)\hidewidth&&
-\omit\hidewidth Desvio Padrão ($\mu$s)\hidewidth&\cr\linha
+(Edge)\hidewidth&&\omit\hidewidth Mean ($\mu$s)\hidewidth&&
+\omit\hidewidth Standard Deviation ($\mu$s)\hidewidth&\cr\linha
 &&\monoespaco{malloc}&&1,075476093&&36,039479231&\cr\linha
 &&\monoespaco{free}&&0,620922375&&24,892216258&\cr\linha
 &&\monoespaco{\_Walloc}&&0,366360054&&18,970295969&\cr\linha
 &&\monoespaco{\_Wmempoint}&&0,346548996&&19,232215457&\cr\linha
 &&\monoespaco{\_Wtrash}&&0,302235565&&17,317682053&\cr\linha}}
 
-O gráfico abaixo está exatamente na mesma escala que o anterior do
-desempenho no Firefox.
+The graph below uses the same scale than the previous one with Firefox
+results.
 
 \imagem{images/web_edge.eps}
 
-\secao{4. Conclusão}
+\secao{4. Conclusion}
 
-Em todos os casos de teste, as funções que desenvolvemos apresentaram
-um desempenho de tempo melhor e mais previsível em comparação às
-funções de gerenciamento de memória nativas. O desempenho ocorre
-principalmente devido a não precisarmos realizar chamadas de sistema
-para alocar mais memória, uma chamada de sistema ocorre na
-inicialização e depois disso apenas gerenciamos esta mesma memória
-alocada.
+In all test cases, the functions developed here present a better
+performance and a more predictably running time comparing with native
+implementations. This is because in our implementation we don't need
+to use system calls asking for more memory. We use a single system
+call at initialization and after this our functions manage this single
+big chunk of memory.
 
-Isso traz a desvantagem de termos que especificar logo no começo da
-execução de um programa qual a quantidade máxima de memória que ele
-poderá usar. Outra desvantagem existente é não termos mais acesso à
-uma função \monoespaco{free}. Toda a desalocação deve ocorrer em
-blocos. Em aplicações que podem se adaptar à este esquema, elas podem
-obter melhoras de desempenho ainda maiores, pois sucessivas chamadas
-de uma função \monoespaco{free} podem ser substituídas por uma só
-chamada de função \monoespaco{\_Wtrash}.
+This have the drawback of requiring us to specify at initialization
+what the maximum ammount of memory our program needs. The second
+drawback is that we don't have the function \monoespaco{free}. All
+deallocation must happen in blocks. In applications adaptable to this
+scheme, the performance gains are even bigger, because instead of
+successive calls to \monoespaco{free}, we can use a
+single \monoespaco{\_Wtrash} call to free many allocations at once.
 
-Em alguns casos, pode-se usar em
-sequência \monoespaco{\_Wmempoint}, \monoespaco{\_Walloc}
-e \monoespaco{\_Wtrash} para simular um uso de \monoespaco{malloc}
-seguido de \monoespaco{free} para quando quer se alocar algo
-temporariamente para ser desalocado em seguida. Para este caso, em
-todos os sistemas testados chamar as três primeiras funções é mais
-rápido que chamar as duas últimas e o desempenho continua melhor.
+In some cases we can use in
+sequentially \monoespaco{\_Wmempoint}, \monoespaco{\_Walloc}
+and \monoespaco{\_Wtrash} to simulate a call of \monoespaco{malloc}
+followed by \monoespaco{free} when we need a temporary and short lived
+allocation. In this case, the results show that calling the three
+functions is faster than calling the two (\monoespaco{malloc}
+and \monoespaco{free}) in all tested platforms.
 
-Todas as desvantagens expostas não são um problema em algumas
-aplicações como o desenvolvimento de jogos. Neles de qualquer forma
-não se deve usar mais recursos do que o que é especificado de antemão
-e a estrutura de um jogo se adapta à um gerenciador de memória baseado
-em pilhas de alocação. O uso das funções definidas aqui pode então
-trazer vantagens como diminuição de tempo de carregamento de recursos
-graças à alocações mais rápidas, que em um jogo tipicamente ocorrem na
-inicialização de um novo cenário ou fase do jogo.
+The previous disadvantages are usually not a big problem in some
+applications as game development. In them we usually shouldn't spend
+more than a fixed and documented ammount of resources like memory. A
+game can easily be organized to fit in our stack-based allocation
+scheme. If so, the functions defined here bring benefits like less
+loading times thanks to faster allocations, which in a game usually
+happends during the initialization of a new scenario or stage.
 
-\secao{Referências}
+\secao{References}
 
-\referencia{Gregory, J. (2019) ``Game Engine Architecture'', CRC Press, terceira
-edição.}
+\referencia{Gregory, J. (2019) ``Game Engine Architecture'', CRC Press, third edition.}
 
 \referencia{Zakai, A. (2011) ``Emscripten: an LLVM-to-JavaScript compiler'',
 Proceedings of the ACM international conference companion on Object
@@ -1316,10 +1309,6 @@ p. 301--312.}
 volume 27, edição 2, p. 97--111}
 
 \referencia{Ranck, S. (2000) ``Game Programming Gems'', Charles River Media,
-volume 1, edição 1, p. 92--100}
-
-
-
-
+volume 1, edition 1, p. 92--100}
 
 \fim

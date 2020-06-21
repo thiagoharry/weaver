@@ -2,7 +2,7 @@
 
 A portable memory manager for game engines written in literary programming style
 
-Read the code [here (in portuguese)](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager.pdf)
+Read the code [here (in portuguese)](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager.pdf) or [here (in english)](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager_en.pdf)
 
 This memory manager is self contained in the files present in src/ folder. To use it, just put these files in your project.
 
