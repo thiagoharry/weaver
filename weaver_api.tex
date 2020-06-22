@@ -191,6 +191,7 @@ arquivo \monoespaco{weaver.c}:
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 #include "../game.h"
+@<API Weaver: Varáves Estáticas@>
 @<API Weaver: Definições@>
 @<API Weaver: Funções@>
 @<API Weaver: Base@>
@@ -1028,6 +1029,44 @@ void _exit_loop(void){
 }
 @
 \fimcodigo
+
+\secao{Gerenciamento de Memória}
+
+O gerenciamento de memória utiliza um subsistema próprio que fornece
+suas próprias funções de alocação e gerenciamento de memória. Uma das
+diferenças do subsistema utilizado e do gerenciamento tradicional por
+meio das funções \monoespaco{malloc} e \monoespaco{free} é que nele
+somos obrigados a informar com antecedência qual a quantidade máxima
+de memória que iremos precisar.
+
+A quantidade máxima deve ser pensada de acordo com as especificações
+de um projeto. Um jogo feito para um console pode usar como quantidade
+máxima a quantidade de RAM da especificação do console. Um projeto
+escrito para rodar em computadores pode começar com um valor pequeno,
+talvez potência de dois que sempre irá dobrar à medida que o projeto
+vai sendo escrito e a quantidade inicial não é mais o suficiente,
+sempre cuidando para que o valor não se torne maior que o suportado
+pelas máquinas na qual espera-se rodar o programa após ser finalizado.
+
+Espera-se que o usuário informe qual a quantidade máxima de memória
+definindo a macro \monoespaco{W\_MAX\_MEMORY}
+em \monoespaco{conf/conf.h}. Se esta macro não estiver definida, vamos
+deliberadamente escolher o valor pequeno de 4 MiB, o qual forçará o
+usuário a ter que explicitar um valor mais adequado exceto nos
+menores e mais triviais dos projetos:
+
+@<Cabeçalhos Weaver@>+=
+#ifndef W_MAX_MEMORY
+#define W_MAX_MEMORY 4096
+#endif
+@
+
+Essa quantidade máxima de memória será alocada durante a inicialização
+e armazenaremos o endereço para ela na variável abaixo:
+
+@<API Weaver: Varáves Estáticas@>=
+static void *memory_arena;
+@
 
 \secao{Definições Vazias}
 

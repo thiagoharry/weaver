@@ -861,7 +861,6 @@ Now we define the described loop:
 \iniciocodigo
 @<Initialization@>+=
 {
-  size_t tmp_size = strlen(complete_path);
   // Testa se chegamos ao fim:
   while(strcmp(complete_path, "/.weaver") &&
         strcmp(complete_path, "\\.weaver") &&
@@ -876,7 +875,10 @@ Now we define the described loop:
     else{
       path_up(complete_path);
 #ifdef __OpenBSD__
-      strlcat(complete_path, "/.weaver", tmp_size);
+      {
+        size_t tmp_size = strlen(complete_path);
+        strlcat(complete_path, "/.weaver", tmp_size);
+      }
 #else
       strcat(complete_path, "/.weaver");
 #endif
@@ -1793,7 +1795,6 @@ if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
    argument2 != NULL){
     FILE *fp;
     size_t tmp_size, number = 0;
-    int shader_number;
     char *buffer;
     @<Shader: Count number of files and get shader number@>
     // Creating the shader:
@@ -1896,7 +1897,6 @@ The code for this in Linux is:
   closedir(shader_dir);
   for(i = 0; i <= max_number; i ++)
     if(exists[i] == false){
-      shader_number = i + 1;
       break;
     }
   free(exists);
@@ -1972,7 +1972,6 @@ parts are the same:
   FindClose(shader_dir);
   for(i = 0; i <= max_number; i ++)
   if(exists[i] == false){
-    shader_number = i + 1;
     break;
   }
   free(exists);

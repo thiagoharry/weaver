@@ -6,7 +6,7 @@ PLUGINS=$(shell shopt -s nullglob dotglob; for i in plugins/*.c; do\
          echo compiled_plugins/$$(basename $${i%%.c}).so; done)
 W_OBJ=$(shell for i in src/weaver/*.c; do\
         echo .weaver/$$(basename $${i%%.c}).o; done)
-MISC_OBJ=.misc/sqlite3.o
+#MISC_OBJ=.misc/sqlite3.o
 HEADERS=$(shell echo src/*.h src/weaver/*.h)
 DEFINES=-DW_PROG=\"${PROG}\"
 FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=gnu99

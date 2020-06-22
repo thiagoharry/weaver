@@ -179,6 +179,18 @@ function test_new_project(){
 	make &> /dev/null
     fi
     assertExecutableRun "Testing main loop flow" ./test
+    ####### Memory test
+    rm -f test
+    cp ../test3.c src/game.c
+    if [[ ${OSTYPE} == *"bsd"* ]]; then
+	gmake &> /dev/null
+    elif [[ ${OSTYPE} ==  "msys" ]]; then
+	MSBuild.exe &> /dev/null
+    else
+	make &> /dev/null
+    fi
+    assertExecutableRun "Testing memory subsystem" ./test
+
     #######
     cd - > /dev/null
     rm -rf .test/test
