@@ -150,7 +150,7 @@ install: uninstall
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
-test:
+test: project/src/weaver/memory.c project/src/weaver/memory.h
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program.tex
@@ -161,6 +161,14 @@ test:
 	@cp -r base/* .test/share
 	@cp -r project/* .test/share/project/
 	@bash ./.test/test.sh
+submodules:
+	git submodule update --init --recursive --remote
+project/src/weaver/memory.c: submodules
+	cp weaver-memory-manager/src/memory.c project/src/weaver/memory.c
+project/src/weaver/memory.h: submodules
+	cp weaver-memory-manager/src/memory.h project/src/weaver/memory.h
+
+
 doc_en:
 	tex weaver_program_en.tex
 	dvipdf weaver_program_en.dvi

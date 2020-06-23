@@ -143,7 +143,7 @@ function test_new_project(){
     elif [[ ${OSTYPE} ==  "msys" ]]; then
 	MSBuild.exe &> /dev/null
     else
-	make &> /dev/null
+	make
     fi
     assertExecutableExists "Testing project compilation" test
     ########

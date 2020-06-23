@@ -171,7 +171,7 @@ em \monoespaco{game.h}. Podemos então começar a definir tal estrutura:
 extern struct _weaver_struct{
   struct _game_struct *game;
   @<Variáveis Weaver@>
-  //@<Funções Weaver@>
+  @<Funções Weaver@>
 } W;
 @
 \fimcodigo
@@ -191,7 +191,8 @@ arquivo \monoespaco{weaver.c}:
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 #include "../game.h"
-@<API Weaver: Varáves Estáticas@>
+@<API Weaver: Cabeçalhos Internos@>
+@<API Weaver: Variáves Estáticas@>
 @<API Weaver: Definições@>
 @<API Weaver: Funções@>
 @<API Weaver: Base@>
@@ -247,7 +248,7 @@ void Wexit(void);
 \iniciocodigo
 @<API Weaver: Base@>=
 void Wexit(void){
-  //@<API Weaver: Finalização@>
+  @<API Weaver: Finalização@>
   exit(0);
 }
 @
@@ -1055,18 +1056,130 @@ deliberadamente escolher o valor pequeno de 4 MiB, o qual forçará o
 usuário a ter que explicitar um valor mais adequado exceto nos
 menores e mais triviais dos projetos:
 
+\iniciocodigo
 @<Cabeçalhos Weaver@>+=
 #ifndef W_MAX_MEMORY
 #define W_MAX_MEMORY 4096
 #endif
 @
+\fimcodigo
 
 Essa quantidade máxima de memória será alocada durante a inicialização
 e armazenaremos o endereço para ela na variável abaixo:
 
-@<API Weaver: Varáves Estáticas@>=
+\iniciocodigo
+@<API Weaver: Variáves Estáticas@>=
 static void *memory_arena;
 @
+\fimcodigo
+
+Para podermos usar as funções de nosso subsistema de memória,
+incluimos o cabeçalho:
+
+\iniciocodigo
+@<API Weaver: Cabeçalhos Internos@>=
+#include "memory.h"
+@
+\fimcodigo
+
+E durante a inicialização nós alocamos em nossa arena de memória
+interna toda a memória que iremos precisar ao longo da execução de
+nosso projeto:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>
+memory_arena = _Wcreate_arena(W_MAX_MEMORY);
+@
+\fimcodigo
+
+Na finalização nós desalocamos toda a memória obtida na
+inicialização. Mas antes disso nós desalocamos qualquer outra coisa
+que tenha sido alocada na inicialização. A invocação para a
+função \monoespaco{\_Wtrash} faz isso: desaloca tudo da pilha da
+direita (por isso o argumento 1 abaixo), o local reservado para
+alocações internas da nossa API:
+
+\iniciocodigo
+@<API Weaver: Finalização@>=
+_Wtrash(memory_arena, 1);
+_Wdestroy_arena(memory_arena);
+@
+\fimcodigo
+
+Antes de entrar em cada laço principal, usamos a
+função \monoespaco{\_Wmempoint}. Esta função salva o estado atual da
+memória para podermos voltar até ele depois. Fazendo isso, depois para
+desalocarmos de uma só vez tudo que foi alocado durante o laço
+principal torna-se fácil: é só restaurar a arena de memória para o
+estado salvo.
+
+Como salvar o estado atual requer escrever na memória, vamos precisar
+saber qual o alinhamento de bytes recomendado para o nosso CPU. Weaver
+obtém este valor da macro \monoespaco{W\_MEMORY\_ALIGNMENT} que pode
+ser definida em \monoespaco{conf/conf.h}. Se ela não estiver definida,
+nós usamos por padrão o tamanho de um \monoespaco{unsigned long} como
+palpite.
+
+\iniciocodigo
+@<Cabeçalhos Weaver@>+=
+#ifndef W_MEMORY_ALIGNMENT
+#define W_MEMORY_ALIGNMENT (sizeof(unsigned long))
+#endif
+@
+\fimcodigo
+
+Com isso podemos salvar o estado da pilha esquerda e direita de nossa
+arena de memória:
+
+\iniciocodigo
+@<Código antes de Loop e Subloop@>+=
+_Wmempoint(arena, W_MEMORY_ALIGNMENT, 0);
+_Wmempoint(arena, W_MEMORY_ALIGNMENT, 1);
+@
+\fimcodigo
+
+Isso significa que assim que sairmos de um laço, devemos restaurar o
+estado da arena de memória para como estava quando entramos nele,
+tanto na pilha de memória da esquerda como da direita:
+
+\iniciocodigo
+@<Cancela Loop Principal@>
+_Wtrash(memory_arena, 0);
+_Wtrash(memory_arena, 1);
+@
+\fimcodigo
+
+E isso basicamente será o coletor de lixo de nosso projeto. Vamos
+agora definir uma função para que o usuário possa usar nossa função de
+alocação de memória. Todas as alocações feitas pelo usuário devem ser
+da pilha esquerda da memória, usando o alinhamento padrão:
+
+\iniciocodigo
+@<API Weaver: Funções@>=
+static void *_alloc(size_t size){
+  return _Walloc(arena, W_MEMORY_ALIGNMENT, 0, size);
+}
+@
+\fimcodigo
+
+Vamos declarar um ponteiro para esta função dentro da
+estrutura \monoespaco{W} para que a função possa ser invocada
+como \monoespaco{W.alloc()}:
+
+\iniciocodigo
+@<Funções Weaver@>=
+void *(*alloc)(size_t);
+@
+\fimcodigo
+
+E a função estará pronta para ser usada após a inicialização:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+W.alloc = _alloc;
+@
+\fimcodigo
+
 
 \secao{Definições Vazias}
 
@@ -1082,11 +1195,6 @@ posteriormente preenchidas e melhor explicadas.
 
 \iniciocodigo
 @<Código após sairmos de Subloop@>=
-@
-\fimcodigo
-
-\iniciocodigo
-@<API Weaver: Funções@>=
 @
 \fimcodigo
 
