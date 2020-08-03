@@ -75,6 +75,9 @@ function assertExecutableRun(){
     for (( i=2; i <= $((65-${LENGTH_STRING})); ++i )); do
 	echo -n "."
     done
+    echo  "---"
+    echo ${2}
+    echo "---"
     if  ${2} 2> /dev/null; then
 	echo "[OK]"
 	OK=$((${OK}+1))
@@ -143,7 +146,7 @@ function test_new_project(){
     elif [[ ${OSTYPE} ==  "msys" ]]; then
 	MSBuild.exe &> /dev/null
     else
-	make
+	make &> /dev/null
     fi
     assertExecutableExists "Testing project compilation" test
     ########

@@ -48,4 +48,3 @@ files. Nontrivial modifications usually require updates in the text to
 explain what the new code does. You can update just the TeX file in
 english or just the file in portuguese. After this I will update the
 other file to keep the versions in the two languages the same.
-

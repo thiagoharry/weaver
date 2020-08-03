@@ -142,6 +142,7 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
   extern "C" {
 #endif
 #include "../../conf/conf.h"
+#include <stdlib.h> // Always useful. Declares 'size_t'.
 @<Estrutura Global@>
 @<Cabeçalhos Weaver@>
 @<Macros Weaver@>
@@ -1133,8 +1134,8 @@ arena de memória:
 
 \iniciocodigo
 @<Código antes de Loop e Subloop@>+=
-_Wmempoint(arena, W_MEMORY_ALIGNMENT, 0);
-_Wmempoint(arena, W_MEMORY_ALIGNMENT, 1);
+_Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 0);
+_Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 1);
 @
 \fimcodigo
 
@@ -1157,7 +1158,7 @@ da pilha esquerda da memória, usando o alinhamento padrão:
 \iniciocodigo
 @<API Weaver: Funções@>=
 static void *_alloc(size_t size){
-  return _Walloc(arena, W_MEMORY_ALIGNMENT, 0, size);
+  return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 0, size);
 }
 @
 \fimcodigo
