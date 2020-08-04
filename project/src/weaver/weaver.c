@@ -202,7 +202,11 @@ W.t= 0;
 #line 869 "./weaver_api.tex"
 
 _number_of_loops= 0;
-/*:33*//*52:*/
+/*:33*//*45:*/
+#line 1091 "./weaver_api.tex"
+
+memory_arena= _Wcreate_arena(W_MAX_MEMORY);
+/*:45*//*52:*/
 #line 1179 "./weaver_api.tex"
 
 W.alloc= _alloc;
@@ -257,7 +261,12 @@ if(_number_of_loops> 0){
 #if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
 #endif
-/*:35*/
+/*:35*//*49:*/
+#line 1147 "./weaver_api.tex"
+
+_Wtrash(memory_arena,0);
+_Wtrash(memory_arena,1);
+/*:49*/
 #line 888 "./weaver_api.tex"
 
 _number_of_loops--;

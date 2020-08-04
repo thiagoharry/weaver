@@ -1088,7 +1088,7 @@ interna toda a memória que iremos precisar ao longo da execução de
 nosso projeto:
 
 \iniciocodigo
-@<API Weaver: Inicialização@>
+@<API Weaver: Inicialização@>+=
 memory_arena = _Wcreate_arena(W_MAX_MEMORY);
 @
 \fimcodigo
@@ -1144,7 +1144,7 @@ estado da arena de memória para como estava quando entramos nele,
 tanto na pilha de memória da esquerda como da direita:
 
 \iniciocodigo
-@<Cancela Loop Principal@>
+@<Cancela Loop Principal@>+=
 _Wtrash(memory_arena, 0);
 _Wtrash(memory_arena, 1);
 @

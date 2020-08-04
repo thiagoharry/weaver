@@ -75,9 +75,6 @@ function assertExecutableRun(){
     for (( i=2; i <= $((65-${LENGTH_STRING})); ++i )); do
 	echo -n "."
     done
-    echo  "---"
-    echo ${2}
-    echo "---"
     if  ${2} 2> /dev/null; then
 	echo "[OK]"
 	OK=$((${OK}+1))
