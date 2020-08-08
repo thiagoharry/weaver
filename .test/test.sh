@@ -190,7 +190,6 @@ function test_new_project(){
 	make &> /dev/null
     fi
     assertExecutableRun "Testing memory subsystem" ./test
-
     #######
     cd - > /dev/null
     rm -rf .test/test

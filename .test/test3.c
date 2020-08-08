@@ -14,7 +14,7 @@ void loop3(void);
 
 void loop1(void){
  LOOP_INIT:
-  p = W.alloc(W_MAX_MEMORY - 32);
+  p = W.alloc(W_MAX_MEMORY * 3 / 4);
   if(p == NULL){
     fprintf(stderr, "Alloc 1 failed.\n");
     exit(1);
@@ -27,7 +27,7 @@ void loop1(void){
 
 void loop2(void){
  LOOP_INIT:
-  p = W.alloc(W_MAX_MEMORY - 32);
+  p = W.alloc(W_MAX_MEMORY  * 3 / 4);
   if(p == NULL){
     fprintf(stderr, "Alloc 2 failed.\n");
     exit(1);
@@ -40,8 +40,7 @@ void loop2(void){
 
 void loop3(void){
  LOOP_INIT:
-  printf("Loop 3\n");
-  p = W.alloc(W_MAX_MEMORY - 32);
+  p = W.alloc(W_MAX_MEMORY  * 3 / 4);
   if(p == NULL){
     fprintf(stderr, "Alloc 3 failed.\n");
     exit(1);
