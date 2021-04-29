@@ -3,11 +3,11 @@ MAKE=$(shell if which gmake > /dev/null; then echo gmake; else echo make; fi)
 PROG=$(shell cat .weaver/name)
 CORES=$(shell grep -c ^processor /proc/cpuinfo 2> /dev/null)
 
-XLIB=$(shell pkg-config --cflags --libs x11)
-GL=$(shell pkg-config --cflags --libs gl glew)
-AL=$(shell pkg-config --cflags --libs openal)
-PNG=$(shell pkg-config --cflags --libs libpng)
-MPG123=$(shell pkg-config --cflags --libs libmpg123)
+#XLIB=$(shell pkg-config --cflags --libs x11)
+#GL=$(shell pkg-config --cflags --libs gl glew)
+#AL=$(shell pkg-config --cflags --libs openal)
+#PNG=$(shell pkg-config --cflags --libs libpng)
+#MPG123=$(shell pkg-config --cflags --libs libmpg123)
 
 TARGET_TEST=$(shell egrep "\#define[ \t]+W_TARGET[ \t]+W_" conf/conf.h | egrep -o "(W_WEB|W_ELF)")
 INSTALL_DATA_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_DATA[ \t]\+" conf/conf.h | grep -o "\".*\"")
@@ -41,7 +41,7 @@ endif
 ifeq ($(strip $(TARGET_TEST)),W_WEB)
 web: test_emcc test_xxd shader_data make-web
 else
-prog: test_cc test_xlib test_xrandr test_opengl test_openal test_xxd ${TEST_PNG} ${TEST_MP3} shader_data make-prog
+prog: test_cc test_xxd shader_data make-prog
 endif
 make-prog:
 	@if [ -e .error ]; then	rm .error; \
