@@ -167,8 +167,10 @@ project/src/weaver/memory.c: submodules
 	cp weaver-memory-manager/src/memory.c project/src/weaver/memory.c
 project/src/weaver/memory.h: submodules
 	cp weaver-memory-manager/src/memory.h project/src/weaver/memory.h
-
-
+project/src/weaver/random.c: submodules
+	cp weaver-random/src/random.c project/src/weaver/random.c
+project/src/weaver/random.h: submodules
+	cp weaver-random/src/random.h project/src/weaver/random.h
 doc_en:
 	tex weaver_program_en.tex
 	dvipdf weaver_program_en.dvi

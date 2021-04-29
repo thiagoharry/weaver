@@ -1,3 +1,6 @@
 [submodule "weaver-memory-manager"]
 	path = weaver-memory-manager
 	url = https://github.com/thiagoharry/weaver-memory-manager.git
+[submodule "weaver-random"]
+	path = weaver-random
+	url = https://github.com/thiagoharry/weaver-random.git
