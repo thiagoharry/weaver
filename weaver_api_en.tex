@@ -157,7 +157,7 @@ in the code comments that the
 extern struct _weaver_struct{
   struct _game_struct *game;
   @<Weaver Variables@>
-  //@<Weaver Functions@>
+  @<Weaver Functions@>
 } W;
 @
 \fimcodigo
@@ -176,6 +176,8 @@ our \monoespaco{weaver.c} file:
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 #include "../game.h"
+@<Weaver API: Internal Header@>
+@<Weaver API: Static Variables@>
 @<Weaver API: Definitions@>
 @<Weaver API: Functions@>
 @<Weaver API: Base@>
@@ -230,7 +232,7 @@ void Wexit(void);
 \iniciocodigo
 @<Weaver API: Base@>=
 void Wexit(void){
-  //@<Weaver API: Finalization@>
+  @<Weaver API: Finalization@>
   exit(0);
 }
 @
@@ -982,6 +984,140 @@ traditional memory management with functions \monoespaco{malloc}
 and \monoespaco{free} is that here we need to inform the maximum
 ammount of memory that we will need.
 
+The maximum numbe of memory used will change according with the
+project. A game mede to a video-game console could just use the
+maximum quantity of available memory. A project made to run in a PC
+could begin in the development with a small quantity and this quantity
+could be doubled each time th project grows and require more memory,
+until achieving a maximum quantity, where the developers will try to
+decrease the memory consumption. The maximum memory in a PC game will
+be the expected specifications for target consumer machines when the
+game is finished.
+
+We expect that the user will inform the maximum quantity of memory
+using the macro \monoespaco{W\_MAX\_MEMORY}
+in \monoespaco{conf/conf.h}. If the macro is not defined, we choose
+the small value of 4 MiB. This will force the user to specify a more
+realistic value after some time, except in the most trivial projects.
+
+\iniciocodigo
+@<Weaver Headers@>+=
+#ifndef W_MAX_MEMORY
+#define W_MAX_MEMORY 4096
+#endif
+@
+\fimcodigo
+
+The maximum quantity of informed memory will be allocated during
+initialization and we will return the address to the pointer below:
+
+\iniciocodigo
+@<Weaver API: Static Variables@>=
+static void *memory_arena;
+@
+\fimcodigo
+
+To use the functions in the memory subsystem, we include the header:
+
+\iniciocodigo
+@<Weaver API: Internal Header@>=
+#include "memory.h"
+@
+\fimcodigo
+
+And during the initialization we allocate in our internal memory arena
+all the memory that we will need along the project execution:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+memory_arena = _Wcreate_arena(W_MAX_MEMORY);
+@
+\fimcodigo
+
+During the finalization we free the allocated memory obtained during
+the initialization. But before this we free any other structure that
+may be allocated during the initialization. We invoke
+function \monoespaco{\_Wtrasj} to do this: free everything in the
+right memory stack (to clean the right memory stack we pass argument
+1), the place reserved to internal allocations in our API:
+
+\iniciocodigo
+@<Weaver API: Finalization@>=
+_Wtrash(memory_arena, 1);
+_Wdestroy_arena(memory_arena);
+@
+\fimcodigo
+
+Before entering in a main loop, we use the
+function \monoespaco{\_Wmempoint}. This function saves the state of
+our memory so that in the future we can return to this state. Doing
+this we can disallocate at once everything that will be allocated
+during the main loop.
+
+As saving the state require knowing the memory byte alignment
+recommended in our environment. Weaver will get this value from
+macro \monoespaco{W\_MEMORY\_ALIGNMENT} that can be defined explicitly
+in \monoespaco{conf/conf.h}. If this macro is not defined, we use as
+default the size of a \monoespaco{unsigned long} as a guess.
+
+\iniciocodigo
+@<Weaver Headers@>+=
+#ifndef W_MEMORY_ALIGNMENT
+#define W_MEMORY_ALIGNMENT (sizeof(unsigned long))
+#endif
+@
+\fimcodigo
+
+Knowing this we can save the state in our memory (the left and right
+stack):
+
+\iniciocodigo
+@<Code Before Loop and Subloop@>+=
+_Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 0);
+_Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 1);
+@
+\fimcodigo
+
+This means that when we exit from this loop, we will restore the
+memory state to how it was before entering in the loop. Both on left
+as in right stack:
+
+\iniciocodigo
+@<Cancel Main Loop@>+=
+_Wtrash(memory_arena, 0);
+_Wtrash(memory_arena, 1);
+@
+\fimcodigo
+
+This basicly willl be the garbage collector in our project. We will
+define now a function to the user use our memory allocation. All user
+allocations will be done in the left stack using the default byte
+alignment:
+
+\iniciocodigo
+
+@<Weaver API: Functions@>=
+static void *_alloc(size_t size){
+  return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 0, size);
+}
+@
+\fimcodigo
+
+We will decalre a pointer for this function in struct \monoespaco{W} and this function will be invoked as \monoespaco{W.alloc()}:
+
+\iniciocodigo
+@<Weaver Functions@>=
+void *(*alloc)(size_t);
+@
+\fimcodigo
+
+And this function will be ready to be used after the initialization:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+W.alloc = _alloc;
+@
+\fimcodigo
 
 
 
@@ -999,11 +1135,6 @@ parts after will be written and better explained.
 
 \iniciocodigo
 @<Code after Exiting Subloop@>=
-@
-\fimcodigo
-
-\iniciocodigo
-@<Weaver API: Functions@>=
 @
 \fimcodigo
 
