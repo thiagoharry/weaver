@@ -1119,7 +1119,172 @@ W.alloc = _alloc;
 @
 \fimcodigo
 
+\secao{Random Number Generator}
 
+First we need to insert the header for our pseudo-random number
+generation subsystem:
+
+\iniciocodigo
+@<Weaver API: Internal Header@>+=
+#include "random.h"
+@
+\fimcodigo
+
+Next we will declare a ponter to our generator struct:
+
+\iniciocodigo
+@<Weaver API: Static Variables@>+=
+static struct _Wrng *rng;
+@
+\fimcodigo
+
+If the user of this API pass a predefined seed using
+macro \monoespaco{W_RNG_SEED}, we will use such seed to initialize the
+generator:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+#if defined(W_RNG_SEED)
+rng = _Wcreate_rng(malloc, sizeof(W_RNG_SEED)/sizeof(uint64_t),
+                   W_RNG_SEED);
+#endif
+@
+\fimcodigo
+
+If a predefined seed does not exist, we will generate a seed uniformly
+at random. Our seed will be four random 64-bit numbers. This is
+sufficient to ensure the quality for any generator. How to do this
+depends on the environment where the program is running.
+
+In Linux we can use the syscall \monoespaco{getrandom}. The first
+argument for its corresponding C function is the buffer to be filled,
+the second is the size in bytes and the third are flags to change the
+default behaviour. The function returns the number of random bytes
+filled (can be less than asked if the system call is interrupted by a
+signal):
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+#if !defined(W_RNG_SEED) && defined(__linux__)
+{
+  ssize_t ret;
+  uint64_t buffer[4];
+  do{
+    ret = getrandom(buffer, 4 * 8, 0);
+  }while(ret != 4 * 8);
+}
+#endif
+@
+\fimcodigo
+
+But this requires that the following header be added:
+
+\iniciocodigo
+@<Weaver API: Internal Header@>+=
+#if !defined(W_RNG_SEED) && defined(__linux__)
+#include <sys/random.h>
+#endif
+@
+\fimcodigo
+
+Systems based on BSD, including Mac OS can obtain initial random
+values using the function \monoespaco{arc4random\_buf}. The function
+already is included in the standard library and never fails:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+#if !defined(W_RNG_SEED) && defined(BSD)
+{
+  uint64_t buffer[4];
+  arc4random_buf(buffer, 4 * 8);
+  rng = _Wcreate_rng(malloc, 4, buffer);
+}
+#endif
+@
+\fimcodigo
+
+In Windows, secure cryptographic random number generators can be
+accessed using the so called ``Cryptography API: Next Generation''
+(CNG). To fill our initial seed with impredictable seed we call the
+function responsible for generating random numbers in the API. The
+first argument is NULL because the last argument is a flag indicating
+that the system preferred RNG should be used. Without this flag we
+should indicate explicitly the preferred algorithm. The other
+arguments are the buffer to be filled and the size.
+
+The documentation do not list all possible failures for the Windows
+cryptographic random number generator. Therefore, we cannot be sure if
+some error that prevent its usage is temporary (as in the Linux case
+where a signal can make the syscall \monoespaco{getrandom} fail) or if
+something can cause a permanent error. To prevent infinite loops in
+case of error, if we fail at filling the buffer with a random seed
+after 16 tries, we give up. But the expected is that this function
+succeed in the first try:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+#if !defined(W_RNG_SEED) && defined(_WIN32)
+{
+  uint64_t buffer[4];
+  NTSTATUS ret;
+  int count = 0;
+  do{
+    ret = BCryptGenRandom(NULL, buffer, 8 * 4,
+                          BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    count ++;
+  } while(ret != STATUS_SUCCESS && count < 16);
+  if(ret != STATUS_SUCCESS){
+    fprintf(stderr, "ERROR: I could not initialize the RNG.\n");
+    exit(1);
+  }
+  rng = _Wcreate_rng(malloc, 4, buffer);
+}
+#endif
+@
+\fimcodigo
+
+To use WIndows CNG API we first need to include this header:
+
+\iniciocodigo
+@<Weaver API: Internal Header@>+=
+#if !defined(W_RNG_SEED) && defined(_WIN32)
+#include <bcrypt.h>
+#endif
+@
+\fimcodigo
+
+If we are running a Web Assembly code in a browser environment, to
+initialize a seed with unpredictable values, we can run Javascript
+code to access the Crypto API in the Browser. We can
+use \monoespaco{EM\_ASM\_INT} to run Javascript code and get an
+integer (that for Emscripten always have 32 bits). Composing 8 numbers
+with 32 bits we get 4 numbers with 64 bits as in the other
+environments:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+#if !defined(W_RNG_SEED) && defined(__EMSCRIPTEN__)
+{
+  uint64_t buffer[4];
+  int i;
+  for(i = 0; i < 4; i ++){
+    buffer[i] = EM_ASM_INT({
+      var array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0];
+    });
+    buffer[i] = buffer[i] << 32;
+    buffer[i] += EM_ASM_INT({
+      var array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0];
+    });
+  }
+  rng = _Wcreate_rng(_alloc, 4, buffer);
+}
+#endif
+@
+\fimcodigo
 
 \secao{Empty Definitions}
 
@@ -1129,33 +1294,27 @@ exist in the final version of this document and the currently blank
 parts after will be written and better explained.
 
 \iniciocodigo
-@<Code before Subloop, not Loop@>=
-@
+@<Code before Subloop, not Loop@>= @
 \fimcodigo
 
 \iniciocodigo
-@<Code after Exiting Subloop@>=
-@
+@<Code after Exiting Subloop@>= @
 \fimcodigo
 
 \iniciocodigo
-@<Code to execute every loop@>=
-@
+@<Code to execute every loop@>= @
 \fimcodigo
 
 \iniciocodigo
-@<Render Code@>=
-@
+@<Render Code@>= @
 \fimcodigo
 
 \iniciocodigo
-@<Code before Loop, not Subloop@>=
-@
+@<Code before Loop, not Subloop@>= @
 \fimcodigo
 
 \iniciocodigo
-@<Weaver Macros@>=
-@
+@<Weaver Macros@>= @
 \fimcodigo
 
 

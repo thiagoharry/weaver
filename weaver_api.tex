@@ -1,4 +1,4 @@
-\font\sixteen=cmbx16
+ex\font\sixteen=cmbx16
 \font\twelve=cmr12
 \font\fonteautor=cmbx12
 \font\fonteemail=cmtt10
@@ -1181,6 +1181,178 @@ W.alloc = _alloc;
 @
 \fimcodigo
 
+\secao{Gerador de Números Randômicos}
+
+Primeiro temos que inserir o cabeçalho para o subsistema de geração de
+números pseudo-randômicos:
+
+\iniciocodigo
+@<API Weaver: Cabeçalhos Internos@>+=
+#include "random.h"
+@
+\fimcodigo
+
+Em seguida, vamos declara o ponteiro para a estrutura de nosso
+gerador:
+
+\iniciocodigo
+@<API Weaver: Variáves Estáticas@>+=
+static struct _Wrng *rng;
+@
+\fimcodigo
+
+Se o usuário da API Weaver passar uma semente pré-definida por meio da
+macro \monoespaco{W_RNG_SEED}, usaremos tal semente para inicializar
+nosso gerador:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+#if defined(W_RNG_SEED)
+rng = _Wcreate_rng(_alloc, sizeof(W_RNG_SEED)/sizeof(uint64_t),
+                   W_RNG_SEED);
+#endif
+@
+\fimcodigo
+
+Se não existir uma semente pré-definida, iremos gerar uma semente
+obtida aleatória e uniformemente. Nossa semente será formada por
+quatro números aleatórios de 64 bits, pois isso é o suficiente para
+garantir a qualidade de qualquer gerador. Como fazer isso depende de
+nosso ambiente de execução.
+
+No Linux podemos usar a chamada de sistema \monoespaco{getrandom}. O
+primeiro argumento de sua função em C é um buffer a ser preenchido, o
+segundo argumento é o tamanho do buffer em bytes e o terceiro são
+flags que mudam o comportamento padrão. A função retorna quantos bytes
+realmente foram preenchidos (pode ser menos que o pedido se a chamada
+de sistema for interrompida por um sinal):
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+#if !defined(W_RNG_SEED) && defined(__linux__)
+{
+  ssize_t ret;
+  uint64_t buffer[4];
+  do{
+    ret = getrandom(buffer, 4 * 8, 0);
+  }while(ret != 4 * 8);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
+}
+#endif
+@
+\fimcodigo
+
+Mas isso requer que adicionemos o cabeçalho para chamar esta função:
+
+\iniciocodigo
+@<API Weaver: Cabeçalhos Internos@>+=
+#if !defined(W_RNG_SEED) && defined(__linux__)
+#include <sys/random.h>
+#endif
+@
+\fimcodigo
+
+Sistemas baseados em BSD, incluindo Mac OS podem obter valores
+aleatórios iniciais usando a função \monoespaco{arc4random\_buf}. A
+função já é fornecida no cabeçalho da biblioteca padrão e não falha em
+nenhum caso:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+#if !defined(W_RNG_SEED) && defined(BSD)
+{
+  uint64_t buffer[4];
+  arc4random_buf(buffer, 4 * 8);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
+}
+#endif
+@
+\fimcodigo
+
+No Windows, geradores de números aleatórios criptograficametne seguros
+podem ser chamadas pela assim cahamada ``API de Criptografia: Próxima
+Geração'' (CNG). Para preencher a semente com valores imprevisíveis
+chamamos a função abaixo. O primeiro argumento é nulo porque o último
+argumento é uma flag que indica que o algoritmo a ser usado deve ser o
+que quer que seja recomendado pelo sistema. Sem esta flag, o primeiro
+argumento deveria indicar o algoritmo escolhido. Os outros dois
+parâmetros da função é o buffer a ser preenchido e o tamanho em bytes.
+
+Como a documentação não lista todas as causas possíveis que podem
+levar esta função à falhar, não temos como garantir que qualquer falha
+que tenhamos é sempre temporária (como no caso do Linux em que elas
+podem ser causadas por algum sinal enviado) ou pode ser
+permanente. Sendo assim, o que faremos é tentar novamente um número
+finito de vezes caso não tenhamos sucesso ao preencher nosso
+vetor. Tentamos um total de 16 vezes, mas o esperado é que não hajam
+problemas e que a primeira tentativa seja bem-sucedida.
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+#if !defined(W_RNG_SEED) && defined(_WIN32)
+{
+  uint64_t buffer[4];
+  NTSTATUS ret;
+  int count = 0;
+  do{
+    ret = BCryptGenRandom(NULL, buffer, 8 * 4,
+                          BCRYPT_USE_SYSTEM_PREFERRED_RNG);
+    count ++;
+  } while(ret != STATUS_SUCCESS && count < 16);
+  if(ret != STATUS_SUCCESS){
+    fprintf(stderr, "ERROR: I could not initialize the RNG.\n");
+    exit(1);
+  }
+  rng = _Wcreate_rng(_alloc, 4, buffer);
+}
+#endif
+@
+\fimcodigo
+
+Para usar a API CNG do Windows nós primeiro precisamos inserir este
+cabeçalho:
+
+\iniciocodigo
+@<API Weaver: Cabeçalhos Internos@>+=
+#if !defined(W_RNG_SEED) && defined(_WIN32)
+#include <bcrypt.h>
+#endif
+@
+\fimcodigo
+
+Se estamos executando código Web Assembly no ambiente de um navegador
+de Internet, para inicializar uma semente com valores imprevisíveis,
+nós podemos executar código Javascript e obter assim acesso à API
+criptográfica do navegador de Internet. Podemos
+usar \monoespaco{EM\_ASM\_INT} para executar código Javascript e obter
+um inteiro como retorno após cada execução (que para o Emscripten
+sempre tem 32 bits). Compondo 8 números de 32 bits nós podemos formar
+4 números de 64 bits:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+#if !defined(W_RNG_SEED) && defined(__EMSCRIPTEN__)
+{
+  uint64_t buffer[4];
+  int i;
+  for(i = 0; i < 4; i ++){
+    buffer[i] = EM_ASM_INT({
+      var array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0];
+    });
+    buffer[i] = buffer[i] << 32;
+    buffer[i] += EM_ASM_INT({
+      var array = new Uint32Array(1);
+      window.crypto.getRandomValues(array);
+      return array[0];
+    });
+  }
+  rng = _Wcreate_rng(_alloc, 4, buffer);
+}
+#endif
+@
+\fimcodigo
 
 \secao{Definições Vazias}
 
