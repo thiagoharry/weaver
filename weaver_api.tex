@@ -143,6 +143,7 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
 #endif
 #include "../../conf/conf.h"
 #include <stdlib.h> // Always useful. Declares 'size_t'.
+#include <stdint.h>
 @<Estrutura Global@>
 @<Cabeçalhos Weaver@>
 @<Macros Weaver@>
@@ -238,7 +239,8 @@ void Winit(void){
 
 A função de finalização deve desalocar qualquer memória pendente,
 finalizar o uso de recursos, e deve também fechar o programa
-informando que tudo correu bem se assim realmente ocorreu:
+informando que tudo correu bem se assim realmente ocorreu. Notar que a
+memória deve ser a última coisa finalizada.
 
 \iniciocodigo
 @<Cabeçalhos Weaver@>=
@@ -250,6 +252,7 @@ void Wexit(void);
 @<API Weaver: Base@>=
 void Wexit(void){
   @<API Weaver: Finalização@>
+  @<API Weaver: Memória: Finalização@>
   exit(0);
 }
 @
@@ -1101,7 +1104,7 @@ direita (por isso o argumento 1 abaixo), o local reservado para
 alocações internas da nossa API:
 
 \iniciocodigo
-@<API Weaver: Finalização@>=
+@<API Weaver: Memória: Finalização@>=
 _Wtrash(memory_arena, 1);
 _Wdestroy_arena(memory_arena);
 @
@@ -1217,8 +1220,12 @@ rng = _Wcreate_rng(_alloc, sizeof(W_RNG_SEED)/sizeof(uint64_t),
 Se não existir uma semente pré-definida, iremos gerar uma semente
 obtida aleatória e uniformemente. Nossa semente será formada por
 quatro números aleatórios de 64 bits, pois isso é o suficiente para
-garantir a qualidade de qualquer gerador. Como fazer isso depende de
-nosso ambiente de execução.
+garantir a qualidade de qualquer gerador. Ao invés de escolher o
+método mais simples de usar o horário atual como semente, iremos gerar
+ela da maneira mais aleatória e imprevisível possível. Espera-se que
+isso aumente a qualidade dos números aleatórios gerados. Mas gerar
+sementes tão aleatórias desta forma em alguns sistemas envolve o uso
+de uma API criptográfica.
 
 No Linux podemos usar a chamada de sistema \monoespaco{getrandom}. O
 primeiro argumento de sua função em C é um buffer a ser preenchido, o
@@ -1353,6 +1360,48 @@ sempre tem 32 bits). Compondo 8 números de 32 bits nós podemos formar
 #endif
 @
 \fimcodigo
+
+Se inicializamos o nosso gerador de números aleatórios durante a
+inicialização da API Weaver, vamos finalizar ele durante a finalização
+da API. O código para isso é:
+
+\iniciocodigo
+@<API Weaver: Finalização@>=
+_Wdestroy_rng(NULL, rng);
+@
+\fimcodigo
+
+Precisamos agora de uma função que apenas retorne um número aleatório
+de 64 bits, sem precisar passar como argumento o próprio
+gerador.Podemos construir tal função assim:
+
+\iniciocodigo
+@<API Weaver: Funções@>=
+static uint64_t *_rand(void){
+  return _Wrand(rng);
+}
+@
+\fimcodigo
+
+Para permitir que ela seja usada externamente como parte de nossa API,
+declaramos um ponteiro para ela na estrutura \monoespaco{W}:
+
+\iniciocodigo
+@<Funções Weaver@>=
+uint64_t (*rand)(void);
+@
+\fimcodigo
+
+E o ponteiro pode ser invocado como função após a seguinte
+inicialização:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+W.rand = _rand;
+@
+\fimcodigo
+
+
 
 \secao{Definições Vazias}
 

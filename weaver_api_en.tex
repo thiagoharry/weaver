@@ -129,6 +129,8 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
   extern "C" {
 #endif
 #include "../../conf/conf.h"
+#include <stdlib.h> // Always useful. Declares 'size_t'.
+#include <stdint.h>
 @<Global Structure@>
 @<Weaver Headers@>
 @<Weaver Macros@>
@@ -221,7 +223,8 @@ void Winit(void){
 
 The finalization function shall deallocate any pending memory, end
 resource usage and close the program informing if everything happened
-as expected:
+as expected. Note that the memory should be the last thing to be
+finalized.
 
 \iniciocodigo
 @<Weaver Headers@>=
@@ -233,6 +236,7 @@ void Wexit(void);
 @<Weaver API: Base@>=
 void Wexit(void){
   @<Weaver API: Finalization@>
+  @<Weaver API: Memory: Finalization@>
   exit(0);
 }
 @
@@ -1042,7 +1046,7 @@ right memory stack (to clean the right memory stack we pass argument
 1), the place reserved to internal allocations in our API:
 
 \iniciocodigo
-@<Weaver API: Finalization@>=
+  @<Weaver API: Memory: Finalization@>=
 _Wtrash(memory_arena, 1);
 _Wdestroy_arena(memory_arena);
 @
@@ -1153,8 +1157,11 @@ rng = _Wcreate_rng(malloc, sizeof(W_RNG_SEED)/sizeof(uint64_t),
 
 If a predefined seed does not exist, we will generate a seed uniformly
 at random. Our seed will be four random 64-bit numbers. This is
-sufficient to ensure the quality for any generator. How to do this
-depends on the environment where the program is running.
+sufficient to ensure the quality for any generator. Instead of using
+simpler methods like choosing the current time as a seed, our seed
+will be the most random and unpredictable possible. This is expected
+to produce better quality results. But to generate seeds in this way,
+in some systems we need to use some underlying cryptographic API.
 
 In Linux we can use the syscall \monoespaco{getrandom}. The first
 argument for its corresponding C function is the buffer to be filled,
@@ -1285,6 +1292,46 @@ environments:
 #endif
 @
 \fimcodigo
+
+If we initialized our random number generation during Weaver
+initialization, then we need to finalize it during the
+finalization. The code for this is:
+
+\iniciocodigo
+@<Weaver API: Finalization@>=
+_Wdestroy_rng(NULL, rng);
+@
+\fimcodigo
+
+Now we need a function to use the random number generator without
+needing to pass the generator as an argument. We can build such
+function as:
+
+\iniciocodigo
+@<Weaver API: Functions@>=
+static uint64_t _rand(void){
+  return _Wrand(rng);
+}
+@
+\fimcodigo
+
+To allow usage of this function in our API we declare a pointer to in
+in our \monoespaco{W} struct:
+
+\iniciocodigo
+@<Weaver Functions@>=
+uint64_t (*rand)(void);
+@
+\fimcodigo
+
+And the pointer can be invoked after this initialization:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+W.rand = _rand;
+@
+\fimcodigo
+
 
 \secao{Empty Definitions}
 

@@ -150,7 +150,7 @@ install: uninstall
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
-test: project/src/weaver/memory.c project/src/weaver/memory.h
+test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program.tex
