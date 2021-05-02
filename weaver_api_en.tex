@@ -128,7 +128,6 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 #ifdef __cplusplus
   extern "C" {
 #endif
-#include "../../conf/conf.h"
 #include <stdlib.h> // Always useful. Declares 'size_t'.
 #include <stdint.h>
 @<Global Structure@>
@@ -140,9 +139,6 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 #endif
 @
 \fimcodigo
-
-We include in the header the configuration file \monoespaco{conf.h}
-responsible to control the settings of our engine.
 
 \subsecao{1.2. The W Structure}
 
@@ -1149,8 +1145,11 @@ generator:
 \iniciocodigo
 @<Weaver API: Initialization@>+=
 #if defined(W_RNG_SEED)
-rng = _Wcreate_rng(malloc, sizeof(W_RNG_SEED)/sizeof(uint64_t),
-                   W_RNG_SEED);
+{
+  uint64_t seed[] = W_RNG_SEED;
+  rng = _Wcreate_rng(_alloc, sizeof(seed)/sizeof(uint64_t),
+                     seed);
+}
 #endif
 @
 \fimcodigo

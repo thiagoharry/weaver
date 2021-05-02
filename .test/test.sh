@@ -190,6 +190,28 @@ function test_new_project(){
 	make &> /dev/null
     fi
     assertExecutableRun "Testing memory subsystem" ./test
+    ####### RNG test
+    rm -f test
+    echo "#include \"game.h\"" > src/game.c
+    echo "int main(void){" >> src/game.c
+    echo "Winit();" >> src/game.c
+    echo "printf(\"%lx\", W.rand());" >> src/game.c
+    echo "Wexit();" >> src/game.c
+    echo "}" >> src/game.c
+    echo "#define W_RNG_CHACHA20" > conf/conf.h
+    #echo "#define W_DEBUG_RNG" >> conf/conf.h
+    echo "#define W_RNG_SEED {0x07cc385417a42d75, 0x0597cd50b285404e}" >> conf/conf.h
+    if [[ ${OSTYPE} == *"bsd"* ]]; then
+	gmake &> /dev/null
+    elif [[ ${OSTYPE} ==  "msys" ]]; then
+	MSBuild.exe &> /dev/null
+    else
+	make &> /dev/null
+    fi
+    ./test > file1.dat
+    echo -ne "e9a250eea9e8bf94" > file2.dat
+    assertEqualFiles "Testing RNG subsystem" file1.dat file2.dat
+    rm file1.dat file2.dat
     #######
     cd - > /dev/null
     rm -rf .test/test

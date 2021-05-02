@@ -141,7 +141,6 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
 #ifdef __cplusplus
   extern "C" {
 #endif
-#include "../../conf/conf.h"
 #include <stdlib.h> // Always useful. Declares 'size_t'.
 #include <stdint.h>
 @<Estrutura Global@>
@@ -153,10 +152,6 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
 #endif
 @
 \fimcodigo
-
-Notar que incluímos no cabeçalho o arquivo de
-configuração \monoespaco{conf.h} responsável por controlar e
-configurar o comportamento de nosso motor.
 
 \subsecao{1.2. A Estrutura W}
 
@@ -1211,8 +1206,11 @@ nosso gerador:
 \iniciocodigo
 @<API Weaver: Inicialização@>+=
 #if defined(W_RNG_SEED)
-rng = _Wcreate_rng(_alloc, sizeof(W_RNG_SEED)/sizeof(uint64_t),
-                   W_RNG_SEED);
+{
+  uint64_t seed[] = W_RNG_SEED;
+  rng = _Wcreate_rng(_alloc, sizeof(seed)/sizeof(uint64_t),
+                     seed);
+}
 #endif
 @
 \fimcodigo
@@ -1377,7 +1375,7 @@ gerador.Podemos construir tal função assim:
 
 \iniciocodigo
 @<API Weaver: Funções@>=
-static uint64_t *_rand(void){
+static uint64_t _rand(void){
   return _Wrand(rng);
 }
 @
