@@ -851,6 +851,19 @@ void _Wloop(void (*f)(void)){
 @
 \fimcodigo
 
+But we must remember that if we are running in a Web Assembly
+environment in the browser, we need to include the correct header for
+this:
+
+\iniciocodigo
+@<Weaver API: Internal Header@>+=
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
+@
+\fimcodigo
+
+
 Cancelling a main loop involves calling a function if we are running
 in Web Assembly environment:
 

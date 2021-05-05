@@ -1,4 +1,4 @@
-ex\font\sixteen=cmbx16
+\font\sixteen=cmbx16
 \font\twelve=cmr12
 \font\fonteautor=cmbx12
 \font\fonteemail=cmtt10
@@ -897,6 +897,17 @@ void _Wloop(void (*f)(void)){
     f();
 #endif
 }
+@
+\fimcodigo
+
+Lembrando que se estivermos executando em ambiente Web Assembly em
+navegador precisamos do cabeçalho adequado:
+
+\iniciocodigo
+@<API Weaver: Cabeçalhos Internos@>+=
+#if defined(__EMSCRIPTEN__)
+#include <emscripten.h>
+#endif
 @
 \fimcodigo
 

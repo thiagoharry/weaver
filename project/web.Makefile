@@ -3,42 +3,23 @@ EMCC=emcc
 PROG=$(shell cat .weaver/name)
 BC=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).bc; done)
 W_BC=$(shell for i in src/weaver/*.c; do echo .weaver/$$(basename $${i%%.c}).bc; done)
-PLUGIN_BC=$(shell if [ "$(ls -A plugins/)" ]; then for i in plugins/*.c; do echo .plugin/$$(basename $${i%%.c}).bc; done; fi)
-SHADER_PRELOAD=$(shell if [ -z "$(ls  shaders/)" ]; then for i in shaders/*/*.glsl; do echo "--preload-file $${i}"; done; fi)
 HEADERS=$(shell echo src/*.h)
 PLUGINS=$(shell [ "$(ls -A plugins/)" ] && echo plugins/*.c)
-LIB= -lm -pthread
+LIB= -lm
 DEFINES=-DW_PROG=\"${PROG}\"
 PLUGINS_NUM=$(shell ls -1 plugins | wc -l)
 FLAGS=-Wall -O2 -D_W_NUMBER_OF_PLUGINS=${PLUGINS_NUM}
 NUMBER_OF_SHADERS=$(shell ls -1 shaders/ | wc -l)
-MAX_MEMORY=$(shell grep "^\#define[ \t]\+W_MAX_MEMORY[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
-WEB_MEMORY=$(shell grep "^\#define[ \t]\+W_WEB_MEMORY[ \t]\+" conf/conf.h | grep -o "[0-9]\+")
-THREADED=$(shell grep "^\#define[ \t]\+W_MULTITHREAD" conf/conf.h)
-ifeq ($(THREADED),)
-THREAD_FLAG=
-else
-THREAD_FLAG=-s USE_PTHREADS=2
-endif
-FINAL_FLAGS=-s STB_IMAGE=1 -s ASYNCIFY=1 -s TOTAL_MEMORY=$$((${MAX_MEMORY}+${WEB_MEMORY}-(${MAX_MEMORY}+${WEB_MEMORY})%16777216)) ${THREAD_FLAG}
 
 SOURCE_TEST=$(shell grep "^\#define[ \t]\+W_SOURCE[ \t]\+W_" conf/conf.h | grep -o "\(W_C\|W_CPP\)")
-ifeq ($(strip $(SOURCE_TEST)),W_C)
 FINAL_CC=${EMCC}
-else ifeq ($(strip $(SOURCE_TEST)),W_CPP)
-FINAL_CC=emcc++
-else
-err:
-	$(error Invalid W_SOURCE in conf/conf.h)
-endif
 
-
-make-web: create_plugin_code create_shader_code ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
+make-web: ${BC} ${W_BC} ${HEADERS} ${PLUGINS} conf/conf.h
 	mkdir -p docs
 	cp -r sound/ docs
 	cp -r music/ docs
 	cp -r image/ docs
-	${FINAL_CC} -O2 ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o docs/index.html ${LIB}
+	${FINAL_CC} -O2 -include conf/conf.h ${DEFINES} ${BC} ${PLUGIN_BC} ${W_BC} ${FINAL_FLAGS} ${SHADER_PRELOAD} -o docs/index.html ${LIB}
 create_shader_code:
 	mkdir -p .hidden_code .plugin
 	echo "struct _shader _shader_list[${NUMBER_OF_SHADERS}];" > .hidden_code/shader.h
@@ -82,6 +63,6 @@ create_plugin_code:
         count=$$(($${count}+1)); \
         done; fi
 %.bc: src/%.c ${HEADERS}
-	${EMCC} ${DEFINES} ${FLAGS} -c $< -o $$(basename $< .c).bc
+	${EMCC} -include conf/conf.h ${DEFINES} ${FLAGS} -c $< -o $$(basename $< .c).bc
 .weaver/%.bc: src/weaver/%.c ${HEADERS}
-	${EMCC} ${DEFINES} ${FLAGS} -c $< -o $(subst src/weaver/,.weaver/,$(subst .c,.bc,$<))
+	${EMCC} -include conf/conf.h ${DEFINES} ${FLAGS} -c $< -o $(subst src/weaver/,.weaver/,$(subst .c,.bc,$<))

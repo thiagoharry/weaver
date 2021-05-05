@@ -38,11 +38,8 @@ else
 TEST_PNG=
 endif
 
-ifeq ($(strip $(TARGET_TEST)),W_WEB)
-web: test_emcc test_xxd shader_data make-web
-else
 prog: test_cc test_xxd shader_data make-prog
-endif
+web: test_emcc test_xxd shader_data make-web
 make-prog:
 	@if [ -e .error ]; then	rm .error; \
 	else ${MAKE} --no-print-directory -j ${CORES} -f prog.Makefile; fi

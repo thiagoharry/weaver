@@ -1,5 +1,5 @@
 /*1:*/
-#line 138 "weaver_api.tex"
+#line 138 "./weaver_api.tex"
 
 #ifndef _weaver_h_
 #define _weaver_h_
@@ -9,14 +9,14 @@ extern"C"{
 #include <stdlib.h>  
 #include <stdint.h> 
 /*2:*/
-#line 165 "weaver_api.tex"
+#line 165 "./weaver_api.tex"
 
 
 
 extern struct _weaver_struct{
 struct _game_struct*game;
 /*17:*/
-#line 570 "weaver_api.tex"
+#line 570 "./weaver_api.tex"
 
 
 #if !defined(W_MAX_LOOP_NAME)
@@ -25,42 +25,42 @@ struct _game_struct*game;
 unsigned pending_files;
 char loop_name[W_MAX_LOOP_NAME];
 /*:17*//*23:*/
-#line 682 "weaver_api.tex"
+#line 682 "./weaver_api.tex"
 
 unsigned long long t;
 unsigned long dt;
 /*:23*/
-#line 170 "weaver_api.tex"
+#line 170 "./weaver_api.tex"
 
-/*51:*/
-#line 1169 "weaver_api.tex"
+/*52:*/
+#line 1180 "./weaver_api.tex"
 
 void*(*alloc)(size_t);
-/*:51*//*64:*/
-#line 1388 "weaver_api.tex"
+/*:52*//*65:*/
+#line 1399 "./weaver_api.tex"
 
 uint64_t(*rand)(void);
-/*:64*/
-#line 171 "weaver_api.tex"
+/*:65*/
+#line 171 "./weaver_api.tex"
 
 }W;
 /*:2*/
-#line 146 "weaver_api.tex"
+#line 146 "./weaver_api.tex"
 
 /*5:*/
-#line 221 "weaver_api.tex"
+#line 221 "./weaver_api.tex"
 
 void Winit(void);
 /*:5*//*7:*/
-#line 241 "weaver_api.tex"
+#line 241 "./weaver_api.tex"
 
 void Wexit(void);
 /*:7*//*9:*/
-#line 259 "weaver_api.tex"
+#line 259 "./weaver_api.tex"
 
 #include <stdlib.h> 
 /*:9*//*10:*/
-#line 284 "weaver_api.tex"
+#line 284 "./weaver_api.tex"
 
 #if defined(_WIN32)
 #include <windows.h> 
@@ -70,16 +70,16 @@ LARGE_INTEGER _last_time;
 struct timeval _last_time;
 #endif
 /*:10*//*12:*/
-#line 313 "weaver_api.tex"
+#line 313 "./weaver_api.tex"
 
 unsigned long _update_time(void);
 /*:12*//*15:*/
-#line 541 "weaver_api.tex"
+#line 541 "./weaver_api.tex"
 
 #include <stdbool.h> 
 bool _running_loop,_loop_begin,_loop_finalized;
 /*:15*//*19:*/
-#line 593 "weaver_api.tex"
+#line 593 "./weaver_api.tex"
 
 #if !defined(_MSC_VER)
 void _exit_loop(void)__attribute__((noreturn));
@@ -89,7 +89,7 @@ __declspec(noreturn)void _exit_loop(void);
 
 
 /*:19*//*20:*/
-#line 614 "weaver_api.tex"
+#line 614 "./weaver_api.tex"
 
 #define LOOP_INIT                                                   \
   if(!_running_loop){                                               \
@@ -106,15 +106,15 @@ __declspec(noreturn)void _exit_loop(void);
   snprintf(W.loop_name, W_MAX_LOOP_NAME, "%s", __func__);            \
   _BEGIN_LOOP_INITIALIZATION
 /*:20*//*21:*/
-#line 663 "weaver_api.tex"
+#line 663 "./weaver_api.tex"
 
 unsigned long _lag;
 /*:21*//*25:*/
-#line 711 "weaver_api.tex"
+#line 711 "./weaver_api.tex"
 
 void _update(void);
 /*:25*//*27:*/
-#line 731 "weaver_api.tex"
+#line 731 "./weaver_api.tex"
 
 #define LOOP_BODY                                            \
   _loop_begin =   false;                                      \
@@ -126,11 +126,11 @@ _END_LOOP_INITIALIZATION:                                    \
     _update();                                               \
 _LABEL_0
 /*:27*//*28:*/
-#line 773 "weaver_api.tex"
+#line 773 "./weaver_api.tex"
 
 void _render(void);
 /*:28*//*30:*/
-#line 792 "weaver_api.tex"
+#line 792 "./weaver_api.tex"
 
 #define LOOP_END                                           \
     _lag -=   40000;                                        \
@@ -141,7 +141,7 @@ void _render(void);
   goto _LABEL_0;                                           \
 _LOOP_FINALIZATION
 /*:30*//*31:*/
-#line 828 "weaver_api.tex"
+#line 828 "./weaver_api.tex"
 
 #if !defined(_MSC_VER)
 void _Wloop(void(*f)(void))__attribute__((noreturn));
@@ -152,49 +152,49 @@ __declspec(noreturn)void Wsubloop(void(*f)(void));
 #endif
 #define Wloop(a) ((W.pending_files)?(false):(_Wloop(a)))
 /*:31*//*32:*/
-#line 855 "weaver_api.tex"
+#line 855 "./weaver_api.tex"
 
 #if !defined(W_MAX_SUBLOOP)
 #define W_MAX_SUBLOOP 3
 #endif
 int _number_of_loops;
 void(*_loop_stack[W_MAX_SUBLOOP])(void);
-/*:32*//*37:*/
-#line 948 "weaver_api.tex"
+/*:32*//*38:*/
+#line 959 "./weaver_api.tex"
 
 #include <stdio.h> 
-/*:37*//*39:*/
-#line 986 "weaver_api.tex"
+/*:38*//*40:*/
+#line 997 "./weaver_api.tex"
 
 #define Wexit_loop() (_running_loop =  false)
-/*:39*//*40:*/
-#line 997 "weaver_api.tex"
+/*:40*//*41:*/
+#line 1008 "./weaver_api.tex"
 
 #if !defined(_MSC_VER)
 void _exit_loop(void)__attribute__((noreturn));
 #else
 __declspec(noreturn)void _exit_loop(void);
 #endif
-/*:40*//*42:*/
-#line 1059 "weaver_api.tex"
+/*:41*//*43:*/
+#line 1070 "./weaver_api.tex"
 
 #ifndef W_MAX_MEMORY
 #define W_MAX_MEMORY 4096
 #endif
-/*:42*//*47:*/
-#line 1123 "weaver_api.tex"
+/*:43*//*48:*/
+#line 1134 "./weaver_api.tex"
 
 #ifndef W_MEMORY_ALIGNMENT
 #define W_MEMORY_ALIGNMENT (sizeof(unsigned long))
 #endif
-/*:47*/
-#line 147 "weaver_api.tex"
+/*:48*/
+#line 147 "./weaver_api.tex"
 
-/*71:*/
-#line 1437 "weaver_api.tex"
+/*72:*/
+#line 1448 "./weaver_api.tex"
 
-/*:71*/
-#line 148 "weaver_api.tex"
+/*:72*/
+#line 148 "./weaver_api.tex"
 
 #ifdef __cplusplus
 }
