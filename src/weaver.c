@@ -1,14 +1,14 @@
 /*1:*/
-#line 217 "./weaver_program.tex"
+#line 217 "weaver_program.tex"
 
 /*3:*/
-#line 287 "./weaver_program.tex"
+#line 287 "weaver_program.tex"
 
 #include <stdio.h>  
 #include <stdbool.h>  
 #include <stdlib.h>  
 /*:3*//*7:*/
-#line 382 "./weaver_program.tex"
+#line 382 "weaver_program.tex"
 
 #if !defined(_WIN32)
 #include <sys/types.h>  
@@ -17,34 +17,34 @@
 #include <windows.h>  
 #endif
 /*:7*//*9:*/
-#line 446 "./weaver_program.tex"
+#line 446 "weaver_program.tex"
 
 #include <string.h>  
 #include <stdarg.h>  
 /*:9*//*11:*/
-#line 484 "./weaver_program.tex"
+#line 484 "weaver_program.tex"
 
 #if !defined(_WIN32)
 #include <libgen.h> 
 #endif
 /*:11*//*16:*/
-#line 639 "./weaver_program.tex"
+#line 639 "weaver_program.tex"
 
 #if !defined(_WIN32)
 #include <dirent.h>  
 #endif
 /*:16*//*22:*/
-#line 902 "./weaver_program.tex"
+#line 902 "weaver_program.tex"
 
 #if !defined(_WIN32)
 #include <unistd.h>  
 #endif
 /*:22*//*32:*/
-#line 1154 "./weaver_program.tex"
+#line 1154 "weaver_program.tex"
 
 #include <ctype.h>  
 /*:32*//*39:*/
-#line 1392 "./weaver_program.tex"
+#line 1392 "weaver_program.tex"
 
 #if !defined(_WIN32)
 #include <pwd.h>  
@@ -54,29 +54,29 @@
 #include <Lmcons.h> 
 #endif
 /*:39*//*43:*/
-#line 1470 "./weaver_program.tex"
+#line 1470 "weaver_program.tex"
 
 #include <time.h>  
 /*:43*/
-#line 218 "./weaver_program.tex"
+#line 218 "weaver_program.tex"
 
 /*2:*/
-#line 271 "./weaver_program.tex"
+#line 271 "weaver_program.tex"
 
 #define VERSION "Alpha"
 #define W_ERROR() {perror(NULL); return_value =  1; goto END_OF_PROGRAM;}
 #define END() goto END_OF_PROGRAM;
 /*:2*//*5:*/
-#line 349 "./weaver_program.tex"
+#line 349 "weaver_program.tex"
 
 #define NAO_EXISTE             0
 #define EXISTE_E_EH_DIRETORIO  1
 #define EXISTE_E_EH_ARQUIVO   -1
 /*:5*/
-#line 219 "./weaver_program.tex"
+#line 219 "weaver_program.tex"
 
 /*4:*/
-#line 313 "./weaver_program.tex"
+#line 313 "weaver_program.tex"
 
 void path_up(char*path){
 #if !defined(_WIN32)
@@ -94,7 +94,7 @@ if(*p==separator)erased++;
 }
 }
 /*:4*//*6:*/
-#line 357 "./weaver_program.tex"
+#line 357 "weaver_program.tex"
 
 int directory_exist(char*dir){
 #if !defined(_WIN32)
@@ -114,7 +114,7 @@ else return EXISTE_E_EH_DIRETORIO;
 #endif
 }
 /*:6*//*8:*/
-#line 402 "./weaver_program.tex"
+#line 402 "weaver_program.tex"
 
 char*concatenate(char*string,...){
 va_list arguments;
@@ -149,7 +149,7 @@ strcat(new_string,current_string);
 return new_string;
 }
 /*:8*//*10:*/
-#line 461 "./weaver_program.tex"
+#line 461 "weaver_program.tex"
 
 #if defined(_WIN32)
 char*basename(char*path){
@@ -167,7 +167,7 @@ return path;
 }
 #endif
 /*:10*//*12:*/
-#line 499 "./weaver_program.tex"
+#line 499 "weaver_program.tex"
 
 int copy_single_file(char*file,char*directory){
 int block_size,bytes_read;
@@ -175,7 +175,7 @@ char*buffer,*file_dst;
 FILE*orig,*dst;
 
 /*13:*/
-#line 541 "./weaver_program.tex"
+#line 541 "weaver_program.tex"
 
 #if !defined(_WIN32)
 {
@@ -188,13 +188,13 @@ block_size= 4096;
 }
 #endif
 /*:13*//*14:*/
-#line 558 "./weaver_program.tex"
+#line 558 "weaver_program.tex"
 
 #if defined(_WIN32)
 block_size= 4096;
 #endif
 /*:14*/
-#line 505 "./weaver_program.tex"
+#line 505 "weaver_program.tex"
 
 buffer= (char*)malloc(block_size);
 if(buffer==NULL)return 0;
@@ -223,7 +223,7 @@ free(buffer);
 return 1;
 }
 /*:12*//*15:*/
-#line 578 "./weaver_program.tex"
+#line 578 "weaver_program.tex"
 
 #if !defined(_WIN32)
 int copy_files(char*orig,char*dst){
@@ -280,7 +280,7 @@ return 1;
 }
 #endif
 /*:15*//*17:*/
-#line 650 "./weaver_program.tex"
+#line 650 "weaver_program.tex"
 
 #if defined(_WIN32)
 int copy_files(char*orig,char*dst){
@@ -332,7 +332,7 @@ return 1;
 }
 #endif
 /*:17*//*18:*/
-#line 714 "./weaver_program.tex"
+#line 714 "weaver_program.tex"
 
 void write_copyright(FILE*fp,char*author_name,char*project_name,int year){
 char license[]= "/*\nCopyright (c) %s, %d\n\nThis file is part of %s.\n\n%s\
@@ -349,7 +349,7 @@ fprintf(fp,license,author_name,year,project_name,project_name,
 project_name,project_name);
 }
 /*:18*//*19:*/
-#line 759 "./weaver_program.tex"
+#line 759 "weaver_program.tex"
 
 int create_dir(char*string,...){
 char*current_string;
@@ -369,7 +369,7 @@ current_string= va_arg(arguments,char*);
 return err;
 }
 /*:19*//*20:*/
-#line 795 "./weaver_program.tex"
+#line 795 "weaver_program.tex"
 
 int append_file(FILE*fp,char*dir,char*file){
 int block_size,bytes_read;
@@ -378,7 +378,7 @@ char*path= concatenate(dir,file,"");
 if(path==NULL)return 0;
 FILE*origin;
 /*13:*/
-#line 541 "./weaver_program.tex"
+#line 541 "weaver_program.tex"
 
 #if !defined(_WIN32)
 {
@@ -391,13 +391,13 @@ block_size= 4096;
 }
 #endif
 /*:13*//*14:*/
-#line 558 "./weaver_program.tex"
+#line 558 "weaver_program.tex"
 
 #if defined(_WIN32)
 block_size= 4096;
 #endif
 /*:14*/
-#line 802 "./weaver_program.tex"
+#line 802 "weaver_program.tex"
 
 buffer= (char*)malloc(block_size);
 if(buffer==NULL){
@@ -419,7 +419,7 @@ free(path);
 return 1;
 }
 /*:20*/
-#line 220 "./weaver_program.tex"
+#line 220 "weaver_program.tex"
 
 int main(int argc,char**argv){
 int return_value= 0;
@@ -434,7 +434,7 @@ year= 0;
 char*argument= NULL,*project_path= NULL,*shared_dir= NULL,
 *author_name= NULL,*project_name= NULL,*argument2= NULL;
 /*21:*/
-#line 880 "./weaver_program.tex"
+#line 880 "weaver_program.tex"
 
 char*path= NULL,*complete_path= NULL;
 #if !defined(_WIN32)
@@ -452,7 +452,7 @@ complete_path= concatenate(path,"/.weaver","");
 free(path);
 if(complete_path==NULL)W_ERROR();
 /*:21*//*23:*/
-#line 916 "./weaver_program.tex"
+#line 916 "weaver_program.tex"
 
 {
 
@@ -471,7 +471,7 @@ path_up(complete_path);
 #ifdef __OpenBSD__
 {
 size_t tmp_size= strlen(complete_path);
-strlcat(complete_path,"/.weaver",tmp_size);
+strlcat(complete_path,"/.weaver",tmp_size+9);
 }
 #else
 strcat(complete_path,"/.weaver");
@@ -481,7 +481,7 @@ strcat(complete_path,"/.weaver");
 free(complete_path);
 }
 /*:23*//*25:*/
-#line 968 "./weaver_program.tex"
+#line 968 "weaver_program.tex"
 
 {
 char*p= VERSION;
@@ -491,7 +491,7 @@ weaver_version_major= atoi(VERSION);
 weaver_version_minor= atoi(p);
 }
 /*:25*//*26:*/
-#line 989 "./weaver_program.tex"
+#line 989 "weaver_program.tex"
 
 if(inside_weaver_directory){
 FILE*fp;
@@ -510,13 +510,13 @@ project_version_minor= atoi(p);
 fclose(fp);
 }
 /*:26*//*27:*/
-#line 1015 "./weaver_program.tex"
+#line 1015 "weaver_program.tex"
 
 have_arg= (argc> 1);
 if(have_arg)argument= argv[1];
 if(argc> 2)argument2= argv[2];
 /*:27*//*28:*/
-#line 1030 "./weaver_program.tex"
+#line 1030 "weaver_program.tex"
 
 if(have_arg){
 char*buffer= concatenate(argument,"/.weaver","");
@@ -527,7 +527,7 @@ arg_is_path= 1;
 free(buffer);
 }
 /*:28*//*29:*/
-#line 1054 "./weaver_program.tex"
+#line 1054 "weaver_program.tex"
 
 {
 #ifdef WEAVER_DIR
@@ -549,7 +549,7 @@ free(temp_buf);
 if(shared_dir==NULL)W_ERROR();
 }
 /*:29*//*31:*/
-#line 1120 "./weaver_program.tex"
+#line 1120 "weaver_program.tex"
 
 if(have_arg&&!arg_is_path){
 char*buffer;
@@ -578,7 +578,7 @@ arg_is_valid_project= true;
 }
 NOT_VALID:
 /*:31*//*33:*/
-#line 1170 "./weaver_program.tex"
+#line 1170 "weaver_program.tex"
 
 if(have_arg&&inside_weaver_directory){
 char*buffer;
@@ -607,7 +607,7 @@ arg_is_valid_module= true;
 }
 NOT_VALID_MODULE:
 /*:33*//*34:*/
-#line 1209 "./weaver_program.tex"
+#line 1209 "weaver_program.tex"
 
 if(argument2!=NULL&&inside_weaver_directory){
 int i,size;
@@ -631,7 +631,7 @@ arg_is_valid_plugin= true;
 }
 NOT_VALID_PLUGIN:
 /*:34*//*35:*/
-#line 1244 "./weaver_program.tex"
+#line 1244 "weaver_program.tex"
 
 if(argument2!=NULL&&inside_weaver_directory&&
 !strcmp(argument,"--loop")){
@@ -692,7 +692,7 @@ arg_is_valid_function= true;
 }
 NOT_VALID_FUNCTION:
 /*:35*//*36:*/
-#line 1319 "./weaver_program.tex"
+#line 1319 "weaver_program.tex"
 
 #if !defined(_WIN32)
 {
@@ -717,7 +717,7 @@ strcpy(author_name,string_to_copy);
 }
 #endif
 /*:36*//*37:*/
-#line 1354 "./weaver_program.tex"
+#line 1354 "weaver_program.tex"
 
 #if defined(_WIN32)
 {
@@ -741,7 +741,7 @@ GetUserNameA(author_name,&size);
 }
 #endif
 /*:37*//*40:*/
-#line 1410 "./weaver_program.tex"
+#line 1410 "weaver_program.tex"
 
 if(inside_weaver_directory){
 FILE*fp;
@@ -771,7 +771,7 @@ project_name= realloc(project_name,strlen(project_name)+1);
 if(project_name==NULL)W_ERROR();
 }
 /*:40*//*42:*/
-#line 1455 "./weaver_program.tex"
+#line 1455 "weaver_program.tex"
 
 {
 time_t current_time;
@@ -781,10 +781,10 @@ date= localtime(&current_time);
 year= date->tm_year+1900;
 }
 /*:42*/
-#line 233 "./weaver_program.tex"
+#line 233 "weaver_program.tex"
 
 /*44:*/
-#line 1501 "./weaver_program.tex"
+#line 1501 "weaver_program.tex"
 
 if(!inside_weaver_directory&&(!have_arg||!strcmp(argument,"--help"))){
 printf("    .  .     You are outside a Weaver Directory.\n"
@@ -799,10 +799,10 @@ printf("    .  .     You are outside a Weaver Directory.\n"
 END();
 }
 /*:44*/
-#line 234 "./weaver_program.tex"
+#line 234 "weaver_program.tex"
 
 /*45:*/
-#line 1550 "./weaver_program.tex"
+#line 1550 "weaver_program.tex"
 
 if(inside_weaver_directory&&(!have_arg||!strcmp(argument,"--help"))){
 printf("       \\                You are inside a Weaver Directory.\n"
@@ -824,20 +824,20 @@ printf("       \\                You are inside a Weaver Directory.\n"
 END();
 }
 /*:45*/
-#line 235 "./weaver_program.tex"
+#line 235 "weaver_program.tex"
 
 /*46:*/
-#line 1579 "./weaver_program.tex"
+#line 1579 "weaver_program.tex"
 
 if(have_arg&&!strcmp(argument,"--version")){
 printf("Weaver\t%s\n",VERSION);
 END();
 }
 /*:46*/
-#line 236 "./weaver_program.tex"
+#line 236 "weaver_program.tex"
 
 /*47:*/
-#line 1626 "./weaver_program.tex"
+#line 1626 "weaver_program.tex"
 
 if(arg_is_path){
 if((weaver_version_major==0&&weaver_version_minor==0)||
@@ -865,10 +865,10 @@ free(buffer2);
 END();
 }
 /*:47*/
-#line 237 "./weaver_program.tex"
+#line 237 "weaver_program.tex"
 
 /*48:*/
-#line 1682 "./weaver_program.tex"
+#line 1682 "weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&
 strcmp(argument,"--plugin")&&strcmp(argument,"--shader")&&
@@ -913,10 +913,10 @@ return_value= 1;
 END();
 }
 /*:48*/
-#line 238 "./weaver_program.tex"
+#line 238 "weaver_program.tex"
 
 /*49:*/
-#line 1742 "./weaver_program.tex"
+#line 1742 "weaver_program.tex"
 
 if(!inside_weaver_directory&&have_arg){
 if(arg_is_valid_project){
@@ -972,10 +972,10 @@ return_value= 1;
 END();
 }
 /*:49*/
-#line 239 "./weaver_program.tex"
+#line 239 "weaver_program.tex"
 
 /*50:*/
-#line 1808 "./weaver_program.tex"
+#line 1808 "weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&!strcmp(argument,"--plugin")&&
 arg_is_valid_plugin){
@@ -998,10 +998,10 @@ free(buffer);
 END();
 }
 /*:50*/
-#line 240 "./weaver_program.tex"
+#line 240 "weaver_program.tex"
 
 /*51:*/
-#line 1864 "./weaver_program.tex"
+#line 1864 "weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&!strcmp(argument,"--shader")&&
 argument2!=NULL){
@@ -1009,7 +1009,7 @@ FILE*fp;
 size_t tmp_size,number= 0;
 char*buffer;
 /*52:*/
-#line 1914 "./weaver_program.tex"
+#line 1914 "weaver_program.tex"
 
 #if !defined(_WIN32)
 {
@@ -1078,7 +1078,7 @@ free(exists);
 }
 #endif
 /*:52*//*53:*/
-#line 1988 "./weaver_program.tex"
+#line 1988 "weaver_program.tex"
 
 #if defined(_WIN32)
 {
@@ -1148,7 +1148,7 @@ free(exists);
 }
 #endif
 /*:53*/
-#line 1870 "./weaver_program.tex"
+#line 1870 "weaver_program.tex"
 
 
 tmp_size= number/10+7+strlen(argument2);
@@ -1167,10 +1167,10 @@ free(buffer);
 END();
 }
 /*:51*/
-#line 241 "./weaver_program.tex"
+#line 241 "weaver_program.tex"
 
 /*54:*/
-#line 2073 "./weaver_program.tex"
+#line 2073 "weaver_program.tex"
 
 if(inside_weaver_directory&&!strcmp(argument,"--loop")){
 if(!arg_is_valid_function){
@@ -1223,27 +1223,27 @@ fprintf(fp,"#include \"%s.h\"\n",argument2);
 fclose(fp);
 }
 /*:54*/
-#line 242 "./weaver_program.tex"
+#line 242 "weaver_program.tex"
 
 END_OF_PROGRAM:
 /*24:*/
-#line 951 "./weaver_program.tex"
+#line 951 "weaver_program.tex"
 
 if(project_path!=NULL)free(project_path);
 /*:24*//*30:*/
-#line 1092 "./weaver_program.tex"
+#line 1092 "weaver_program.tex"
 
 if(shared_dir!=NULL)free(shared_dir);
 /*:30*//*38:*/
-#line 1382 "./weaver_program.tex"
+#line 1382 "weaver_program.tex"
 
 if(author_name!=NULL)free(author_name);
 /*:38*//*41:*/
-#line 1444 "./weaver_program.tex"
+#line 1444 "weaver_program.tex"
 
 if(project_name!=NULL)free(project_name);
 /*:41*/
-#line 244 "./weaver_program.tex"
+#line 244 "weaver_program.tex"
 
 return return_value;
 }

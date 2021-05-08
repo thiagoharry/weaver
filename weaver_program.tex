@@ -931,7 +931,7 @@ loop, sempre vamos para o diretório-pai do qual estamos:
 #ifdef __OpenBSD__
       {
         size_t tmp_size = strlen(complete_path);
-        strlcat(complete_path, "/.weaver", tmp_size);
+        strlcat(complete_path, "/.weaver", tmp_size + 9);
       }
 #else
       strcat(complete_path, "/.weaver");
