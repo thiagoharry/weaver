@@ -116,7 +116,7 @@ _Wmempoint(memory_arena,W_MEMORY_ALIGNMENT,1);
 #line 937 "weaver_api.tex"
 
 /*67:*/
-#line 1423 "weaver_api.tex"
+#line 1425 "weaver_api.tex"
 
 /*:67*/
 #line 938 "weaver_api.tex"
@@ -146,7 +146,7 @@ exit(1);
 }
 else{
 /*68:*/
-#line 1428 "weaver_api.tex"
+#line 1430 "weaver_api.tex"
 
 /*:68*/
 #line 1029 "weaver_api.tex"
@@ -186,7 +186,7 @@ static void*_alloc(size_t size){
 return _Walloc(memory_arena,W_MEMORY_ALIGNMENT,0,size);
 }
 /*:51*//*64:*/
-#line 1388 "weaver_api.tex"
+#line 1390 "weaver_api.tex"
 
 static uint64_t _rand(void){
 return _Wrand(rng);
@@ -319,7 +319,7 @@ rng= _Wcreate_rng(_alloc,4,buffer);
 }
 #endif
 /*:62*//*66:*/
-#line 1408 "weaver_api.tex"
+#line 1410 "weaver_api.tex"
 
 W.rand= _rand;
 /*:66*/
@@ -333,7 +333,9 @@ void Wexit(void){
 /*63:*/
 #line 1378 "weaver_api.tex"
 
+printf("Fim do rng: \n");
 _Wdestroy_rng(NULL,rng);
+printf("Feito\n");
 /*:63*/
 #line 249 "weaver_api.tex"
 
@@ -352,7 +354,7 @@ exit(0);
 
 void _update(void){
 /*69:*/
-#line 1433 "weaver_api.tex"
+#line 1435 "weaver_api.tex"
 
 /*:69*/
 #line 722 "weaver_api.tex"
@@ -363,7 +365,7 @@ void _update(void){
 
 void _render(void){
 /*70:*/
-#line 1438 "weaver_api.tex"
+#line 1440 "weaver_api.tex"
 
 /*:70*/
 #line 784 "weaver_api.tex"
@@ -406,7 +408,7 @@ _Wmempoint(memory_arena,W_MEMORY_ALIGNMENT,1);
 #line 889 "weaver_api.tex"
 
 /*71:*/
-#line 1443 "weaver_api.tex"
+#line 1445 "weaver_api.tex"
 
 /*:71*/
 #line 890 "weaver_api.tex"

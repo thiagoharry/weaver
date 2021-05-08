@@ -1,5 +1,5 @@
 SHELL := /usr/bin/env bash
-CC=$(shell if which gcc > /dev/null ; then echo "gcc"; else echo "clang"; fi)
+#CC=$(shell if which gcc > /dev/null ; then echo "gcc"; else echo "clang"; fi)
 PROG=$(shell cat .weaver/name)
 OBJ=$(shell for i in src/*.c; do echo $$(basename $${i%%.c}).o; done)
 PLUGINS=$(shell shopt -s nullglob dotglob; for i in plugins/*.c; do\

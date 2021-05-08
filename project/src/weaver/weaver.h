@@ -37,7 +37,7 @@ unsigned long dt;
 
 void*(*alloc)(size_t);
 /*:52*//*65:*/
-#line 1399 "weaver_api.tex"
+#line 1401 "weaver_api.tex"
 
 uint64_t(*rand)(void);
 /*:65*/
@@ -191,7 +191,7 @@ __declspec(noreturn)void _exit_loop(void);
 #line 147 "weaver_api.tex"
 
 /*72:*/
-#line 1448 "weaver_api.tex"
+#line 1450 "weaver_api.tex"
 
 /*:72*/
 #line 148 "weaver_api.tex"
