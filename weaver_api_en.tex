@@ -1132,6 +1132,18 @@ W.alloc = _alloc;
 @
 \fimcodigo
 
+But if the API needs to allocate memory in a different region for
+internal purposes, we also can use the following allocator that
+allocates in the right stack:
+
+\iniciocodigo
+@<API Weaver: Funções@>=
+static void *_internal_alloc(size_t size){
+  return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
+}
+@
+\fimcodigo
+
 \secao{Random Number Generator}
 
 First we need to insert the header for our pseudo-random number
@@ -1160,7 +1172,7 @@ generator:
 #if defined(W_RNG_SEED)
 {
   uint64_t seed[] = W_RNG_SEED;
-  rng = _Wcreate_rng(_alloc, sizeof(seed)/sizeof(uint64_t),
+  rng = _Wcreate_rng(_internal_alloc, sizeof(seed)/sizeof(uint64_t),
                      seed);
 }
 #endif
@@ -1216,7 +1228,7 @@ already is included in the standard library and never fails:
 {
   uint64_t buffer[4];
   arc4random_buf(buffer, 4 * 8);
-  rng = _Wcreate_rng(malloc, 4, buffer);
+  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
 }
 #endif
 @
@@ -1256,7 +1268,7 @@ succeed in the first try:
     fprintf(stderr, "ERROR: I could not initialize the RNG.\n");
     exit(1);
   }
-  rng = _Wcreate_rng(malloc, 4, buffer);
+  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
 }
 #endif
 @
@@ -1299,7 +1311,7 @@ environments:
       return array[0];
     });
   }
-  rng = _Wcreate_rng(_alloc, 4, buffer);
+  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
 }
 #endif
 @

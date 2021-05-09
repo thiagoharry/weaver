@@ -1190,6 +1190,18 @@ W.alloc = _alloc;
 @
 \fimcodigo
 
+Já para quando a API precisar alocar internamente coisas, sem misturar
+com as alocações feitas pelo usuário, podemos usar a seguinte função
+que aloca da pilha da direita:
+
+\iniciocodigo
+@<API Weaver: Funções@>=
+static void *_internal_alloc(size_t size){
+  return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
+}
+@
+\fimcodigo
+
 \secao{Gerador de Números Randômicos}
 
 Primeiro temos que inserir o cabeçalho para o subsistema de geração de
@@ -1219,7 +1231,7 @@ nosso gerador:
 #if defined(W_RNG_SEED)
 {
   uint64_t seed[] = W_RNG_SEED;
-  rng = _Wcreate_rng(_alloc, sizeof(seed)/sizeof(uint64_t),
+  rng = _Wcreate_rng(_internal_alloc, sizeof(seed)/sizeof(uint64_t),
                      seed);
 }
 #endif
@@ -1252,7 +1264,7 @@ de sistema for interrompida por um sinal):
   do{
     ret = getrandom(buffer, 4 * 8, 0);
   }while(ret != 4 * 8);
-  rng = _Wcreate_rng(_alloc, 4, buffer);
+  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
 }
 #endif
 @
@@ -1279,7 +1291,7 @@ nenhum caso:
 {
   uint64_t buffer[4];
   arc4random_buf(buffer, 4 * 8);
-  rng = _Wcreate_rng(_alloc, 4, buffer);
+  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
 }
 #endif
 @
@@ -1319,7 +1331,7 @@ problemas e que a primeira tentativa seja bem-sucedida.
     fprintf(stderr, "ERROR: I could not initialize the RNG.\n");
     exit(1);
   }
-  rng = _Wcreate_rng(_alloc, 4, buffer);
+  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
 }
 #endif
 @
@@ -1364,7 +1376,7 @@ sempre tem 32 bits). Compondo 8 números de 32 bits nós podemos formar
       return array[0];
     });
   }
-  rng = _Wcreate_rng(_alloc, 4, buffer);
+  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
 }
 #endif
 @

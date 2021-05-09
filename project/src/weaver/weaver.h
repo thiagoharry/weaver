@@ -36,11 +36,11 @@ unsigned long dt;
 #line 1180 "weaver_api.tex"
 
 void*(*alloc)(size_t);
-/*:52*//*65:*/
-#line 1399 "weaver_api.tex"
+/*:52*//*66:*/
+#line 1411 "weaver_api.tex"
 
 uint64_t(*rand)(void);
-/*:65*/
+/*:66*/
 #line 171 "weaver_api.tex"
 
 }W;
@@ -190,10 +190,10 @@ __declspec(noreturn)void _exit_loop(void);
 /*:48*/
 #line 147 "weaver_api.tex"
 
-/*72:*/
-#line 1448 "weaver_api.tex"
+/*73:*/
+#line 1460 "weaver_api.tex"
 
-/*:72*/
+/*:73*/
 #line 148 "weaver_api.tex"
 
 #ifdef __cplusplus

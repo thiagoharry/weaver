@@ -13,34 +13,34 @@
 #line 1090 "weaver_api.tex"
 
 #include "memory.h"
-/*:45*//*54:*/
-#line 1199 "weaver_api.tex"
+/*:45*//*55:*/
+#line 1211 "weaver_api.tex"
 
 #include "random.h"
-/*:54*//*58:*/
-#line 1264 "weaver_api.tex"
+/*:55*//*59:*/
+#line 1276 "weaver_api.tex"
 
 #if !defined(W_RNG_SEED) && defined(__linux__)
 #include <sys/random.h> 
 #endif
-/*:58*//*61:*/
-#line 1332 "weaver_api.tex"
+/*:59*//*62:*/
+#line 1344 "weaver_api.tex"
 
 #if !defined(W_RNG_SEED) && defined(_WIN32)
 #include <bcrypt.h> 
 #endif
-/*:61*/
+/*:62*/
 #line 191 "weaver_api.tex"
 
 /*44:*/
 #line 1081 "weaver_api.tex"
 
 static void*memory_arena;
-/*:44*//*55:*/
-#line 1208 "weaver_api.tex"
+/*:44*//*56:*/
+#line 1220 "weaver_api.tex"
 
 static struct _Wrng*rng;
-/*:55*/
+/*:56*/
 #line 192 "weaver_api.tex"
 
 /*4:*/
@@ -115,10 +115,10 @@ _Wmempoint(memory_arena,W_MEMORY_ALIGNMENT,1);
 /*:49*/
 #line 937 "weaver_api.tex"
 
-/*67:*/
-#line 1423 "weaver_api.tex"
+/*68:*/
+#line 1435 "weaver_api.tex"
 
-/*:67*/
+/*:68*/
 #line 938 "weaver_api.tex"
 
 if(_number_of_loops>=W_MAX_SUBLOOP){
@@ -145,10 +145,10 @@ Wexit();
 exit(1);
 }
 else{
-/*68:*/
-#line 1428 "weaver_api.tex"
+/*69:*/
+#line 1440 "weaver_api.tex"
 
-/*:68*/
+/*:69*/
 #line 1029 "weaver_api.tex"
 
 _number_of_loops--;
@@ -185,13 +185,19 @@ _loop_stack[_number_of_loops-1]();
 static void*_alloc(size_t size){
 return _Walloc(memory_arena,W_MEMORY_ALIGNMENT,0,size);
 }
-/*:51*//*64:*/
-#line 1388 "weaver_api.tex"
+/*:51*//*54:*/
+#line 1198 "weaver_api.tex"
+
+static void*_internal_alloc(size_t size){
+return _Walloc(memory_arena,W_MEMORY_ALIGNMENT,1,size);
+}
+/*:54*//*65:*/
+#line 1400 "weaver_api.tex"
 
 static uint64_t _rand(void){
 return _Wrand(rng);
 }
-/*:64*/
+/*:65*/
 #line 194 "weaver_api.tex"
 
 /*6:*/
@@ -242,18 +248,18 @@ memory_arena= _Wcreate_arena(W_MAX_MEMORY);
 #line 1188 "weaver_api.tex"
 
 W.alloc= _alloc;
-/*:53*//*56:*/
-#line 1218 "weaver_api.tex"
+/*:53*//*57:*/
+#line 1230 "weaver_api.tex"
 
 #if defined(W_RNG_SEED)
 {
 uint64_t seed[]= W_RNG_SEED;
-rng= _Wcreate_rng(_alloc,sizeof(seed)/sizeof(uint64_t),
+rng= _Wcreate_rng(_internal_alloc,sizeof(seed)/sizeof(uint64_t),
 seed);
 }
 #endif
-/*:56*//*57:*/
-#line 1247 "weaver_api.tex"
+/*:57*//*58:*/
+#line 1259 "weaver_api.tex"
 
 #if !defined(W_RNG_SEED) && defined(__linux__)
 {
@@ -262,21 +268,21 @@ uint64_t buffer[4];
 do{
 ret= getrandom(buffer,4*8,0);
 }while(ret!=4*8);
-rng= _Wcreate_rng(_alloc,4,buffer);
+rng= _Wcreate_rng(_internal_alloc,4,buffer);
 }
 #endif
-/*:57*//*59:*/
-#line 1277 "weaver_api.tex"
+/*:58*//*60:*/
+#line 1289 "weaver_api.tex"
 
 #if !defined(W_RNG_SEED) && defined(BSD)
 {
 uint64_t buffer[4];
 arc4random_buf(buffer,4*8);
-rng= _Wcreate_rng(_alloc,4,buffer);
+rng= _Wcreate_rng(_internal_alloc,4,buffer);
 }
 #endif
-/*:59*//*60:*/
-#line 1307 "weaver_api.tex"
+/*:60*//*61:*/
+#line 1319 "weaver_api.tex"
 
 #if !defined(W_RNG_SEED) && defined(_WIN32)
 {
@@ -292,11 +298,11 @@ if(ret!=STATUS_SUCCESS){
 fprintf(stderr,"ERROR: I could not initialize the RNG.\n");
 exit(1);
 }
-rng= _Wcreate_rng(_alloc,4,buffer);
+rng= _Wcreate_rng(_internal_alloc,4,buffer);
 }
 #endif
-/*:60*//*62:*/
-#line 1349 "weaver_api.tex"
+/*:61*//*63:*/
+#line 1361 "weaver_api.tex"
 
 #if !defined(W_RNG_SEED) && defined(__EMSCRIPTEN__)
 {
@@ -315,14 +321,14 @@ window.crypto.getRandomValues(array);
 return array[0];
 });
 }
-rng= _Wcreate_rng(_alloc,4,buffer);
+rng= _Wcreate_rng(_internal_alloc,4,buffer);
 }
 #endif
-/*:62*//*66:*/
-#line 1408 "weaver_api.tex"
+/*:63*//*67:*/
+#line 1420 "weaver_api.tex"
 
 W.rand= _rand;
-/*:66*/
+/*:67*/
 #line 230 "weaver_api.tex"
 
 }
@@ -330,11 +336,11 @@ W.rand= _rand;
 #line 247 "weaver_api.tex"
 
 void Wexit(void){
-/*63:*/
-#line 1378 "weaver_api.tex"
+/*64:*/
+#line 1390 "weaver_api.tex"
 
 _Wdestroy_rng(NULL,rng);
-/*:63*/
+/*:64*/
 #line 249 "weaver_api.tex"
 
 /*47:*/
@@ -351,10 +357,10 @@ exit(0);
 #line 720 "weaver_api.tex"
 
 void _update(void){
-/*69:*/
-#line 1433 "weaver_api.tex"
+/*70:*/
+#line 1445 "weaver_api.tex"
 
-/*:69*/
+/*:70*/
 #line 722 "weaver_api.tex"
 
 }
@@ -362,10 +368,10 @@ void _update(void){
 #line 782 "weaver_api.tex"
 
 void _render(void){
-/*70:*/
-#line 1438 "weaver_api.tex"
+/*71:*/
+#line 1450 "weaver_api.tex"
 
-/*:70*/
+/*:71*/
 #line 784 "weaver_api.tex"
 
 }
@@ -405,10 +411,10 @@ _Wmempoint(memory_arena,W_MEMORY_ALIGNMENT,1);
 /*:49*/
 #line 889 "weaver_api.tex"
 
-/*71:*/
-#line 1443 "weaver_api.tex"
+/*72:*/
+#line 1455 "weaver_api.tex"
 
-/*:71*/
+/*:72*/
 #line 890 "weaver_api.tex"
 
 _loop_stack[_number_of_loops]= f;
