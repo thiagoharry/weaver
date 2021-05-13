@@ -106,11 +106,16 @@
       <AdditionalDependencies>Secur32.lib;%(AdditionalDependencies)</AdditionalDependencies>
     </Link>
     <PostBuildEvent>
-      <Command>del /Q ".test\share\*"
-mkdir ".test\share\project"
-copy "base\*" ".test\share\"
-xcopy project ".test\share\project" /y /s /e
-.test\test.sh</Command>
+      <Command>
+        del /Q ".test\share\*"
+        mkdir ".test\share\project"
+        copy "base\*" ".test\share\"
+        cp "weaver-memory-manager\src\memory.c" ".test\share\project\src\weaver\memory.c"
+        cp "weaver-memory-manager\src\memory.h" ".test\share\project\src\weaver\memory.h"
+        copy "weaver-random\src\random.c" ".test\share\project\src\weaver\random.c"
+        copy "weaver-random\src\random.h" ".test\share\project\src\weaver\random.h"
+        xcopy project ".test\share\project" /y /s /e
+        .test\test.sh</Command>
     </PostBuildEvent>
     <PreBuildEvent>
       <Command>if not exist ".test\bin" mkdir .test\bin; if not exist ".test\share" mkdir .test\share</Command>
