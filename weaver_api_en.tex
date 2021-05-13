@@ -128,7 +128,9 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 #ifdef __cplusplus
   extern "C" {
 #endif
-#include <sys/param.h>
+#if !defined(_WIN32)
+#include <sys/param.h> // Needed on BSD, but causes problem in Windows
+#endif
 #include <stdlib.h> // Always useful. Declares 'size_t'.
 #include <stdint.h>
 @<Global Structure@>
