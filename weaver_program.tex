@@ -570,11 +570,10 @@ No Windows nós apenas iremos assumir que o tamanho é 4 KB:
 \subsecao{5.6. copy\_files: Copia todos os arquivos de origem para destino}
 
 De posse da função que copia um só arquivo, precisamos definir uma
-função para copiar todos os arquivos de dentro d eum diretório para
+função para copiar todos os arquivos de dentro de um diretório para
 outro recursivamente. Isso é algo trabalhoso, pois precisamos listar
 todo o conteúdo de um diretório para obter seus arquivos. Como fazer
 isso varia dependendo do sistema operacional.
-
 
 Em sistemas Unix a função usará |readdir| para ler o conteúdo de
 arquivos:

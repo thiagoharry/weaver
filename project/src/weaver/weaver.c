@@ -290,11 +290,11 @@ uint64_t buffer[4];
 NTSTATUS ret;
 int count= 0;
 do{
-ret= BCryptGenRandom(NULL,buffer,8*4,
+ret= BCryptGenRandom(NULL,(unsigned char*)&buffer,8*4,
 BCRYPT_USE_SYSTEM_PREFERRED_RNG);
 count++;
-}while(ret!=STATUS_SUCCESS&&count<16);
-if(ret!=STATUS_SUCCESS){
+}while(ret!=0&&count<16);
+if(ret!=0){
 fprintf(stderr,"ERROR: I could not initialize the RNG.\n");
 exit(1);
 }
