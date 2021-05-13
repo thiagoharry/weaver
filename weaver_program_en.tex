@@ -246,13 +246,22 @@ include the header \monoespaco{stdio.h}, which will also bring us
 other useful functions to print in the screen or in files and to open
 and close files. We also should insert support for boolean values and
 the standard library with functions like |exit| utilized in the
-program structure:
+program structure.
+
+If we are running in Windows, we want so supress some warnings about
+the use of functions \monoespaco{fopen} no lugar
+de \monoespaco{fopen\_s}, por exemplo. Because the safe functions in
+Windows are not portable and we use the old functions in a controlled
+way.
 
 \iniciocodigo
 @<Headers Included in Weaver Program@>=
 #include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
 #include <stdbool.h> // bool, true, false
 #include <stdlib.h> // free, exit, getenv
+#if defined(_WIN32)
+#define _CRT_SECURE_NO_WARNING
+#endif
 @
 \fimcodigo
 
@@ -371,27 +380,22 @@ char *concatenate(char *string, ...){
   va_start(arguments, string);
   new_string = (char *) malloc(current_size);
   if(new_string == NULL) return NULL;
-   // Copy the first string as recommended by the Operating System:
-#ifdef __OpenBSD__
-  strlcpy(new_string, string, current_size);
-#else
-  strcpy(new_string, string);
-#endif
+  // Copying first string:
+  memcpy(new_string, string, current_size);
   while(current_string != NULL && current_string[0] != '\0'){
+    size_t increment_length, last_length;
     current_string = va_arg(arguments, char *);
-    current_size += strlen(current_string);
+    increment_length = strlen(current_string);
+    last_length = current_size;
+    current_size += increment_length;
     realloc_return = (char *) realloc(new_string, current_size);
     if(realloc_return == NULL){
       free(new_string);
       return NULL;
     }
     new_string = realloc_return;
-     // Copy the string as recommended by the Operating System:
-#ifdef __OpenBSD__
-    strlcat(new_string, current_string, current_size);
-#else
-    strcat(new_string, current_string);
-#endif
+    // Copying next string:
+    memcpy(&(new_string[last_length-1]), current_string, increment_length + 1);
   }
   return new_string;
 }
