@@ -15,6 +15,7 @@
   <ItemGroup>
     <source Include="src\*.c" />
     <source Include="src\weaver\*.c" />
+    <source Include="Bcrypt.lib" />
   </ItemGroup>
   <Target Name="build" Inputs="@(codeInput)"
 	  Outputs="$(MSBuildThisFileDirectory).exe">
