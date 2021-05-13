@@ -252,16 +252,17 @@ If we are running in Windows, we want so supress some warnings about
 the use of functions \monoespaco{fopen} no lugar
 de \monoespaco{fopen\_s}, por exemplo. Because the safe functions in
 Windows are not portable and we use the old functions in a controlled
-way.
+way. To supress the warning we need to define the specific macro below
+before including other headers.
 
 \iniciocodigo
 @<Headers Included in Weaver Program@>=
-#include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
-#include <stdbool.h> // bool, true, false
-#include <stdlib.h> // free, exit, getenv
 #if defined(_WIN32)
 #define _CRT_SECURE_NO_WARNING
 #endif
+#include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
+#include <stdbool.h> // bool, true, false
+#include <stdlib.h> // free, exit, getenv
 @
 \fimcodigo
 

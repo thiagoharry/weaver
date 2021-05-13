@@ -287,16 +287,17 @@ Se estivermos rodando no Windows, queremos também suprimir alguns
 avisos sobre uso de funções \monoespaco{fopen} ao invés
 de \monoespaco{fopen\_s}, por exemplo. Isso porque as funções seguras
 do Windows não são portáveis e usamos as funções antigas de maneira
-controlada.
+controlada. Para suprimir tais avisos, precisamos definir a macro
+específica abaixo antes de incluir os demais cabeçalhos.
 
 \iniciocodigo
 @<Cabeçalhos Incluídos no Programa Weaver@>=
-#include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
-#include <stdbool.h> // bool, true, false
-#include <stdlib.h> // free, exit, getenv
 #if defined(_WIN32)
 #define _CRT_SECURE_NO_WARNING
 #endif
+#include <stdio.h> // printf, fprintf, fopen, fclose, fgets, fgetc, perror
+#include <stdbool.h> // bool, true, false
+#include <stdlib.h> // free, exit, getenv
 @
 \fimcodigo
 
