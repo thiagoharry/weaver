@@ -27,7 +27,7 @@ each subsystem separately:
 
 * **Memory Manager**: [[In English]](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-memory-manager)
 
-* **Random Number Generator**: [[In English]](https://github.com/thiagoharry/weaver-memory-random/raw/master/weaver-random_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-memory-random/raw/master/weaver-random.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-random)
+* **Random Number Generator**: [[In English]](https://github.com/thiagoharry/weaver-random/raw/master/weaver-random_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-random/raw/master/weaver-random.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-random)
 
 ## Building
 
