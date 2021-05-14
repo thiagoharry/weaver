@@ -193,9 +193,10 @@ function test_new_project(){
     ####### RNG test
     rm -f test
     echo "#include \"game.h\"" > src/game.c
+    echo "#include <inttypes.h>" >> src/game.c
     echo "int main(void){" >> src/game.c
     echo "Winit();" >> src/game.c
-    echo "printf(\"%lx\", W.rand());" >> src/game.c
+    echo "printf(\"%\" PRIx64 \"\", W.rand());" >> src/game.c
     echo "Wexit();" >> src/game.c
     echo "}" >> src/game.c
     echo "#define W_RNG_CHACHA20" > conf/conf.h
@@ -211,6 +212,7 @@ function test_new_project(){
     ./test > file1.dat
     echo -ne "e9a250eea9e8bf94" > file2.dat
     assertEqualFiles "Testing RNG subsystem" file1.dat file2.dat
+    #exit
     rm file1.dat file2.dat
     #######
     cd - > /dev/null
