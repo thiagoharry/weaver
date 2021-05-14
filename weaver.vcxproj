@@ -118,7 +118,10 @@
         .test\test.sh</Command>
     </PostBuildEvent>
     <PreBuildEvent>
-      <Command>if not exist ".test\bin" mkdir .test\bin; if not exist ".test\share" mkdir .test\share</Command>
+      <Command>
+        if not exist ".test\bin" mkdir .test\bin
+        if not exist ".test\share" mkdir .test\share
+      </Command>
     </PreBuildEvent>
     <ClCompile>
       <PreprocessorDefinitions>

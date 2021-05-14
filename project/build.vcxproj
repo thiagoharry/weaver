@@ -19,7 +19,7 @@
   </ItemGroup>
   <Target Name="build" Inputs="@(codeInput)"
 	  Outputs="$(MSBuildThisFileDirectory).exe">
-    <Exec Command="cl.exe @(source, ' ') /Fe:$(Prog)"
+    <Exec Command="cl.exe /Iconf /FI ..\conf\conf.h @(source, ' ') /Fe:$(Prog)"
 	  Outputs="$(MSBuildThisFileDirectory).exe"/>
   </Target>
 
