@@ -10,16 +10,24 @@ installed. This will be corrected soon.
 
 You can read the PDFs documenting all the Weaver code here:
 
-* **Weaver Program**: The program used to create and manage new Weaver
-    game projects.
-    [[In English]](https://github.com/thiagoharry/weaver/blob/master/weaver_program_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver/blob/master/weaver_program.pdf)
-* **Weaver API**: How the code is organized and the API functions are defined and work together.
-    [[In English]](https://github.com/thiagoharry/weaver/blob/master/weaver_api_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver/blob/master/weaver_api.pdf)
+* **Weaver Program**: [[In
+    English]](https://github.com/thiagoharry/weaver/blob/master/weaver_program_en.pdf)[[In
+    Portuguese]](https://github.com/thiagoharry/weaver/blob/master/weaver_program.pdf)
+    The program used to create and manage new Weaver game projects.
+
+* **Weaver API**: [[In
+    English]](https://github.com/thiagoharry/weaver/blob/master/weaver_api_en.pdf)[[In
+    Portuguese]](https://github.com/thiagoharry/weaver/blob/master/weaver_api.pdf)How
+    the code is organized and the API functions are defined and work
+    together.
+
 
 The Weaver API uses several subsystems in its code. You can read about
 each subsystem separately:
 
-* **Memory Manager**: [[In English]](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager.pdf)
+* **Memory Manager**: [[In English]](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-memory-manager/blob/master/weaver-memory-manager.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-memory-manager)
+
+* **Random Number Generator**: [[In English]](https://github.com/thiagoharry/weaver-memory-random/raw/master/weaver-random_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-memory-random/raw/master/weaver-random.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-random)
 
 ## Building
 
