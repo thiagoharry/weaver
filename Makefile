@@ -4,7 +4,6 @@ INSTALL_BIN_DIR=/usr/local/bin/
 INSTALL_SHARE_DIR=/usr/local/share/weaver
 PROJECT_SHARE=${INSTALL_SHARE_DIR}/project
 TANGLE=$(shell if which ctangle > /dev/null; then echo ctangle; else echo noweb; fi)
-CC=$(shell if which gcc > /dev/null; then echo gcc; else echo clang; fi)
 FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=c99 -pedantic
 MAKE=$(shell if which gmake > /dev/null; then echo gmake; else echo make; fi)
 W_FILES=cweb/00-preambulo.w cweb/01-intro.w cweb/02-memoria.w cweb/03-numeros.w\
@@ -150,7 +149,7 @@ install: uninstall
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
-test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h
+test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program.tex
@@ -163,14 +162,18 @@ test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver
 	@bash ./.test/test.sh
 submodules:
 	git submodule update --init --recursive --remote
-project/src/weaver/memory.c: submodules
+project/src/weaver/memory.c:
 	cp weaver-memory-manager/src/memory.c project/src/weaver/memory.c
-project/src/weaver/memory.h: submodules
+project/src/weaver/memory.h:
 	cp weaver-memory-manager/src/memory.h project/src/weaver/memory.h
-project/src/weaver/random.c: submodules
+project/src/weaver/random.c:
 	cp weaver-random/src/random.c project/src/weaver/random.c
-project/src/weaver/random.h: submodules
+project/src/weaver/random.h:
 	cp weaver-random/src/random.h project/src/weaver/random.h
+project/src/weaver/window.c:
+	cp weaver-window/src/window.c project/src/weaver/window.c
+project/src/weaver/window.h:
+	cp weaver-window/src/window.h project/src/weaver/window.h
 doc_en:
 	tex weaver_program_en.tex
 	dvipdf weaver_program_en.dvi

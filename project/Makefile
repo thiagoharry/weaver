@@ -3,12 +3,6 @@ MAKE=$(shell if which gmake > /dev/null; then echo gmake; else echo make; fi)
 PROG=$(shell cat .weaver/name)
 CORES=$(shell grep -c ^processor /proc/cpuinfo 2> /dev/null)
 
-#XLIB=$(shell pkg-config --cflags --libs x11)
-#GL=$(shell pkg-config --cflags --libs gl glew)
-#AL=$(shell pkg-config --cflags --libs openal)
-#PNG=$(shell pkg-config --cflags --libs libpng)
-#MPG123=$(shell pkg-config --cflags --libs libmpg123)
-
 TARGET_TEST=$(shell egrep "\#define[ \t]+W_TARGET[ \t]+W_" conf/conf.h | egrep -o "(W_WEB|W_ELF)")
 INSTALL_DATA_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_DATA[ \t]\+" conf/conf.h | grep -o "\".*\"")
 INSTALL_PROG_DIR=$(shell grep "\#define[ \t]\+W_INSTALL_PROG[ \t]\+" conf/conf.h | grep -o "\".*\"")
@@ -47,30 +41,6 @@ make-web:
 	@if [ -e .error ]; then	rm .error; \
 	else ${MAKE} --no-print-directory -j ${CORES} -f web.Makefile; fi
 shader_data:
-# src/weaver/vertex_interface.data\
-#		src/weaver/fragment_interface.data\
-#		src/weaver/fragment_interface_texture.data\
-#		src/weaver/vertex_interface_texture.data\
-#                src/weaver/vertex_image_interface.data\
-#                src/weaver/fragment_image_interface.data
-#src/weaver/vertex_interface.data: src/weaver/vertex_interface.glsl
-#	@cat src/weaver/vertex_interface.glsl | sed 's/^#line.*//' | \
-#	xxd -i > src/weaver/vertex_interface.data
-#src/weaver/fragment_interface.data: src/weaver/fragment_interface.glsl
-#	@cat src/weaver/fragment_interface.glsl | sed 's/^#line.*//' | \
-#	xxd -i > src/weaver/fragment_interface.data
-#src/weaver/vertex_image_interface.data: src/weaver/vertex_image_interface.glsl
-#	@cat src/weaver/vertex_image_interface.glsl | sed 's/^#line.*//' | \
-#	xxd -i > src/weaver/vertex_image_interface.data
-#src/weaver/fragment_image_interface.data: src/weaver/fragment_image_interface.glsl
-#	@cat src/weaver/fragment_image_interface.glsl | sed 's/^#line.*//' | \
-#	xxd -i > src/weaver/fragment_image_interface.data
-#src/weaver/fragment_interface_texture.data: src/weaver/fragment_interface_texture.glsl
-#	@cat src/weaver/fragment_interface_texture.glsl | sed 's/^#line.*//' | \
-#	xxd -i > src/weaver/fragment_interface_texture.data
-#src/weaver/vertex_interface_texture.data: src/weaver/vertex_interface_texture.glsl
-#	@cat src/weaver/vertex_interface_texture.glsl | sed 's/^#line.*//' | \
-#	xxd -i > src/weaver/vertex_interface_texture.data
 clean:
 	rm -f *.o *.bc *~ .weaver/*.o .weaver/*.bc src/weaver/*.data
 	rm -f compiled_plugins/* .plugin/*

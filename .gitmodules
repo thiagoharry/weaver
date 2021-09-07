@@ -4,3 +4,6 @@
 [submodule "weaver-random"]
 	path = weaver-random
 	url = https://github.com/thiagoharry/weaver-random.git
+[submodule "weaver-window"]
+	path = weaver-window
+	url = git@github.com:thiagoharry/weaver-window.git

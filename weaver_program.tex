@@ -1935,7 +1935,6 @@ O código para isso no Linux será:
   for(i = 0; i < exists_size; i ++)
     exists[i] = false;
   while((dp = readdir(shader_dir)) != NULL){
-    if(dp -> d_name == NULL) continue;
     if(dp -> d_name[0] == '.') continue;
     if(dp -> d_name[0] == '\0') continue;
     buffer = concatenate("shaders/", dp -> d_name, "");

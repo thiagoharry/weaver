@@ -1028,7 +1028,6 @@ W_ERROR();
 for(i= 0;i<exists_size;i++)
 exists[i]= false;
 while((dp= readdir(shader_dir))!=NULL){
-if(dp->d_name==NULL)continue;
 if(dp->d_name[0]=='.')continue;
 if(dp->d_name[0]=='\0')continue;
 buffer= concatenate("shaders/",dp->d_name,"");
@@ -1076,7 +1075,7 @@ free(exists);
 }
 #endif
 /*:52*//*53:*/
-#line 1992 "weaver_program.tex"
+#line 1991 "weaver_program.tex"
 
 #if defined(_WIN32)
 {
@@ -1168,7 +1167,7 @@ END();
 #line 241 "weaver_program.tex"
 
 /*54:*/
-#line 2077 "weaver_program.tex"
+#line 2076 "weaver_program.tex"
 
 if(inside_weaver_directory&&!strcmp(argument,"--loop")){
 if(!arg_is_valid_function){
