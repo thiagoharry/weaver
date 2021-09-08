@@ -7,3 +7,4 @@
 [submodule "weaver-window"]
 	path = weaver-window
 	url = git@github.com:thiagoharry/weaver-window.git
+	branch = main
