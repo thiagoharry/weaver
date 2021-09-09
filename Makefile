@@ -160,6 +160,12 @@ test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver
 	@cp -r base/* .test/share
 	@cp -r project/* .test/share/project/
 	@bash ./.test/test.sh
+test_en: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h
+	@mkdir -p .test/bin
+	@mkdir -p .test/share
+	@${TANGLE} weaver_program_en.tex
+	@${TANGLE} weaver_api_en.tex
+	@${CC} ${FLAGS} -DWEAVER_DIR="\"${PWD}/.test/share/\"" src/weaver.c -o .te
 submodules:
 	git submodule update --init --recursive --remote
 project/src/weaver/memory.c:

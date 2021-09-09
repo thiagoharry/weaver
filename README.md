@@ -29,6 +29,9 @@ each subsystem separately:
 
 * **Random Number Generator**: [[In English]](https://github.com/thiagoharry/weaver-random/raw/master/weaver-random_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-random/raw/master/weaver-random.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-random)
 
+* **Window**: [[In English]](https://github.com/thiagoharry/weaver-window/raw/master/weaver-window_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-window/raw/master/weaver-window.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-window)
+
+
 ## Building
 
 To build and install the engine you can type `make` and `make

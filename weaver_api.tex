@@ -1425,7 +1425,80 @@ W.rand = _rand;
 @
 \fimcodigo
 
+\secao{Criação de Janelas e Gerenciamento de Entrada}
 
+Todo o gerenciamento de janelas será feito invocando as funções do
+subsistema de janela e somente isso. Para podermos usar o subsistema,
+inserimos o seu cabeçalho:
+
+\iniciocodigo
+@<API Weaver: Cabeçalhos Internos@>+=
+#include "window.h"
+@
+\fimcodigo
+
+Para termos uma janela, precisamos criar ela na inicialização do nosso
+programa. Iremos criar sempre uma única janela e só iremos fechá-la
+durante a finalização:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+_Wcreate_window();
+@
+\fimcodigo
+
+\iniciocodigo
+@<API Weaver: Finalização@>+=
+_Wdestroy_window();
+@
+\fimcodigo
+
+E iremos renderizar na tela dentro do nosso laço principal, no momento
+de renderização, o que significa que faremos isso com a maior
+frequência possível:
+
+\iniciocodigo
+@<Código de renderização@>=
+_Wrender_window();
+@
+\fimcodigo
+
+Com relação a obter a leitura de teclado e mouse, vamos deixar um
+espaço para a estrutura deles na estrutura \monoespaco{W}:
+
+\iniciocodigo
+@<Variáveis Weaver@>+=
+long *keyboard;
+struct __Wmouse *mouse;
+@
+\fimcodigo
+
+E inicializamos os ponteiros para apontar para a região certa criada
+pelo subsistema  de janela:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+W.keyboard = _Wkeyboard.key;
+W.mouse = &_Wmouse;
+@
+\fimcodigo
+
+O teclado e mouse precisam ser lidos periodicamente, toda iteração:
+
+\iniciocodigo
+@<Código a executar todo loop@>=
+_Wget_window_input(W.t);
+@
+\fimcodigo
+
+E ao inicar qualquer loop ou subloop, precisamos limpar e reiniciar o
+teclado e mouse:
+
+\iniciocodigo
+@<Código antes de Loop e Subloop@>+=
+_Wflush_window_input();
+@
+\fimcodigo
 
 \secao{Definições Vazias}
 
@@ -1444,15 +1517,7 @@ posteriormente preenchidas e melhor explicadas.
 @
 \fimcodigo
 
-\iniciocodigo
-@<Código a executar todo loop@>=
-@
-\fimcodigo
 
-\iniciocodigo
-@<Código de renderização@>=
-@
-\fimcodigo
 
 \iniciocodigo
 @<Código antes de Loop, não de Subloop@>=

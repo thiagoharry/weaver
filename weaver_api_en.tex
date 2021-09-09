@@ -1296,7 +1296,7 @@ with 32 bits we get 4 numbers with 64 bits as in the other
 environments:
 
 \iniciocodigo
-@<API Weaver: Inicialização@>+=
+@<Weaver API: Initialization@>+=
 #if !defined(W_RNG_SEED) && defined(__EMSCRIPTEN__)
 {
   uint64_t buffer[4];
@@ -1359,6 +1359,80 @@ W.rand = _rand;
 @
 \fimcodigo
 
+\secao{Creating the Window and Managing User Input}
+
+We manage the window and its input using only the functions from
+window subsystem. To use the subsystem, we include its header:
+
+\iniciocodigo
+@<Weaver API: Internal Header@>+=
+#include "window.h"
+@
+\fimcodigo
+
+We will create our window during the program initialization and close
+it during the finalization. We never will create more than one window
+in our program.
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+_Wcreate_window();
+@
+\fimcodigo
+
+\iniciocodigo
+@<Weaver API: Finalization@>+=
+_Wdestroy_window();
+@
+\fimcodigo
+
+We will render in the screen during the rendering step in the main
+loop, which means that we will do it as fast as we can:
+
+\iniciocodigo
+@<Render Code@>=
+_Wrender_window();
+@
+\fimcodigo
+
+About the mouse and keyboard, we will have poiters to its structure in
+our \monoespaco{W} struct:
+
+\iniciocodigo
+@<Weaver Variables@>+=
+long *keyboard;
+struct __Wmouse *mouse;
+@
+\fimcodigo
+
+We initialize the pointers during initialization, pointing the
+keyboard directly to the key array and the mouse to the mouse struct:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+W.keyboard = _Wkeyboard.key;
+W.mouse = &_Wmouse;
+@
+\fimcodigo
+
+We need to read input in the mouse and keyboard periodically, in each
+iteration:
+
+\iniciocodigo
+@<Code to execute every loop@>=
+_Wget_window_input(W.t);
+@
+\fimcodigo
+
+And when we enter in a new loop or subloop, we need to clean all user
+input and restart the mouse and keyboard structs:
+
+\iniciocodigo
+@<Code Before Loop and Subloop@>+=
+_Wflush_window_input();
+@
+\fimcodigo
+
 
 \secao{Empty Definitions}
 
@@ -1373,14 +1447,6 @@ parts after will be written and better explained.
 
 \iniciocodigo
 @<Code after Exiting Subloop@>= @
-\fimcodigo
-
-\iniciocodigo
-@<Code to execute every loop@>= @
-\fimcodigo
-
-\iniciocodigo
-@<Render Code@>= @
 \fimcodigo
 
 \iniciocodigo
