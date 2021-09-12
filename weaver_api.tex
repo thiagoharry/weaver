@@ -101,6 +101,7 @@ E dentro de \monoespaco{src/game.h}, nós encontramos:
 #define _game_h_
 
 #include "weaver/weaver.h"
+
 #include "includes.h"
 
 struct _game_struct{
@@ -1429,10 +1430,11 @@ W.rand = _rand;
 
 Todo o gerenciamento de janelas será feito invocando as funções do
 subsistema de janela e somente isso. Para podermos usar o subsistema,
-inserimos o seu cabeçalho:
+inserimos o seu cabeçalho, o qual deve também ser visdível para o
+usuário:
 
 \iniciocodigo
-@<API Weaver: Cabeçalhos Internos@>+=
+@<Cabeçalhos Weaver@>+=
 #include "window.h"
 @
 \fimcodigo

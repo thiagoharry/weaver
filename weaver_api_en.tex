@@ -1362,10 +1362,11 @@ W.rand = _rand;
 \secao{Creating the Window and Managing User Input}
 
 We manage the window and its input using only the functions from
-window subsystem. To use the subsystem, we include its header:
+window subsystem. To use the subsystem, we include its header, which
+should also be visible to the user:
 
 \iniciocodigo
-@<Weaver API: Internal Header@>+=
+@<Weaver Headers@>+=
 #include "window.h"
 @
 \fimcodigo
