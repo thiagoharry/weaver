@@ -128,12 +128,10 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 #ifdef __cplusplus
   extern "C" {
 #endif
-#if !defined(_WIN32)
-#include <sys/param.h> // Needed on BSD, but causes problem in Windows
-#endif
-#include <stdlib.h> // Always useful. Declares 'size_t'.
-#include <stdint.h>
-@<Global Structure@>
+@<Include Headers (weaver.h)@>
+@<Data Structures (weaver.h)@>
+@<Function Declaration (weaver.h)@>
+@<Extern Variables (weaver.h)@>
 @<Weaver Headers@>
 @<Weaver Macros@>
 #ifdef __cplusplus
@@ -143,22 +141,73 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 @
 \fimcodigo
 
-\subsecao{1.2. The W Structure}
-
-The global structure referenced in the previous code is a
-\monoespaco{struct} called \monoespaco{W}. We already mentioned it
-in the code comments that the
-\monoespaco{struct \_game\_struct \_game} definded in
-\monoespaco{game.h}. Now we can start to define this structure:
+The test in red above represents code that still was not defined. For
+example, in the ``Include Headers'' part, it is useful to include the
+header \monoespaco{sys/param.h} to check if we are compiling the
+program on some BSD system. However, Windows do not have such header,
+but if we are on Windows, we will want to
+include \monoespaco{windows.h}.. Because of this, we can include
+different headers if we are  on Windows or not with the conditional
+inclusion below:
 
 \iniciocodigo
-@<Global Structure@>=
-// This structure will contain all the variables and functions defined at
-// Weaver API:
+@<Include Headers (weaver.h)@>=
+#if !defined(_WIN32)
+#include <sys/param.h>
+#else
+#include <windows.h>
+#endif
+@
+\fimcodigo
+
+After we could want to include more headers in this part. For example,
+the header \monoespaco{stdlib.h} is needed in almost any program. For
+example, to include definitions for \monoespaco{size\_t}. And the
+header \monoespaco{stdint.h} is useful to define integers with a fixed
+size of bits:
+
+\iniciocodigo
+@<Include Headers (weaver.h)@>+=
+#include <stdlib.h>
+#include <stdint.h>
+@
+\fimcodigo
+
+We also will define here the general structure of
+file \monoespaco{weaver.c} from our API:
+
+\iniciocodigo
+@(project/src/weaver/weaver.c@>=
+#include "weaver.h"
+#include "../game.h"
+@<Weaver API: Internal Header@>
+@<Weaver API: Static Variables@>
+@<Global Variables (weaver.c)@>
+@<Weaver API: Definitions@>
+@<Weaver API: Functions@>
+@<Defining API Functions (weaver.c)@>
+@
+\fimcodigo
+
+In this document we will expand all the parts in red in the two above
+files showing the code that should be inserted there. ANd this is how
+our API will be defined.
+
+\subsecao{1.2. The W Structure}
+
+The main data structure that we will define is a
+\monoespaco{struct} called \monoespaco{W}. This structure
+basically will be a namespace where we will define our API public
+functions and variables. Now we can start to define this structure:
+
+\iniciocodigo
+@<Data Structures (weaver.h)@>=
+// This structure will contain all the variables and functions
+// defined at Weaver API:
 extern struct _weaver_struct{
   struct _game_struct *game;
-  @<Weaver Variables@>
-  @<Weaver Functions@>
+  @<Variables Namespace@>
+  @<Functions Namespace@>
 } W;
 @
 \fimcodigo
@@ -170,49 +219,28 @@ and some initialization and finalization functions won't be inside
 the \monoespaco{W} structure. In this way we prevent the pollution of
 the global namespace.
 
-We will also define here the general structure of
-our \monoespaco{weaver.c} file:
+We declare this namespace as a global variable:
 
 \iniciocodigo
-@(project/src/weaver/weaver.c@>=
-#include "weaver.h"
-#include "../game.h"
-@<Weaver API: Internal Header@>
-@<Weaver API: Static Variables@>
-@<Weaver API: Definitions@>
-@<Weaver API: Functions@>
-@<Weaver API: Base@>
-@
-\fimcodigo
-
-In ``Weaver API: Definitions'' we will declare new kind of structures.
-The first thing will be the \monoespaco{W} structure, which we already
-declared in the header:
-
-\iniciocodigo
-@<Weaver API: Definitions@>=
+@<Global Variables (weaver.c)@>=
 struct _weaver_struct W;
 @
 \fimcodigo
 
-In ``Weaver API: Functions'' we will put almost all our
-functions. Except some base functions which can't or shouldn't be put
-inside the \monoespaco{W} structure, like initialization and
-finalization functions.
-
 \subsecao{1.3. Initialization and Finalization Functions}
 
 One thing that the initialization function must do is initialize the
-values inside the  \monoespaco{W} structure:
+values inside the \monoespaco{W} structure. Because of this, it is one
+of the few functions outside our namespace:
 
 \iniciocodigo
-@<Weaver Headers@>=
+@<Function Declaration (weaver.h)@>=
 void Winit(void);
 @
 \fimcodigo
 
 \iniciocodigo
-@<Weaver API: Base@>=
+@<Defining API Functions (weaver.c)@>=
 void Winit(void){
   W.game = &_game;
   @<Weaver API: Initialization@>
@@ -226,13 +254,13 @@ as expected. Note that the memory should be the last thing to be
 finalized.
 
 \iniciocodigo
-@<Weaver Headers@>=
+@<Function Declaration (weaver.h)@>=
 void Wexit(void);
 @
 \fimcodigo
 
 \iniciocodigo
-@<Weaver API: Base@>=
+@<Defining API Functions (weaver.c)@>=
 void Wexit(void){
   @<Weaver API: Finalization@>
   @<Weaver API: Memory: Finalization@>
@@ -241,17 +269,6 @@ void Wexit(void){
 @
 \fimcodigo
 
-The \monoespaco{exit} function requires the inclusion of the standard
-header:
-
-\iniciocodigo
-@<Weaver Headers@>=
-#include <stdlib.h>
-@
-\fimcodigo
-
-The rest of the code executed in initialization and finalization will
-be described along the article.
 
 \secao{2. Time Counting}
 
@@ -267,15 +284,36 @@ integers (\monoespaco{LARGE\_INTEGER}) and in other systems we use a
 \monoespaco{timeval} structure to store the time measure at high
 resolution.
 
+Our global variable is declared here:
 
 \iniciocodigo
-@<Weaver Headers@>=
+@<Extern Variables (weaver.h)@>=
 #if defined(_WIN32)
-#include <windows.h>
+extern LARGE_INTEGER _last_time;
+#else
+extern struct timeval _last_time;
+#endif
+@
+\fimcodigo
+
+And here:
+
+\iniciocodigo
+@<Global Variables (weaver.c)@>=
+#if defined(_WIN32)
 LARGE_INTEGER _last_time;
 #else
-#include <sys/time.h>
 struct timeval _last_time;
+#endif
+@
+\fimcodigo
+
+The header to use it can be placed here:
+
+\iniciocodigo
+@<Include Headers (weaver.h)@>=
+#if !defined(_WIN32)
+#include <sys/time.h>
 #endif
 @
 \fimcodigo
@@ -541,7 +579,7 @@ structure. The maximum loop name which we can store can be setted with
 the macro \monoespaco{W\_MAX\_LOOP\_NAME}.
 
 \iniciocodigo
-@<Weaver Variables@>+=
+@<Variables Namespace@>+=
 // Inside W structure:
 #if !defined(W_MAX_LOOP_NAME)
 #define W_MAX_LOOP_NAME 64
@@ -648,7 +686,7 @@ physics engine and game logic. Both variables needs to be declared
 inside \monoespaco{W} struct:
 
 \iniciocodigo
-@<Weaver Variables@>+=
+@<Variables Namespace@>+=
 unsigned long long t;
 unsigned long dt;
 @
@@ -683,7 +721,7 @@ void _update(void);
 We won't at this moment define the code in this function:
 
 \iniciocodigo
-@<Weaver API: Base@>+=
+@<Weaver API: Functions@>+=
 void _update(void){
   @<Code to execute every loop@>
 }
@@ -738,7 +776,7 @@ void _render(void);
 For now we are not defining the code inside this function:
 
 \iniciocodigo
-@<Weaver API: Base@>+=
+@<Weaver API: Funções@>+=
 void _render(void){
   @<Render Code@>
 }
@@ -834,7 +872,7 @@ directly a function which determines the program main loop. In other
 environments, we just run the function in a um \monoespaco{while}:
 
 \iniciocodigo
-@<Weaver API: Base@>+=
+@<Weaver API: Functions@>+=
 void _Wloop(void (*f)(void)){
   if(_number_of_loops > 0){
     @<Cancel Main Loop@>
@@ -931,7 +969,7 @@ _update_time();
 @
 \fimcodigo
 
-\subsecao{3.4. Exit from Main Loop.}
+\subsecao{3.5. Exit from Main Loop.}
 
 As there are two functions to enter in a main loop, there are two
 functions to exit. One of them exits the current main loop returning
@@ -992,7 +1030,7 @@ void _exit_loop(void){
 @
 \fimcodigo
 
-\secao{Memory Management}
+\secao{4. Memory Management}
 
 The memory management will use our subsystem with its own allocation
 and management functions. One difference between our subsystem and the
@@ -1119,10 +1157,11 @@ static void *_alloc(size_t size){
 @
 \fimcodigo
 
-We will decalre a pointer for this function in struct \monoespaco{W} and this function will be invoked as \monoespaco{W.alloc()}:
+We will declare a pointer for this function in struct \monoespaco{W}
+and this function will be invoked as \monoespaco{W.alloc()}:
 
 \iniciocodigo
-@<Weaver Functions@>=
+@<Functions Namespace@>=
 void *(*alloc)(size_t);
 @
 \fimcodigo
@@ -1140,14 +1179,14 @@ internal purposes, we also can use the following allocator that
 allocates in the right stack:
 
 \iniciocodigo
-@<API Weaver: Funções@>=
+@<Weaver API: Functions@>=
 static void *_internal_alloc(size_t size){
   return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
 }
 @
 \fimcodigo
 
-\secao{Random Number Generator}
+\secao{5. Random Number Generator}
 
 First we need to insert the header for our pseudo-random number
 generation subsystem:
@@ -1346,7 +1385,7 @@ To allow usage of this function in our API we declare a pointer to in
 in our \monoespaco{W} struct:
 
 \iniciocodigo
-@<Weaver Functions@>=
+@<Functions Namespace@>+=
 uint64_t (*rand)(void);
 @
 \fimcodigo
@@ -1359,7 +1398,7 @@ W.rand = _rand;
 @
 \fimcodigo
 
-\secao{Creating the Window and Managing User Input}
+\secao{6. Creating the Window and Managing User Input}
 
 We manage the window and its input using only the functions from
 window subsystem. To use the subsystem, we include its header, which
@@ -1400,7 +1439,7 @@ About the mouse and keyboard, we will have poiters to its structure in
 our \monoespaco{W} struct:
 
 \iniciocodigo
-@<Weaver Variables@>+=
+@<Variables Namespace@>+=
 long *keyboard;
 struct __Wmouse *mouse;
 @
@@ -1431,6 +1470,92 @@ input and restart the mouse and keyboard structs:
 \iniciocodigo
 @<Code Before Loop and Subloop@>+=
 _Wflush_window_input();
+@
+\fimcodigo
+
+Finally, we should give to the user information about the running
+environment. Besides information about mouse and keyboard, which we
+already provided, we also will give information about screen
+resolution and window size. But there is an important detail: if the
+macro \monoespaco{W\_FORCE\_LANDSCAPE} is defined and the window
+height is greater than the window width, we swap the horizontal and
+vertical values, because we assume that the user will rotate its
+screen.
+
+We will use the following global variable to know if our screen is
+rotated or not:
+
+\iniciocodigo
+@<Weaver API: Static Variables@>+=
+#if defined(W_FORCE_LANDSCAPE)
+static bool rotated_screen;
+#endif
+@
+\fimcodigo
+
+And during initialization, we will set the correct values in the
+following variables to store the screen resolution and window size:
+
+\iniciocodigo
+@<Variables Namespace@>+=
+int width, height, resolution_x, resolution_y;
+@
+\fimcodigo
+
+And here we set the values:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+_Wget_screen_resolution(&W.resolution_x, &W.resolution_y);
+_Wget_window_size(&W.width, &W.height);
+#if defined(W_FORCE_LANDSCAPE)
+if(W.height > W.width){
+  int tmp;
+  tmp = W.resolution_y;
+  W.resolution_y = W.resolution_x;
+  W.resolution_x = tmp;
+  tmp = W.width;
+  W.width = W.height;
+  W.height = tmp;
+  rotated_screen = true;
+}
+#endif
+@
+\fimcodigo
+
+\secao{7. User Interface}
+
+To use our user interface API, we include the header:
+
+\iniciocodigo
+@<Weaver Headers@>+=
+#include "interface.h"
+@
+\fimcodigo
+
+We initialize it with:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+{
+  int *window_width = &W.width, *window_height = &W.height;
+#if defined(W_FORCE_LANDSCAPE)
+  if(rotated_screen){
+    *window_width = &W.height;
+    *window_height = &W.width;
+  }
+#endif
+  _Winit_interface(window_width, window_height, _alloc, NULL,
+                   _internal_alloc, NULL, NULL, NULL, NULL);
+}
+@
+\fimcodigo
+
+And we finalize the code with:
+
+\iniciocodigo
+@<Weaver API: Finalization@>+=
+_Wfinish_interface();
 @
 \fimcodigo
 

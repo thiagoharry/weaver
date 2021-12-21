@@ -8,3 +8,7 @@
 	path = weaver-window
 	url = git@github.com:thiagoharry/weaver-window.git
 	branch = main
+[submodule "weaver-interface"]
+	path = weaver-interface
+	url = https://github.com/thiagoharry/weaver-interface.git
+	branch = main

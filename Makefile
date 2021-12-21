@@ -149,7 +149,7 @@ install: uninstall
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
-test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h
+test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h project/src/weaver/interface.h project/src/weaver/interface.c
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program.tex
@@ -160,12 +160,17 @@ test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver
 	@cp -r base/* .test/share
 	@cp -r project/* .test/share/project/
 	@bash ./.test/test.sh
-test_en: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h
+test_en: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h project/src/weaver/interface.h project/src/weaver/interface.c
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program_en.tex
 	@${TANGLE} weaver_api_en.tex
 	@${CC} ${FLAGS} -DWEAVER_DIR="\"${PWD}/.test/share/\"" src/weaver.c -o .te
+	@rm -rf .test/share/*
+	@mkdir -p .test/share/project
+	@cp -r base/* .test/share
+	@cp -r project/* .test/share/project/
+	@bash ./.test/test.sh
 submodules:
 	git submodule update --init --recursive --remote
 project/src/weaver/memory.c:
@@ -180,6 +185,10 @@ project/src/weaver/window.c:
 	cp weaver-window/src/window.c project/src/weaver/window.c
 project/src/weaver/window.h:
 	cp weaver-window/src/window.h project/src/weaver/window.h
+project/src/weaver/interface.h:
+	cp weaver-interface/src/interface.h project/src/weaver/interface.h
+project/src/weaver/interface.c:
+	cp weaver-interface/src/interface.c project/src/weaver/interface.c
 doc_en:
 	tex weaver_program_en.tex
 	dvipdf weaver_program_en.dvi
