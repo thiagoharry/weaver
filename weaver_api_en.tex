@@ -134,6 +134,7 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 @<Extern Variables (weaver.h)@>
 @<Weaver Headers@>
 @<Weaver Macros@>
+@<Macros (weaver.h)@>
 #ifdef __cplusplus
   }
 #endif
@@ -161,15 +162,17 @@ inclusion below:
 \fimcodigo
 
 After we could want to include more headers in this part. For example,
-the header \monoespaco{stdlib.h} is needed in almost any program. For
-example, to include definitions for \monoespaco{size\_t}. And the
-header \monoespaco{stdint.h} is useful to define integers with a fixed
-size of bits:
+the header for standard input/output and the standard library
+header. The header \monoespaco{stdint.h} is also useful to define
+integers with a fixed size of bits and \monoespaco{stdbool.h} is
+useful to declare and use boolean variables:
 
 \iniciocodigo
 @<Include Headers (weaver.h)@>+=
+#include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 @
 \fimcodigo
 
@@ -183,7 +186,7 @@ file \monoespaco{weaver.c} from our API:
 @<Weaver API: Internal Header@>
 @<Weaver API: Static Variables@>
 @<Global Variables (weaver.c)@>
-@<Weaver API: Definitions@>
+@<Function Definition (weaver.c)@>
 @<Weaver API: Functions@>
 @<Defining API Functions (weaver.c)@>
 @
@@ -335,12 +338,12 @@ After initialization, all other updates in this variable will happen
 using the following declared function:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Function Declaration (weaver.h)@>+=
 unsigned long _update_time(void);
 @
 \fimcodigo
 
-This function will read thecurrent time and store the variable. It
+This function will read the current time and store the variable. It
 will always return the difference in microseconds between the last two
 measures. In Unix systems we compute the time difference using the
 method recommended in the GNU C Library manual. This subtraction
@@ -350,7 +353,7 @@ is less clear and intuitive. The code is:
 
 
 \iniciocodigo
-@<Weaver API: Definitions@>=
+@<Function Definition (weaver.c)@>=
 #if !defined(_WIN32)
 unsigned long _update_time(void){
   int nsec;
@@ -390,7 +393,7 @@ At Windows systems, there's already a function that measure time in
 microseconds. So the function becames much simpler:
 
 \iniciocodigo
-@<Weaver API: Definitions@>=
+@<Function Definition (weaver.c)@>+=
 #if defined(_WIN32)
 unsigned long _update_time(void){
   LARGE_INTEGER prev;
@@ -550,11 +553,19 @@ How do we know if we should keep executing the loop? We use a global
 variable. As there's only one main loop, we don't need to protect it
 with semaphores. The same can be done to know if we are executing a
 main loop for the first time, if we are in the beginning of a loop of
-if we already executed the finalization. Let's declare the variables:
+if we already executed the finalization. Let's declare the variables
+in the header:
 
 \iniciocodigo
-@<Weaver Headers@>+=
-#include <stdbool.h>
+@<Extern Variables (weaver.h)@>+=
+extern bool _running_loop, _loop_begin, _loop_finalized;
+@
+\fimcodigo
+
+And in the main file:
+
+\iniciocodigo
+@<Global Variables (weaver.c)@>+=
 bool _running_loop, _loop_begin, _loop_finalized;
 @
 \fimcodigo
@@ -601,9 +612,8 @@ W.loop_name[0] = '\0';
 
 The function which exits the loop is:
 
-
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Function Declaration (weaver.h)@>+=
 #if !defined(_MSC_VER)
 void _exit_loop(void) __attribute__ ((noreturn));
 #else
@@ -618,11 +628,11 @@ GCC and Clang and from Visual Studio. It's so because when it exists,
 it just calls previous main loop which never returns, or it just
 exists the program, depending of the case.
 
-After desscribing thism we can finally define the loop initialization
+After describing thism we can finally define the loop initialization
 macro:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Macros (weaver.h)@>+=
 #define LOOP_INIT                                                   \
   if(!_running_loop){                                               \
     if(W.pending_files)                                             \
@@ -667,16 +677,25 @@ The accumulator which determines if we should run physics code or
 logic code will be called \monoespaco{\_lag}. It is a global variable:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Extern Variables (weaver.h)@>+=
 unsigned long _lag;
 @
 \fimcodigo
 
+\iniciocodigo
+@<Global Variables (weaver.c)@>+=
+unsigned long _lag;
+@
+\fimcodigo
+
+
 This is ts initialization:
 
+\iniciocodigo
 @<Weaver API: Initialization@>+=
 _lag = 0;
 @
+\fimcodigo
 
 We need some variables which could be read by an user with information
 about time. One of them (\monoespaco{W.t}) will store the elapsed
@@ -713,7 +732,7 @@ The code of physics engine and internal logic shall be encapsuled in a
 function called \monoespaco{\_update}:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Function Declaration (weaver.h)@>+=
 void _update(void);
 @
 \fimcodigo
@@ -721,7 +740,7 @@ void _update(void);
 We won't at this moment define the code in this function:
 
 \iniciocodigo
-@<Weaver API: Functions@>+=
+@<Function Definition (weaver.c)@>+=
 void _update(void){
   @<Code to execute every loop@>
 }
@@ -732,7 +751,7 @@ With all these definitions, we already can define our macro which
 marks the beginning of the main loop:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Macros (weaver.h)@>+=
 #define LOOP_BODY                                            \
   _loop_begin =  false;                                      \
   if(_loop_begin)                                            \
@@ -768,7 +787,7 @@ beginning of finalization.
 The only new thing here is the rendering function:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Function Declaration (weaver.h)@>+=
 void _render(void);
 @
 \fimcodigo
@@ -776,7 +795,7 @@ void _render(void);
 For now we are not defining the code inside this function:
 
 \iniciocodigo
-@<Weaver API: Funções@>+=
+@<Function Definition (weaver.c)@>+=
 void _render(void){
   @<Render Code@>
 }
@@ -786,7 +805,7 @@ void _render(void){
 And now we define the macro code:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Macros (weaver.h)@>+=
 #define LOOP_END                                           \
     _lag -=  40000;                                        \
     W.t +=  40000;                                         \
@@ -819,7 +838,7 @@ screen, but not necessarily). We can ensure this using tricks with
 macros:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Function Declaration (weaver.h)@>+=
 #if !defined(_MSC_VER)
 void _Wloop(void (*f)(void)) __attribute__ ((noreturn));
 void Wsubloop(void (*f)(void)) __attribute__ ((noreturn));
@@ -846,10 +865,17 @@ variable to store the depth of main loop stack:
 We declare these variables as:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Extern Variables (weaver.h)@>+=
 #if !defined(W_MAX_SUBLOOP)
 #define W_MAX_SUBLOOP 3
 #endif
+extern int _number_of_loops;
+extern void (*_loop_stack[W_MAX_SUBLOOP]) (void);
+@
+\fimcodigo
+
+\iniciocodigo
+@<Global Variables (weaver.c)@>+=
 int _number_of_loops;
 void (*_loop_stack[W_MAX_SUBLOOP]) (void);
 @
@@ -872,7 +898,7 @@ directly a function which determines the program main loop. In other
 environments, we just run the function in a um \monoespaco{while}:
 
 \iniciocodigo
-@<Weaver API: Functions@>+=
+@<Function Definition (weaver.c)@>+=
 void _Wloop(void (*f)(void)){
   if(_number_of_loops > 0){
     @<Cancel Main Loop@>
@@ -897,7 +923,7 @@ environment in the browser, we need to include the correct header for
 this:
 
 \iniciocodigo
-@<Weaver API: Internal Header@>+=
+@<Include Headers (weaver.h)@>+=
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
 #endif
@@ -921,7 +947,7 @@ loop counter, as it needs to be incremented. And we also need to check
 for stack overflows:
 
 \iniciocodigo
-@<Weaver API: Definitions@>+=
+@<Function Definition (weaver.c)@>+=
 void Wsubloop(void (*f)(void)){
 #if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
@@ -946,11 +972,6 @@ void Wsubloop(void (*f)(void)){
 @
 \fimcodigo
 
-Let's include a header for error message printing:
-
-@<Weaver Headers@>+=
-#include <stdio.h>
-@
 
 One necessary update before entering a main loop updating
 \monoespaco{\_running\_loop}, variable which tells the game engine
@@ -983,24 +1004,14 @@ Exit from a main loop involves adjust the global variable which stores
 if we should execute the current main loop or exits from it:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Macros (weaver.h)@>+=
 #define Wexit_loop() (_running_loop = false)
 @
 \fimcodigo
 
 If you check again the code inserted by macros in main loops, you will
 notice that if this variable is false, if there are no pending files
-being loaded, then the function \monoespaco{\_exit\_loop} is called:
-
-\iniciocodigo
-@<Weaver Headers@>+=
-#if !defined(_MSC_VER)
-void _exit_loop(void) __attribute__ ((noreturn));
-#else
-__declspec(noreturn) void _exit_loop(void);
-#endif
-@
-\fimcodigo
+being loaded, then the function \monoespaco{\_exit\_loop} is called.
 
 The code of this function involves cancelling the current main loop
 and checking if there is another main loop in the stack. If not, the
@@ -1008,7 +1019,7 @@ program exits.  If exists, we run again the initialization code in
 that main loop and start running it:
 
 \iniciocodigo
-@<Weaver API: Definitions@>+=
+@<Function Definition (weaver.c)@>+=
 void _exit_loop(void){
   if(_number_of_loops <= 1){
     Wexit();
@@ -1245,6 +1256,7 @@ signal):
   do{
     ret = getrandom(buffer, 4 * 8, 0);
   }while(ret != 4 * 8);
+  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
 }
 #endif
 @

@@ -148,6 +148,7 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
 @<Variáveis Externas (weaver.h)@>
 @<Cabeçalhos Weaver@>
 @<Macros Weaver@>
+@<Macros (weaver.h)@>
 #ifdef __cplusplus
   }
 #endif
@@ -177,16 +178,18 @@ cabeçalhos se estamos ou não no Windows por meio do código abaixo:
 \fimcodigo
 
 Mais tarde, podemos querer inserir mais cabeçalhos à medida que eles
-forem necessários. Por exemplo, o \monoespaco{stdlib.h} é necessário
-em quase qualquer programa. Por exemplo, para podermos incluir as
-definições de \monoespaco{size\_t}. Já o \monoespaco{stdint.h} também
-é útil para quando queremos definir inteiros com um tamanho fixo de
-bits:
+forem necessários. Por exemplo, o cabeçalho de entrada e saída padrão,
+e da biblioteca padrão. Já o \monoespaco{stdint.h} também é útil para
+quando queremos definir inteiros com um tamanho fixo de bits enquanto
+o \monoespaco{stdbool.h} nos permite declarar e usar variáveis
+booleanas:
 
 \iniciocodigo
 @<Inclui Cabeçalhos (weaver.h)@>+=
-#include <stdlib.h> // Declara 'size_t'.
+#include <stdio.h>
+#include <stdlib.h>
 #include <stdint.h>
+#include <stdbool.h>
 @
 \fimcodigo
 
@@ -200,7 +203,7 @@ arquivo \monoespaco{weaver.c} de nossa API:
 @<API Weaver: Cabeçalhos Internos@>
 @<API Weaver: Variáves Estáticas@>
 @<Variáveis Globais (weaver.c)@>
-@<API Weaver: Definições@>
+@<Definição de Função (weaver.c)@>
 @<API Weaver: Funções@>
 @<Definição de Funções da API (weaver.c)@>
 @
@@ -358,7 +361,7 @@ Após a inicialização, todas as outras atualizações desta variável
 deverão ser feitas por meio da função declarada abaixo:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Declaração de Função (weaver.h)@>+=
 unsigned long _update_time(void);
 @
 \fimcodigo
@@ -372,7 +375,7 @@ estrutura \monoespaco{timeval} sejam armazenadas como ``unsigned''.  A
 desvantagem é que o código se torna menos claro. O código fica sendo:
 
 \iniciocodigo
-@<API Weaver: Definições@>=
+@<Definição de Função (weaver.c)@>=
 #if !defined(_WIN32)
 unsigned long _update_time(void){
   int nsec;
@@ -409,12 +412,11 @@ unsigned long _update_time(void){
 \fimcodigo
 
 Em sistema Windows, já existe uma função que trata o tempo como sendo
-em microssegundos exatamente no formato que já era usado antes mesmo
-de portarmos Weaver para Windows na versão beta. Por causa disso, a
-função se torna muito mais simples:
+em microssegundos. Por causa disso, a função se torna muito mais
+simples:
 
 \iniciocodigo
-@<API Weaver: Definições@>=
+@<Definição de Função (weaver.c)@>+=
 #if defined(_WIN32)
 unsigned long _update_time(void){
   LARGE_INTEGER prev;
@@ -472,7 +474,7 @@ void nome\_do\_loop(void){
 Mas embora esta interpretação seja suficientemente adequada em certos
 contextos, não é assim que este código será traduzido. Não é em todos
 os ambientes em que é possível executar um loop infinito sem fazer com
-que a interface do jogo trave. Um exemplo é o ambiente WebAssembly de
+que a interface do jogo trave. Um exemplo é o ambiente Web Assembly de
 um navegador de Internet, onde os laços principais de um programa só
 podem ser executados se forem corretamente declarados como tais e a
 execução deles ocorre não por meio de um laço infinito, mas pela
@@ -583,16 +585,24 @@ ser controlado por uma variável global, não sendo nem necessário se
 preocupar com semáforos. Afinal, somente um laço irá executar em um
 dado momento. O mesmo pode ser feito com a variável que determina se
 estamos na primeira execução de um laço (ou o começo de um laço) e se
-já executamos a finalização. Vamos declarar ambas as variáveis:
+já executamos a finalização. Vamos declarar essas variáveis no
+cabeçalho:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
-#include <stdbool.h>
+@<Variáveis Externas (weaver.h)@>+=
+extern bool _running_loop, _loop_begin, _loop_finalized;
+@
+\fimcodigo
+
+E também no arquivo com as definições:
+
+\iniciocodigo
+@<Variáveis Globais (weaver.c)@>+=
 bool _running_loop, _loop_begin, _loop_finalized;
 @
 \fimcodigo
 
-E vamos inicializar elas:
+Vamos também inicializar elas:
 
 \iniciocodigo
 @<API Weaver: Inicialização@>+=
@@ -638,14 +648,12 @@ W.loop_name[0] = '\0';
 A função que usaremos para sair do laço será esta:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Declaração de Função (weaver.h)@>+=
 #if !defined(_MSC_VER)
 void _exit_loop(void) __attribute__ ((noreturn));
 #else
 __declspec(noreturn) void _exit_loop(void);
 #endif
-
-
 @
 \fimcodigo
 
@@ -659,7 +667,7 @@ Após descrever tudo isso, podemos enfim definir a macro de início de
 laço:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Macros (weaver.h)@>+=
 #define LOOP_INIT                                                   \
   if(!_running_loop){                                               \
     if(W.pending_files)                                             \
@@ -708,16 +716,24 @@ física do jogo será chamado de \monoespaco{\_lag}. Declaramos ele
 globalmente:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Variáveis Externas (weaver.h)@>+=
+extern unsigned long _lag;
+@
+\fimcodigo
+
+\iniciocodigo
+@<Variáveis Globais (weaver.c)@>+=
 unsigned long _lag;
 @
 \fimcodigo
 
 E o inicializamos:
 
+\iniciocodigo
 @<API Weaver: Inicialização@>+=
 _lag = 0;
 @
+\fimcodigo
 
 Existirão variáveis que poderão ser lidas pelo usuário com informações
 de tempo. Uma delas (\monoespaco{W.t}) conterá a quantidae de
@@ -756,7 +772,7 @@ O código da engine de física e lógica interna do jogo deve ficar
 encapsulado em uma função chamada \monoespaco{\_update}:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Declaração de Função (weaver.h)@>+=
 void _update(void);
 @
 \fimcodigo
@@ -765,7 +781,7 @@ Por hora ainda não iremos definir o código a ser executado nesta
 função:
 
 \iniciocodigo
-@<API Weaver: Funções@>+=
+@<Definição de Função (weaver.c)@>+=
 void _update(void){
   @<Código a executar todo loop@>
 }
@@ -776,7 +792,7 @@ Mas com as definições que fizemos já podemos definir a nossa macro que
 marca o começo do código do laço principal:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Macros (weaver.h)@>+=
 #define LOOP_BODY                                            \
   _loop_begin =  false;                                      \
   if(_loop_begin)                                            \
@@ -818,7 +834,7 @@ detectarmos que o laço acabou e precisamos rodar a finalização.
 A única coisa nova que temos aqui então é a função de renderização:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Declaração de Função (weaver.h)@>+=
 void _render(void);
 @
 \fimcodigo
@@ -827,7 +843,7 @@ Por hora ainda não iremos definir o código a ser executado nesta
 função:
 
 \iniciocodigo
-@<API Weaver: Funções@>+=
+@<Definição de Função (weaver.c)@>+=
 void _render(void){
   @<Código de renderização@>
 }
@@ -837,7 +853,7 @@ void _render(void){
 E agora colocamos o código da macro:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Macros (weaver.h)@>+=
 #define LOOP_END                                           \
     _lag -=  40000;                                        \
     W.t +=  40000;                                         \
@@ -873,7 +889,7 @@ caso). Por isso apenas nos asseguramos disso por mieo de um truque com
 macros:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Declaração de Função (weaver.h)@>+=
 #if !defined(_MSC_VER)
 void _Wloop(void (*f)(void)) __attribute__ ((noreturn));
 void Wsubloop(void (*f)(void)) __attribute__ ((noreturn));
@@ -900,14 +916,22 @@ pilha estamos no momento (\monoespaco{\_number\_of\_loops}).
 A declaração destas duas variáveis será:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Variáveis Externas (weaver.h)@>+=
 #if !defined(W_MAX_SUBLOOP)
 #define W_MAX_SUBLOOP 3
 #endif
+extern int _number_of_loops;
+extern void (*_loop_stack[W_MAX_SUBLOOP]) (void);
+@
+\fimcodigo
+
+\iniciocodigo
+@<Variáveis Globais (weaver.c)@>+=
 int _number_of_loops;
 void (*_loop_stack[W_MAX_SUBLOOP]) (void);
 @
 \fimcodigo
+
 
 E inicializamos a contagem do número de laços como zero:
 
@@ -928,7 +952,7 @@ principal. Nos demais, basta executar a função em
 um \monoespaco{while} comum:
 
 \iniciocodigo
-@<API Weaver: Funções@>+=
+@<Definição de Função (weaver.c)@>+=
 void _Wloop(void (*f)(void)){
   if(_number_of_loops > 0){
     @<Cancela Loop Principal@>
@@ -952,7 +976,7 @@ Lembrando que se estivermos executando em ambiente Web Assembly em
 navegador precisamos do cabeçalho adequado:
 
 \iniciocodigo
-@<API Weaver: Cabeçalhos Internos@>+=
+@<Inclui Cabeçalhos (weaver.h)@>+=
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h>
 #endif
@@ -977,7 +1001,7 @@ realmente precisa ser incrementado. E também temos que checar se
 tivemos um estouro na nossa pilha de laços:
 
 \iniciocodigo
-@<API Weaver: Definições@>+=
+@<Definição de Função (weaver.c)@>+=
 void Wsubloop(void (*f)(void)){
 #if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
@@ -1002,12 +1026,6 @@ void Wsubloop(void (*f)(void)){
 @
 \fimcodigo
 
-Vamos incluir o cabçalho para podermos imprimir mensagens de erro:
-
-@<Cabeçalhos Weaver@>+=
-#include <stdio.h>
-@
-
 Uma coisa que faremos tanto antes de um laço como de um sublaço é
 atualizar a variável \monoespaco{\_running\_loop} que avisa ao motor
 que realmente estamos executando um laço ao invés de tentar sair dele,
@@ -1026,7 +1044,7 @@ _update_time();
 @
 \fimcodigo
 
-\subsecao{3.4. Saindo do Laço Principal.}
+\subsecao{3.5. Saindo do Laço Principal.}
 
 Assim como existem duas funções para entrar em laços principais,
 existitão duas funções para sair. Uma delas apenas sai do laço
@@ -1042,7 +1060,7 @@ que diz que estamos executando o laço para um valor que significa que
 queremos sair do laço:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Macros (weaver.h)@>+=
 #define Wexit_loop() (_running_loop = false)
 @
 \fimcodigo
@@ -1050,24 +1068,14 @@ queremos sair do laço:
 Se você verificar novamente o código inserido pelas macros presentes
 em laços principais, verá que se esta variável for falsa e não existir
 nenhum recurso ou arquivo ainda sendo carregado, então será chamada a
-função \monoespaco{\_exit\_loop}:
-
-\iniciocodigo
-@<Cabeçalhos Weaver@>+=
-#if !defined(_MSC_VER)
-void _exit_loop(void) __attribute__ ((noreturn));
-#else
-__declspec(noreturn) void _exit_loop(void);
-#endif
-@
-\fimcodigo
+função \monoespaco{\_exit\_loop}.
 
 Já o código desta função envolve cancelar o laço atual e checar se
 existe outro na pilha. Se não existir, o programa se encerra. Se
 existir, executa código de entrada no novo laço:
 
 \iniciocodigo
-@<API Weaver: Definições@>+=
+@<Definição de Função (weaver.c)@>+=
 void _exit_loop(void){
   if(_number_of_loops <= 1){
     Wexit();
