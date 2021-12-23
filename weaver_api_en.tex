@@ -132,8 +132,6 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 @<Data Structures (weaver.h)@>
 @<Function Declaration (weaver.h)@>
 @<Extern Variables (weaver.h)@>
-@<Weaver Headers@>
-@<Weaver Macros@>
 @<Macros (weaver.h)@>
 #ifdef __cplusplus
   }
@@ -183,18 +181,47 @@ file \monoespaco{weaver.c} from our API:
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 #include "../game.h"
-@<Weaver API: Internal Header@>
-@<Weaver API: Static Variables@>
+@<Local Headers (weaver.c)@>
+@<Local Macros (weaver.c)@>
 @<Global Variables (weaver.c)@>
+@<Static Variables (weaver.c)@>
 @<Function Definition (weaver.c)@>
-@<Weaver API: Functions@>
 @<Defining API Functions (weaver.c)@>
 @
 \fimcodigo
 
-In this document we will expand all the parts in red in the two above
-files showing the code that should be inserted there. ANd this is how
-our API will be defined.
+As an example of local macros that we will use in this document, the
+macros below give us a portable way of declaring mutex and using them
+independent of the operating system:
+
+\iniciocodigo
+@<Local Macros (weaver.c)@>=
+#if defined(__linux__) || defined(BSD)
+#define STATIC_MUTEX_DECLARATION(mutex) static pthread_mutex_t mutex
+#define MUTEX_INIT(mutex) pthread_mutex_init(mutex, NULL)
+#define MUTEX_DESTROY(mutex) pthread_mutex_destroy(mutex);
+#define MUTEX_WAIT(mutex) pthread_mutex_lock(mutex);
+#define MUTEX_SIGNAL(mutex) pthread_mutex_unlock(mutex);
+#elif defined(_WIN32)
+#define STATIC_MUTEX_DECLARATION(mutex) static CRITICAL_SECTION mutex
+#define MUTEX_INIT(mutex) InitializeCriticalSection(mutex)
+#define MUTEX_DESTROY(mutex) DeleteCriticalSection(mutex);
+#define MUTEX_WAIT(mutex) EnterCriticalSection(mutex);
+#define MUTEX_SIGNAL(mutex) LeaveCriticalSection(mutex);
+#elif defined(__EMSCRIPTEN__)
+#define STATIC_MUTEX_DECLARATION(mutex)
+#define MUTEX_INIT(mutex)
+#define MUTEX_DESTROY(mutex)
+#define MUTEX_WAIT(mutex)
+#define MUTEX_SIGNAL(mutex)
+#endif
+@
+\fimcodigo
+
+In this document we will expand all the other parts in red in the two
+files (\monoespaco{weaver.c} and \monoespaco{weaver.h}) showing the
+code that should be inserted there. ANd this is how our API will be
+defined.
 
 \subsecao{1.2. The W Structure}
 
@@ -1066,7 +1093,7 @@ the small value of 4 MiB. This will force the user to specify a more
 realistic value after some time, except in the most trivial projects.
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Macros (weaver.h)@>+=
 #ifndef W_MAX_MEMORY
 #define W_MAX_MEMORY 4096
 #endif
@@ -1077,7 +1104,7 @@ The maximum quantity of informed memory will be allocated during
 initialization and we will return the address to the pointer below:
 
 \iniciocodigo
-@<Weaver API: Static Variables@>=
+@<Static Variables (weaver.c)@>=
 static void *memory_arena;
 @
 \fimcodigo
@@ -1085,7 +1112,7 @@ static void *memory_arena;
 To use the functions in the memory subsystem, we include the header:
 
 \iniciocodigo
-@<Weaver API: Internal Header@>=
+@<Local Headers (weaver.c)@>=
 #include "memory.h"
 @
 \fimcodigo
@@ -1126,7 +1153,7 @@ in \monoespaco{conf/conf.h}. If this macro is not defined, we use as
 default the size of a \monoespaco{unsigned long} as a guess.
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Macros (weaver.h)@>+=
 #ifndef W_MEMORY_ALIGNMENT
 #define W_MEMORY_ALIGNMENT (sizeof(unsigned long))
 #endif
@@ -1160,8 +1187,7 @@ allocations will be done in the left stack using the default byte
 alignment:
 
 \iniciocodigo
-
-@<Weaver API: Functions@>=
+@<Function Definition (weaver.c)@>+=
 static void *_alloc(size_t size){
   return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 0, size);
 }
@@ -1190,7 +1216,7 @@ internal purposes, we also can use the following allocator that
 allocates in the right stack:
 
 \iniciocodigo
-@<Weaver API: Functions@>=
+@<Function Definition (weaver.c)@>+=
 static void *_internal_alloc(size_t size){
   return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
 }
@@ -1203,7 +1229,7 @@ First we need to insert the header for our pseudo-random number
 generation subsystem:
 
 \iniciocodigo
-@<Weaver API: Internal Header@>+=
+@<Local Headers (weaver.c)@>+=
 #include "random.h"
 @
 \fimcodigo
@@ -1211,7 +1237,7 @@ generation subsystem:
 Next we will declare a ponter to our generator struct:
 
 \iniciocodigo
-@<Weaver API: Static Variables@>+=
+@<Static Variables (weaver.c)@>+=
 static struct _Wrng *rng;
 @
 \fimcodigo
@@ -1265,7 +1291,7 @@ signal):
 But this requires that the following header be added:
 
 \iniciocodigo
-@<Weaver API: Internal Header@>+=
+@<Local Headers (weaver.c)@>+=
 #if !defined(W_RNG_SEED) && defined(__linux__)
 #include <sys/random.h>
 #endif
@@ -1331,7 +1357,7 @@ succeed in the first try:
 To use WIndows CNG API we first need to include this header:
 
 \iniciocodigo
-@<Weaver API: Internal Header@>+=
+@<Local Headers (weaver.c)@>+=
 #if !defined(W_RNG_SEED) && defined(_WIN32)
 #include <bcrypt.h>
 #endif
@@ -1386,7 +1412,7 @@ needing to pass the generator as an argument. We can build such
 function as:
 
 \iniciocodigo
-@<Weaver API: Functions@>=
+@<Function Definition (weaver.c)@>+=
 static uint64_t _rand(void){
   return _Wrand(rng);
 }
@@ -1417,7 +1443,7 @@ window subsystem. To use the subsystem, we include its header, which
 should also be visible to the user:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Include Headers (weaver.h)@>+=
 #include "window.h"
 @
 \fimcodigo
@@ -1498,7 +1524,7 @@ We will use the following global variable to know if our screen is
 rotated or not:
 
 \iniciocodigo
-@<Weaver API: Static Variables@>+=
+@<Static Variables (weaver.c)@>+=
 #if defined(W_FORCE_LANDSCAPE)
 static bool rotated_screen;
 #endif
@@ -1540,12 +1566,70 @@ if(W.height > W.width){
 To use our user interface API, we include the header:
 
 \iniciocodigo
-@<Weaver Headers@>+=
+@<Include Headers (weaver.h)@>+=
 #include "interface.h"
 @
 \fimcodigo
 
-We initialize it with:
+Before initializing our user intrface API, we need to decide what
+should be done before and after loading each interface resources (like
+their texture). Recall that Weaver API must keep in
+variable \monoespaco{W.pending\_files} the number of files and
+resources that we are currently loading. Therefore, before loading a
+new resource, this variable must be incremented and after loading, it
+should be decremented. Doing this is important because ensures that we
+will not exit a main loop before loading its resources, which prevents
+errors where the loading threads keep writting and loading resources
+in memory areas that were already freed and allocated to other game
+loop.
+
+As we expect that textures and resources could be loaded by threads,
+we need a mutex to ensure that only one thread increment or decrement
+the variable. We will store this mutex in a static variable:
+
+\iniciocodigo
+@<Static Variables (weaver.c)@>+=
+STATIC_MUTEX_DECLARATION(pending_files_mutex);
+@
+\fimcodigo
+
+
+The mutex is initialized during the initialization:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+MUTEX_INIT(&pending_files_mutex);
+@
+\fimdodigo
+
+And finalized in the finalization:
+
+\iniciocodigo
+@<Weaver API: Finalization@>+=
+MUTEX_DESTROY(&pending_files_mutex);
+@
+\fimcodigo
+
+With all the mutex, we can then declare a function that runs before
+and after each loading:
+
+\iniciocodigo
+@<Function Definition (weaver.c)@>+=
+void before_loading_resources(void){
+  MUTEX_WAIT(&pending_files_mutex);
+  W.pending_files ++;
+  MUTEX_SIGNAL(&pending_files_mutex);
+}
+void after_loading_resources(void){
+  MUTEX_WAIT(&pending_files_mutex);
+  W.pending_files --;
+  MUTEX_SIGNAL(&pending_files_mutex);
+}
+@
+\fimcodigo
+
+
+We initialize the API it with:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1591,9 +1675,6 @@ parts after will be written and better explained.
 @<Code before Loop, not Subloop@>= @
 \fimcodigo
 
-\iniciocodigo
-@<Weaver Macros@>= @
-\fimcodigo
 
 
 \secao{References}

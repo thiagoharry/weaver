@@ -146,8 +146,6 @@ e \monoespaco{weaver.h}. A organização do \monoespaco{weaver.h} é:
 @<Estruturas de Dados (weaver.h)@>
 @<Declaração de Função (weaver.h)@>
 @<Variáveis Externas (weaver.h)@>
-@<Cabeçalhos Weaver@>
-@<Macros Weaver@>
 @<Macros (weaver.h)@>
 #ifdef __cplusplus
   }
@@ -200,17 +198,44 @@ arquivo \monoespaco{weaver.c} de nossa API:
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 #include "../game.h"
-@<API Weaver: Cabeçalhos Internos@>
-@<API Weaver: Variáves Estáticas@>
+@<Cabeçalhos Locais (weaver.c)@>
+@<Macros Locais (weaver.c)@>
 @<Variáveis Globais (weaver.c)@>
+@<Variáveis Estáticas (weaver.c)@>
 @<Definição de Função (weaver.c)@>
-@<API Weaver: Funções@>
 @<Definição de Funções da API (weaver.c)@>
 @
 \fimcodigo
 
+Como exemplo de macros locais, vamos definir macros que serão formas
+portáveis de declarar e usar mutex, independente do sistema
+operacional:
 
-Ao longo deste documento iremos expandir todas estas partes em
+\iniciocodigo
+@<Macros Locais (weaver.c)@>=
+#if defined(__linux__) || defined(BSD)
+#define STATIC_MUTEX_DECLARATION(mutex) static pthread_mutex_t mutex
+#define MUTEX_INIT(mutex) pthread_mutex_init(mutex, NULL)
+#define MUTEX_DESTROY(mutex) pthread_mutex_destroy(mutex);
+#define MUTEX_WAIT(mutex) pthread_mutex_lock(mutex);
+#define MUTEX_SIGNAL(mutex) pthread_mutex_unlock(mutex);
+#elif defined(_WIN32)
+#define STATIC_MUTEX_DECLARATION(mutex) static CRITICAL_SECTION mutex
+#define MUTEX_INIT(mutex) InitializeCriticalSection(mutex)
+#define MUTEX_DESTROY(mutex) DeleteCriticalSection(mutex);
+#define MUTEX_WAIT(mutex) EnterCriticalSection(mutex);
+#define MUTEX_SIGNAL(mutex) LeaveCriticalSection(mutex);
+#elif defined(__EMSCRIPTEN__)
+#define STATIC_MUTEX_DECLARATION(mutex)
+#define MUTEX_INIT(mutex)
+#define MUTEX_DESTROY(mutex)
+#define MUTEX_WAIT(mutex)
+#define MUTEX_SIGNAL(mutex)
+#endif
+@
+\fimcodigo
+
+Ao longo deste documento iremos expandir todas as outras partes em
 vermelho apresentando o código que será inserido nelas. E assim a
 nossa API será definida.
 
@@ -1123,7 +1148,7 @@ usuário a ter que explicitar um valor mais adequado exceto nos
 menores e mais triviais dos projetos:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Macros (weaver.h)@>+=
 #ifndef W_MAX_MEMORY
 #define W_MAX_MEMORY 4096
 #endif
@@ -1134,7 +1159,7 @@ Essa quantidade máxima de memória será alocada durante a inicialização
 e armazenaremos o endereço para ela na variável abaixo:
 
 \iniciocodigo
-@<API Weaver: Variáves Estáticas@>=
+@<Variáveis Estáticas (weaver.c)@>=
 static void *memory_arena;
 @
 \fimcodigo
@@ -1143,7 +1168,7 @@ Para podermos usar as funções de nosso subsistema de memória,
 incluimos o cabeçalho:
 
 \iniciocodigo
-@<API Weaver: Cabeçalhos Internos@>=
+@<Cabeçalhos Locais (weaver.c)@>=
 #include "memory.h"
 @
 \fimcodigo
@@ -1187,7 +1212,7 @@ nós usamos por padrão o tamanho de um \monoespaco{unsigned long} como
 palpite.
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Macros (weaver.h)@>+=
 #ifndef W_MEMORY_ALIGNMENT
 #define W_MEMORY_ALIGNMENT (sizeof(unsigned long))
 #endif
@@ -1221,7 +1246,7 @@ alocação de memória. Todas as alocações feitas pelo usuário devem ser
 da pilha esquerda da memória, usando o alinhamento padrão:
 
 \iniciocodigo
-@<API Weaver: Funções@>=
+@<Definição de Função (weaver.c)@>+=
 static void *_alloc(size_t size){
   return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 0, size);
 }
@@ -1251,7 +1276,7 @@ com as alocações feitas pelo usuário, podemos usar a seguinte função
 que aloca da pilha da direita:
 
 \iniciocodigo
-@<API Weaver: Funções@>=
+@<Definição de Função (weaver.c)@>+=
 static void *_internal_alloc(size_t size){
   return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
 }
@@ -1264,7 +1289,7 @@ Primeiro temos que inserir o cabeçalho para o subsistema de geração de
 números pseudo-randômicos:
 
 \iniciocodigo
-@<API Weaver: Cabeçalhos Internos@>+=
+@<Cabeçalhos Locais (weaver.c)@>+=
 #include "random.h"
 @
 \fimcodigo
@@ -1273,7 +1298,7 @@ Em seguida, vamos declara o ponteiro para a estrutura de nosso
 gerador:
 
 \iniciocodigo
-@<API Weaver: Variáves Estáticas@>+=
+@<Variáveis Estáticas (weaver.c)@>+=
 static struct _Wrng *rng;
 @
 \fimcodigo
@@ -1329,7 +1354,7 @@ de sistema for interrompida por um sinal):
 Mas isso requer que adicionemos o cabeçalho para chamar esta função:
 
 \iniciocodigo
-@<API Weaver: Cabeçalhos Internos@>+=
+@<Cabeçalhos Locais (weaver.c)@>+=
 #if !defined(W_RNG_SEED) && defined(__linux__)
 #include <sys/random.h>
 #endif
@@ -1397,7 +1422,7 @@ Para usar a API CNG do Windows nós primeiro precisamos inserir este
 cabeçalho:
 
 \iniciocodigo
-@<API Weaver: Cabeçalhos Internos@>+=
+@<Cabeçalhos Locais (weaver.c)@>+=
 #if !defined(W_RNG_SEED) && defined(_WIN32)
 #include <bcrypt.h>
 #endif
@@ -1453,7 +1478,7 @@ de 64 bits, sem precisar passar como argumento o próprio
 gerador.Podemos construir tal função assim:
 
 \iniciocodigo
-@<API Weaver: Funções@>=
+@<Definição de Função (weaver.c)@>+=
 static uint64_t _rand(void){
   return _Wrand(rng);
 }
@@ -1486,7 +1511,7 @@ inserimos o seu cabeçalho, o qual deve também ser visdível para o
 usuário:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Inclui Cabeçalhos (weaver.h)@>+=
 #include "window.h"
 @
 \fimcodigo
@@ -1568,7 +1593,7 @@ Vamos então usar a seguinte variável global só para saber se estamos
 com a tela rotacionada ou não:
 
 \iniciocodigo
-@<API Weaver: Variáves Estáticas@>+=
+@<Variáveis Estáticas (weaver.c)@>+=
 #if defined(W_FORCE_LANDSCAPE)
 static bool rotated_screen = false;
 #endif
@@ -1610,8 +1635,68 @@ if(W.height > W.width){
 Para usar a API de interface de usuário, inserimos o cabeçalho:
 
 \iniciocodigo
-@<Cabeçalhos Weaver@>+=
+@<Inclui Cabeçalhos (weaver.h)@>+=
 #include "interface.h"
+@
+\fimcodigo
+
+Antes de inicializar nossa API de interface de usuário, temos que
+decidir o que deve ser feito por ela imediatamente antes de começar a
+carregar texturas e dados para uma interface e o que deve ser feito
+depois. A API Weaver deve sempre manter dados corretos sobre o número
+de recursos que estão sendo carregados ou não por meio da
+variável \monoespaco{W.pending\_files}. Então, quando vamos carregar
+dados de uma interface, devemos incrementar esta variável. E quando
+terminarmos de carregar os dados, devemos decrementá-la
+novamente. Fazer isso garante que não iremos abandonar um laço
+principal antes de carregar todos os seus recursos, o que garante que
+uma thread de carregamento de dados não vai continuar escrevendo
+coisas em memória que pode já ter sido desalocada e alocada para outro
+laço principal.
+
+Como podemos esperar que texturas e recursos para as interfaces sejam
+carregadas por threads, isso significa que vamos precisar de um mutex
+para incrementar e decrementar a variável. Vamos armazenar tal mutex
+como uma variável estática:
+
+\iniciocodigo
+@<Variáveis Estáticas (weaver.c)@>+=
+STATIC_MUTEX_DECLARATION(pending_files_mutex);
+@
+\fimcodigo
+
+O mutex é inicializado durante a inicialização:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+MUTEX_INIT(&pending_files_mutex);
+@
+\fimdodigo
+
+E é finalizado na finalização:
+
+\iniciocodigo
+@<API Weaver: Finalização@>+=
+MUTEX_DESTROY(&pending_files_mutex);
+@
+\fimcodigo
+
+Com o mutex, podemos enfim declarar uma função que deve ser executada
+antes de carregar cada recurso de interface e outra depois de carregar
+os recursos:
+
+\iniciocodigo
+@<Definição de Função (weaver.c)@>+=
+void before_loading_resources(void){
+  MUTEX_WAIT(&pending_files_mutex);
+  W.pending_files ++;
+  MUTEX_SIGNAL(&pending_files_mutex);
+}
+void after_loading_resources(void){
+  MUTEX_WAIT(&pending_files_mutex);
+  W.pending_files --;
+  MUTEX_SIGNAL(&pending_files_mutex);
+}
 @
 \fimcodigo
 
@@ -1665,10 +1750,6 @@ posteriormente preenchidas e melhor explicadas.
 @
 \fimcodigo
 
-\iniciocodigo
-@<Macros Weaver@>=
-@
-\fimcodigo
 
 
 \secao{Referências}
