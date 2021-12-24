@@ -761,7 +761,7 @@ _lag = 0;
 \fimcodigo
 
 Existirão variáveis que poderão ser lidas pelo usuário com informações
-de tempo. Uma delas (\monoespaco{W.t}) conterá a quantidae de
+de tempo. Uma delas (\monoespaco{W.t}) conterá a quantidade de
 microssegundos desde que o jogo inicializou. Outra delas
 (\monoespaco{W.dt}) conterá o intervalo entre execuções do motor de
 física e da lógica do jogo. Ambas as variáveis precisam ser declaradas
@@ -981,10 +981,12 @@ um \monoespaco{while} comum:
 void _Wloop(void (*f)(void)){
   if(_number_of_loops > 0){
     @<Cancela Loop Principal@>
+    @<Ajuste de Memória Após Cancelar Loop@>
     _number_of_loops --;
   }
   @<Código antes de Loop e Subloop@>
   @<Código antes de Loop, não de Subloop@>
+  @<Ajuste de Memória antes de Loop e Subloop@>
   _loop_stack[_number_of_loops] = f;
   _number_of_loops ++;
 #if defined(__EMSCRIPTEN__)
@@ -1223,7 +1225,7 @@ Com isso podemos salvar o estado da pilha esquerda e direita de nossa
 arena de memória:
 
 \iniciocodigo
-@<Código antes de Loop e Subloop@>+=
+@<Ajuste de Memória antes de Loop e Subloop@>=
 _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 0);
 _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 1);
 @
@@ -1234,7 +1236,7 @@ estado da arena de memória para como estava quando entramos nele,
 tanto na pilha de memória da esquerda como da direita:
 
 \iniciocodigo
-@<Cancela Loop Principal@>+=
+@<Ajuste de Memória Após Cancelar Loop@>=
 _Wtrash(memory_arena, 0);
 _Wtrash(memory_arena, 1);
 @
@@ -1656,12 +1658,16 @@ laço principal.
 
 Como podemos esperar que texturas e recursos para as interfaces sejam
 carregadas por threads, isso significa que vamos precisar de um mutex
-para incrementar e decrementar a variável. Vamos armazenar tal mutex
-como uma variável estática:
+para incrementar e decrementar a variável. Além disso, queremos também
+que em um dado momento exista somente uma thread lendo arquivos e
+carregando recursos para evitar uma explosão de gasto de memória. Para
+isso usaremos duas variáveis de mutex. Vamos armazenar eles como
+variáveis estáticas:
 
 \iniciocodigo
 @<Variáveis Estáticas (weaver.c)@>+=
 STATIC_MUTEX_DECLARATION(pending_files_mutex);
+STATIC_MUTEX_DECLARATION(loading_files);
 @
 \fimcodigo
 
@@ -1670,6 +1676,7 @@ O mutex é inicializado durante a inicialização:
 \iniciocodigo
 @<API Weaver: Inicialização@>+=
 MUTEX_INIT(&pending_files_mutex);
+MUTEX_INIT(&loading_files);
 @
 \fimdodigo
 
@@ -1678,12 +1685,19 @@ E é finalizado na finalização:
 \iniciocodigo
 @<API Weaver: Finalização@>+=
 MUTEX_DESTROY(&pending_files_mutex);
+MUTEX_DESTROY(&loading_files);
 @
 \fimcodigo
 
 Com o mutex, podemos enfim declarar uma função que deve ser executada
 antes de carregar cada recurso de interface e outra depois de carregar
-os recursos:
+os recursos. As funções, por meio de mutex, irão garantir a contagem
+adequada de recursos sendo carregados, garantirão que haja só uma
+thread carregando recursos enquanto as outras esperam, mas além disso
+também irão inicialmente criar uma marcação na pilha direita de nosso
+gerenciador de memórias e depois do carregamento irão apagar tudo que
+foi alocado nessa região de memória. Fazer isso irá limpar toda a
+memória temporária alocada durante o carregamento.
 
 \iniciocodigo
 @<Definição de Função (weaver.c)@>+=
@@ -1691,8 +1705,12 @@ void before_loading_resources(void){
   MUTEX_WAIT(&pending_files_mutex);
   W.pending_files ++;
   MUTEX_SIGNAL(&pending_files_mutex);
+  MUTEX_WAIT(&loading_files);
+  _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 1);
 }
 void after_loading_resources(void){
+  _Wtrash(memory_arena, 1);
+  MUTEX_SIGNAL(&loading_files);
   MUTEX_WAIT(&pending_files_mutex);
   W.pending_files --;
   MUTEX_SIGNAL(&pending_files_mutex);
@@ -1713,16 +1731,73 @@ A nossa API de interface de usuário é inicializada com:
   }
 #endif
   _Winit_interface(window_width, window_height, _alloc, NULL,
-                   _internal_alloc, NULL, NULL, NULL, NULL);
+                   _internal_alloc, NULL, before_loading_resources,
+                   after_loading_resources, NULL);
 }
 @
 \fimcodigo
 
-E finalizamos o código com:
+Na inicialização informamos a API de interface do tamanho verdadeiro
+da janela (não o tamanho rotacionado caso estejamos em modo paisagem e
+esperamos que o usuário rotacione seu telefone para usar o programa),
+como a memória deve ser alocada, que a API não deve tentar desalocar
+sozinha memória e as duas funções definidas acima do quê fazer antes e
+depois de carregar recursos de arquivos.
+
+Finalizamos o código com:
 
 \iniciocodigo
 @<API Weaver: Finalização@>+=
 _Wfinish_interface();
+@
+\fimcodigo
+
+Uma coisa que temos que fazer também é salvar a lista de interfaces
+que temos no momento e colocar em uma pilha toda vez que entramos em
+um laço principal ao mesmo tempo que após salvar marcamos como
+não-ativas todas as interfaces. Se sairmos de um laço principal,
+devemos restaurar a nossa lista de interfaces ativa para o último
+estado salvo na pilha e removê-lo da pilha. Dessa forma toda interface
+terá como escopo o laço em que é criada e sua alocação e desalocação
+obedecerá a mesma odem e lógica dos laços principais.
+
+Para isso basta chamarmos as funções adequadas no momento
+certo. Antes de entrar em novo loop e subloop devemos salvar o estado
+das interfaces na pilha e marcar todas elas como inativas:
+
+\iniciocodigo
+@<Código antes de Loop e Subloop@>+=
+_Wmark_history_interface();
+@
+\fimcodigo
+
+E quando estivermos cancelando um loop principal no qual estamos,
+devemos apagar as interfaces criadas dentro dela e restaurar o último
+estado salvo na pilha, removendo-o da pilha:
+
+\iniciocodigo
+@<Cancela Loop Principal@>+=
+_Wrestore_history_interface();
+@
+\fimcodigo
+
+During the game physics loop, we can interact with the interfaces:
+
+\iniciocodigo
+@<Código a executar todo loop@>+=
+_Winteract_interface(W.mouse -> x, W.mouse -> y,
+                     W.mouse -> button[W_MOUSE_LEFT],
+                     W.mouse -> button[W_MOUSE_MIDDLE],
+                     W.mouse -> button[W_MOUSE_RIGHT]);
+@
+\fimcodigo
+
+Assim como devemos renderizar as interfaces em cada laço de
+renderização:
+
+\iniciocodigo
+@<Código de renderização@>+=
+_Wrender_interface(W.t);
 @
 \fimcodigo
 

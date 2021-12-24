@@ -929,10 +929,12 @@ environments, we just run the function in a um \monoespaco{while}:
 void _Wloop(void (*f)(void)){
   if(_number_of_loops > 0){
     @<Cancel Main Loop@>
+    @<Memory Adjustment when Canceling Main Loop@>
     _number_of_loops --;
   }
   @<Code Before Loop and Subloop@>
   @<Code before Loop, not Subloop@>
+  @<Memory Adjustment Before Loop and Subloop@>
   _loop_stack[_number_of_loops] = f;
   _number_of_loops ++;
 #if defined(__EMSCRIPTEN__)
@@ -1134,7 +1136,7 @@ right memory stack (to clean the right memory stack we pass argument
 1), the place reserved to internal allocations in our API:
 
 \iniciocodigo
-  @<Weaver API: Memory: Finalization@>=
+@<Weaver API: Memory: Finalization@>=
 _Wtrash(memory_arena, 1);
 _Wdestroy_arena(memory_arena);
 @
@@ -1164,7 +1166,7 @@ Knowing this we can save the state in our memory (the left and right
 stack):
 
 \iniciocodigo
-@<Code Before Loop and Subloop@>+=
+@<Memory Adjustment Before Loop and Subloop@>=
 _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 0);
 _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 1);
 @
@@ -1175,7 +1177,7 @@ memory state to how it was before entering in the loop. Both on left
 as in right stack:
 
 \iniciocodigo
-@<Cancel Main Loop@>+=
+@<Memory Adjustment when Canceling Main Loop@>=
 _Wtrash(memory_arena, 0);
 _Wtrash(memory_arena, 1);
 @
@@ -1585,11 +1587,15 @@ loop.
 
 As we expect that textures and resources could be loaded by threads,
 we need a mutex to ensure that only one thread increment or decrement
-the variable. We will store this mutex in a static variable:
+the variable. We also want to forbid to have more than one thread
+loading resources from files to avoid increasing too much the memory
+consumption. For this we will need two mutex variables. We will store
+them as static variables:
 
 \iniciocodigo
 @<Static Variables (weaver.c)@>+=
 STATIC_MUTEX_DECLARATION(pending_files_mutex);
+STATIC_MUTEX_DECLARATION(loading_files);
 @
 \fimcodigo
 
@@ -1599,6 +1605,7 @@ The mutex is initialized during the initialization:
 \iniciocodigo
 @<Weaver API: Initialization@>+=
 MUTEX_INIT(&pending_files_mutex);
+MUTEX_INIT(&loading_files);
 @
 \fimdodigo
 
@@ -1607,11 +1614,17 @@ And finalized in the finalization:
 \iniciocodigo
 @<Weaver API: Finalization@>+=
 MUTEX_DESTROY(&pending_files_mutex);
+MUTEX_DESTROY(&loading_files);
 @
 \fimcodigo
 
 With all the mutex, we can then declare a function that runs before
-and after each loading:
+and after each loading.The functions will use the mutex to ensure that
+we are counting correctly the loading resources, and that only one
+thread will load resources while other threads will just wait. Besides
+this, before loading we mark the memory region in the right stack of
+our memory manager and after loading everything we clean the temporary
+allocated memory after the loading.
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -1619,8 +1632,12 @@ void before_loading_resources(void){
   MUTEX_WAIT(&pending_files_mutex);
   W.pending_files ++;
   MUTEX_SIGNAL(&pending_files_mutex);
+  MUTEX_WAIT(&loading_files);
+  _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 1);
 }
 void after_loading_resources(void){
+  _Wtrash(memory_arena, 1);
+  MUTEX_SIGNAL(&loading_files);
   MUTEX_WAIT(&pending_files_mutex);
   W.pending_files --;
   MUTEX_SIGNAL(&pending_files_mutex);
@@ -1642,12 +1659,20 @@ We initialize the API it with:
   }
 #endif
   _Winit_interface(window_width, window_height, _alloc, NULL,
-                   _internal_alloc, NULL, NULL, NULL, NULL);
+                   _internal_alloc, NULL, before_loading_resources,
+                   after_loading_resources, NULL);
 }
 @
 \fimcodigo
 
-And we finalize the code with:
+In the initialization we inform the user interface API the real size
+of our window (not the rotated size if the user is using a mobile
+device and is expected to rotate the screen), how the memory should be
+allocated, that the API should not try to disallocate memory, and the
+two functions above that should be called before and after loading
+resources from files.
+
+We finalize the code with:
 
 \iniciocodigo
 @<Weaver API: Finalization@>+=
@@ -1655,6 +1680,55 @@ _Wfinish_interface();
 @
 \fimcodigo
 
+Another necessary thing is that we need to save the list of active
+interfaces and piut in a stack in the beginning of each main loop
+while marking as non-active all interfaces. When we exit a main loop,
+we should restore our list of active interfaces for the last state
+saven in the stack and remove it from the stack. Doing this, all
+interfaces will have as scope the loop in where it is created and its
+allocation and disaloccation will follow the same order and logic than
+the main loop ordering.
+
+For this we need to call some adequate functions in the right
+places. Before entering a new loop or subloop we save the state of our
+interfaces in the stack and mark all them as inactive:
+
+\iniciocodigo
+@<Code Before Loop and Subloop@>+=
+_Wmark_history_interface();
+@
+\fimcodigo
+
+And when we cancel the current main loop, we should erase all
+interfaces created in that loop and restore the last saved state in
+the stack, removing it from the stack:
+
+\iniciocodigo
+@<Cancel Main Loop@>+=
+_Wrestore_history_interface();
+@
+\fimcodigo
+
+We can interact with the interfaces using the mouse in each loop of
+our physics engine:
+
+\iniciocodigo
+@<Code to execute every loop@>+=
+_Winteract_interface(W.mouse -> x, W.mouse -> y,
+                     W.mouse -> button[W_MOUSE_LEFT],
+                     W.mouse -> button[W_MOUSE_MIDDLE],
+                     W.mouse -> button[W_MOUSE_RIGHT]);
+@
+\fimcodigo
+
+And in each rendering loop we should render all our visible
+interfaces:
+
+\iniciocodigo
+@<Render Code@>+=
+_Wrender_interface(W.t);
+@
+\fimcodigo
 
 \secao{Empty Definitions}
 

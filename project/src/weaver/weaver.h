@@ -28,17 +28,17 @@ extern"C"{
 #include <sys/time.h> 
 #endif
 /*:14*//*42:*/
-#line 953 "weaver_api_en.tex"
+#line 955 "weaver_api_en.tex"
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h> 
 #endif
 /*:42*//*73:*/
-#line 1446 "weaver_api_en.tex"
+#line 1448 "weaver_api_en.tex"
 
 #include "window.h"
 /*:73*//*84:*/
-#line 1569 "weaver_api_en.tex"
+#line 1571 "weaver_api_en.tex"
 
 #include "interface.h"
 /*:84*/
@@ -66,23 +66,23 @@ char loop_name[W_MAX_LOOP_NAME];
 unsigned long long t;
 unsigned long dt;
 /*:29*//*77:*/
-#line 1480 "weaver_api_en.tex"
+#line 1482 "weaver_api_en.tex"
 
 long*keyboard;
 struct __Wmouse*mouse;
 /*:77*//*82:*/
-#line 1538 "weaver_api_en.tex"
+#line 1540 "weaver_api_en.tex"
 
 int width,height,resolution_x,resolution_y;
 /*:82*/
 #line 239 "weaver_api_en.tex"
 
 /*57:*/
-#line 1201 "weaver_api_en.tex"
+#line 1203 "weaver_api_en.tex"
 
 void*(*alloc)(size_t);
 /*:57*//*71:*/
-#line 1426 "weaver_api_en.tex"
+#line 1428 "weaver_api_en.tex"
 
 uint64_t(*rand)(void);
 /*:71*/
@@ -202,17 +202,17 @@ _LABEL_0
   goto _LABEL_0;                                           \
 _LOOP_FINALIZATION
 /*:36*//*46:*/
-#line 1034 "weaver_api_en.tex"
+#line 1036 "weaver_api_en.tex"
 
 #define Wexit_loop() (_running_loop =  false)
 /*:46*//*48:*/
-#line 1096 "weaver_api_en.tex"
+#line 1098 "weaver_api_en.tex"
 
 #ifndef W_MAX_MEMORY
 #define W_MAX_MEMORY 4096
 #endif
 /*:48*//*53:*/
-#line 1156 "weaver_api_en.tex"
+#line 1158 "weaver_api_en.tex"
 
 #ifndef W_MEMORY_ALIGNMENT
 #define W_MEMORY_ALIGNMENT (sizeof(unsigned long))
