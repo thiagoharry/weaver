@@ -1450,13 +1450,41 @@ should also be visible to the user:
 @
 \fimcodigo
 
+To get a mouse and keyboard struct, necessary to create our window, we
+will have pointer for the keyboard and the entire mouse struct
+in \monoespaco{W} struct:
+
+\iniciocodigo
+@<Variables Namespace@>+=
+long *keyboard;
+struct _Wmouse mouse;
+@
+\fimcodigo
+
+The complete keyboard struct will be declared here:
+
+\iniciocodigo
+@<Static Variables (weaver.c)@>+=
+static struct _Wkeyboard keyboard;
+@
+\fimcodigo
+
+We initialize the keyboard pointer during initialization, pointing the
+keyboard directly to the key array:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+W.keyboard = keyboard.key;
+@
+\fimcodigo
+
 We will create our window during the program initialization and close
 it during the finalization. We never will create more than one window
 in our program.
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
-_Wcreate_window();
+_Wcreate_window(&keyboard, &W.mouse);
 @
 \fimcodigo
 
@@ -1475,32 +1503,12 @@ _Wrender_window();
 @
 \fimcodigo
 
-About the mouse and keyboard, we will have poiters to its structure in
-our \monoespaco{W} struct:
-
-\iniciocodigo
-@<Variables Namespace@>+=
-long *keyboard;
-struct __Wmouse *mouse;
-@
-\fimcodigo
-
-We initialize the pointers during initialization, pointing the
-keyboard directly to the key array and the mouse to the mouse struct:
-
-\iniciocodigo
-@<Weaver API: Initialization@>+=
-W.keyboard = _Wkeyboard.key;
-W.mouse = &_Wmouse;
-@
-\fimcodigo
-
 We need to read input in the mouse and keyboard periodically, in each
 iteration:
 
 \iniciocodigo
 @<Code to execute every loop@>=
-_Wget_window_input(W.t);
+_Wget_window_input(W.t, &keyboard, &W.mouse);
 @
 \fimcodigo
 
@@ -1509,7 +1517,7 @@ input and restart the mouse and keyboard structs:
 
 \iniciocodigo
 @<Code Before Loop and Subloop@>+=
-_Wflush_window_input();
+_Wflush_window_input(&keyboard, &W.mouse);
 @
 \fimcodigo
 
@@ -1714,10 +1722,10 @@ our physics engine:
 
 \iniciocodigo
 @<Code to execute every loop@>+=
-_Winteract_interface(W.mouse -> x, W.mouse -> y,
-                     W.mouse -> button[W_MOUSE_LEFT],
-                     W.mouse -> button[W_MOUSE_MIDDLE],
-                     W.mouse -> button[W_MOUSE_RIGHT]);
+_Winteract_interface(W.mouse.x, W.mouse.y,
+                     W.mouse.button[W_MOUSE_LEFT] > 0,
+                     W.mouse.button[W_MOUSE_MIDDLE] > 0,
+                     W.mouse.button[W_MOUSE_RIGHT] > 0);
 @
 \fimcodigo
 
@@ -1729,6 +1737,103 @@ interfaces:
 _Wrender_interface(W.t);
 @
 \fimcodigo
+
+To render and turn interfaces active, we need first to create
+them. The interface API expect that we pass to the function that
+creates them a path for the shader source code and for the file with
+the texture. Both values can also be \monoespaco{NULL} to use default
+shader or texture.
+
+But instead of expecting users to give full file paths, Weaver Engine
+expect the user to just give the filename and this file will be taken
+from the correct directory. Shader source-codes should be in
+the \monoespaco{shader} directory and image files with texture should
+be in the \monoespaco{images} directory. Both directories will be
+searched on \monoespaco{W\_DATA\_DIR} if this macro is
+defined. Otherwise, they are searched on the current directory. This
+macro probably will be defined only when the game is being compiled to
+be installed.
+
+Therefore, new interfaces will be created by the following function:
+
+\iniciocodigo
+@<Function Definition (weaver.c)@>+=
+static struct user_interface *new_interface(char *shader, char *texture,
+                                            float x, float y, float z,
+                                            float width, float height){
+  char path_shader[512], path_texture[512];
+  int dir_len = 1, shader_len, texture_len, max_len;
+  shader_len = strlen(shader);
+  texture_len = strlen(texture);
+  path_shader[0] = path_texture[0] = '.';
+  path_shader[1] = path_texture[1] = '\0';
+#if defined(W_DATA_DIR)
+  dir_len = strlen(W_DATA_DIR);
+  if(dir_len < 511){
+    memcpy(path_shader, W_DATA_DIR, dir_len + 1);
+    memcpy(path_texture, W_DATA_DIR, dir_len + 1);
+  }
+#endif
+  max_len = dir_len + 1 +
+              ((shader_len > texture_len)?(shader_len):(texture_len));
+  if(max_len > 512){
+    fprintf(stderr, "ERROR: Path %s/%s is too big!\n", path_shader,
+            ((shader_len > texture_len)?(shader):(texture)));
+    return NULL;
+  }
+  memcpy(&path_shader[dir_len], "/", 2);
+  memcpy(&path_texture[dir_len], "/", 2);
+  dir_len ++;
+  memcpy(&path_shader[dir_len], shader, shader_len + 1);
+  memcpy(&path_texture[dir_len], texture, texture_len + 1);
+  return _Wnew_interface(path_texture, path_shader, x, y, z, width,
+                         height);
+}
+@
+\fimcodigo
+
+This requires the string header:
+
+\iniciocodigo
+@<Local Headers (weaver.c)@>+=
+#include <string.h>
+@
+\fimcodigo
+
+We place this new function in our API namespace:
+
+\iniciocodigo
+@<Functions Namespace@>+=
+struct user_interface *(*new_interface)(char *, char *, float, float,
+                                        float, float, float);
+@
+\fimcodigo
+
+The other functions from our user interface submodule will be used
+exactly as they are defined. Therefore, we just declare them in our
+namespace:
+
+\iniciocodigo
+@<Functions Namespace@>+=
+struct user_interface *(*link_interface)(struct user_interface *);
+void (*rotate_interface)(struct user_interface *, float);
+void (*resize_interface)(struct user_interface *, float, float);
+void (*move_interface)(struct user_interface *, float, float, float);
+@
+\fimcodigo
+
+All functions need to be prepared to be used after the initialization:
+
+\iniciocodigo
+@<Weaver API: Initialization@>+=
+W.new_interface = new_interface;
+W.link_interface = _Wlink_interface;
+W.rotate_interface = _Wrotate_interface;
+W.resize_interface = _Wresize_interface;
+W.move_interface = _Wmove_interface;
+@
+\fimcodigo
+
 
 \secao{Empty Definitions}
 

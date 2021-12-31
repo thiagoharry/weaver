@@ -1518,13 +1518,41 @@ usuário:
 @
 \fimcodigo
 
+Para obter a estrutura de teclado e mouse, necessárias para criar a
+nossa janela, vamos deixar um espaço para a estrutura deles na
+estrutura \monoespaco{W}:
+
+\iniciocodigo
+@<Namespace de Variáveis@>+=
+long *keyboard;
+struct _Wmouse mouse;
+@
+\fimcodigo
+
+A estrutura completa do teclado será declarada aqui:
+
+\iniciocodigo
+@<Variáveis Estáticas (weaver.c)@>+=
+static struct _Wkeyboard keyboard;
+@
+\fimcodigo
+
+E inicializamos o ponteiro do teclado para apontar para a região certa
+criada pelo subsistema de janela:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+W.keyboard = keyboard.key;
+@
+\fimcodigo
+
 Para termos uma janela, precisamos criar ela na inicialização do nosso
 programa. Iremos criar sempre uma única janela e só iremos fechá-la
 durante a finalização:
 
 \iniciocodigo
 @<API Weaver: Inicialização@>+=
-_Wcreate_window();
+_Wcreate_window(&keyboard, &W.mouse);
 @
 \fimcodigo
 
@@ -1544,31 +1572,12 @@ _Wrender_window();
 @
 \fimcodigo
 
-Com relação a obter a leitura de teclado e mouse, vamos deixar um
-espaço para a estrutura deles na estrutura \monoespaco{W}:
-
-\iniciocodigo
-@<Namespace de Variáveis@>+=
-long *keyboard;
-struct __Wmouse *mouse;
-@
-\fimcodigo
-
-E inicializamos os ponteiros para apontar para a região certa criada
-pelo subsistema  de janela:
-
-\iniciocodigo
-@<API Weaver: Inicialização@>+=
-W.keyboard = _Wkeyboard.key;
-W.mouse = &_Wmouse;
-@
-\fimcodigo
 
 O teclado e mouse precisam ser lidos periodicamente, toda iteração:
 
 \iniciocodigo
 @<Código a executar todo loop@>=
-_Wget_window_input(W.t);
+_Wget_window_input(W.t, &keyboard, &W.mouse);
 @
 \fimcodigo
 
@@ -1577,7 +1586,7 @@ teclado e mouse:
 
 \iniciocodigo
 @<Código antes de Loop e Subloop@>+=
-_Wflush_window_input();
+_Wflush_window_input(&keyboard, &W.mouse);
 @
 \fimcodigo
 
@@ -1785,10 +1794,10 @@ During the game physics loop, we can interact with the interfaces:
 
 \iniciocodigo
 @<Código a executar todo loop@>+=
-_Winteract_interface(W.mouse -> x, W.mouse -> y,
-                     W.mouse -> button[W_MOUSE_LEFT],
-                     W.mouse -> button[W_MOUSE_MIDDLE],
-                     W.mouse -> button[W_MOUSE_RIGHT]);
+_Winteract_interface(W.mouse.x, W.mouse.y,
+                     W.mouse.button[W_MOUSE_LEFT] > 0,
+                     W.mouse.button[W_MOUSE_MIDDLE] > 0,
+                     W.mouse.button[W_MOUSE_RIGHT] > 0);
 @
 \fimcodigo
 
@@ -1800,6 +1809,104 @@ renderização:
 _Wrender_interface(W.t);
 @
 \fimcodigo
+
+Mas para poder renderizar ou tornar interfaces ativas, precisamos
+criar novas interfaces. Para isso devemos passar como argumento um
+arquivo onde está seu código-fonte de shader e sua textura. Ambos
+podem ser \monoespaco{NULL} para usar o valor padrão.
+
+Mas ao invés de esperar que usuários passem caminhos absolutos para
+tais arquivos, queremos que o usuário digite apenas o seu nome e nós
+os buscaremos no diretório adequado. Código-fonte de shaders devem ser
+colocados no diretório \monoespaco{shaders} e texturas com imagens
+devem estar no diretório \monoespaco{images}. Ambos os diretórios
+devem estar no diretório indicado pela macro \monoespaco{W\_DATA\_DIR}
+se ela estiver definida. Caso contrário, eles serão buscados no
+diretório atual. A ideia é que esta macro seja definida somente quando
+uma versão do jogo estiver sendo compilada para instalação.
+
+O modo então de gerar novas interfaces será por meio da seguinte
+função:
+
+\iniciocodigo
+@<Definição de Função (weaver.c)@>+=
+static struct user_interface *new_interface(char *shader, char *texture,
+                                            float x, float y, float z,
+                                            float width, float height){
+  char path_shader[512], path_texture[512];
+  int dir_len = 1, shader_len, texture_len, max_len;
+  shader_len = strlen(shader);
+  texture_len = strlen(texture);
+  path_shader[0] = path_texture[0] = '.';
+  path_shader[1] = path_texture[1] = '\0';
+#if defined(W_DATA_DIR)
+  dir_len = strlen(W_DATA_DIR);
+  if(dir_len < 511){
+    memcpy(path_shader, W_DATA_DIR, dir_len + 1);
+    memcpy(path_texture, W_DATA_DIR, dir_len + 1);
+  }
+#endif
+  max_len = dir_len + 1 +
+              ((shader_len > texture_len)?(shader_len):(texture_len));
+  if(max_len > 512){
+    fprintf(stderr, "ERROR: Path %s/%s is too big!\n", path_shader,
+            ((shader_len > texture_len)?(shader):(texture)));
+    return NULL;
+  }
+  memcpy(&path_shader[dir_len], "/", 2);
+  memcpy(&path_texture[dir_len], "/", 2);
+  dir_len ++;
+  memcpy(&path_shader[dir_len], shader, shader_len + 1);
+  memcpy(&path_texture[dir_len], texture, texture_len + 1);
+  return _Wnew_interface(path_texture, path_shader, x, y, z, width,
+                         height);
+}
+@
+\fimcodigo
+
+Isso requer que usemos o canbeçalho de strings:
+
+\iniciocodigo
+@<Cabeçalhos Locais (weaver.c)@>+=
+#include <string.h>
+@
+\fimcodigo
+
+E colocamos esta função no namespace da API Weaver:
+
+\iniciocodigo
+@<Namespace de Funções@>+=
+struct user_interface *(*new_interface)(char *, char *, float, float,
+                                        float, float, float);
+@
+\fimcodigo
+
+As outras funções da API de interface de usuário serão usadas tal qual
+elas estão definidas no submódulo de interfaces. Por isso, só
+precisaremos declará-las no namespace:
+
+\iniciocodigo
+@<Namespace de Funções@>+=
+struct user_interface *(*link_interface)(struct user_interface *);
+void (*rotate_interface)(struct user_interface *, float);
+void (*resize_interface)(struct user_interface *, float, float);
+void (*move_interface)(struct user_interface *, float, float, float);
+@
+\fimcodigo
+
+Todas as funções precisam então ser preparadas para serem usadas após
+a inicialização:
+
+\iniciocodigo
+@<API Weaver: Inicialização@>+=
+W.new_interface = new_interface;
+W.link_interface = _Wlink_interface;
+W.rotate_interface = _Wrotate_interface;
+W.resize_interface = _Wresize_interface;
+W.move_interface = _Wmove_interface;
+@
+\fimcodigo
+
 
 \secao{Definições Vazias}
 

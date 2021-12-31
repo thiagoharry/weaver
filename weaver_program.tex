@@ -183,9 +183,6 @@ O comportamento de Weaver deve depender das seguintes variáveis:
 |arg_is_valid_module|: Se o argumento passado seria válido como
   um novo módulo no projeto Weaver atual.
 
-|arg_is_valid_plugin|: Se o segundo argumento existe e se ele é um
- nome válido para um novo plugin.
-
 |arg_is_valid_function|: Se o segundo argumento existe e se ele seria
  um nome válido para um loop principal e também para um arquivo.
 
@@ -222,7 +219,7 @@ int main(int argc, char **argv){@/
   int return_value = 0; /* Valor de retorno. */
   bool inside_weaver_directory = false, arg_is_path = false,
     arg_is_valid_project = false, arg_is_valid_module = false,
-    have_arg = false, arg_is_valid_plugin = false,
+    have_arg = false,
     arg_is_valid_function = false; /* Variáveis booleanas. */
   unsigned int project_version_major = 0, project_version_minor = 0,
     weaver_version_major = 0, weaver_version_minor = 0,
@@ -237,9 +234,7 @@ int main(int argc, char **argv){@/
   @<Caso de uso 4: Atualizar projeto Weaver@>
   @<Caso de uso 5: Criar novo módulo@>
   @<Caso de uso 6: Criar novo projeto@>
-  @<Caso de uso 7: Criar novo plugin@>
-  @<Caso de uso 8: Criar novo shader@>
-  @<Caso de uso 9: Criar novo loop principal@>
+  @<Caso de uso 7: Criar novo loop principal@>
 END_OF_PROGRAM:
   @<Finalização@>
   return return_value;
@@ -1201,41 +1196,7 @@ NOT_VALID_MODULE:
 @
 \fimcodigo
 
-\subsecao{6.9. arg\_is\_valid\_plugin: Se o argumento pode ser um nome de plugin}
-
-Para que um argumento seja um nome válido para plugin, ele deve ser
-composto só por caracteres alfanuméricos ou underline e não existir no
-diretório
-\monoespaco{plugin} um arquivo com a extensão \monoespaco{.c} de mesmo
-nome. Também precisamos estar naturalmente, em um diretório Weaver.
-
-\iniciocodigo
-@<Inicialização@>+=
-if(argument2 != NULL && inside_weaver_directory){
-  int i, size;
-  char *buffer;
-  size = strlen(argument2);
-  // Checando caracteres inválidos no nome:
-  for(i = 0; i < size; i ++){
-    if(!isalnum(argument2[i]) && argument2[i] != '_'){
-      goto NOT_VALID_PLUGIN;
-    }
-  }
-  // Checando se já existe plugin com mesmo nome:
-  buffer = concatenate(project_path, "plugins/", argument2, ".c", "");
-  if(buffer == NULL) W_ERROR();
-  if(directory_exist(buffer) != NAO_EXISTE){
-    free(buffer);
-    goto NOT_VALID_PLUGIN;
-  }
-  free(buffer);
-  arg_is_valid_plugin = true;
-}
-NOT_VALID_PLUGIN:
-@
-\fimcodigo
-
-\subsecao{6.10. arg\_is\_valid\_function: Se o argumento pode ser um nome de função de loop principal}
+\subsecao{6.9. arg\_is\_valid\_function: Se o argumento pode ser um nome de função de loop principal}
 
 Para que essa variável seja verdadeira, é preciso existir um segundo
 argumento e ele deve ser formado somente por caracteres alfanuméricos
@@ -1257,7 +1218,7 @@ if(argument2 != NULL && inside_weaver_directory &&
   // Checando caracteres inválidos no nome:
   for(i = 0; i < size; i ++){
     if(!isalnum(argument2[i]) && argument2[i] != '_'){
-      goto NOT_VALID_PLUGIN;
+      goto NOT_VALID_FUNCTION;
     }
   }
   // Checando se existem arquivos com o nome indicado:
@@ -1306,7 +1267,7 @@ if(argument2 != NULL && inside_weaver_directory &&
 NOT_VALID_FUNCTION:
 @
 
-\subsecao{6.11. author\_name: Nome do criador do código}
+\subsecao{6.10. author\_name: Nome do criador do código}
 
 A variável |author_name| deve conter o nome do usuário que está
 invocando o programa. Esta informação é útil para gerar uma mensagem
@@ -1403,7 +1364,7 @@ enumeração com diferentes formatos de nomes):
 #endif
 @
 
-\subsecao{6.12. project\_name: Nome do projeto}
+\subsecao{6.11. project\_name: Nome do projeto}
 
 Só faz sendido falarmos no nome do projeto se estivermos dentro de um
 projeto Weaver. Neste caso, o nome do projeto pode ser encontrado em
@@ -1450,7 +1411,7 @@ if(project_name != NULL) free(project_name);
 @
 \fimcodigo
 
-\subsecao{6.13. year: Ano atual}
+\subsecao{6.12. year: Ano atual}
 
 O ano atual é trivial de descobrir usando a função |localtime|,
 independente do sistema operacional:
@@ -1800,266 +1761,7 @@ if(! inside_weaver_directory && have_arg){
 @
 \fimcodigo
 
-\subsecao{7.7. Criar novo plugin}
-
-Este aso de uso é invocado quando temos dois argumentos, o primeiro é
-|"--plugin"| e o segundo é o nome de um novo plugin, o qual deve ser
-um nome único, sem conflitar com qualquer outro dentro de
-\monoespaco{plugins/}. Devemos estar em um diretório Weaver para fazer
-isso.
-
-\iniciocodigo
-@<Caso de uso 7: Criar novo plugin@>=
-if(inside_weaver_directory && have_arg && !strcmp(argument, "--plugin") &&
-   arg_is_valid_plugin){
-  char *buffer;
-  FILE *fp;
-  /* Criando o arquivo: */
-  buffer = concatenate("plugins/", argument2, ".c", "");
-  if(buffer == NULL) W_ERROR();
-  fp = fopen(buffer, "w");
-  if(fp == NULL) W_ERROR();
-  write_copyright(fp, author_name, project_name, year);
-  fprintf(fp, "#include \"../src/weaver/weaver.h\"\n\n");
-  fprintf(fp, "void _init_plugin_%s(W_PLUGIN){\n\n}\n\n", argument2);
-  fprintf(fp, "void _fini_plugin_%s(W_PLUGIN){\n\n}\n\n", argument2);
-  fprintf(fp, "void _run_plugin_%s(W_PLUGIN){\n\n}\n\n", argument2);
-  fprintf(fp, "void _enable_plugin_%s(W_PLUGIN){\n\n}\n\n", argument2);
-  fprintf(fp, "void _disable_plugin_%s(W_PLUGIN){\n\n}\n", argument2);
-  fclose(fp);
-  free(buffer);
-  END();
-}
-@
-\fimcodigo
-
-\subsecao{7.8. Criar novo shader}
-
-Este caso de uso é similar ao anterior, mas possui algumas
-diferenças. Todo shader será um novo arquivo no formato GLSL dentro do
-diretório \monoespaco{shaders}. E além disso, seu nome terá sempre o
-formato dado pela expressão regular \monoespaco{[0-9][0-9]*-.*}. O(s)
-dígito(s) na primeira parte do nome deve ser único para cada shader de
-um mesmo projeto. E os números representados por tais dígitos devem
-ser sempre sequenciais, começando no 1 e incrementando-o a cada novo
-shader.
-
-Este caso de uso será invocado somente quando o nosso primeiro
-argumento for |``--shader''| e o segundo for um nome qualquer. Não
-precisamos realmente forçar uma restrição nos nomes dos shaders, pois
-sua convenção numérica garante que cada um terá um nome único e
-não-conflitante.
-
-Para garantir isso, o código deverá contar quantos arquivos com
-extensão GLSL existem no diretório dos shaders e criar um novo shader
-com nome \monoespaco{DD-XX.glsl}, onde \monoespaco{DD} é o número de
-arquivos que existia mais 1 e \monoespaco{XX} é o nome escolhido
-passado como segundo argumento para o programa. Mas se existirem
-lacunas na numeração de shaders, por exemplo existir um shader 1 e um
-3 sem existir o 2, daremos preferência para cobrir a lacuna.
-
-Depois de descobrir a numeração do novo shader, basta criarmos ele
-como um arquivo vazio e depois copiarmos o conteúdo de um modelo já
-existente em nosso diretório de instalação.
-
-O código deste caso de uso é então:
-
-\iniciocodigo
-@<Caso de uso 8: Criar novo shader@>=
-if(inside_weaver_directory && have_arg && !strcmp(argument, "--shader") &&
-   argument2 != NULL){
-    FILE *fp;
-    size_t tmp_size, number = 0;
-    char *buffer;
-    @<Shader: Conta número de arquivos e obtém número do shader@>
-    // Criando o shader:
-    tmp_size = number / 10 + 7 + strlen(argument2);
-    buffer = (char *) malloc(tmp_size);
-    if(buffer == NULL) W_ERROR();
-    buffer[0] = '\0';
-    snprintf(buffer, tmp_size, "%d-%s.glsl", (int) number, argument2);
-    fp = fopen(buffer, "w");
-    if(fp == NULL){
-        free(buffer);
-        W_ERROR();
-    }
-    if(append_file(fp, shared_dir, "shader.glsl") == 0) W_ERROR();
-    fclose(fp);
-    free(buffer);
-    END();
-}
-@
-\fimcodigo
-
-A parte de contar onter o número do novo shader ocorre de maneira
-diferente no Unix e no Windows devido à API diferente para lidar com o
-sistema de arquivos. Tirando as particularidades de como iterar sobre
-arquivos em um diretório, o que faremos é iterar em cada arquivo no
-diretório \monoespaco{shaders} de nosso projeto que não seja um
-diretório, tenha extensão GLSL e tenha seu nome começado com um número
-positivo. Chamaremos tal número de \monoespaco{number}. Teremos um
-vetor booleano inicialmente marcado inteiramente como falso. Ao chegar
-em cada um destes arquivos, marcamos no vetor booleano a informação de
-que o shader de número \monoespaco{number} existe colocando o valor
-verdadeiro na posição do vetor reservada para ele. Depois de iterarmos
-sobre cada um dos arquivos, acharemos a primeira posição do vetor que
-ainda está marcada como falsa. Sua posição indica qual número de shadr
-ainda não foi usado e é o número que escolheremos.
-
-Complexidades adicionais neste código envolvem apenas tomarmos o
-cuidado para que o nosso vetor booleano sempre tenha um tamanho
-adequado. Para isso tentamos alocar ele inicialmente com 128 espaços,
-mas se acharmos shaders com números altos o bastante, o realocaremos
-para lidar com o número maior.
-
-O código para isso no Linux será:
-
-\iniciocodigo
-@<Shader: Conta número de arquivos e obtém número do shader@>=
-#if !defined(_WIN32)
-{
-  size_t i, max_number = 0;
-  DIR *shader_dir;
-  struct dirent *dp;
-  char *p;
-  bool *exists;
-  size_t exists_size = 128;
-  shader_dir = opendir("shaders/");
-  if(shader_dir == NULL)
-    W_ERROR();
-  exists = (bool *) malloc(sizeof(bool) * exists_size);
-  if(exists == NULL){
-    closedir(shader_dir);
-    W_ERROR();
-  }
-  for(i = 0; i < exists_size; i ++)
-    exists[i] = false;
-  while((dp = readdir(shader_dir)) != NULL){
-    if(dp -> d_name[0] == '.') continue;
-    if(dp -> d_name[0] == '\0') continue;
-    buffer = concatenate("shaders/", dp -> d_name, "");
-    if(buffer == NULL) W_ERROR();
-    if(directory_exist(buffer) != EXISTE_E_EH_ARQUIVO){
-      free(buffer);
-      continue;
-    }
-    for(p = buffer; *p != '\0'; p ++);
-    p -= 5;
-    if(strcmp(p, ".glsl") && strcmp(p, ".GLSL")){
-      free(buffer);
-      continue;
-    }
-    number = atoi(buffer);
-    if(number == 0){
-      free(buffer);
-      continue;
-    }
-    if(number > max_number)
-      max_number = number;
-    if(number > exists_size){
-      if(number > exists_size * 2)
-        exists_size = number;
-      else
-        exists_size *= 2;
-      exists = (bool *) realloc(exists, exists_size * sizeof(bool));
-      if(exists == NULL){
-        free(buffer);
-        closedir(shader_dir);
-        W_ERROR();
-      }
-      for(i = exists_size / 2; i < exists_size; i ++)
-        exists[i] = false;
-    }
-    exists[number - 1] = true;
-    free(buffer);
-  }
-  closedir(shader_dir);
-  for(i = 0; i <= max_number; i ++)
-    if(exists[i] == false){
-      break;
-    }
-  free(exists);
-}
-#endif
-@
-\fimcodigo
-
-No Windows, o código para iterar sobre arquivos é diferente, mas o
-restante não muda:
-
-\iniciocodigo
-@<Shader: Conta número de arquivos e obtém número do shader@>=
-#if defined(_WIN32)
-{
-  int i;
-  char *p;
-  bool *exists;
-  size_t exists_size = 128;
-  int number, max_number = 0;
-  WIN32_FIND_DATA file;
-  HANDLE shader_dir = NULL;
-  shader_dir = FindFirstFile("shaders\\", &file);
-  if(shader_dir == INVALID_HANDLE_VALUE)
-    W_ERROR();
-  exists = (bool *) malloc(sizeof(bool) * exists_size);
-  if(exists == NULL){
-    FindClose(shader_dir);
-    W_ERROR();
-  }
-  for(i = 0; i < exists_size; i ++)
-    exists[i] = false;
-  do{
-    if(file.cFileName == NULL) continue;
-    if(file.cFileName[0] == '.') continue;
-    if(file.cFileName[0] == '\0') continue;
-    buffer = concatenate("shaders\\", file.cFileName, "");
-    if(buffer == NULL) W_ERROR();
-    if(directory_exist(buffer) != EXISTE_E_EH_ARQUIVO){
-      free(buffer);
-      continue;
-    }
-    for(p = buffer; *p != '\0'; p ++);
-    p -= 5;
-    if(strcmp(p, ".glsl") && strcmp(p, ".GLSL")){
-      free(buffer);
-      continue;
-    }
-    number = atoi(buffer);
-    if(number == 0){
-      free(buffer);
-      continue;
-    }
-    if(number > max_number)
-      max_number = number;
-    if(number > exists_size){
-      if(number > exists_size * 2)
-        exists_size = number;
-      else
-        exists_size *= 2;
-      exists = (bool *) realloc(exists, exists_size * sizeof(bool));
-      if(exists == NULL){
-        free(buffer);
-        FindClose(shader_dir);
-        W_ERROR();
-      }
-      for(i = exists_size / 2; i < exists_size; i ++)
-        exists[i] = false;
-    }
-    exists[number - 1] = true;
-    free(buffer);
-  }while(FindNextFile(shader_dir, &file) != 0);
-  FindClose(shader_dir);
-  for(i = 0; i <= max_number; i ++)
-  if(exists[i] == false){
-    break;
-  }
-  free(exists);
-}
-#endif
-@
-\fimcodigo
-
-\subsecao{7.9. Criar novo loop principal}
+\subsecao{7.7. Criar novo loop principal}
 
 Este caso de uso ocorre quando o segundo argumento é
 \monoespaco{--loop} e quando o próximo argumento for um nome válido
@@ -2073,7 +1775,7 @@ usuário. Então apenas criamos e preenchemos o arquivo na hora com
 conteúdo defiido no próprio código abaixo.
 
 \iniciocodigo
-@<Caso de uso 9: Criar novo loop principal@>=
+@<Caso de uso 7: Criar novo loop principal@>=
 if(inside_weaver_directory && !strcmp(argument, "--loop")){
   if(!arg_is_valid_function){
     if(argument2 == NULL)
