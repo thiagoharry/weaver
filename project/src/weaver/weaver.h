@@ -86,12 +86,12 @@ void*(*alloc)(size_t);
 
 uint64_t(*rand)(void);
 /*:71*//*98:*/
-#line 1878 "weaver_api.tex"
+#line 1882 "weaver_api.tex"
 
 struct user_interface*(*new_interface)(char*,char*,float,float,
 float,float,float);
 /*:98*//*99:*/
-#line 1889 "weaver_api.tex"
+#line 1893 "weaver_api.tex"
 
 struct user_interface*(*link_interface)(struct user_interface*);
 void(*rotate_interface)(struct user_interface*,float);

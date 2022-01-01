@@ -1501,12 +1501,6 @@ que imprimiremos é semelhante à esta:
        /
                           weaver --loop NAME
                            Creates a new main loop in a new file src/NAME.c
-
-                          weaver --plugin NAME
-                           Creates new plugin in plugin/NAME.c
-
-                          weaver --shader NAME
-                           Creates a new shader directory in shaders/
 \alinhanormal
 
 O que é obtido com o código:
@@ -1525,11 +1519,7 @@ if(inside_weaver_directory && (!have_arg || !strcmp(argument, "--help"))){
   "        /      \\          the Makefile and headers\n"
   "       /\n"
   "                        weaver --loop NAME\n"
-  "                         Creates a new main loop in a new file src/NAME.c\n\n"
-  "                        weaver --plugin NAME\n"
-  "                         Creates a new plugin in plugin/NAME.c\n\n"
-  "                        weaver --shader NAME\n"
-  "                         Creates a new shader directory in shaders/\n");
+  "                         Creates a new main loop in a new file src/NAME.c\n");
   END();
 }
 @

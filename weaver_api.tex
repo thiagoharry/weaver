@@ -1834,32 +1834,36 @@ static struct user_interface *new_interface(char *shader, char *texture,
                                             float x, float y, float z,
                                             float width, float height){
   char path_shader[512], path_texture[512];
-  int dir_len = 1, shader_len, texture_len, max_len;
-  shader_len = strlen(shader);
-  texture_len = strlen(texture);
-  path_shader[0] = path_texture[0] = '.';
-  path_shader[1] = path_texture[1] = '\0';
+  int dir_len, shader_len, texture_len;
+  if(shader != NULL){
+    shader_len = strlen(shader);
+    path_shader[0] = '.';
+    path_shader[1] = '\0';
+    dir_len = 1;
 #if defined(W_DATA_DIR)
-  dir_len = strlen(W_DATA_DIR);
-  if(dir_len < 511){
+    dir_len = strlen(W_DATA_DIR);
     memcpy(path_shader, W_DATA_DIR, dir_len + 1);
-    memcpy(path_texture, W_DATA_DIR, dir_len + 1);
-  }
 #endif
-  max_len = dir_len + 1 +
-              ((shader_len > texture_len)?(shader_len):(texture_len));
-  if(max_len > 512){
-    fprintf(stderr, "ERROR: Path %s/%s is too big!\n", path_shader,
-            ((shader_len > texture_len)?(shader):(texture)));
-    return NULL;
+    memcpy(&path_shader[dir_len], "/", 2);
+    dir_len ++;
+    memcpy(&path_shader[dir_len], shader, shader_len + 1);
   }
-  memcpy(&path_shader[dir_len], "/", 2);
-  memcpy(&path_texture[dir_len], "/", 2);
-  dir_len ++;
-  memcpy(&path_shader[dir_len], shader, shader_len + 1);
-  memcpy(&path_texture[dir_len], texture, texture_len + 1);
-  return _Wnew_interface(path_texture, path_shader, x, y, z, width,
-                         height);
+  if(texture != NULL){
+    texture_len = strlen(texture);
+    path_texture[0] = '.';
+    path_texture[1] = '\0';
+    dir_len = 1;
+#if defined(W_DATA_DIR)
+    dir_len = strlen(W_DATA_DIR);
+    memcpy(path_texture, W_DATA_DIR, dir_len + 1);
+#endif
+    memcpy(&path_texture[dir_len], "/", 2);
+    dir_len ++;
+    memcpy(&path_texture[dir_len], texture, texture_len + 1);
+  }  
+  return _Wnew_interface((texture == NULL)?(NULL):(path_texture),
+                         (shader == NULL)?(NULL):(path_shader),
+                         x, y, z, width, height);
 }
 @
 \fimcodigo

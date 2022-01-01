@@ -776,7 +776,7 @@ END();
 #line 231 "weaver_program.tex"
 
 /*44:*/
-#line 1515 "weaver_program.tex"
+#line 1509 "weaver_program.tex"
 
 if(inside_weaver_directory&&(!have_arg||!strcmp(argument,"--help"))){
 printf("       \\                You are inside a Weaver Directory.\n"
@@ -790,18 +790,14 @@ printf("       \\                You are inside a Weaver Directory.\n"
 "        /      \\          the Makefile and headers\n"
 "       /\n"
 "                        weaver --loop NAME\n"
-"                         Creates a new main loop in a new file src/NAME.c\n\n"
-"                        weaver --plugin NAME\n"
-"                         Creates a new plugin in plugin/NAME.c\n\n"
-"                        weaver --shader NAME\n"
-"                         Creates a new shader directory in shaders/\n");
+"                         Creates a new main loop in a new file src/NAME.c\n");
 END();
 }
 /*:44*/
 #line 232 "weaver_program.tex"
 
 /*45:*/
-#line 1544 "weaver_program.tex"
+#line 1534 "weaver_program.tex"
 
 if(have_arg&&!strcmp(argument,"--version")){
 printf("Weaver\t%s\n",VERSION);
@@ -811,7 +807,7 @@ END();
 #line 233 "weaver_program.tex"
 
 /*46:*/
-#line 1591 "weaver_program.tex"
+#line 1581 "weaver_program.tex"
 
 if(arg_is_path){
 if((weaver_version_major==0&&weaver_version_minor==0)||
@@ -842,7 +838,7 @@ END();
 #line 234 "weaver_program.tex"
 
 /*47:*/
-#line 1647 "weaver_program.tex"
+#line 1637 "weaver_program.tex"
 
 if(inside_weaver_directory&&have_arg&&
 strcmp(argument,"--plugin")&&strcmp(argument,"--shader")&&
@@ -890,7 +886,7 @@ END();
 #line 235 "weaver_program.tex"
 
 /*48:*/
-#line 1707 "weaver_program.tex"
+#line 1697 "weaver_program.tex"
 
 if(!inside_weaver_directory&&have_arg){
 if(arg_is_valid_project){
@@ -949,7 +945,7 @@ END();
 #line 236 "weaver_program.tex"
 
 /*49:*/
-#line 1778 "weaver_program.tex"
+#line 1768 "weaver_program.tex"
 
 if(inside_weaver_directory&&!strcmp(argument,"--loop")){
 if(!arg_is_valid_function){

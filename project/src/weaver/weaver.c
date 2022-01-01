@@ -24,7 +24,7 @@
 #include <bcrypt.h> 
 #endif
 /*:67*//*97:*/
-#line 1870 "weaver_api.tex"
+#line 1874 "weaver_api.tex"
 
 #include <string.h> 
 /*:97*/
@@ -237,7 +237,7 @@ _Wmark_history_interface();
 #line 987 "weaver_api.tex"
 
 /*103:*/
-#line 1931 "weaver_api.tex"
+#line 1935 "weaver_api.tex"
 
 /*:103*/
 #line 988 "weaver_api.tex"
@@ -285,7 +285,7 @@ _Wmark_history_interface();
 #line 1036 "weaver_api.tex"
 
 /*101:*/
-#line 1919 "weaver_api.tex"
+#line 1923 "weaver_api.tex"
 
 /*:101*/
 #line 1037 "weaver_api.tex"
@@ -315,7 +315,7 @@ exit(1);
 }
 else{
 /*102:*/
-#line 1924 "weaver_api.tex"
+#line 1928 "weaver_api.tex"
 
 /*:102*/
 #line 1112 "weaver_api.tex"
@@ -390,32 +390,36 @@ static struct user_interface*new_interface(char*shader,char*texture,
 float x,float y,float z,
 float width,float height){
 char path_shader[512],path_texture[512];
-int dir_len= 1,shader_len,texture_len,max_len;
+int dir_len,shader_len,texture_len;
+if(shader!=NULL){
 shader_len= strlen(shader);
-texture_len= strlen(texture);
-path_shader[0]= path_texture[0]= '.';
-path_shader[1]= path_texture[1]= '\0';
+path_shader[0]= '.';
+path_shader[1]= '\0';
+dir_len= 1;
 #if defined(W_DATA_DIR)
 dir_len= strlen(W_DATA_DIR);
-if(dir_len<511){
 memcpy(path_shader,W_DATA_DIR,dir_len+1);
-memcpy(path_texture,W_DATA_DIR,dir_len+1);
-}
 #endif
-max_len= dir_len+1+
-((shader_len> texture_len)?(shader_len):(texture_len));
-if(max_len> 512){
-fprintf(stderr,"ERROR: Path %s/%s is too big!\n",path_shader,
-((shader_len> texture_len)?(shader):(texture)));
-return NULL;
-}
 memcpy(&path_shader[dir_len],"/",2);
-memcpy(&path_texture[dir_len],"/",2);
 dir_len++;
 memcpy(&path_shader[dir_len],shader,shader_len+1);
+}
+if(texture!=NULL){
+texture_len= strlen(texture);
+path_texture[0]= '.';
+path_texture[1]= '\0';
+dir_len= 1;
+#if defined(W_DATA_DIR)
+dir_len= strlen(W_DATA_DIR);
+memcpy(path_texture,W_DATA_DIR,dir_len+1);
+#endif
+memcpy(&path_texture[dir_len],"/",2);
+dir_len++;
 memcpy(&path_texture[dir_len],texture,texture_len+1);
-return _Wnew_interface(path_texture,path_shader,x,y,z,width,
-height);
+}
+return _Wnew_interface((texture==NULL)?(NULL):(path_texture),
+(shader==NULL)?(NULL):(path_shader),
+x,y,z,width,height);
 }
 /*:96*/
 #line 205 "weaver_api.tex"
@@ -594,7 +598,7 @@ _internal_alloc,NULL,before_loading_resources,
 after_loading_resources,NULL);
 }
 /*:90*//*100:*/
-#line 1901 "weaver_api.tex"
+#line 1905 "weaver_api.tex"
 
 W.new_interface= new_interface;
 W.link_interface= _Wlink_interface;
