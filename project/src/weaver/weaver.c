@@ -400,8 +400,8 @@ dir_len= 1;
 dir_len= strlen(W_DATA_DIR);
 memcpy(path_shader,W_DATA_DIR,dir_len+1);
 #endif
-memcpy(&path_shader[dir_len],"/",2);
-dir_len++;
+memcpy(&path_shader[dir_len],"/shaders/",10);
+dir_len+= 9;
 memcpy(&path_shader[dir_len],shader,shader_len+1);
 }
 if(texture!=NULL){
@@ -413,8 +413,8 @@ dir_len= 1;
 dir_len= strlen(W_DATA_DIR);
 memcpy(path_texture,W_DATA_DIR,dir_len+1);
 #endif
-memcpy(&path_texture[dir_len],"/",2);
-dir_len++;
+memcpy(&path_texture[dir_len],"/images/",9);
+dir_len+= 8;
 memcpy(&path_texture[dir_len],texture,texture_len+1);
 }
 return _Wnew_interface((texture==NULL)?(NULL):(path_texture),

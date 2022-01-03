@@ -214,6 +214,19 @@ function test_new_project(){
     assertEqualFiles "Testing RNG subsystem" file1.dat file2.dat
     #exit
     rm file1.dat file2.dat
+    ####### Shader and user interface test
+    rm -f test
+    echo "#define W_MAX_MEMORY 16384" > conf/conf.h
+    cp ../test4.c src/game.c
+    cp ../shader.glsl shaders/
+    if [[ ${OSTYPE} == *"bsd"* ]]; then
+	gmake &> /dev/null
+    elif [[ ${OSTYPE} ==  "msys" ]]; then
+	MSBuild.exe &> /dev/null
+    else
+	make 1> /dev/null
+    fi
+    assertExecutableRun "Testing shader and user interface" ./test
     #######
     cd - > /dev/null
     rm -rf .test/test
