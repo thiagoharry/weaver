@@ -1091,7 +1091,7 @@ game is finished.
 We expect that the user will inform the maximum quantity of memory
 using the macro \monoespaco{W\_MAX\_MEMORY}
 in \monoespaco{conf/conf.h}. If the macro is not defined, we choose
-the small value of 4 MiB. This will force the user to specify a more
+the small value of 4 KiB. This will force the user to specify a more
 realistic value after some time, except in the most trivial projects.
 
 \iniciocodigo
@@ -1129,14 +1129,14 @@ memory_arena = _Wcreate_arena(W_MAX_MEMORY);
 \fimcodigo
 
 During the finalization we free the allocated memory obtained during
-the initialization. But before this we free any other structure that
-may be allocated during the initialization. We invoke
-function \monoespaco{\_Wtrasj} to do this: free everything in the
-right memory stack (to clean the right memory stack we pass argument
-1), the place reserved to internal allocations in our API:
+the initialization and any temporary allocation that could still
+exist.  We invoke function \monoespaco{\_Wtrash} to do this: free
+everything in the left (allocated during initialization) and right
+(temporary) memory stack passing respectively argument 0 and 1:
 
 \iniciocodigo
 @<Weaver API: Memory: Finalization@>=
+_Wtrash(memory_arena, 0);
 _Wtrash(memory_arena, 1);
 _Wdestroy_arena(memory_arena);
 @
@@ -1162,31 +1162,29 @@ default the size of a \monoespaco{unsigned long} as a guess.
 @
 \fimcodigo
 
-Knowing this we can save the state in our memory (the left and right
-stack):
+Knowing this we can save the state in our memory (the left stack,
+where we put the more permanent allocations):
 
 \iniciocodigo
 @<Memory Adjustment Before Loop and Subloop@>=
 _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 0);
-_Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 1);
 @
 \fimcodigo
 
 This means that when we exit from this loop, we will restore the
-memory state to how it was before entering in the loop. Both on left
-as in right stack:
+memory state to how it was before entering in the loop in the left
+stack:
 
 \iniciocodigo
 @<Memory Adjustment when Canceling Main Loop@>=
 _Wtrash(memory_arena, 0);
-_Wtrash(memory_arena, 1);
 @
 \fimcodigo
 
 This basicly willl be the garbage collector in our project. We will
-define now a function to the user use our memory allocation. All user
-allocations will be done in the left stack using the default byte
-alignment:
+define now a function to the user use our memory allocation. All
+permanent user allocations will be done in the left stack using the
+default byte alignment:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -1196,12 +1194,26 @@ static void *_alloc(size_t size){
 @
 \fimcodigo
 
-We will declare a pointer for this function in struct \monoespaco{W}
-and this function will be invoked as \monoespaco{W.alloc()}:
+For temporary allocations that should not be kept after a single
+iteration in our main loop, we can use the following function:
+
+\iniciocodigo
+@<Function Definition (weaver.c)@>+=
+static void *_talloc(size_t size){
+  return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
+}
+@
+\fimcodigo
+
+
+We will declare a pointer for both functions in struct \monoespaco{W}
+and these function will be invoked as \monoespaco{W.alloc()} and
+\monoespaco{W.talloc()} respectivelly:
 
 \iniciocodigo
 @<Functions Namespace@>=
 void *(*alloc)(size_t);
+void *(*talloc)(size_t);
 @
 \fimcodigo
 
@@ -1210,18 +1222,22 @@ And this function will be ready to be used after the initialization:
 \iniciocodigo
 @<Weaver API: Initialization@>+=
 W.alloc = _alloc;
+W.talloc = _talloc;
 @
 \fimcodigo
 
-But if the API needs to allocate memory in a different region for
-internal purposes, we also can use the following allocator that
-allocates in the right stack:
+Everything allocated with the permanent function will be kept while
+the main loop where the allocation happened exist. After the loop
+ends, these allocations are automatically disallocated. What is
+allocated with the temporary function will be kept only during the
+current iteration in the main loop, but will be disallocated after it,
+except if we are loading things from files, which requires us to keep
+temporary allocation for more time:
 
 \iniciocodigo
-@<Function Definition (weaver.c)@>+=
-static void *_internal_alloc(size_t size){
-  return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
-}
+@<Código a executar todo loop@>+=
+if(W.pending_files == 0)
+  _Wtrash(memory_arena, 1);
 @
 \fimcodigo
 
@@ -1253,8 +1269,7 @@ generator:
 #if defined(W_RNG_SEED)
 {
   uint64_t seed[] = W_RNG_SEED;
-  rng = _Wcreate_rng(_internal_alloc, sizeof(seed)/sizeof(uint64_t),
-                     seed);
+  rng = _Wcreate_rng(_alloc, sizeof(seed)/sizeof(uint64_t), seed);
 }
 #endif
 @
@@ -1284,7 +1299,7 @@ signal):
   do{
     ret = getrandom(buffer, 4 * 8, 0);
   }while(ret != 4 * 8);
-  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
 }
 #endif
 @
@@ -1310,7 +1325,7 @@ already is included in the standard library and never fails:
 {
   uint64_t buffer[4];
   arc4random_buf(buffer, 4 * 8);
-  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
 }
 #endif
 @
@@ -1350,7 +1365,7 @@ succeed in the first try:
     fprintf(stderr, "ERROR: I could not initialize the RNG.\n");
     exit(1);
   }
-  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
 }
 #endif
 @
@@ -1393,7 +1408,7 @@ environments:
       return array[0];
     });
   }
-  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
 }
 #endif
 @
@@ -1667,7 +1682,7 @@ We initialize the API it with:
   }
 #endif
   _Winit_interface(window_width, window_height, _alloc, NULL,
-                   _internal_alloc, NULL, before_loading_resources,
+                   _talloc, NULL, before_loading_resources,
                    after_loading_resources, NULL);
 }
 @

@@ -1,37 +1,37 @@
 /*4:*/
-#line 198 "weaver_api.tex"
+#line 181 "weaver_api_en.tex"
 
 #include "weaver.h"
 #include "../game.h"
 /*50:*/
-#line 1173 "weaver_api.tex"
+#line 1117 "weaver_api_en.tex"
 
 #include "memory.h"
-/*:50*//*60:*/
-#line 1294 "weaver_api.tex"
+/*:50*//*61:*/
+#line 1250 "weaver_api_en.tex"
 
 #include "random.h"
-/*:60*//*64:*/
-#line 1359 "weaver_api.tex"
+/*:61*//*65:*/
+#line 1311 "weaver_api_en.tex"
 
 #if !defined(W_RNG_SEED) && defined(__linux__)
 #include <sys/random.h> 
 #endif
-/*:64*//*67:*/
-#line 1427 "weaver_api.tex"
+/*:65*//*68:*/
+#line 1377 "weaver_api_en.tex"
 
 #if !defined(W_RNG_SEED) && defined(_WIN32)
 #include <bcrypt.h> 
 #endif
-/*:67*//*97:*/
-#line 1874 "weaver_api.tex"
+/*:68*//*98:*/
+#line 1817 "weaver_api_en.tex"
 
 #include <string.h> 
-/*:97*/
-#line 201 "weaver_api.tex"
+/*:98*/
+#line 184 "weaver_api_en.tex"
 
 /*5:*/
-#line 215 "weaver_api.tex"
+#line 198 "weaver_api_en.tex"
 
 #if defined(__linux__) || defined(BSD)
 #define STATIC_MUTEX_DECLARATION(mutex) static pthread_mutex_t mutex
@@ -53,14 +53,14 @@
 #define MUTEX_SIGNAL(mutex)
 #endif
 /*:5*/
-#line 202 "weaver_api.tex"
+#line 185 "weaver_api_en.tex"
 
 /*7:*/
-#line 273 "weaver_api.tex"
+#line 255 "weaver_api_en.tex"
 
 struct _weaver_struct W;
 /*:7*//*13:*/
-#line 352 "weaver_api.tex"
+#line 332 "weaver_api_en.tex"
 
 #if defined(_WIN32)
 LARGE_INTEGER _last_time;
@@ -68,49 +68,49 @@ LARGE_INTEGER _last_time;
 struct timeval _last_time;
 #endif
 /*:13*//*20:*/
-#line 625 "weaver_api.tex"
+#line 595 "weaver_api_en.tex"
 
 bool _running_loop,_loop_begin,_loop_finalized;
 /*:20*//*27:*/
-#line 750 "weaver_api.tex"
+#line 713 "weaver_api_en.tex"
 
 unsigned long _lag;
 /*:27*//*39:*/
-#line 954 "weaver_api.tex"
+#line 905 "weaver_api_en.tex"
 
 int _number_of_loops;
 void(*_loop_stack[W_MAX_SUBLOOP])(void);
 /*:39*/
-#line 203 "weaver_api.tex"
+#line 186 "weaver_api_en.tex"
 
 /*49:*/
-#line 1164 "weaver_api.tex"
+#line 1109 "weaver_api_en.tex"
 
 static void*memory_arena;
-/*:49*//*61:*/
-#line 1303 "weaver_api.tex"
+/*:49*//*62:*/
+#line 1258 "weaver_api_en.tex"
 
 static struct _Wrng*rng;
-/*:61*//*75:*/
-#line 1535 "weaver_api.tex"
+/*:62*//*76:*/
+#line 1482 "weaver_api_en.tex"
 
 static struct _Wkeyboard keyboard;
-/*:75*//*82:*/
-#line 1607 "weaver_api.tex"
+/*:76*//*83:*/
+#line 1552 "weaver_api_en.tex"
 
 #if defined(W_FORCE_LANDSCAPE)
-static bool rotated_screen= false;
+static bool rotated_screen;
 #endif
-/*:82*//*86:*/
-#line 1677 "weaver_api.tex"
+/*:83*//*87:*/
+#line 1619 "weaver_api_en.tex"
 
 STATIC_MUTEX_DECLARATION(pending_files_mutex);
 STATIC_MUTEX_DECLARATION(loading_files);
-/*:86*/
-#line 204 "weaver_api.tex"
+/*:87*/
+#line 187 "weaver_api_en.tex"
 
 /*17:*/
-#line 403 "weaver_api.tex"
+#line 383 "weaver_api_en.tex"
 
 #if !defined(_WIN32)
 unsigned long _update_time(void){
@@ -145,7 +145,7 @@ return result;
 }
 #endif
 /*:17*//*18:*/
-#line 444 "weaver_api.tex"
+#line 423 "weaver_api_en.tex"
 
 #if defined(_WIN32)
 unsigned long _update_time(void){
@@ -156,99 +156,96 @@ return(_last_time.QuadPart-prev.QuadPart);
 }
 #endif
 /*:18*//*32:*/
-#line 809 "weaver_api.tex"
+#line 770 "weaver_api_en.tex"
 
 void _update(void){
-/*80:*/
-#line 1579 "weaver_api.tex"
+/*81:*/
+#line 1525 "weaver_api_en.tex"
 
 _Wget_window_input(W.t,&keyboard,&W.mouse);
-/*:80*//*94:*/
-#line 1796 "weaver_api.tex"
+/*:81*//*95:*/
+#line 1739 "weaver_api_en.tex"
 
 _Winteract_interface(W.mouse.x,W.mouse.y,
 W.mouse.button[W_MOUSE_LEFT]> 0,
 W.mouse.button[W_MOUSE_MIDDLE]> 0,
 W.mouse.button[W_MOUSE_RIGHT]> 0);
-/*:94*/
-#line 811 "weaver_api.tex"
+/*:95*/
+#line 772 "weaver_api_en.tex"
 
 }
 /*:32*//*35:*/
-#line 871 "weaver_api.tex"
+#line 825 "weaver_api_en.tex"
 
 void _render(void){
-/*79:*/
-#line 1570 "weaver_api.tex"
+/*80:*/
+#line 1516 "weaver_api_en.tex"
 
 _Wrender_window();
-/*:79*//*95:*/
-#line 1808 "weaver_api.tex"
+/*:80*//*96:*/
+#line 1751 "weaver_api_en.tex"
 
 _Wrender_interface(W.t);
-/*:95*/
-#line 873 "weaver_api.tex"
+/*:96*/
+#line 827 "weaver_api_en.tex"
 
 }
 /*:35*//*41:*/
-#line 980 "weaver_api.tex"
+#line 928 "weaver_api_en.tex"
 
 void _Wloop(void(*f)(void)){
 if(_number_of_loops> 0){
 /*43:*/
-#line 1018 "weaver_api.tex"
+#line 967 "weaver_api_en.tex"
 
 #if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
 #endif
-/*:43*//*93:*/
-#line 1788 "weaver_api.tex"
+/*:43*//*94:*/
+#line 1730 "weaver_api_en.tex"
 
 _Wrestore_history_interface();
-/*:93*/
-#line 983 "weaver_api.tex"
+/*:94*/
+#line 931 "weaver_api_en.tex"
 
 /*55:*/
-#line 1239 "weaver_api.tex"
+#line 1179 "weaver_api_en.tex"
 
 _Wtrash(memory_arena,0);
-_Wtrash(memory_arena,1);
 /*:55*/
-#line 984 "weaver_api.tex"
+#line 932 "weaver_api_en.tex"
 
 _number_of_loops--;
 }
 /*45:*/
-#line 1066 "weaver_api.tex"
+#line 1014 "weaver_api_en.tex"
 
 _running_loop= true;
 _loop_begin= true;
 _loop_finalized= false;
 _update_time();
-/*:45*//*81:*/
-#line 1588 "weaver_api.tex"
+/*:45*//*82:*/
+#line 1534 "weaver_api_en.tex"
 
 _Wflush_window_input(&keyboard,&W.mouse);
-/*:81*//*92:*/
-#line 1778 "weaver_api.tex"
+/*:82*//*93:*/
+#line 1720 "weaver_api_en.tex"
 
 _Wmark_history_interface();
-/*:92*/
-#line 987 "weaver_api.tex"
+/*:93*/
+#line 935 "weaver_api_en.tex"
 
-/*103:*/
-#line 1935 "weaver_api.tex"
-
-/*:103*/
-#line 988 "weaver_api.tex"
+/*104:*/
+#line 1873 "weaver_api_en.tex"
+/*:104*/
+#line 936 "weaver_api_en.tex"
 
 /*54:*/
-#line 1228 "weaver_api.tex"
+#line 1169 "weaver_api_en.tex"
 
 _Wmempoint(memory_arena,W_MEMORY_ALIGNMENT,0);
-_Wmempoint(memory_arena,W_MEMORY_ALIGNMENT,1);
 /*:54*/
-#line 989 "weaver_api.tex"
+#line 937 "weaver_api_en.tex"
 
 _loop_stack[_number_of_loops]= f;
 _number_of_loops++;
@@ -260,35 +257,34 @@ f();
 #endif
 }
 /*:41*//*44:*/
-#line 1031 "weaver_api.tex"
+#line 979 "weaver_api_en.tex"
 
 void Wsubloop(void(*f)(void)){
 #if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
 #endif
 /*45:*/
-#line 1066 "weaver_api.tex"
+#line 1014 "weaver_api_en.tex"
 
 _running_loop= true;
 _loop_begin= true;
 _loop_finalized= false;
 _update_time();
-/*:45*//*81:*/
-#line 1588 "weaver_api.tex"
+/*:45*//*82:*/
+#line 1534 "weaver_api_en.tex"
 
 _Wflush_window_input(&keyboard,&W.mouse);
-/*:81*//*92:*/
-#line 1778 "weaver_api.tex"
+/*:82*//*93:*/
+#line 1720 "weaver_api_en.tex"
 
 _Wmark_history_interface();
-/*:92*/
-#line 1036 "weaver_api.tex"
+/*:93*/
+#line 984 "weaver_api_en.tex"
 
-/*101:*/
-#line 1923 "weaver_api.tex"
-
-/*:101*/
-#line 1037 "weaver_api.tex"
+/*102:*/
+#line 1865 "weaver_api_en.tex"
+/*:102*/
+#line 985 "weaver_api_en.tex"
 
 if(_number_of_loops>=W_MAX_SUBLOOP){
 fprintf(stderr,"Error: Max number of subloops achieved.\n");
@@ -306,7 +302,7 @@ f();
 #endif
 }
 /*:44*//*47:*/
-#line 1105 "weaver_api.tex"
+#line 1051 "weaver_api_en.tex"
 
 void _exit_loop(void){
 if(_number_of_loops<=1){
@@ -314,30 +310,29 @@ Wexit();
 exit(1);
 }
 else{
-/*102:*/
-#line 1928 "weaver_api.tex"
-
-/*:102*/
-#line 1112 "weaver_api.tex"
+/*103:*/
+#line 1869 "weaver_api_en.tex"
+/*:103*/
+#line 1058 "weaver_api_en.tex"
 
 _number_of_loops--;
 /*45:*/
-#line 1066 "weaver_api.tex"
+#line 1014 "weaver_api_en.tex"
 
 _running_loop= true;
 _loop_begin= true;
 _loop_finalized= false;
 _update_time();
-/*:45*//*81:*/
-#line 1588 "weaver_api.tex"
+/*:45*//*82:*/
+#line 1534 "weaver_api_en.tex"
 
 _Wflush_window_input(&keyboard,&W.mouse);
-/*:81*//*92:*/
-#line 1778 "weaver_api.tex"
+/*:82*//*93:*/
+#line 1720 "weaver_api_en.tex"
 
 _Wmark_history_interface();
-/*:92*/
-#line 1114 "weaver_api.tex"
+/*:93*/
+#line 1060 "weaver_api_en.tex"
 
 #if defined(__EMSCRIPTEN__)
 emscripten_cancel_main_loop();
@@ -349,25 +344,25 @@ _loop_stack[_number_of_loops-1]();
 }
 }
 /*:47*//*56:*/
-#line 1251 "weaver_api.tex"
+#line 1190 "weaver_api_en.tex"
 
 static void*_alloc(size_t size){
 return _Walloc(memory_arena,W_MEMORY_ALIGNMENT,0,size);
 }
-/*:56*//*59:*/
-#line 1281 "weaver_api.tex"
+/*:56*//*57:*/
+#line 1201 "weaver_api_en.tex"
 
-static void*_internal_alloc(size_t size){
+static void*_talloc(size_t size){
 return _Walloc(memory_arena,W_MEMORY_ALIGNMENT,1,size);
 }
-/*:59*//*70:*/
-#line 1483 "weaver_api.tex"
+/*:57*//*71:*/
+#line 1432 "weaver_api_en.tex"
 
 static uint64_t _rand(void){
 return _Wrand(rng);
 }
-/*:70*//*89:*/
-#line 1712 "weaver_api.tex"
+/*:71*//*90:*/
+#line 1653 "weaver_api_en.tex"
 
 void before_loading_resources(void){
 MUTEX_WAIT(&pending_files_mutex);
@@ -383,8 +378,8 @@ MUTEX_WAIT(&pending_files_mutex);
 W.pending_files--;
 MUTEX_SIGNAL(&pending_files_mutex);
 }
-/*:89*//*96:*/
-#line 1832 "weaver_api.tex"
+/*:90*//*97:*/
+#line 1775 "weaver_api_en.tex"
 
 static struct user_interface*new_interface(char*shader,char*texture,
 float x,float y,float z,
@@ -421,16 +416,16 @@ return _Wnew_interface((texture==NULL)?(NULL):(path_texture),
 (shader==NULL)?(NULL):(path_shader),
 x,y,z,width,height);
 }
-/*:96*/
-#line 205 "weaver_api.tex"
+/*:97*/
+#line 188 "weaver_api_en.tex"
 
 /*9:*/
-#line 291 "weaver_api.tex"
+#line 273 "weaver_api_en.tex"
 
 void Winit(void){
 W.game= &_game;
 /*15:*/
-#line 376 "weaver_api.tex"
+#line 355 "weaver_api_en.tex"
 
 #if defined(_WIN32)
 QueryPerformanceCounter(&_last_time);
@@ -438,22 +433,22 @@ QueryPerformanceCounter(&_last_time);
 gettimeofday(&_last_time,NULL);
 #endif
 /*:15*//*21:*/
-#line 633 "weaver_api.tex"
+#line 603 "weaver_api_en.tex"
 
 _running_loop= false;
 _loop_begin= false;
 _loop_finalized= false;
 /*:21*//*23:*/
-#line 667 "weaver_api.tex"
+#line 634 "weaver_api_en.tex"
 
 W.pending_files= 0;
 W.loop_name[0]= '\0';
 /*:23*//*28:*/
-#line 758 "weaver_api.tex"
+#line 722 "weaver_api_en.tex"
 
 _lag= 0;
 /*:28*//*30:*/
-#line 787 "weaver_api.tex"
+#line 749 "weaver_api_en.tex"
 
 #if !defined(W_TIMESTEP)
 #define W_TIMESTEP 40000
@@ -461,29 +456,29 @@ _lag= 0;
 W.dt= W_TIMESTEP;
 W.t= 0;
 /*:30*//*40:*/
-#line 964 "weaver_api.tex"
+#line 914 "weaver_api_en.tex"
 
 _number_of_loops= 0;
 /*:40*//*51:*/
-#line 1183 "weaver_api.tex"
+#line 1126 "weaver_api_en.tex"
 
 memory_arena= _Wcreate_arena(W_MAX_MEMORY);
-/*:51*//*58:*/
-#line 1271 "weaver_api.tex"
+/*:51*//*59:*/
+#line 1223 "weaver_api_en.tex"
 
 W.alloc= _alloc;
-/*:58*//*62:*/
-#line 1313 "weaver_api.tex"
+W.talloc= _talloc;
+/*:59*//*63:*/
+#line 1268 "weaver_api_en.tex"
 
 #if defined(W_RNG_SEED)
 {
 uint64_t seed[]= W_RNG_SEED;
-rng= _Wcreate_rng(_internal_alloc,sizeof(seed)/sizeof(uint64_t),
-seed);
+rng= _Wcreate_rng(_alloc,sizeof(seed)/sizeof(uint64_t),seed);
 }
 #endif
-/*:62*//*63:*/
-#line 1342 "weaver_api.tex"
+/*:63*//*64:*/
+#line 1294 "weaver_api_en.tex"
 
 #if !defined(W_RNG_SEED) && defined(__linux__)
 {
@@ -492,21 +487,21 @@ uint64_t buffer[4];
 do{
 ret= getrandom(buffer,4*8,0);
 }while(ret!=4*8);
-rng= _Wcreate_rng(_internal_alloc,4,buffer);
+rng= _Wcreate_rng(_alloc,4,buffer);
 }
 #endif
-/*:63*//*65:*/
-#line 1372 "weaver_api.tex"
+/*:64*//*66:*/
+#line 1323 "weaver_api_en.tex"
 
 #if !defined(W_RNG_SEED) && defined(BSD)
 {
 uint64_t buffer[4];
 arc4random_buf(buffer,4*8);
-rng= _Wcreate_rng(_internal_alloc,4,buffer);
+rng= _Wcreate_rng(_alloc,4,buffer);
 }
 #endif
-/*:65*//*66:*/
-#line 1402 "weaver_api.tex"
+/*:66*//*67:*/
+#line 1353 "weaver_api_en.tex"
 
 #if !defined(W_RNG_SEED) && defined(_WIN32)
 {
@@ -522,11 +517,11 @@ if(ret!=0){
 fprintf(stderr,"ERROR: I could not initialize the RNG.\n");
 exit(1);
 }
-rng= _Wcreate_rng(_internal_alloc,4,buffer);
+rng= _Wcreate_rng(_alloc,4,buffer);
 }
 #endif
-/*:66*//*68:*/
-#line 1444 "weaver_api.tex"
+/*:67*//*69:*/
+#line 1393 "weaver_api_en.tex"
 
 #if !defined(W_RNG_SEED) && defined(__EMSCRIPTEN__)
 {
@@ -545,23 +540,23 @@ window.crypto.getRandomValues(array);
 return array[0];
 });
 }
-rng= _Wcreate_rng(_internal_alloc,4,buffer);
+rng= _Wcreate_rng(_alloc,4,buffer);
 }
 #endif
-/*:68*//*72:*/
-#line 1503 "weaver_api.tex"
+/*:69*//*73:*/
+#line 1451 "weaver_api_en.tex"
 
 W.rand= _rand;
-/*:72*//*76:*/
-#line 1544 "weaver_api.tex"
+/*:73*//*77:*/
+#line 1491 "weaver_api_en.tex"
 
 W.keyboard= keyboard.key;
-/*:76*//*77:*/
-#line 1554 "weaver_api.tex"
+/*:77*//*78:*/
+#line 1501 "weaver_api_en.tex"
 
 _Wcreate_window(&keyboard,&W.mouse);
-/*:77*//*84:*/
-#line 1626 "weaver_api.tex"
+/*:78*//*85:*/
+#line 1571 "weaver_api_en.tex"
 
 _Wget_screen_resolution(&W.resolution_x,&W.resolution_y);
 _Wget_window_size(&W.width,&W.height);
@@ -577,13 +572,13 @@ W.height= tmp;
 rotated_screen= true;
 }
 #endif
-/*:84*//*87:*/
-#line 1686 "weaver_api.tex"
+/*:85*//*88:*/
+#line 1629 "weaver_api_en.tex"
 
 MUTEX_INIT(&pending_files_mutex);
 MUTEX_INIT(&loading_files);
-/*:87*//*90:*/
-#line 1733 "weaver_api.tex"
+/*:88*//*91:*/
+#line 1675 "weaver_api_en.tex"
 
 {
 int*window_width= &W.width,*window_height= &W.height;
@@ -594,56 +589,57 @@ if(rotated_screen){
 }
 #endif
 _Winit_interface(window_width,window_height,_alloc,NULL,
-_internal_alloc,NULL,before_loading_resources,
+_talloc,NULL,before_loading_resources,
 after_loading_resources,NULL);
 }
-/*:90*//*100:*/
-#line 1905 "weaver_api.tex"
+/*:91*//*101:*/
+#line 1847 "weaver_api_en.tex"
 
 W.new_interface= new_interface;
 W.link_interface= _Wlink_interface;
 W.rotate_interface= _Wrotate_interface;
 W.resize_interface= _Wresize_interface;
 W.move_interface= _Wmove_interface;
-/*:100*/
-#line 294 "weaver_api.tex"
+/*:101*/
+#line 276 "weaver_api_en.tex"
 
 }
 /*:9*//*11:*/
-#line 311 "weaver_api.tex"
+#line 293 "weaver_api_en.tex"
 
 void Wexit(void){
-/*69:*/
-#line 1473 "weaver_api.tex"
+/*70:*/
+#line 1422 "weaver_api_en.tex"
 
 _Wdestroy_rng(NULL,rng);
-/*:69*//*78:*/
-#line 1560 "weaver_api.tex"
+/*:70*//*79:*/
+#line 1507 "weaver_api_en.tex"
 
 _Wdestroy_window();
-/*:78*//*88:*/
-#line 1695 "weaver_api.tex"
+/*:79*//*89:*/
+#line 1638 "weaver_api_en.tex"
 
 MUTEX_DESTROY(&pending_files_mutex);
 MUTEX_DESTROY(&loading_files);
-/*:88*//*91:*/
-#line 1759 "weaver_api.tex"
+/*:89*//*92:*/
+#line 1701 "weaver_api_en.tex"
 
 _Wfinish_interface();
-/*:91*/
-#line 313 "weaver_api.tex"
+/*:92*/
+#line 295 "weaver_api_en.tex"
 
 /*52:*/
-#line 1196 "weaver_api.tex"
+#line 1138 "weaver_api_en.tex"
 
+_Wtrash(memory_arena,0);
 _Wtrash(memory_arena,1);
 _Wdestroy_arena(memory_arena);
 /*:52*/
-#line 314 "weaver_api.tex"
+#line 296 "weaver_api_en.tex"
 
 exit(0);
 }
 /*:11*/
-#line 206 "weaver_api.tex"
+#line 189 "weaver_api_en.tex"
 
 /*:4*/

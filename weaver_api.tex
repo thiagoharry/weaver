@@ -1145,7 +1145,7 @@ pelas máquinas na qual espera-se rodar o programa após ser finalizado.
 Espera-se que o usuário informe qual a quantidade máxima de memória
 definindo a macro \monoespaco{W\_MAX\_MEMORY}
 em \monoespaco{conf/conf.h}. Se esta macro não estiver definida, vamos
-deliberadamente escolher o valor pequeno de 4 MiB, o qual forçará o
+deliberadamente escolher o valor pequeno de 4 KiB, o qual forçará o
 usuário a ter que explicitar um valor mais adequado exceto nos
 menores e mais triviais dos projetos:
 
@@ -1185,15 +1185,15 @@ memory_arena = _Wcreate_arena(W_MAX_MEMORY);
 @
 \fimcodigo
 
-Na finalização nós desalocamos toda a memória obtida na
-inicialização. Mas antes disso nós desalocamos qualquer outra coisa
-que tenha sido alocada na inicialização. A invocação para a
+Na finalização nós desalocamos toda a memória obtida na inicialização
+ou que ainda esteja alocada na pilha temporária. A invocação para a
 função \monoespaco{\_Wtrash} faz isso: desaloca tudo da pilha da
-direita (por isso o argumento 1 abaixo), o local reservado para
-alocações internas da nossa API:
+esquerda permanente e direita temporária passando respectivamente
+argumento 0 e 1:
 
 \iniciocodigo
 @<API Weaver: Memória: Finalização@>=
+_Wtrash(memory_arena, 0);
 _Wtrash(memory_arena, 1);
 _Wdestroy_arena(memory_arena);
 @
@@ -1221,31 +1221,30 @@ palpite.
 @
 \fimcodigo
 
-Com isso podemos salvar o estado da pilha esquerda e direita de nossa
-arena de memória:
+Com isso podemos salvar o estado da pilha esquerda de nossa arena de
+memória, onde guardamos as coisas mais permanentes:
 
 \iniciocodigo
 @<Ajuste de Memória antes de Loop e Subloop@>=
 _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 0);
-_Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 1);
 @
 \fimcodigo
 
 Isso significa que assim que sairmos de um laço, devemos restaurar o
-estado da arena de memória para como estava quando entramos nele,
-tanto na pilha de memória da esquerda como da direita:
+estado da arena de memória para como estava quando entramos nele, no
+que concerne a pilha de memória da esquerda:
 
 \iniciocodigo
 @<Ajuste de Memória Após Cancelar Loop@>=
 _Wtrash(memory_arena, 0);
-_Wtrash(memory_arena, 1);
 @
 \fimcodigo
 
 E isso basicamente será o coletor de lixo de nosso projeto. Vamos
 agora definir uma função para que o usuário possa usar nossa função de
-alocação de memória. Todas as alocações feitas pelo usuário devem ser
-da pilha esquerda da memória, usando o alinhamento padrão:
+alocação de memória. Todas as alocações permanentes feitas pelo
+usuário devem ser da pilha esquerda da memória, usando o alinhamento
+padrão:
 
 \iniciocodigo
 @<Definição de Função (weaver.c)@>+=
@@ -1255,13 +1254,27 @@ static void *_alloc(size_t size){
 @
 \fimcodigo
 
-Vamos declarar um ponteiro para esta função dentro da
-estrutura \monoespaco{W} para que a função possa ser invocada
-como \monoespaco{W.alloc()}:
+Para alocações temporárias, que poderão não permanecer alocadas em
+memória mais que uma iteração de nosso laço principal, usa-se a função
+abaixo:
+
+\iniciocodigo
+@<Definição de Função (weaver.c)@>+=
+static void *_talloc(size_t size){
+  return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
+}
+@
+\fimcodigo
+
+
+Vamos declarar ponteiros para estas funções dentro da
+estrutura \monoespaco{W} para que as funções possam ser invocada
+como \monoespaco{W.alloc()} e \monoespaco{W.talloc()}:
 
 \iniciocodigo
 @<Namespace de Funções@>=
 void *(*alloc)(size_t);
+void *(*talloc)(size_t);
 @
 \fimcodigo
 
@@ -1270,18 +1283,21 @@ E a função estará pronta para ser usada após a inicialização:
 \iniciocodigo
 @<API Weaver: Inicialização@>+=
 W.alloc = _alloc;
+W.talloc = _talloc;
 @
 \fimcodigo
 
-Já para quando a API precisar alocar internamente coisas, sem misturar
-com as alocações feitas pelo usuário, podemos usar a seguinte função
-que aloca da pilha da direita:
+Tudo o que for alocado com a alocação permanente será automaticamente
+desalocado quando o laço principal em que ocorrer a alocação deixar de
+existir. Já o que foi alocado com a alocação temporária, será
+desalocado a cada laço principal, a menos que estejamos carregando
+algum arquivo ou recurso, momento no qual precisamos manter alocações
+temporárias por mais atempo até que isso termine:
 
 \iniciocodigo
-@<Definição de Função (weaver.c)@>+=
-static void *_internal_alloc(size_t size){
-  return _Walloc(memory_arena, W_MEMORY_ALIGNMENT, 1, size);
-}
+@<Código a executar todo loop@>+=
+if(W.pending_files == 0)
+  _Wtrash(memory_arena, 1);
 @
 \fimcodigo
 
@@ -1314,8 +1330,7 @@ nosso gerador:
 #if defined(W_RNG_SEED)
 {
   uint64_t seed[] = W_RNG_SEED;
-  rng = _Wcreate_rng(_internal_alloc, sizeof(seed)/sizeof(uint64_t),
-                     seed);
+  rng = _Wcreate_rng(_alloc, sizeof(seed)/sizeof(uint64_t), seed);
 }
 #endif
 @
@@ -1347,7 +1362,7 @@ de sistema for interrompida por um sinal):
   do{
     ret = getrandom(buffer, 4 * 8, 0);
   }while(ret != 4 * 8);
-  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
 }
 #endif
 @
@@ -1374,7 +1389,7 @@ nenhum caso:
 {
   uint64_t buffer[4];
   arc4random_buf(buffer, 4 * 8);
-  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
 }
 #endif
 @
@@ -1414,7 +1429,7 @@ problemas e que a primeira tentativa seja bem-sucedida.
     fprintf(stderr, "ERROR: I could not initialize the RNG.\n");
     exit(1);
   }
-  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
 }
 #endif
 @
@@ -1459,7 +1474,7 @@ sempre tem 32 bits). Compondo 8 números de 32 bits nós podemos formar
       return array[0];
     });
   }
-  rng = _Wcreate_rng(_internal_alloc, 4, buffer);
+  rng = _Wcreate_rng(_alloc, 4, buffer);
 }
 #endif
 @
@@ -1740,7 +1755,7 @@ A nossa API de interface de usuário é inicializada com:
   }
 #endif
   _Winit_interface(window_width, window_height, _alloc, NULL,
-                   _internal_alloc, NULL, before_loading_resources,
+                   _talloc, NULL, before_loading_resources,
                    after_loading_resources, NULL);
 }
 @
