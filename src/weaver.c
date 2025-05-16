@@ -7,6 +7,7 @@
 #if defined(_WIN32)
 #define _CRT_SECURE_NO_WARNING
 #endif
+#line 258 "weaver_program_en.tex"
 #include <stdio.h>  
 #include <stdbool.h>  
 #include <stdlib.h>  
@@ -17,8 +18,10 @@
 #include <sys/types.h>  
 #include <sys/stat.h>  
 #else
+#line 354 "weaver_program_en.tex"
 #include <windows.h>  
 #endif
+#line 356 "weaver_program_en.tex"
 /*:7*//*9:*/
 #line 407 "weaver_program_en.tex"
 
@@ -30,18 +33,21 @@
 #if !defined(_WIN32)
 #include <libgen.h> 
 #endif
+#line 450 "weaver_program_en.tex"
 /*:11*//*16:*/
 #line 597 "weaver_program_en.tex"
 
 #if !defined(_WIN32)
 #include <dirent.h>  
 #endif
+#line 601 "weaver_program_en.tex"
 /*:16*//*22:*/
 #line 852 "weaver_program_en.tex"
 
 #if !defined(_WIN32)
 #include <unistd.h>  
 #endif
+#line 856 "weaver_program_en.tex"
 /*:22*//*32:*/
 #line 1093 "weaver_program_en.tex"
 
@@ -52,10 +58,12 @@
 #if !defined(_WIN32)
 #include <pwd.h>  
 #else
+#line 1298 "weaver_program_en.tex"
 #define SECURITY_WIN32
 #include <Security.h> 
 #include <Lmcons.h> 
 #endif
+#line 1302 "weaver_program_en.tex"
 /*:38*//*42:*/
 #line 1370 "weaver_program_en.tex"
 
@@ -85,9 +93,11 @@ void path_up(char*path){
 #if !defined(_WIN32)
 char separator= '/';
 #else
-char separator= '\\';
+#line 286 "weaver_program_en.tex"
+ char separator= '\\';
 #endif
-int erased= 0;
+#line 288 "weaver_program_en.tex"
+ int erased= 0;
 char*p= path;
 while(*p!='\0')p++;
 while(erased<2&&p!=path){
@@ -109,12 +119,14 @@ if(err==-1)return DONT_EXIST;
 if(S_ISDIR(s.st_mode))return EXISTS_AND_IS_DIR;
 return EXISTS_AND_IS_FILE;
 #else
+#line 335 "weaver_program_en.tex"
 
 DWORD dwAttrib= GetFileAttributes(dir);
 if(dwAttrib==INVALID_FILE_ATTRIBUTES)return DONT_EXIST;
 if(!(dwAttrib&FILE_ATTRIBUTE_DIRECTORY))return EXISTS_AND_IS_FILE;
 else return EXISTS_AND_IS_DIR;
 #endif
+#line 341 "weaver_program_en.tex"
 }
 /*:6*//*8:*/
 #line 370 "weaver_program_en.tex"
@@ -164,6 +176,7 @@ else
 return path;
 }
 #endif
+#line 438 "weaver_program_en.tex"
 /*:10*//*12:*/
 #line 460 "weaver_program_en.tex"
 
@@ -185,12 +198,14 @@ block_size= 4096;
 }
 }
 #endif
+#line 512 "weaver_program_en.tex"
 /*:13*//*14:*/
 #line 518 "weaver_program_en.tex"
 
 #if defined(_WIN32)
 block_size= 4096;
 #endif
+#line 522 "weaver_program_en.tex"
 /*:14*/
 #line 466 "weaver_program_en.tex"
 
@@ -239,12 +254,14 @@ return 0;
 
 if(dir->d_type==DT_DIR){
 #else
-struct stat s;
+#line 553 "weaver_program_en.tex"
+ struct stat s;
 int err;
 err= stat(file,&s);
 if(err==-1)return 0;
 if(S_ISDIR(s.st_mode)){
 #endif
+#line 559 "weaver_program_en.tex"
 
 char*new_dst;
 new_dst= concatenate(dst,"/",dir->d_name,"");
@@ -277,6 +294,7 @@ closedir(d);
 return 1;
 }
 #endif
+#line 591 "weaver_program_en.tex"
 /*:15*//*17:*/
 #line 608 "weaver_program_en.tex"
 
@@ -329,6 +347,7 @@ FindClose(dir);
 return 1;
 }
 #endif
+#line 658 "weaver_program_en.tex"
 /*:17*//*18:*/
 #line 671 "weaver_program_en.tex"
 
@@ -359,10 +378,12 @@ while(current_string!=NULL&&current_string[0]!='\0'&&err!=-1){
 #if !defined(_WIN32)
 err= mkdir(current_string,S_IRWXU|S_IRWXG|S_IROTH);
 #else
-if(!CreateDirectoryA(current_string,NULL))
+#line 728 "weaver_program_en.tex"
+ if(!CreateDirectoryA(current_string,NULL))
 err= -1;
 #endif
-current_string= va_arg(arguments,char*);
+#line 731 "weaver_program_en.tex"
+ current_string= va_arg(arguments,char*);
 }
 return err;
 }
@@ -388,12 +409,14 @@ block_size= 4096;
 }
 }
 #endif
+#line 512 "weaver_program_en.tex"
 /*:13*//*14:*/
 #line 518 "weaver_program_en.tex"
 
 #if defined(_WIN32)
 block_size= 4096;
 #endif
+#line 522 "weaver_program_en.tex"
 /*:14*/
 #line 758 "weaver_program_en.tex"
 
@@ -438,6 +461,7 @@ char*path= NULL,*complete_path= NULL;
 #if !defined(_WIN32)
 path= getcwd(NULL,0);
 #else
+#line 835 "weaver_program_en.tex"
 {
 DWORD bsize;
 bsize= GetCurrentDirectory(0,NULL);
@@ -445,7 +469,8 @@ path= (char*)malloc(bsize);
 GetCurrentDirectory(bsize,path);
 }
 #endif
-if(path==NULL)W_ERROR();
+#line 842 "weaver_program_en.tex"
+ if(path==NULL)W_ERROR();
 complete_path= concatenate(path,"/.weaver","");
 free(path);
 if(complete_path==NULL)W_ERROR();
@@ -472,8 +497,10 @@ size_t tmp_size= strlen(complete_path);
 strlcat(complete_path,"/.weaver",tmp_size+9);
 }
 #else
-strcat(complete_path,"/.weaver");
+#line 883 "weaver_program_en.tex"
+ strcat(complete_path,"/.weaver");
 #endif
+#line 885 "weaver_program_en.tex"
 }
 }
 free(complete_path);
@@ -531,9 +558,11 @@ free(buffer);
 #ifdef WEAVER_DIR
 shared_dir= concatenate(WEAVER_DIR,"");
 #else
+#line 1003 "weaver_program_en.tex"
 #if !defined(_WIN32)
 shared_dir= concatenate("/usr/local/share/weaver/","");
 #else
+#line 1006 "weaver_program_en.tex"
 {
 char*temp_buf= NULL;
 DWORD bsize= GetEnvironmentVariable("ProgramFiles",temp_buf,0);
@@ -543,8 +572,10 @@ shared_dir= concatenate(temp_buf,"\\weaver\\","");
 free(temp_buf);
 }
 #endif
+#line 1015 "weaver_program_en.tex"
 #endif
-if(shared_dir==NULL)W_ERROR();
+#line 1016 "weaver_program_en.tex"
+ if(shared_dir==NULL)W_ERROR();
 }
 /*:29*//*31:*/
 #line 1060 "weaver_program_en.tex"
@@ -686,10 +717,13 @@ if(author_name==NULL)W_ERROR();
 #ifdef __OpenBSD__
 strlcpy(author_name,string_to_copy,size+1);
 #else
-strcpy(author_name,string_to_copy);
+#line 1241 "weaver_program_en.tex"
+ strcpy(author_name,string_to_copy);
 #endif
+#line 1243 "weaver_program_en.tex"
 }
 #endif
+#line 1245 "weaver_program_en.tex"
 /*:35*//*36:*/
 #line 1256 "weaver_program_en.tex"
 
@@ -714,6 +748,7 @@ GetUserNameA(author_name,&size);
 }
 }
 #endif
+#line 1278 "weaver_program_en.tex"
 /*:36*//*39:*/
 #line 1311 "weaver_program_en.tex"
 
@@ -723,9 +758,11 @@ char*c;
 #if !defined(_WIN32)
 char*filename= concatenate(project_path,".weaver/name","");
 #else
-char*filename= concatenate(project_path,".weaver\name","");
+#line 1318 "weaver_program_en.tex"
+ char*filename= concatenate(project_path,".weaver\name","");
 #endif
-if(filename==NULL)W_ERROR();
+#line 1320 "weaver_program_en.tex"
+ if(filename==NULL)W_ERROR();
 project_name= (char*)malloc(256);
 if(project_name==NULL){
 free(filename);
@@ -897,9 +934,11 @@ if(err==-1)W_ERROR();
 #if !defined(_WIN32)
 err= chdir(argument);
 #else
-err= _chdir(argument);
+#line 1635 "weaver_program_en.tex"
+ err= _chdir(argument);
 #endif
-if(err==-1)W_ERROR();
+#line 1637 "weaver_program_en.tex"
+ if(err==-1)W_ERROR();
 err= create_dir(".weaver","conf","tex","src","src/weaver",
 "fonts","image","sound","models","music",
 "plugins","src/misc","src/misc/sqlite",

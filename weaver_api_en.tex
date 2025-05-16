@@ -181,6 +181,7 @@ file \monoespaco{weaver.c} from our API:
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 #include "../game.h"
+struct _game_struct _game;
 @<Local Headers (weaver.c)@>
 @<Local Macros (weaver.c)@>
 @<Global Variables (weaver.c)@>
@@ -705,7 +706,7 @@ logic code will be called \monoespaco{\_lag}. It is a global variable:
 
 \iniciocodigo
 @<Extern Variables (weaver.h)@>+=
-unsigned long _lag;
+extern unsigned long _lag;
 @
 \fimcodigo
 

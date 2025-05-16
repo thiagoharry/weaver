@@ -107,8 +107,10 @@ E dentro de \monoespaco{src/game.h}, nós encontramos:
 struct _game_struct{
   // Você pode personalizar esta estrutura declarando variáveis aqui.
   // Mas não mude seu nome. E acesse ela por meioda variável W.game
-  int whatever; // <- Variável só pra prevenir erro em certo compilador
-} _game;
+  int whatever;
+};
+
+extern _game_struct _game;
 
 void main_loop(void);
 
@@ -198,6 +200,7 @@ arquivo \monoespaco{weaver.c} de nossa API:
 @(project/src/weaver/weaver.c@>=
 #include "weaver.h"
 #include "../game.h"
+struct _game_struct _game;
 @<Cabeçalhos Locais (weaver.c)@>
 @<Macros Locais (weaver.c)@>
 @<Variáveis Globais (weaver.c)@>
