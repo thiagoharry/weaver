@@ -172,7 +172,7 @@ test_en: project/src/weaver/memory.c project/src/weaver/memory.h project/src/wea
 	@cp -r project/* .test/share/project/
 	@bash ./.test/test.sh
 submodules:
-	git submodule update --init --recursive --remote
+	git submodule update --init --force --recursive --remote
 project/src/weaver/memory.c:
 	cp weaver-memory-manager/src/memory.c project/src/weaver/memory.c
 project/src/weaver/memory.h:
