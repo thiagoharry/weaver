@@ -1682,12 +1682,35 @@ We initialize the API it with:
     *window_height = &W.width;
   }
 #endif
+  @<Weaver API: Interface Formats (Initialization)@>
   _Winit_interface(window_width, window_height, _alloc, NULL,
                    _talloc, NULL, before_loading_resources,
-                   after_loading_resources, NULL);
+                   after_loading_resources,
+                   // Supported formats:
+                   "mf", _Wmetafont_loading,
+                   NULL);
 }
 @
 \fimcodigo
+
+To allow all the different supported formats for the interface
+textures, we need to add all the relevant headers which define the
+signature for their loading functions:
+
+@<Local Headers (weaver.c)@>+=
+#include "metafont.h"
+@
+
+And we also run all the initialization needed for each one of these
+formats:
+
+@<Weaver API: Interface Formats (Initialization)@>=
+if(!_Winit_weavefont(_talloc, NULL, _alloc, NULL, _rand, 96)){
+  fprintf(stderr, "ERROR: Test cannot be done. Initialization failed.\n");
+  exit(1);
+}
+@
+
 
 In the initialization we inform the user interface API the real size
 of our window (not the rotated size if the user is using a mobile

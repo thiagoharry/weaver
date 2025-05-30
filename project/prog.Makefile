@@ -8,7 +8,7 @@ W_OBJ=$(shell for i in src/weaver/*.c; do\
 #MISC_OBJ=.misc/sqlite3.o
 HEADERS=$(shell echo src/*.h src/weaver/*.h)
 DEFINES=-DW_PROG=\"${PROG}\"
-FLAGS=-Wall -O2 -Os -Wextra -Wshadow -Wundef -std=gnu99  ${CPPFLAGS}
+FLAGS=-DWEAVER_ENGINE -Wall -O2 -Os -Wextra -Wshadow -Wundef -std=gnu99  ${CPPFLAGS}
 SOURCE_TEST=$(shell egrep "^\#define[ \t]+W_SOURCE[ \t]+W_" conf/conf.h | egrep -o "(W_C|W_CPP)")
 DONT_USE_PNG=$(shell grep "^\#define[ \t]\+W_DISABLE_PNG" conf/conf.h)
 DONT_USE_MP3=$(shell grep "^\#define[ \t]\+W_DISABLE_MP3" conf/conf.h)

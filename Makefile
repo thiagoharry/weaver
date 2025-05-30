@@ -149,7 +149,7 @@ install: uninstall
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
-test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h project/src/weaver/interface.h project/src/weaver/interface.c
+test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h project/src/weaver/interface.h project/src/weaver/interface.c project/src/weaver/metafont.c project/src/weaver/metafont.h 
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program.tex
@@ -189,6 +189,11 @@ project/src/weaver/interface.h:
 	cp weaver-interface/src/interface.h project/src/weaver/interface.h
 project/src/weaver/interface.c:
 	cp weaver-interface/src/interface.c project/src/weaver/interface.c
+project/src/weaver/metafont.h:
+	cp weaver-interface-metafont/src/metafont.h project/src/weaver/metafont.h
+project/src/weaver/metafont.c:
+	cp weaver-interface-metafont/src/metafont.c project/src/weaver/metafont.c
+
 doc_en:
 	tex weaver_program_en.tex
 	dvipdf weaver_program_en.dvi

@@ -1,0 +1,6 @@
+numeric size = 10;
+
+beginchar("0", 100, 100, 0);
+  pickup pencircle scaled 100;
+  draw (w/2, h/2);
+endchar;

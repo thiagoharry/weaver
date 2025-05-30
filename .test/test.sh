@@ -219,6 +219,7 @@ function test_new_project(){
     echo "#define W_MAX_MEMORY 16384" > conf/conf.h
     cp ../test4.c src/game.c
     cp ../shader.glsl shaders/
+    cp ../texture.mf image/texture.mf
     if [[ ${OSTYPE} == *"bsd"* ]]; then
 	gmake &> /dev/null
     elif [[ ${OSTYPE} ==  "msys" ]]; then

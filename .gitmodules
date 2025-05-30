@@ -12,3 +12,9 @@
 	path = weaver-interface
 	url = https://github.com/thiagoharry/weaver-interface.git
 	branch = main
+[submodule "weaver-interface-metafont"]
+	path = weaver-interface-metafont
+	url = https://github.com/thiagoharry/weaver-interface-metafont.git
+	branch = main
+	update = rebase
+

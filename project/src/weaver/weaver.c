@@ -26,11 +26,15 @@ struct _game_struct _game;
 #include <bcrypt.h> 
 #endif
 #line 1382 "weaver_api_en.tex"
-/*:68*//*98:*/
-#line 1818 "weaver_api_en.tex"
+/*:68*//*92:*/
+#line 1700 "weaver_api_en.tex"
+
+#include "metafont.h"
+/*:92*//*100:*/
+#line 1841 "weaver_api_en.tex"
 
 #include <string.h> 
-/*:98*/
+/*:100*/
 #line 185 "weaver_api_en.tex"
 
 /*5:*/
@@ -174,14 +178,14 @@ void _update(void){
 #line 1526 "weaver_api_en.tex"
 
 _Wget_window_input(W.t,&keyboard,&W.mouse);
-/*:81*//*95:*/
-#line 1740 "weaver_api_en.tex"
+/*:81*//*97:*/
+#line 1763 "weaver_api_en.tex"
 
 _Winteract_interface(W.mouse.x,W.mouse.y,
 W.mouse.button[W_MOUSE_LEFT]> 0,
 W.mouse.button[W_MOUSE_MIDDLE]> 0,
 W.mouse.button[W_MOUSE_RIGHT]> 0);
-/*:95*/
+/*:97*/
 #line 773 "weaver_api_en.tex"
 
 }
@@ -193,11 +197,11 @@ void _render(void){
 #line 1517 "weaver_api_en.tex"
 
 _Wrender_window();
-/*:80*//*96:*/
-#line 1752 "weaver_api_en.tex"
+/*:80*//*98:*/
+#line 1775 "weaver_api_en.tex"
 
 _Wrender_interface(W.t);
-/*:96*/
+/*:98*/
 #line 828 "weaver_api_en.tex"
 
 }
@@ -213,11 +217,11 @@ if(_number_of_loops> 0){
 emscripten_cancel_main_loop();
 #endif
 #line 972 "weaver_api_en.tex"
-/*:43*//*94:*/
-#line 1731 "weaver_api_en.tex"
+/*:43*//*96:*/
+#line 1754 "weaver_api_en.tex"
 
 _Wrestore_history_interface();
-/*:94*/
+/*:96*/
 #line 932 "weaver_api_en.tex"
 
 /*55:*/
@@ -240,16 +244,16 @@ _update_time();
 #line 1535 "weaver_api_en.tex"
 
 _Wflush_window_input(&keyboard,&W.mouse);
-/*:82*//*93:*/
-#line 1721 "weaver_api_en.tex"
+/*:82*//*95:*/
+#line 1744 "weaver_api_en.tex"
 
 _Wmark_history_interface();
-/*:93*/
+/*:95*/
 #line 936 "weaver_api_en.tex"
 
-/*104:*/
-#line 1874 "weaver_api_en.tex"
-/*:104*/
+/*106:*/
+#line 1897 "weaver_api_en.tex"
+/*:106*/
 #line 937 "weaver_api_en.tex"
 
 /*54:*/
@@ -289,16 +293,16 @@ _update_time();
 #line 1535 "weaver_api_en.tex"
 
 _Wflush_window_input(&keyboard,&W.mouse);
-/*:82*//*93:*/
-#line 1721 "weaver_api_en.tex"
+/*:82*//*95:*/
+#line 1744 "weaver_api_en.tex"
 
 _Wmark_history_interface();
-/*:93*/
+/*:95*/
 #line 985 "weaver_api_en.tex"
 
-/*102:*/
-#line 1866 "weaver_api_en.tex"
-/*:102*/
+/*104:*/
+#line 1889 "weaver_api_en.tex"
+/*:104*/
 #line 986 "weaver_api_en.tex"
 
 if(_number_of_loops>=W_MAX_SUBLOOP){
@@ -327,9 +331,9 @@ Wexit();
 exit(1);
 }
 else{
-/*103:*/
-#line 1870 "weaver_api_en.tex"
-/*:103*/
+/*105:*/
+#line 1893 "weaver_api_en.tex"
+/*:105*/
 #line 1059 "weaver_api_en.tex"
 
 _number_of_loops--;
@@ -344,11 +348,11 @@ _update_time();
 #line 1535 "weaver_api_en.tex"
 
 _Wflush_window_input(&keyboard,&W.mouse);
-/*:82*//*93:*/
-#line 1721 "weaver_api_en.tex"
+/*:82*//*95:*/
+#line 1744 "weaver_api_en.tex"
 
 _Wmark_history_interface();
-/*:93*/
+/*:95*/
 #line 1061 "weaver_api_en.tex"
 
 #if defined(__EMSCRIPTEN__)
@@ -397,8 +401,8 @@ MUTEX_WAIT(&pending_files_mutex);
 W.pending_files--;
 MUTEX_SIGNAL(&pending_files_mutex);
 }
-/*:90*//*97:*/
-#line 1776 "weaver_api_en.tex"
+/*:90*//*99:*/
+#line 1799 "weaver_api_en.tex"
 
 static struct user_interface*new_interface(char*shader,char*texture,
 float x,float y,float z,
@@ -414,7 +418,7 @@ dir_len= 1;
 dir_len= strlen(W_DATA_DIR);
 memcpy(path_shader,W_DATA_DIR,dir_len+1);
 #endif
-#line 1791 "weaver_api_en.tex"
+#line 1814 "weaver_api_en.tex"
  memcpy(&path_shader[dir_len],"/shaders/",10);
 dir_len+= 9;
 memcpy(&path_shader[dir_len],shader,shader_len+1);
@@ -428,7 +432,7 @@ dir_len= 1;
 dir_len= strlen(W_DATA_DIR);
 memcpy(path_texture,W_DATA_DIR,dir_len+1);
 #endif
-#line 1804 "weaver_api_en.tex"
+#line 1827 "weaver_api_en.tex"
  memcpy(&path_texture[dir_len],"/images/",9);
 dir_len+= 8;
 memcpy(&path_texture[dir_len],texture,texture_len+1);
@@ -437,7 +441,7 @@ return _Wnew_interface((texture==NULL)?(NULL):(path_texture),
 (shader==NULL)?(NULL):(path_shader),
 x,y,z,width,height);
 }
-/*:97*/
+/*:99*/
 #line 189 "weaver_api_en.tex"
 
 /*9:*/
@@ -619,19 +623,32 @@ if(rotated_screen){
 }
 #endif
 #line 1685 "weaver_api_en.tex"
- _Winit_interface(window_width,window_height,_alloc,NULL,
-_talloc,NULL,before_loading_resources,
-after_loading_resources,NULL);
+/*93:*/
+#line 1707 "weaver_api_en.tex"
+
+if(!_Winit_weavefont(_talloc,NULL,_alloc,NULL,_rand,96)){
+fprintf(stderr,"ERROR: Test cannot be done. Initialization failed.\n");
+exit(1);
 }
-/*:91*//*101:*/
-#line 1848 "weaver_api_en.tex"
+/*:93*/
+#line 1685 "weaver_api_en.tex"
+
+_Winit_interface(window_width,window_height,_alloc,NULL,
+_talloc,NULL,before_loading_resources,
+after_loading_resources,
+
+"mf",_Wmetafont_loading,
+NULL);
+}
+/*:91*//*103:*/
+#line 1871 "weaver_api_en.tex"
 
 W.new_interface= new_interface;
 W.link_interface= _Wlink_interface;
 W.rotate_interface= _Wrotate_interface;
 W.resize_interface= _Wresize_interface;
 W.move_interface= _Wmove_interface;
-/*:101*/
+/*:103*/
 #line 277 "weaver_api_en.tex"
 
 }
@@ -652,11 +669,11 @@ _Wdestroy_window();
 
 MUTEX_DESTROY(&pending_files_mutex);
 MUTEX_DESTROY(&loading_files);
-/*:89*//*92:*/
-#line 1702 "weaver_api_en.tex"
+/*:89*//*94:*/
+#line 1725 "weaver_api_en.tex"
 
 _Wfinish_interface();
-/*:92*/
+/*:94*/
 #line 296 "weaver_api_en.tex"
 
 /*52:*/

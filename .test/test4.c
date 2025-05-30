@@ -2,7 +2,7 @@
 
 #include "game.h"
 
-static struct user_interface *a, *b;
+static struct user_interface *a, *b, *c;
 
 void main_loop(void){ // The game loop
  LOOP_INIT: // Code executed during loop initialization
@@ -12,6 +12,10 @@ void main_loop(void){ // The game loop
   b = W.new_interface("shader.glsl", NULL,
 		      3 * W.width / 4, 3 * W.height / 4, 1.0,
 		      W.width / 2, W.height / 2);
+  c = W.new_interface(NULL, "texture.mf",
+		      3 * W.width / 4, W.height / 4, 1.0,
+		      W.width / 2, W.height / 2);
+
   if(a == NULL || b == NULL)
     exit(1);
  LOOP_BODY: // Code executed every loop iteration
