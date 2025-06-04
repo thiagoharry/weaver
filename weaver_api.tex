@@ -1780,10 +1780,16 @@ E executamos também o código de inicialização específico para cada um
 dos formatos:
 
 @<API Weaver: Formatos de Interface (Inicialização)@>=
-if(!_Winit_weavefont(_talloc, NULL, _alloc, NULL, _rand, 96)){
+{
+  int dpi_x, dpi_y;
+  if(!_Wget_screen_dpi(&dpi_x, &dpi_y)){
+    dpi_x = dpi_y = 96;
+  }
+  if(!_Winit_weavefont(_talloc, NULL, _alloc, NULL, _rand, (dpi_x+dpi_y)/2)){
     fprintf(stderr, "ERROR: Test cannot be done. Initialization failed.\n");
     exit(1);
   }
+}
 @
 
 Na inicialização informamos a API de interface do tamanho verdadeiro
@@ -1859,7 +1865,7 @@ Mas ao invés de esperar que usuários passem caminhos absolutos para
 tais arquivos, queremos que o usuário digite apenas o seu nome e nós
 os buscaremos no diretório adequado. Código-fonte de shaders devem ser
 colocados no diretório \monoespaco{shaders} e texturas com imagens
-devem estar no diretório \monoespaco{images}. Ambos os diretórios
+devem estar no diretório \monoespaco{image}. Ambos os diretórios
 devem estar no diretório indicado pela macro \monoespaco{W\_DATA\_DIR}
 se ela estiver definida. Caso contrário, eles serão buscados no
 diretório atual. A ideia é que esta macro seja definida somente quando
@@ -1897,8 +1903,8 @@ static struct user_interface *new_interface(char *shader, char *texture,
     dir_len = strlen(W_DATA_DIR);
     memcpy(path_texture, W_DATA_DIR, dir_len + 1);
 #endif
-    memcpy(&path_texture[dir_len], "/images/", 9);
-    dir_len += 8;
+    memcpy(&path_texture[dir_len], "/image/", 8);
+    dir_len += 7;
     memcpy(&path_texture[dir_len], texture, texture_len + 1);
   }  
   return _Wnew_interface((texture == NULL)?(NULL):(path_texture),
@@ -1908,7 +1914,7 @@ static struct user_interface *new_interface(char *shader, char *texture,
 @
 \fimcodigo
 
-Isso requer que usemos o canbeçalho de strings:
+Isso requer que usemos o cabeçalho de strings:
 
 \iniciocodigo
 @<Cabeçalhos Locais (weaver.c)@>+=

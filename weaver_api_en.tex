@@ -1705,12 +1705,17 @@ And we also run all the initialization needed for each one of these
 formats:
 
 @<Weaver API: Interface Formats (Initialization)@>=
-if(!_Winit_weavefont(_talloc, NULL, _alloc, NULL, _rand, 96)){
-  fprintf(stderr, "ERROR: Test cannot be done. Initialization failed.\n");
-  exit(1);
+{
+  int dpi_x, dpi_y;
+  if(!_Wget_screen_dpi(&dpi_x, &dpi_y)){
+    dpi_x = dpi_y = 96;
+  }
+  if(!_Winit_weavefont(_talloc, NULL, _alloc, NULL, _rand, (dpi_x+dpi_y)/2)){
+    fprintf(stderr, "ERROR: Test cannot be done. Initialization failed.\n");
+    exit(1);
+  }
 }
 @
-
 
 In the initialization we inform the user interface API the real size
 of our window (not the rotated size if the user is using a mobile
@@ -1787,7 +1792,7 @@ But instead of expecting users to give full file paths, Weaver Engine
 expect the user to just give the filename and this file will be taken
 from the correct directory. Shader source-codes should be in
 the \monoespaco{shader} directory and image files with texture should
-be in the \monoespaco{images} directory. Both directories will be
+be in the \monoespaco{image} directory. Both directories will be
 searched on \monoespaco{W\_DATA\_DIR} if this macro is
 defined. Otherwise, they are searched on the current directory. This
 macro probably will be defined only when the game is being compiled to
@@ -1824,8 +1829,8 @@ static struct user_interface *new_interface(char *shader, char *texture,
     dir_len = strlen(W_DATA_DIR);
     memcpy(path_texture, W_DATA_DIR, dir_len + 1);
 #endif
-    memcpy(&path_texture[dir_len], "/images/", 9);
-    dir_len += 8;
+    memcpy(&path_texture[dir_len], "/image/", 8);
+    dir_len += 7;
     memcpy(&path_texture[dir_len], texture, texture_len + 1);
   }  
   return _Wnew_interface((texture == NULL)?(NULL):(path_texture),

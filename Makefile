@@ -137,10 +137,6 @@ install: uninstall
 	install -c project/src/weaver/numeric.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/gif.h ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/gif.c ${PROJECT_SHARE}/src/weaver
-	install -c project/src/er/database.h ${P
-
-
-
 	install -c project/src/weaver/database.c ${PROJECT_SHARE}/src/weaver
 	install -c project/src/weaver/metafont.h ${PROJECT_SHARE}/src/weaver
 	weaver/metafont.c ${PROJECT_SHARE}/src/weaver
@@ -149,7 +145,7 @@ install: uninstall
 uninstall:
 	rm -rf ${INSTALL_SHARE_DIR}
 	rm -f ${INSTALL_BIN_DIR}/weaver
-test: project/src/weaver/memory.c project/src/weaver/memory.h project/src/weaver/random.c project/src/weaver/random.h project/src/weaver/window.c project/src/weaver/window.h project/src/weaver/interface.h project/src/weaver/interface.c project/src/weaver/metafont.c project/src/weaver/metafont.h 
+test: submodules
 	@mkdir -p .test/bin
 	@mkdir -p .test/share
 	@${TANGLE} weaver_program.tex
@@ -173,25 +169,15 @@ test_en: project/src/weaver/memory.c project/src/weaver/memory.h project/src/wea
 	@bash ./.test/test.sh
 submodules:
 	git submodule update --init --force --recursive --remote
-project/src/weaver/memory.c:
 	cp weaver-memory-manager/src/memory.c project/src/weaver/memory.c
-project/src/weaver/memory.h:
 	cp weaver-memory-manager/src/memory.h project/src/weaver/memory.h
-project/src/weaver/random.c:
 	cp weaver-random/src/random.c project/src/weaver/random.c
-project/src/weaver/random.h:
 	cp weaver-random/src/random.h project/src/weaver/random.h
-project/src/weaver/window.c:
 	cp weaver-window/src/window.c project/src/weaver/window.c
-project/src/weaver/window.h:
 	cp weaver-window/src/window.h project/src/weaver/window.h
-project/src/weaver/interface.h:
 	cp weaver-interface/src/interface.h project/src/weaver/interface.h
-project/src/weaver/interface.c:
 	cp weaver-interface/src/interface.c project/src/weaver/interface.c
-project/src/weaver/metafont.h:
 	cp weaver-interface-metafont/src/metafont.h project/src/weaver/metafont.h
-project/src/weaver/metafont.c:
 	cp weaver-interface-metafont/src/metafont.c project/src/weaver/metafont.c
 
 doc_en:

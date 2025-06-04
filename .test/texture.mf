@@ -1,6 +1,10 @@
-numeric size = 10;
+numeric size, hsize;
+size = hsize = 100;
 
-beginchar("0", 100, 100, 0);
-  pickup pencircle scaled 100;
+beginchar("0", hsize*pt, size*pt, 0);
+  pickup pensquare xscaled w yscaled h;
+  draw (w/2, h/2);
+  pickup pencircle scaled (0.4*h);
+  pickcolor (1, 1, 0, 1);
   draw (w/2, h/2);
 endchar;
