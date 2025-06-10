@@ -16,7 +16,7 @@ void main_loop(void){ // The game loop
 		      3 * W.width / 4, W.height / 4, 1.0,
 		      W.width / 2, W.height / 2);
 
-  if(a == NULL || b == NULL)
+  if(a == NULL || b == NULL || c == NULL)
     exit(1);
  LOOP_BODY: // Code executed every loop iteration
   if(W.keyboard[W_ANY])

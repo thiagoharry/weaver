@@ -1,5 +1,9 @@
 numeric size, hsize;
+pair planet_position;
+
 size = hsize = 100;
+planet_position = (0, 1);
+
 
 beginchar("0", hsize*pt, size*pt, 0);
   pickup pensquare xscaled w yscaled h;
@@ -7,4 +11,9 @@ beginchar("0", hsize*pt, size*pt, 0);
   pickup pencircle scaled (0.4*h);
   pickcolor (1, 1, 0, 1);
   draw (w/2, h/2);
+  pickcolor (0, 0, 1, 1);
+  pickup pencircle scaled (0.1*h);
+  planet_position = planet_position rotated 1;
+  draw (w/2, h/2) + (0.35*h*planet_position);
+  shipit;
 endchar;
