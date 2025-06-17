@@ -994,10 +994,9 @@ void _Wloop(void (*f)(void)){
   _number_of_loops ++;
 #if defined(__EMSCRIPTEN__)
   emscripten_set_main_loop(f, 0, 1);
-#else
+#endif
   while(1)
     f();
-#endif
 }
 @
 \fimcodigo
@@ -1048,10 +1047,9 @@ void Wsubloop(void (*f)(void)){
   _number_of_loops ++;
 #if defined(__EMSCRIPTEN__)
   emscripten_set_main_loop(f, 0, 1);
-#else
+#endif
   while(1)
     f();
-#endif
 }
 @
 \fimcodigo
@@ -1118,10 +1116,9 @@ void _exit_loop(void){
 #if defined(__EMSCRIPTEN__)
     emscripten_cancel_main_loop();
     emscripten_set_main_loop(_loop_stack[_number_of_loops - 1], 0, 1);
-#else
+#endif
     while(1)
       _loop_stack[_number_of_loops - 1]();
-#endif
   }
 }
 @

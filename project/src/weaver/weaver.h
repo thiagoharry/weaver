@@ -32,18 +32,18 @@ extern"C"{
 #endif
 #line 371 "weaver_api.tex"
 /*:14*//*42:*/
-#line 1009 "weaver_api.tex"
+#line 1008 "weaver_api.tex"
 
 #if defined(__EMSCRIPTEN__)
 #include <emscripten.h> 
 #endif
-#line 1013 "weaver_api.tex"
+#line 1012 "weaver_api.tex"
 /*:42*//*74:*/
-#line 1534 "weaver_api.tex"
+#line 1531 "weaver_api.tex"
 
 #include "window.h"
 /*:74*//*86:*/
-#line 1667 "weaver_api.tex"
+#line 1664 "weaver_api.tex"
 
 #include "interface.h"
 /*:86*/
@@ -72,33 +72,33 @@ char loop_name[W_MAX_LOOP_NAME];
 unsigned long long t;
 unsigned long dt;
 /*:29*//*75:*/
-#line 1544 "weaver_api.tex"
+#line 1541 "weaver_api.tex"
 
 long*keyboard;
 struct _Wmouse mouse;
 /*:75*//*84:*/
-#line 1636 "weaver_api.tex"
+#line 1633 "weaver_api.tex"
 
 int width,height,resolution_x,resolution_y;
 /*:84*/
 #line 259 "weaver_api.tex"
 
 /*58:*/
-#line 1278 "weaver_api.tex"
+#line 1275 "weaver_api.tex"
 
 void*(*alloc)(size_t);
 void*(*talloc)(size_t);
 /*:58*//*72:*/
-#line 1512 "weaver_api.tex"
+#line 1509 "weaver_api.tex"
 
 uint64_t(*rand)(void);
 /*:72*//*101:*/
-#line 1928 "weaver_api.tex"
+#line 1925 "weaver_api.tex"
 
 struct user_interface*(*new_interface)(char*,char*,float,float,
 float,float,float);
 /*:101*//*102:*/
-#line 1939 "weaver_api.tex"
+#line 1936 "weaver_api.tex"
 
 struct user_interface*(*link_interface)(struct user_interface*);
 void(*rotate_interface)(struct user_interface*,float);
@@ -228,23 +228,23 @@ _LABEL_0
   goto _LABEL_0;                                           \
 _LOOP_FINALIZATION
 /*:36*//*46:*/
-#line 1093 "weaver_api.tex"
+#line 1091 "weaver_api.tex"
 
 #define Wexit_loop() (_running_loop =  false)
 /*:46*//*48:*/
-#line 1156 "weaver_api.tex"
+#line 1153 "weaver_api.tex"
 
 #ifndef W_MAX_MEMORY
 #define W_MAX_MEMORY 4096
 #endif
-#line 1160 "weaver_api.tex"
+#line 1157 "weaver_api.tex"
 /*:48*//*53:*/
-#line 1220 "weaver_api.tex"
+#line 1217 "weaver_api.tex"
 
 #ifndef W_MEMORY_ALIGNMENT
 #define W_MEMORY_ALIGNMENT (sizeof(unsigned long))
 #endif
-#line 1224 "weaver_api.tex"
+#line 1221 "weaver_api.tex"
 /*:53*/
 #line 151 "weaver_api.tex"
 
