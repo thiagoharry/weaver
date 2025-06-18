@@ -5,7 +5,7 @@ size = hsize = 100;
 planet_position = (0, 1);
 
 
-beginchar("0", hsize*pt, size*pt, 0);
+beginchar("0", hsize, size, 0);
   pickup pensquare xscaled w yscaled h;
   draw (w/2, h/2);
   pickup pencircle scaled (0.4*h);
