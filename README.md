@@ -31,6 +31,10 @@ each subsystem separately:
 
 * **Window**: [[In English]](https://github.com/thiagoharry/weaver-window/raw/master/weaver-window_en.pdf)[[In Portuguese]](https://github.com/thiagoharry/weaver-window/raw/master/weaver-window.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-window)
 
+* **Interface**: [[In English]](https://github.com/thiagoharry/weaver-interface/blob/master/weaver-interface_en.pdf)[[In Protuguese]](https://github.com/thiagoharry/weaver-window/raw/master/weaver-window.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-interface)
+
+  * **Interface-Metafont**:[[In English]](https://github.com/thiagoharry/weaver-interface-metafont/blob/main/weaver-interface-metafont_en.pdf)[[In Protuguese]](https://github.com/thiagoharry/weaver-interface-metafont/blob/main/weaver-interface-metafont.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-interface-metafont)
+
 
 ## Building
 
