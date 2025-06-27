@@ -34,6 +34,7 @@ each subsystem separately:
 * **Interface**: [[In English]](https://github.com/thiagoharry/weaver-interface/blob/master/weaver-interface_en.pdf)[[In Protuguese]](https://github.com/thiagoharry/weaver-window/raw/master/weaver-window.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-interface)
 
   * **Interface-Metafont**:[[In English]](https://github.com/thiagoharry/weaver-interface-metafont/blob/main/weaver-interface-metafont_en.pdf)[[In Protuguese]](https://github.com/thiagoharry/weaver-interface-metafont/blob/main/weaver-interface-metafont.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-interface-metafont)
+  * **Interface-WAVE**:[[In English]](https://github.com/thiagoharry/weaver-interface-wave/blob/main/weaver-interface-wave_en.pdf)[[In Protuguese]](https://github.com/thiagoharry/weaver-interface-wave/blob/main/weaver-interface-wave.pdf)--[[GitHub Page]](https://github.com/thiagoharry/weaver-interface-wave)
 
 
 ## Building
