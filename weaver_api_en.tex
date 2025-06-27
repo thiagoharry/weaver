@@ -47,7 +47,7 @@
 \email{thiago@@bitbitbit.com.br}
 \vskip6pt
 
-\abstract{This article describes using literary programming the
+\abstract{This article describes using literate programming the
   Weaver API. Weaver is a game engine and this API are how programmers
   interact with the engine in their game projects. Besides the API,
   this article also covers how the configuration file is interpreted
@@ -59,10 +59,10 @@
 
 \subsecao{1.1. File Organization}
 
-When a user types \monoespaco{weaver PROJECT} at command line, a
-directory with a new Weaver project is created. Inside the directory,
-the file with the main loop is in \monoespaco{src/game.c} and inside
-them we find:
+When a user runs \monoespaco{weaver PROJECT} on the command line, a
+new directory containing a Weaver project is created. Inside this
+directory, the main loop is defined in the
+file \monoespaco{src/game.c}, and inside it we find:
 
 \alinhaverbatim
 #include "game.h"
@@ -84,7 +84,7 @@ int main(void){
 }
 \alinhanormal
 
-And inside \monoespaco{src/game.h}, we find:
+Inside \monoespaco{src/game.h}, we find:
 
 \alinhaverbatim
 #ifndef _game_h_
@@ -104,22 +104,21 @@ void main_loop(void);
 #endif
 \alinhanormal
 
-In this file there's an struct which can be customized by the user and
-which is where variables with global states should be declared. The
-variables declared here are also variables which will be saved in a
-player's save file and which will be sent over a network to inform
-clients about the game state. This struct should be referenced by the
-variable \monoespaco{W.game}. This also gives us information that the
-API will be organized in a way that will exist a \monoespaco{struct}
-called \monoespaco{W} where the API resources will be centralized.
+In this file, there is a struct that can be customized by the user and
+used to declare global state variables. These variables are also saved
+in the player's save file and sent over the network to inform clients
+about the game state. This struct should be referenced via
+the \monoespaco{W.game} variable. This implies that the API is
+organized around a struct named \monoespaco{W}, which centralizes
+access to all API resources.
 
-The file \monoespaco{includes.h} is just a header which includes in
-the project all the other headers of modules created by the user (each
-module is a C source file and a header).
+The file \monoespaco{includes.h} is a simple header that includes all
+other headers for user-defined modules (each module consisting of a C
+source file and a corresponding header).
 
-All the API code shall be present or be included by macros in the
-files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
-\monoespaco{weaver.h} organization is:
+All API code must be either written directly in or included via macros
+in the files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
+structure of \monoespaco{weaver.h} is as follows:
 
 \iniciocodigo
 @(project/src/weaver/weaver.h@>=
@@ -140,14 +139,16 @@ files \monoespaco{weaver.c} and \monoespaco{weaver.h}. The
 @
 \fimcodigo
 
-The test in red above represents code that still was not defined. For
-example, in the ``Include Headers'' part, it is useful to include the
-header \monoespaco{sys/param.h} to check if we are compiling the
-program on some BSD system. However, Windows do not have such header,
-but if we are on Windows, we will want to
-include \monoespaco{windows.h}.. Because of this, we can include
-different headers if we are  on Windows or not with the conditional
-inclusion below:
+The text in red above represents code that has not yet been
+defined. For example, in the ``Include Headers'' section, one might
+include the header \monoespaco{sys/param.h} to check whether the
+program is being compiled on a BSD-based system. However, Windows does
+not have this header; on Windows, we would typically include windows.h
+instead.
+
+To handle such cases, we can use conditional inclusion to include
+different headers depending on whether the code is being compiled on
+Windows or another system, as shown below:
 
 \iniciocodigo
 @<Include Headers (weaver.h)@>=
@@ -159,11 +160,12 @@ inclusion below:
 @
 \fimcodigo
 
-After we could want to include more headers in this part. For example,
-the header for standard input/output and the standard library
-header. The header \monoespaco{stdint.h} is also useful to define
-integers with a fixed size of bits and \monoespaco{stdbool.h} is
-useful to declare and use boolean variables:
+We may also want to include additional headers at this point. For
+example, the standard input/output header (\monoespaco{stdio.h}) and
+the standard library header (\monoespaco{stdlib.h}). The
+header \monoespaco{stdint.h} is useful for defining fixed-size integer
+types, while \monoespaco{stdbool.h} allows us to declare and use
+boolean variables:
 
 \iniciocodigo
 @<Include Headers (weaver.h)@>+=
@@ -174,8 +176,8 @@ useful to declare and use boolean variables:
 @
 \fimcodigo
 
-We also will define here the general structure of
-file \monoespaco{weaver.c} from our API:
+We will also define here the general structure of
+the \monoespaco{weaver.c} file from our API:
 
 \iniciocodigo
 @(project/src/weaver/weaver.c@>=
@@ -191,9 +193,9 @@ struct _game_struct _game;
 @
 \fimcodigo
 
-As an example of local macros that we will use in this document, the
-macros below give us a portable way of declaring mutex and using them
-independent of the operating system:
+As an example of local macros used in this document, the macros below
+provide a portable way to declare and use mutexes regardless of the
+operating system:
 
 \iniciocodigo
 @<Local Macros (weaver.c)@>=
@@ -219,17 +221,17 @@ independent of the operating system:
 @
 \fimcodigo
 
-In this document we will expand all the other parts in red in the two
-files (\monoespaco{weaver.c} and \monoespaco{weaver.h}) showing the
-code that should be inserted there. ANd this is how our API will be
-defined.
+In this document, we will elaborate on all the other parts highlighted
+in red in the two files (\monoespaco{weaver.c}
+and \monoespaco{weaver.h}), showing the code that should be inserted
+there. This is how our API will be defined.
 
 \subsecao{1.2. The W Structure}
 
-The main data structure that we will define is a
-\monoespaco{struct} called \monoespaco{W}. This structure
-basically will be a namespace where we will define our API public
-functions and variables. Now we can start to define this structure:
+The main data structure we will define is a struct
+named \monoespaco{W}. This structure essentially acts as a namespace
+for our API’s public functions and variables. We can now begin
+defining this structure:
 
 \iniciocodigo
 @<Data Structures (weaver.h)@>=
@@ -243,12 +245,12 @@ extern struct _weaver_struct{
 @
 \fimcodigo
 
-Besides \monoespaco{W.game}, there will be other variables in this
-structure. We basically will centralize all the public functions of
-our API here. Only private functions whose names starts with ``\_''
-and some initialization and finalization functions won't be inside
-the \monoespaco{W} structure. In this way we prevent the pollution of
-the global namespace.
+In addition to \monoespaco{W.game}, the structure will contain other
+variables. We will centralize all public functions of the API in this
+structure. Only private functions---whose names start with an
+underscore---and certain initialization and finalization routines will
+be defined outside the W structure. In this way, we prevent global
+namespace pollution.
 
 We declare this namespace as a global variable:
 
@@ -260,9 +262,9 @@ struct _weaver_struct W;
 
 \subsecao{1.3. Initialization and Finalization Functions}
 
-One thing that the initialization function must do is initialize the
-values inside the \monoespaco{W} structure. Because of this, it is one
-of the few functions outside our namespace:
+The initialization function is responsible for setting the initial
+values of the W structure. For this reason, it is one of the few
+functions defined outside our namespace:
 
 \iniciocodigo
 @<Function Declaration (weaver.h)@>=
@@ -279,10 +281,10 @@ void Winit(void){
 @
 \fimcodigo
 
-The finalization function shall deallocate any pending memory, end
-resource usage and close the program informing if everything happened
-as expected. Note that the memory should be the last thing to be
-finalized.
+The finalization function should deallocate any remaining memory,
+release all resources, and close the program, indicating whether
+everything completed successfully. Note that memory deallocation
+should be the last step in the finalization process.
 
 \iniciocodigo
 @<Function Declaration (weaver.h)@>=
@@ -300,22 +302,20 @@ void Wexit(void){
 @
 \fimcodigo
 
-
 \secao{2. Time Counting}
 
-Weaver measeures elapsed time in microseconds ($10^{-6}$s) and stores
-the time counting in at least 64 bits of memory. Besides the total
-elapsed time since the program initialization, we also store the time
-difference between the current iteration in the main loop and the
-previous one.
+Weaver measures elapsed time in microseconds ($10^{-6}$ s) and uses at
+least 64 bits to store the time count. In addition to the total
+elapsed time since program initialization, we also track the time
+difference between consecutive iterations of the main loop.
 
-First we neet a place to store our last time measure and we use a
-global variable. In Windows we use a specific type to store large
-integers (\monoespaco{LARGE\_INTEGER}) and in other systems we use a
-\monoespaco{timeval} structure to store the time measure at high
-resolution.
+First, we need a place to store the last time measurement, which we
+keep in a global variable. On Windows, we use
+the \monoespaco{LARGE\_INTEGER} type to store large integers, while on
+other systems we use the timeval structure for high-resolution
+timekeeping.
 
-Our global variable is declared here:
+Our timekeeping global variable is declared here:
 
 \iniciocodigo
 @<Extern Variables (weaver.h)@>=
@@ -339,7 +339,8 @@ struct timeval _last_time;
 @
 \fimcodigo
 
-The header to use it can be placed here:
+The header to use \monoespaco{struct timeval} variables is included
+here:
 
 \iniciocodigo
 @<Include Headers (weaver.h)@>=
@@ -349,8 +350,9 @@ The header to use it can be placed here:
 @
 \fimcodigo
 
-The idea is store in this variable always the last time measure. It's
-initialized with our first time measure at initialization:
+The idea is to always store the last time measurement in this
+variable. It is initialized with the first time measurement during
+program startup:
 
 \iniciocodigo
 @<Weaver API: Initialization@>=
@@ -362,8 +364,8 @@ gettimeofday(&_last_time, NULL);
 @
 \fimcodigo
 
-After initialization, all other updates in this variable will happen
-using the following declared function:
+After initialization, all subsequent updates to this variable will be
+performed using the function below:
 
 \iniciocodigo
 @<Function Declaration (weaver.h)@>+=
@@ -371,14 +373,13 @@ unsigned long _update_time(void);
 @
 \fimcodigo
 
-This function will read the current time and store the variable. It
-will always return the difference in microseconds between the last two
-measures. In Unix systems we compute the time difference using the
-method recommended in the GNU C Library manual. This subtraction
+This function reads the current time and stores it in the variable. It
+returns the difference, in microseconds, between the last two
+measurements. On Unix systems, the time difference is computed using
+the method recommended in the GNU C Library manual. This subtraction
 method is more portable and works even if the \monoespaco{timeval}
-elements are stored as ``unsigned''. The disadvantage is that the code
-is less clear and intuitive. The code is:
-
+elements are stored as unsigned integers. The downside is that the
+resulting code is less clear and intuitive. The code is:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>=
@@ -417,8 +418,8 @@ unsigned long _update_time(void){
 @
 \fimcodigo
 
-At Windows systems, there's already a function that measure time in
-microseconds. So the function becames much simpler:
+On Windows systems, there is already a function that measures time in
+microseconds. As a result, our implementation becomes much simpler:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -435,11 +436,11 @@ unsigned long _update_time(void){
 
 \secao{3. The main loops.}
 
-All games are organized inside main loops. They are code which
-iterates indefinitelly until some condition send the program for
-another main loop or terminate the program.
+All games are structured around main loops. These are blocks of code
+that iterate indefinitely until some condition causes the program to
+either switch to another main loop or terminate.
 
-As shown in the initial code at \monoespaco{game.c}, a main loop
+As shown in the initial example in \monoespaco{game.c}, a main loop
 should be declared as:
 
 \alinhaverbatim
@@ -454,12 +455,14 @@ void nome\_do\_loop(void){
 }
 \alinhanormal
 
-Before understanding how we should enter correctly in a main loop,
-it's important to describe how the loop is executed. Note that it has
-an initialization section, an execution section and a finalization
-section. These sections are delimited by labels in upper case.
+Before understanding how to correctly enter a main loop, it is
+important to explain how the loop itself is structured and
+executed. It consists of three sections: initialization, execution,
+and finalization. These sections are marked by labels written in
+uppercase.
 
-Interpreting this is very simple. You can see the code above as:
+This structure is simple to interpret. The code above can be viewed
+as:
 
 \alinhaverbatim
 void nome\_do\_loop(void){
@@ -473,32 +476,34 @@ void nome\_do\_loop(void){
 }
 \alinhanormal
 
-While this interpretation is suitable in some contexts, this is not
-how the main loop code is translated. We can't run an infinite loop in
-all environments without blocking tha game interface. In Web Assembly
-environments, a game loop can be executed only if they are correctly
-declared as such and these functions shouldn't have an infinite loop,
-instead they are called successively.
+While this interpretation suits some contexts, it does not reflect how
+the main loop code is actually executed or translated. We cannot run
+an infinite loop in all environments without blocking the game
+interface.
 
-Because of such differences, to create more portable code, we should
-interpret a main loop execution as:
+In WebAssembly environments, a game loop can be executed only if it is
+correctly declared as such. These functions should not contain an
+infinite loop; instead, they are called repeatedly.
+
+Due to these differences, to write more portable code, the execution
+of a main loop should be interpreted as:
 
 \alinhaverbatim
 for(;;)
   nome\_do\_loop();
 \alinhanormal
 
-Inside the main loop function, we don't put an explicit loop. Instead,
-we decide which section of the function we should execute with the
-help of the labels inserted. Such labels are in fact macros with
-aditional logic inside and with some \monoespaco{goto} to decide which
-section should be executed.
+Inside the main loop function, we do not include an explicit
+loop. Instead, we decide which section of the function to execute
+based on the inserted labels. These labels are actually macros
+containing additional logic and use goto statements to determine the
+section to run.
 
-Because of this, we can't declare variables in a main loop
-initialization. If so, they would have the correct value only during
-the first iteration, not in the others. For example, the following
-code would have an undefinded result and perhaps it wouldn't print
-anything in the screen:
+Because of this, we cannot declare variables inside the main loop's
+initialization section. If we do, they will have the correct value
+only during the first iteration but not in subsequent iterations. For
+example, the following code may produce undefined behavior and might
+not print anything on the screen:
 
 \alinhaverbatim
 // WRONG
@@ -512,8 +517,8 @@ LOOP\_END:
 }
 \alinhanormal
 
-But the following code is correct and print in the screen in all
-iterations because the variable is declared outside the function:
+However, the following code is correct and prints on the screen during
+all iterations because the variable is declared outside the function:
 
 \alinhaverbatim
 // CORRECT
@@ -529,60 +534,62 @@ LOOP\_END:
 }
 \alinhanormal
 
-Other thing that should be considered is that in fact there's not just
-one main loop being executed in a given moment, but two of them. One
-of the loops execute in a fixed frequency: the loop handling physics
-and game logic. The other main loop runs as fast as it: the loop
-rendering graphics in the screen.
+Another thing to consider is that, in fact, there isn't just one main
+loop executing at any given time, but two. One loop runs at a fixed
+frequency: the loop that handles physics and game logic. The other
+main loop runs as fast as possible: the loop that renders graphics on
+the screen.
 
-Ideally in each physics and logic loop iteration, we execute one or
-more iterations of rendering loop. It means that we can render with a
-frequency greater than we move objects, detect collisions and read
-user input. And in each of the rendering loop iteration, we need to
-render different images, otherwise there's no point in running this
-loop faster than the physics loop. So in the rendering loop we also
-interpolate the objects positions, knowing their current speed,
-acceleration and position.
+Ideally, in each iteration of the physics and logic loop, we execute
+one or more iterations of the rendering loop. This means we can render
+at a higher frequency than the rate at which we move objects, detect
+collisions, and read user input. In each iteration of the rendering
+loop, we need to render different images; otherwise, there is no point
+in running this loop faster than the physics loop. Therefore, in the
+rendering loop, we also interpolate the objects’ positions based on
+their current speed, acceleration, and position.
 
-And ensuring that our game physics and logic runs always in a fixed
-interval, we ensure the necessary determinism for synchronizing games
-in networks like the Internet. And at same time, rendering as fast as
-we can with interpolation gives us a more pleasant and natural
+By ensuring that our game physics and logic always run at fixed
+intervals, we guarantee the necessary determinism to synchronize games
+over networks like the Internet. At the same time, rendering as fast
+as possible with interpolation provides a smoother and more natural
 experience.
 
-For more details of how to implement thism you can check [Fiedler
-2004]. Our implementation swill be like in this reference, except that
-our code will be much less explicit because it will be hiden by macros
-without explicit loops.
+For more details on how to implement this, see [Fiedler 2004]. Our
+implementation will follow this reference, except that our code will
+be much less explicit because it will be hidden behind macros without
+explicit loops.
 
-Let's define in the following subsections what exactly we will put in
-the macros present in every main loop.
+In the following subsections, we will define exactly what to include
+in the macros used in every main loop.
 
 \subsecao{3.1. Loop Initialization.}
 
 This is what the macro \monoespaco{LOOP\_INIT} does:
 
-First it checks variables to determine if we should finish the
-loop. If so, but we still have resources being loaded (images, videos,
-shaders, sounds), we just return from the function. If we have nothing
-being loaded but we still didn't executed the finalization section, we
-use \monoespaco{goto} and go to the finalization section. If there's
-nothing being loaded and we already ran the finalization, we finally
-stop the loop.
+First, it checks certain variables to determine whether the loop
+should finish. If so, but resources such as images, videos, shaders,
+or sounds are still being loaded, the function simply returns. If no
+resources are being loaded but the finalization section has not yet
+been executed, a \monoespaco{goto} is used to jump to the finalization
+section. If no resources are being loaded and the finalization has
+already run, the loop finally stops.
 
-If we don't need to finish the loop, but this function is being called
-for the first time, we just continue the execution. Otherwise, we use
-a \monoespaco{goto} to avoid executing more than once the
-initialization section. Finally, if we are still here, it's because we
-are running the function for the first time. So we make the variable
-|W.loop_name| represents a string with the name of current main loop.
+If the loop does not need to finish and this function is being called
+for the first time, execution continues normally. Otherwise,
+a \monoespaco{goto} is used to avoid executing the initialization
+section more than once.
 
-How do we know if we should keep executing the loop? We use a global
-variable. As there's only one main loop, we don't need to protect it
-with semaphores. The same can be done to know if we are executing a
-main loop for the first time, if we are in the beginning of a loop of
-if we already executed the finalization. Let's declare the variables
-in the header:
+If the function reaches this point, it means we are running it for the
+first time. At this moment, the variable \monoespaco{W.loop\_name} is
+set to a string representing the name of the current main loop.
+
+How do we know whether to keep executing the loop? We use a global
+variable. Since there is only one main loop, no semaphore protection
+is needed. Similarly, global variables are used to track whether this
+is the first execution of the loop, whether we are at the beginning of
+a loop, or if the finalization has already been executed. These
+variables are declared in the header as follows:
 
 \iniciocodigo
 @<Extern Variables (weaver.h)@>+=
@@ -598,7 +605,7 @@ bool _running_loop, _loop_begin, _loop_finalized;
 @
 \fimcodigo
 
-And let's initialize them:
+We initialize them here:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -608,14 +615,14 @@ _loop_finalized = false;
 @
 \fimcodigo
 
-Know if we are still loading resources (usually reading files) or the
-name of the current loop is useful not only for the engine's internal
-logic, but also for the user. Knowing if we are still loading files
-permits showing a loading screen. Knowing the current loop name is
-useful for debugging and for loading different resources depending of
-the loop. Because of this, both variables shall be declared in |W|
-structure. The maximum loop name which we can store can be setted with
-the macro \monoespaco{W\_MAX\_LOOP\_NAME}.
+Knowing whether we are still loading resources (usually reading files)
+and the name of the current loop is useful not only for the engine’s
+internal logic but also for the user. Knowing that files are still
+loading allows displaying a loading screen. Knowing the current loop
+name is useful for debugging and for loading different resources
+depending on the loop. Because of this, both variables should be
+declared in the |W| structure. The maximum loop name length that can
+be stored is set by the macro \monoespaco{W\_MAX\_LOOP\_NAME}.
 
 \iniciocodigo
 @<Variables Namespace@>+=
@@ -628,7 +635,7 @@ char loop_name[W_MAX_LOOP_NAME];
 @
 \fimcodigo
 
-During initialization we set these variables as 0 and |NULL|
+During initialization we set these variables to 0 and |NULL|
 respectivelly:
 
 \iniciocodigo
@@ -638,7 +645,7 @@ W.loop_name[0] = '\0';
 @
 \fimcodigo
 
-The function which exits the loop is:
+The function that exits the loop is:
 
 \iniciocodigo
 @<Function Declaration (weaver.h)@>+=
@@ -650,13 +657,14 @@ __declspec(noreturn) void _exit_loop(void);
 @
 \fimcodigo
 
-But we still won't define it. By the header, this is a function which
-never returns, specified as such in the above code using notation from
-GCC and Clang and from Visual Studio. It's so because when it exists,
-it just calls previous main loop which never returns, or it just
-exists the program, depending of the case.
+However, we will not define it yet. As shown in the function signature
+above, this is a function that never returns, as specified in the code
+using notation compatible with GCC, Clang, and Visual Studio. This is
+because when it exits, it either calls the previous main loop, which
+itself never returns, or it terminates the program, depending on the
+case.
 
-After describing thism we can finally define the loop initialization
+After this explanation, we can finally define the loop initialization
 macro:
 
 \iniciocodigo
@@ -678,31 +686,34 @@ macro:
 @
 \fimcodigo
 
-We end with th identifier \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION},
-which is the true label name from this macro (remember, this macro is
-always invoked as ``\monoespaco{LOOP\_INIT:}'' with ``:'' )  .
+We end with the identifier \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION},
+which is the actual label name used by this macro (remember, this
+macro is always invoked as ``\monoespaco{LOOP\_INIT:}''---with the
+trailing colon).
 
 \subsecao{3.2. Loop Body.}    
-     
-This is what the macro \monoespaco{LOOP\_BODY} does:
 
-When we are in this macro, we shall set as false the information that
-this is our first loop execution avoiding to re-execute the
-initialization again. Then, we put an \monoespaco{goto} after
-a \monoespaco{if} which never will be executed. This is done just so
-we can use the label \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION} with
-no compiler warnings of unused label. We mark with the
-label \monoespaco{\_END\_LOOP\_INITIALIZATION} the real beginning of
-our loop body. We then measure the elapsed time since the last loop
-and store in an accumulator. If this accumulator holds a value bigger
-than the time expected between execution of physics code and logic
-code, we execute thee code. Otherwise, we just ignore these code and
-jump for finalization where we just render in the screen. If a lot of
-time passed since last loop execution, we could run more than once
-this loop body code.
+This is what the macro \monoespaco{LOOP_BODY} does:
 
-The accumulator which determines if we should run physics code or
-logic code will be called \monoespaco{\_lag}. It is a global variable:
+When this macro is executed, we set to false the flag indicating that
+this is the first loop execution, thus preventing the initialization
+from running again. Then, we place a \monoespaco{goto} statement after
+an \monoespaco{if} condition that will never be true. This prevents
+compiler warnings about unused labels when using the
+label \monoespaco{\_BEGIN\_LOOP\_INITIALIZATION}. The
+label \monoespaco{\_END\_LOOP\_INITIALIZATION} marks the actual
+beginning of the loop body.
+
+Next, we measure the elapsed time since the last loop iteration and
+accumulate it. If this accumulator exceeds the expected interval
+between executions of the physics and logic code, we run that
+code. Otherwise, we skip it and jump to the finalization section,
+where we simply render on the screen. If a significant amount of time
+has passed since the last loop execution, this loop body code may run
+multiple times.
+
+The accumulator that determines whether we should run the physics and
+logic code is called \monoespaco{\_lag}. It is a global variable:
 
 \iniciocodigo
 @<Extern Variables (weaver.h)@>+=
@@ -716,8 +727,7 @@ unsigned long _lag;
 @
 \fimcodigo
 
-
-This is ts initialization:
+We initialize it here:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -725,12 +735,12 @@ _lag = 0;
 @
 \fimcodigo
 
-We need some variables which could be read by an user with information
-about time. One of them (\monoespaco{W.t}) will store the elapsed
-microseconds since the game initialization. Another one
-(\monoespaco{W.dt}) will hold the interval between executions of our
-physics engine and game logic. Both variables needs to be declared
-inside \monoespaco{W} struct:
+We will define some variables that can be read by the user to obtain
+timing information. One of them (\monoespaco{W.t}) will store the
+elapsed time in microseconds since the game initialization. Another
+(\monoespaco{W.dt}) will hold the interval between executions of the
+physics engine and game logic. Both variables need to be declared
+inside the \monoespaco{W} struct:
 
 \iniciocodigo
 @<Variables Namespace@>+=
@@ -739,12 +749,12 @@ unsigned long dt;
 @
 \fimcodigo
 
-The first variable obviously shall be initialized as zero.  The second
-one shall be initialized with the same value than
-macro \monoespaco{W\_TIMESTEP}, which could be defined by the user to
-cntrol the granularity of code execution in physics and logic. If this
-macro is not defined, we assume 40000 microsecons. This ensures a
-frequency of 25 Hz for the execution of physics engine.
+The first variable should obviously be initialized to zero. The second
+should be initialized with the same value as the
+macro \monoespaco{W\_TIMESTEP}, which can be defined by the user to
+control the granularity of code execution in physics and logic. If
+this macro is not defined, we assume 40000 microseconds. This ensures
+a frequency of 25 Hz for the execution of the physics engine.
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -765,7 +775,7 @@ void _update(void);
 @
 \fimcodigo
 
-We won't at this moment define the code in this function:
+We will define later the content in the body of this function:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -775,7 +785,7 @@ void _update(void){
 @
 \fimcodigo
 
-With all these definitions, we already can define our macro which
+With all these definitions in place, we can now define the macro that
 marks the beginning of the main loop:
 
 \iniciocodigo
@@ -792,27 +802,27 @@ _LABEL_0
 @
 \fimcodigo
 
-Notice that the previous macro opens a \monoespaco{while} loop, but
-don't close it. It should be closed by the code inserter by our macro
-which delimits the end of loop body. This macro also should decrement
-the variable \monoespaco{\_lag} to prevent an infinite loop.
+Notice that the previous macro opens a \monoespaco{while} loop but
+doesn’t close it. It should be closed by the code inserted by our
+macro which delimits the end of the loop body. This macro should also
+decrement the variable \monoespaco{\_lag} to prevent an infinite loop.
 
 \subsecao{3.3. Loop Finalization.}
 
 This is what our macro \monoespaco{LOOP\_END} will do:
 
-First to ensure that the loop from last macro ends, we decrement from
-\monoespaco{\_lag} the value of \monoespaco{W.dt}. Next we increment
-\monoespaco{W.t} with that ammount of microseconds. And next we end
-the block of the loop. Outside the loop we keep doing activities not
-related with the physics engine and game logic. As these activities
-are tipically about rendering, we put them in a function called 
-\monoespaco{\_render}. Next we return. After the return we put a
-\monoespaco{goto} to a label which never will be executed to protect us
-from compiler warnings. Finally, we put a label signaling the
-beginning of finalization.
+First, to ensure that the loop opened by the previous macro ends, we
+decrement \monoespaco{\_lag} by the value of \monoespaco{W.dt}. Then,
+we increment \monoespaco{W.t} by that amount of microseconds and close
+the loop block. Outside the loop, we continue performing activities
+not related to the physics engine and game logic. As these activities
+typically involve rendering, we place them into a function
+called \monoespaco{\_render}. Next, we return. After the return, we
+place a \monoespaco{goto} to a label that will never be executed to
+avoid compiler warnings. Finally, we add a label marking the beginning
+of the finalization section.
 
-The only new thing here is the rendering function:
+The only new component here is the rendering function:
 
 \iniciocodigo
 @<Function Declaration (weaver.h)@>+=
@@ -820,7 +830,7 @@ void _render(void);
 @
 \fimcodigo
 
-For now we are not defining the code inside this function:
+We will define later the body of this function:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -830,7 +840,7 @@ void _render(void){
 @
 \fimcodigo
 
-And now we define the macro code:
+And now we define the macro \monoespaco{LOOP\_END}:
 
 \iniciocodigo
 @<Macros (weaver.h)@>+=
@@ -847,23 +857,21 @@ _LOOP_FINALIZATION
 
 \subsecao{3.4. Entering in a main loop.}
 
-Frequently we will change which main loop we will execute during the
-game execution. But not always this means a complete
-substitution. Some main loops runs inside other main loops. For
-example, when we enter a configuration menu during the game. Or when
-in a classic turn-based japanese RPG we enter in the combat loop after
-a random encounter.
+Frequently, we will change which main loop to execute during the
+game. However, this does not always mean a complete substitution. Some
+main loops run inside other main loops---for example, when entering a
+configuration menu during the game, or when, in a classic turn-based
+Japanese RPG, we enter the combat loop after a random encounter.
 
-We can use a stack of main loops, where when we exit the last main
-loop, we enter the next loop in the stack.
+We can use a stack of main loops, where exiting the last main loop
+returns us to the previous one in the stack.
 
-So exists two forms of entering a main loop. In one of them, using a
-function which we will call \monoespaco{Wloop} and the other with the
-second function \monoespaco{Wsubloop}. In the first we substitute one
-loop for another, and we can doo this only if there are no pending
-files being loaded (in this case, usually we will be in a loading
-screen, but not necessarily). We can ensure this using tricks with
-macros:
+There are two ways to enter a main loop: one using a function we will
+call \monoespaco{Wloop}, and the other using a second
+function, \monoespaco{Wsubloop}. The first substitutes one loop for
+another and can only be done if there are no pending files being
+loaded (usually, in this case, we are in a loading screen, but not
+necessarily). We can ensure this using macro techniques:
 
 \iniciocodigo
 @<Function Declaration (weaver.h)@>+=
@@ -878,19 +886,17 @@ __declspec(noreturn) void Wsubloop(void (*f)(void));
 @
 \fimcodigo
 
-The two functions to enter main loops never will return. We specified
-this above using both Clang and GCC conventions and also Visual Studio
-convention.
+The two functions to enter main loops will never return. We specified
+this above using conventions from Clang, GCC, and Visual Studio.
 
 We also need a stack of main loops, which will be stored as an array
-of pointers for functions. The array will
-have \monoespaco{W\_MAX\_SUBLOOP} positions.This macro will be
-controlled by the user, but if it is not defined, we will assume
-3. The choice is completely arbitrary. Besides the stack, we need a
-variable to store the depth of main loop stack:
-(\monoespaco{\_number\_of\_loops}).
+of pointers to functions. The array will
+have \monoespaco{W\_MAX\_SUBLOOP} positions. This macro can be
+controlled by the user; if it is not defined, we will assume the value
+3. In addition to the stack, we need a variable to store the depth of
+the main loop stack: \monoespaco{\_number\_of\_loops}.
 
-We declare these variables as:
+We declare these variables as follows:
 
 \iniciocodigo
 @<Extern Variables (weaver.h)@>+=
@@ -909,7 +915,7 @@ void (*_loop_stack[W_MAX_SUBLOOP]) (void);
 @
 \fimcodigo
 
-And initialize the counting of number of loops as zero:
+We also initialize the counting of number of loops as zero:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -917,13 +923,13 @@ _number_of_loops = 0;
 @
 \fimcodigo
 
-Entering in a main loop using \monoespaco{Wloop} means verifying if we
-are already in a main loop or not. If we are, we cancel the previous
-loop. Next, we load he next loop to the stack and adjust the counting
-of main loops. We also update our time measuring and finally run the
-loop. In Web Assembly running in web browsers, this means calling
-directly a function which determines the program main loop. In other
-environments, we just run the function in a um \monoespaco{while}:
+Entering a main loop using \monoespaco{Wloop} means verifying whether
+we are already inside a main loop. If we are, we cancel the previous
+loop. Then, we load the next loop onto the stack and update the count
+of main loops. We also update our time measurements and finally run
+the loop. In WebAssembly running in web browsers, this means directly
+calling the function that controls the program's main loop. In other
+environments, we run the function inside a \monoespaco{while} loop:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -948,9 +954,9 @@ void _Wloop(void (*f)(void)){
 @
 \fimcodigo
 
-But we must remember that if we are running in a Web Assembly
-environment in the browser, we need to include the correct header for
-this:
+It is important to remember that when running in a WebAssembly
+environment within a browser, we need to include the correct header
+for this:
 
 \iniciocodigo
 @<Include Headers (weaver.h)@>+=
@@ -960,9 +966,8 @@ this:
 @
 \fimcodigo
 
-
-Cancelling a main loop involves calling a function if we are running
-in Web Assembly environment:
+Canceling a main loop involves calling the following function, if we
+are running in the WebAssembly environment:
 
 \iniciocodigo
 @<Cancel Main Loop@>=
@@ -972,9 +977,9 @@ emscripten_cancel_main_loop();
 @
 \fimcodigo
 
-Start a new subloop is similar. But we update differently our main
-loop counter, as it needs to be incremented. And we also need to check
-for stack overflows:
+Starting a new subloop is similar; however, we update our main loop
+counter differently, since it must be incremented. We also need to
+check for potential stack overflows:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -1002,14 +1007,14 @@ void Wsubloop(void (*f)(void)){
 @
 \fimcodigo
 
-
-One necessary update before entering a main loop updating
-\monoespaco{\_running\_loop}, variable which tells the game engine
-that we should run the current game loop, not exit it. We also update
-a variable which stores if we are in the beginning of loop, and so
-needs to run initialization code. And also the variable which stores
-that we never executed this loop finalization. These are variables
-which control the main loop flow. We also update our time measure.
+Before entering a main loop, we must perform some necessary
+updates. First, we set the \monoespaco{\_running\_loop} variable to
+indicate that the game engine should run the current loop rather than
+exit it. We also update a variable that marks whether we are at the
+beginning of the loop and thus should run the initialization code, as
+well as a variable indicating that the finalization code has not yet
+been executed. These variables are essential to control the main loop
+flow. Finally, we update our time measurement.
 
 \iniciocodigo
 @<Code Before Loop and Subloop@>=
@@ -1022,16 +1027,17 @@ _update_time();
 
 \subsecao{3.5. Exit from Main Loop.}
 
-As there are two functions to enter in a main loop, there are two
-functions to exit. One of them exits the current main loop returning
-to the previous in the stack if it exists. The other exits all the
-main loops and stops the program.
+Since there are two functions to enter a main loop, there are also two
+functions to exit. One of them exits the current main loop and returns
+to the previous one in the stack, if it exists. The other exits all
+main loops and terminates the program.
 
-The function to exit from all main loops was already partially defined
-and is the \monoespaco{Wexit} function.
+The function that exits all main loops has already been partially
+defined; it is the \monoespaco{Wexit} function.
 
-Exit from a main loop involves adjust the global variable which stores
-if we should execute the current main loop or exits from it:
+Exiting a main loop involves adjusting a global variable that
+indicates whether the current loop should continue running or be
+terminated:
 
 \iniciocodigo
 @<Macros (weaver.h)@>+=
@@ -1039,14 +1045,15 @@ if we should execute the current main loop or exits from it:
 @
 \fimcodigo
 
-If you check again the code inserted by macros in main loops, you will
-notice that if this variable is false, if there are no pending files
-being loaded, then the function \monoespaco{\_exit\_loop} is called.
+If you look again at the code inserted by macros into the main loops,
+you’ll notice that when this variable is set to false and there are no
+pending files being loaded, the function \monoespaco{\_exit\_loop} is
+called.
 
-The code of this function involves cancelling the current main loop
-and checking if there is another main loop in the stack. If not, the
-program exits.  If exists, we run again the initialization code in
-that main loop and start running it:
+This function cancels the current main loop and checks whether there
+is another loop in the stack. If none exists, the program exits. If
+one exists, it re-runs the initialization code of that loop and
+resumes its execution:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -1073,27 +1080,27 @@ void _exit_loop(void){
 
 \secao{4. Memory Management}
 
-The memory management will use our subsystem with its own allocation
-and management functions. One difference between our subsystem and the
-traditional memory management with functions \monoespaco{malloc}
-and \monoespaco{free} is that here we need to inform the maximum
-ammount of memory that we will need.
+Memory management in our engine is handled by a dedicated subsystem
+with its own allocation and deallocation functions. Unlike traditional
+memory management using functions like \monoespaco{malloc}
+and \monoespaco{free}, our subsystem requires the programmer to
+specify the maximum amount of memory that will be used.
 
-The maximum numbe of memory used will change according with the
-project. A game mede to a video-game console could just use the
-maximum quantity of available memory. A project made to run in a PC
-could begin in the development with a small quantity and this quantity
-could be doubled each time th project grows and require more memory,
-until achieving a maximum quantity, where the developers will try to
-decrease the memory consumption. The maximum memory in a PC game will
-be the expected specifications for target consumer machines when the
-game is finished.
+The required memory limit will vary depending on the type of
+project. A game designed for a video game console, for instance, may
+allocate the entire available memory from the start. On the other
+hand, a PC game might begin development with a small memory limit,
+which is increased progressively as the project grows. Eventually,
+this memory limit should reach a defined maximum, based on the target
+specifications of consumer machines. At that point, developers are
+expected to optimize the game to stay within the chosen memory budget.
 
-We expect that the user will inform the maximum quantity of memory
-using the macro \monoespaco{W\_MAX\_MEMORY}
-in \monoespaco{conf/conf.h}. If the macro is not defined, we choose
-the small value of 4 KiB. This will force the user to specify a more
-realistic value after some time, except in the most trivial projects.
+The user must define the maximum memory size using
+the \monoespaco{W\_MAX\_MEMORY} macro in the \monoespaco{conf/conf.h}
+file. If this macro is not defined, a default value of 4 KiB is
+used. This small value will eventually force developers to specify a
+more appropriate value as their project evolves---except in the case of
+very trivial applications.
 
 \iniciocodigo
 @<Macros (weaver.h)@>+=
@@ -1103,8 +1110,9 @@ realistic value after some time, except in the most trivial projects.
 @
 \fimcodigo
 
-The maximum quantity of informed memory will be allocated during
-initialization and we will return the address to the pointer below:
+The total amount of memory specified will be allocated during
+initialization, and its address will be stored in the pointer shown
+below:
 
 \iniciocodigo
 @<Static Variables (weaver.c)@>=
@@ -1112,7 +1120,7 @@ static void *memory_arena;
 @
 \fimcodigo
 
-To use the functions in the memory subsystem, we include the header:
+To use the functions from our memory subsystem, we include the header:
 
 \iniciocodigo
 @<Local Headers (weaver.c)@>=
@@ -1120,8 +1128,8 @@ To use the functions in the memory subsystem, we include the header:
 @
 \fimcodigo
 
-And during the initialization we allocate in our internal memory arena
-all the memory that we will need along the project execution:
+During initialization, we allocate all the memory required for the
+entire execution of the project in our internal memory arena:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1129,11 +1137,12 @@ memory_arena = _Wcreate_arena(W_MAX_MEMORY);
 @
 \fimcodigo
 
-During the finalization we free the allocated memory obtained during
-the initialization and any temporary allocation that could still
-exist.  We invoke function \monoespaco{\_Wtrash} to do this: free
-everything in the left (allocated during initialization) and right
-(temporary) memory stack passing respectively argument 0 and 1:
+During finalization, we free the memory allocated during
+initialization, as well as any remaining temporary allocations. To do
+this, we call the function \monoespaco{\_Wtrash}, which frees all
+memory from the left (permanent, allocated at initialization) and
+right (temporary) memory stacks by passing the arguments 0 and 1,
+respectively:
 
 \iniciocodigo
 @<Weaver API: Memory: Finalization@>=
@@ -1143,17 +1152,16 @@ _Wdestroy_arena(memory_arena);
 @
 \fimcodigo
 
-Before entering in a main loop, we use the
-function \monoespaco{\_Wmempoint}. This function saves the state of
-our memory so that in the future we can return to this state. Doing
-this we can disallocate at once everything that will be allocated
-during the main loop.
+Before entering a main loop, we use the
+function \monoespaco{\_Wmempoint}. This function saves the memory state
+so that we can later return to it. This allows us to deallocate in one
+step everything that was allocated during the main loop.
 
-As saving the state require knowing the memory byte alignment
-recommended in our environment. Weaver will get this value from
-macro \monoespaco{W\_MEMORY\_ALIGNMENT} that can be defined explicitly
-in \monoespaco{conf/conf.h}. If this macro is not defined, we use as
-default the size of a \monoespaco{unsigned long} as a guess.
+Saving the state requires knowing the correct memory byte alignment
+for the current environment. Weaver retrieves this value from the
+macro \monoespaco{W\_MEMORY\_ALIGNMENT}, which can be explicitly defined
+in \monoespaco{conf/conf.h}. If not defined, the default value is the
+size of an \monoespaco{unsigned long}, used as a reasonable guess.
 
 \iniciocodigo
 @<Macros (weaver.h)@>+=
@@ -1163,8 +1171,8 @@ default the size of a \monoespaco{unsigned long} as a guess.
 @
 \fimcodigo
 
-Knowing this we can save the state in our memory (the left stack,
-where we put the more permanent allocations):
+Given this, we can save the state in our memory---the left stack used
+for more permanent allocations:
 
 \iniciocodigo
 @<Memory Adjustment Before Loop and Subloop@>=
@@ -1172,9 +1180,8 @@ _Wmempoint(memory_arena, W_MEMORY_ALIGNMENT, 0);
 @
 \fimcodigo
 
-This means that when we exit from this loop, we will restore the
-memory state to how it was before entering in the loop in the left
-stack:
+This means that when we exit this loop, we will restore the memory
+state in the left stack to what it was before entering the loop:
 
 \iniciocodigo
 @<Memory Adjustment when Canceling Main Loop@>=
@@ -1182,10 +1189,10 @@ _Wtrash(memory_arena, 0);
 @
 \fimcodigo
 
-This basicly willl be the garbage collector in our project. We will
-define now a function to the user use our memory allocation. All
-permanent user allocations will be done in the left stack using the
-default byte alignment:
+This basically will be the garbage collector in our project. We will
+now define a function for the user to perform memory allocations. All
+permanent user allocations will be performed in the left stack using
+the default byte alignment:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -1195,8 +1202,8 @@ static void *_alloc(size_t size){
 @
 \fimcodigo
 
-For temporary allocations that should not be kept after a single
-iteration in our main loop, we can use the following function:
+For temporary allocations that do not need to persist beyond a single
+iteration of our main loop, we can use the following function:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -1206,10 +1213,9 @@ static void *_talloc(size_t size){
 @
 \fimcodigo
 
-
-We will declare a pointer for both functions in struct \monoespaco{W}
-and these function will be invoked as \monoespaco{W.alloc()} and
-\monoespaco{W.talloc()} respectivelly:
+We will declare function pointers for both functions in
+the \monoespaco{W} struct, and these functions will be invoked
+as \monoespaco{W.alloc()} and \monoespaco{W.talloc()}, respectively:
 
 \iniciocodigo
 @<Functions Namespace@>=
@@ -1218,7 +1224,7 @@ void *(*talloc)(size_t);
 @
 \fimcodigo
 
-And this function will be ready to be used after the initialization:
+And these functions will be ready for use after the initialization:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1228,12 +1234,12 @@ W.talloc = _talloc;
 \fimcodigo
 
 Everything allocated with the permanent function will be kept while
-the main loop where the allocation happened exist. After the loop
-ends, these allocations are automatically disallocated. What is
-allocated with the temporary function will be kept only during the
-current iteration in the main loop, but will be disallocated after it,
-except if we are loading things from files, which requires us to keep
-temporary allocation for more time:
+the main loop in which the allocation occurred exists. Once the loop
+ends, these allocations are automatically deallocated. Memory
+allocated with the temporary function will only persist during the
+current iteration of the main loop and will be deallocated afterward,
+except when loading data from files, which requires keeping temporary
+allocations for a longer period.
 
 \iniciocodigo
 @<Código a executar todo loop@>+=
@@ -1244,7 +1250,7 @@ if(W.pending_files == 0)
 
 \secao{5. Random Number Generator}
 
-First we need to insert the header for our pseudo-random number
+First, we need to include the header for our pseudo-random number
 generation subsystem:
 
 \iniciocodigo
@@ -1253,7 +1259,7 @@ generation subsystem:
 @
 \fimcodigo
 
-Next we will declare a ponter to our generator struct:
+Next we declare a ponter to our generator struct:
 
 \iniciocodigo
 @<Static Variables (weaver.c)@>+=
@@ -1261,8 +1267,8 @@ static struct _Wrng *rng;
 @
 \fimcodigo
 
-If the user of this API pass a predefined seed using
-macro \monoespaco{W_RNG_SEED}, we will use such seed to initialize the
+If the user of this API passes a predefined seed via the
+macro \monoespaco{W\_RNG\_SEED}, we will use that seed to initialize the
 generator:
 
 \iniciocodigo
@@ -1276,20 +1282,21 @@ generator:
 @
 \fimcodigo
 
-If a predefined seed does not exist, we will generate a seed uniformly
-at random. Our seed will be four random 64-bit numbers. This is
-sufficient to ensure the quality for any generator. Instead of using
-simpler methods like choosing the current time as a seed, our seed
-will be the most random and unpredictable possible. This is expected
-to produce better quality results. But to generate seeds in this way,
-in some systems we need to use some underlying cryptographic API.
+If no predefined seed is provided, we generate a seed uniformly at
+random. The seed consists of four random 64-bit numbers, which
+provides sufficient entropy for any generator. Rather than using less
+robust methods, such as seeding with the current time, our approach
+aims to produce the most random and unpredictable seed possible, which
+is expected to yield better-quality results. However, generating such
+seeds may require access to underlying cryptographic APIs on some
+systems.
 
-In Linux we can use the syscall \monoespaco{getrandom}. The first
-argument for its corresponding C function is the buffer to be filled,
-the second is the size in bytes and the third are flags to change the
-default behaviour. The function returns the number of random bytes
-filled (can be less than asked if the system call is interrupted by a
-signal):
+On Linux systems, we can use the \monoespaco{getrandom()} syscall. The
+first argument of its corresponding C function is a buffer to be
+filled, the second specifies the size in bytes, and the third contains
+flags to modify the default behavior. The function returns the number
+of random bytes filled, which may be less than requested if
+interrupted by a signal:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1306,7 +1313,7 @@ signal):
 @
 \fimcodigo
 
-But this requires that the following header be added:
+This requires the following header:
 
 \iniciocodigo
 @<Local Headers (weaver.c)@>+=
@@ -1316,9 +1323,10 @@ But this requires that the following header be added:
 @
 \fimcodigo
 
-Systems based on BSD, including Mac OS can obtain initial random
-values using the function \monoespaco{arc4random\_buf}. The function
-already is included in the standard library and never fails:
+BSD-based systems, including macOS, can obtain initial random values
+by using the function \monoespaco{arc4random\_buf}. This function is
+already included in the standard library and is guaranteed not to
+fail:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1333,22 +1341,22 @@ already is included in the standard library and never fails:
 \fimcodigo
 
 In Windows, secure cryptographic random number generators can be
-accessed using the so called ``Cryptography API: Next Generation''
-(CNG). To fill our initial seed with impredictable seed we call the
-function responsible for generating random numbers in the API. The
-first argument is NULL because the last argument is a flag indicating
-that the system preferred RNG should be used. Without this flag we
-should indicate explicitly the preferred algorithm. The other
-arguments are the buffer to be filled and the size.
+accessed through the Cryptography API: Next Generation (CNG). To fill
+our initial seed with an unpredictable value, we call the function
+responsible for generating random numbers in this API. The first
+argument is NULL because the last argument is a flag indicating that
+the system-preferred RNG should be used; without this flag, the
+preferred algorithm must be specified explicitly. The other arguments
+are the buffer to be filled and its size.
 
-The documentation do not list all possible failures for the Windows
-cryptographic random number generator. Therefore, we cannot be sure if
-some error that prevent its usage is temporary (as in the Linux case
-where a signal can make the syscall \monoespaco{getrandom} fail) or if
-something can cause a permanent error. To prevent infinite loops in
-case of error, if we fail at filling the buffer with a random seed
-after 16 tries, we give up. But the expected is that this function
-succeed in the first try:
+The documentation does not list all possible failure modes for the
+Windows cryptographic random number generator. Therefore, it is
+unclear whether certain errors preventing its use are temporary (as in
+Linux, where signals can cause the \monoespaco{getrandom} syscall to
+fail) or permanent. To avoid infinite loops in case of failure, if the
+buffer cannot be filled with a random seed after 16 attempts, the
+operation is aborted. However, it is expected that this function
+succeeds on the first try:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1382,13 +1390,13 @@ To use WIndows CNG API we first need to include this header:
 @
 \fimcodigo
 
-If we are running a Web Assembly code in a browser environment, to
-initialize a seed with unpredictable values, we can run Javascript
-code to access the Crypto API in the Browser. We can
-use \monoespaco{EM\_ASM\_INT} to run Javascript code and get an
-integer (that for Emscripten always have 32 bits). Composing 8 numbers
-with 32 bits we get 4 numbers with 64 bits as in the other
-environments:
+If we are running WebAssembly code in a browser environment, to
+initialize a seed with unpredictable values, we can execute JavaScript
+code to access the browser's Crypto API. We can
+use \monoespaco{EM\_ASM\_INT} to run JavaScript code and obtain a 32-bit
+integer (as integers in Emscripten are always 32 bits). By combining
+eight 32-bit numbers, we can compose four 64-bit numbers, similarly to
+what is done in other environments:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1415,9 +1423,9 @@ environments:
 @
 \fimcodigo
 
-If we initialized our random number generation during Weaver
-initialization, then we need to finalize it during the
-finalization. The code for this is:
+If the random number generator was initialized during Weaver
+initialization, then it must be finalized during the cleanup
+phase. The code is as follows:
 
 \iniciocodigo
 @<Weaver API: Finalization@>=
@@ -1426,8 +1434,8 @@ _Wdestroy_rng(NULL, rng);
 \fimcodigo
 
 Now we need a function to use the random number generator without
-needing to pass the generator as an argument. We can build such
-function as:
+having to pass the generator as an argument. We can implement such a
+function as follows:
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -1437,7 +1445,7 @@ static uint64_t _rand(void){
 @
 \fimcodigo
 
-To allow usage of this function in our API we declare a pointer to in
+To allow usage of this function in our API, we declare a pointer to it
 in our \monoespaco{W} struct:
 
 \iniciocodigo
@@ -1446,7 +1454,7 @@ uint64_t (*rand)(void);
 @
 \fimcodigo
 
-And the pointer can be invoked after this initialization:
+And the pointer is initialized here:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1456,9 +1464,10 @@ W.rand = _rand;
 
 \secao{6. Creating the Window and Managing User Input}
 
-We manage the window and its input using only the functions from
-window subsystem. To use the subsystem, we include its header, which
-should also be visible to the user:
+We manage the window and its input solely through the functions
+provided by the window subsystem. To utilize this subsystem, we
+include its header file, which should also be accessible to the
+user:
 
 \iniciocodigo
 @<Include Headers (weaver.h)@>+=
@@ -1466,9 +1475,9 @@ should also be visible to the user:
 @
 \fimcodigo
 
-To get a mouse and keyboard struct, necessary to create our window, we
-will have pointer for the keyboard and the entire mouse struct
-in \monoespaco{W} struct:
+To obtain the mouse and keyboard structures necessary for creating our
+window, we will store pointers to the keyboard and mouse structures
+inside the \monoespaco{W} struct:
 
 \iniciocodigo
 @<Variables Namespace@>+=
@@ -1477,7 +1486,7 @@ struct _Wmouse mouse;
 @
 \fimcodigo
 
-The complete keyboard struct will be declared here:
+The complete keyboard structure will be declared here:
 
 \iniciocodigo
 @<Static Variables (weaver.c)@>+=
@@ -1485,8 +1494,9 @@ static struct _Wkeyboard keyboard;
 @
 \fimcodigo
 
-We initialize the keyboard pointer during initialization, pointing the
-keyboard directly to the key array:
+We initialize the keyboard pointer during initialization by assigning
+it directly to the key array:
+
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1494,9 +1504,9 @@ W.keyboard = keyboard.key;
 @
 \fimcodigo
 
-We will create our window during the program initialization and close
-it during the finalization. We never will create more than one window
-in our program.
+We will create our window during program initialization and close it
+during finalization. We will never create more than one window in our
+program.
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1510,8 +1520,8 @@ _Wdestroy_window();
 @
 \fimcodigo
 
-We will render in the screen during the rendering step in the main
-loop, which means that we will do it as fast as we can:
+We will render to the screen during the rendering step in the main
+loop, which means that we will do it as fast as we can.
 
 \iniciocodigo
 @<Render Code@>=
@@ -1519,8 +1529,8 @@ _Wrender_window();
 @
 \fimcodigo
 
-We need to read input in the mouse and keyboard periodically, in each
-iteration:
+We need to read input from the mouse and keyboard periodically, in
+each iteration:
 
 \iniciocodigo
 @<Code to execute every loop@>=
@@ -1528,8 +1538,8 @@ _Wget_window_input(W.t, &keyboard, &W.mouse);
 @
 \fimcodigo
 
-And when we enter in a new loop or subloop, we need to clean all user
-input and restart the mouse and keyboard structs:
+And when we enter a new loop or subloop, we need to clear all user
+input and reset the mouse and keyboard structs:
 
 \iniciocodigo
 @<Code Before Loop and Subloop@>+=
@@ -1537,17 +1547,17 @@ _Wflush_window_input(&keyboard, &W.mouse);
 @
 \fimcodigo
 
-Finally, we should give to the user information about the running
-environment. Besides information about mouse and keyboard, which we
-already provided, we also will give information about screen
-resolution and window size. But there is an important detail: if the
-macro \monoespaco{W\_FORCE\_LANDSCAPE} is defined and the window
-height is greater than the window width, we swap the horizontal and
-vertical values, because we assume that the user will rotate its
+Finally, we should provide the user with information about the running
+environment. Besides the information about the mouse and keyboard,
+which we have already provided, we will also give information about
+the screen resolution and window size. However, there is an important
+detail: if the macro \monoespaco{W\_FORCE\_LANDSCAPE} is defined and the
+window height is greater than the window width, we swap the horizontal
+and vertical values because we assume that the user has rotated their
 screen.
 
-We will use the following global variable to know if our screen is
-rotated or not:
+We will use the following global variable to indicate whether our
+screen is rotated or not:
 
 \iniciocodigo
 @<Static Variables (weaver.c)@>+=
@@ -1557,8 +1567,8 @@ static bool rotated_screen;
 @
 \fimcodigo
 
-And during initialization, we will set the correct values in the
-following variables to store the screen resolution and window size:
+During initialization, we will set the correct values in the following
+variables to store the screen resolution and window size:
 
 \iniciocodigo
 @<Variables Namespace@>+=
@@ -1566,7 +1576,7 @@ int width, height, resolution_x, resolution_y;
 @
 \fimcodigo
 
-And here we set the values:
+The values are stored here:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1589,7 +1599,7 @@ if(W.height > W.width){
 
 \secao{7. User Interface}
 
-To use our user interface API, we include the header:
+To use our user interface subsystem, we include the header:
 
 \iniciocodigo
 @<Include Headers (weaver.h)@>+=
@@ -1597,7 +1607,7 @@ To use our user interface API, we include the header:
 @
 \fimcodigo
 
-Before initializing our user intrface API, we need to decide what
+Before initializing our user interface API, we need to decide what
 should be done before and after loading each interface resources (like
 their texture). Recall that Weaver API must keep in
 variable \monoespaco{W.pending\_files} the number of files and
@@ -1623,7 +1633,6 @@ STATIC_MUTEX_DECLARATION(loading_files);
 @
 \fimcodigo
 
-
 The mutex is initialized during the initialization:
 
 \iniciocodigo
@@ -1633,7 +1642,7 @@ MUTEX_INIT(&loading_files);
 @
 \fimdodigo
 
-And finalized in the finalization:
+And finalized in the cleaning stage:
 
 \iniciocodigo
 @<Weaver API: Finalization@>+=
@@ -1642,13 +1651,14 @@ MUTEX_DESTROY(&loading_files);
 @
 \fimcodigo
 
-With all the mutex, we can then declare a function that runs before
-and after each loading.The functions will use the mutex to ensure that
-we are counting correctly the loading resources, and that only one
-thread will load resources while other threads will just wait. Besides
-this, before loading we mark the memory region in the right stack of
-our memory manager and after loading everything we clean the temporary
-allocated memory after the loading.
+With these mutexes, we can declare functions to be executed before and
+after each resource loading. These functions will use the mutexes to
+ensure correct counting of loading resources and that only one thread
+loads resources at a time while others wait. Additionally, before
+loading, we save the state of the memory region in the right stack of
+our memory manager (the area for temporary allocations), and after
+loading, we restore the previous state, effectively deallocating any
+temporary resources created during the loading process.
 
 \iniciocodigo
 @<Function Definition (weaver.c)@>+=
@@ -1669,8 +1679,7 @@ void after_loading_resources(void){
 @
 \fimcodigo
 
-
-We initialize the API it with:
+We initialize the interface API it with:
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
@@ -1688,20 +1697,22 @@ We initialize the API it with:
                    after_loading_resources,
                    // Supported formats:
                    "mf", _Wmetafont_loading,
+                   "wav", _extract_wave,
                    NULL);
 }
 @
 \fimcodigo
 
 To allow all the different supported formats for the interface
-textures, we need to add all the relevant headers which define the
-signature for their loading functions:
+textures and audio files, we need to add all the relevant headers
+which define the signature for their loading functions:
 
 @<Local Headers (weaver.c)@>+=
 #include "metafont.h"
+#include "wave.h"
 @
 
-And we also run all the initialization needed for each one of these
+And we also run all the initialization needed for some of these
 formats:
 
 @<Weaver API: Interface Formats (Initialization)@>=
@@ -1717,14 +1728,14 @@ formats:
 }
 @
 
-In the initialization we inform the user interface API the real size
-of our window (not the rotated size if the user is using a mobile
-device and is expected to rotate the screen), how the memory should be
-allocated, that the API should not try to disallocate memory, and the
-two functions above that should be called before and after loading
-resources from files.
+During initialization, we inform the user interface API of the actual
+size of our window (not the rotated size, which applies when the user
+is on a mobile device expected to rotate the screen), specify how
+memory should be allocated, indicate that the API should not attempt
+to deallocate memory, and provide the two functions described above
+that are called before and after loading resources from files.
 
-We finalize the code with:
+We conclude the code with:
 
 \iniciocodigo
 @<Weaver API: Finalization@>+=
@@ -1732,18 +1743,19 @@ _Wfinish_interface();
 @
 \fimcodigo
 
-Another necessary thing is that we need to save the list of active
-interfaces and piut in a stack in the beginning of each main loop
-while marking as non-active all interfaces. When we exit a main loop,
-we should restore our list of active interfaces for the last state
-saven in the stack and remove it from the stack. Doing this, all
-interfaces will have as scope the loop in where it is created and its
-allocation and disaloccation will follow the same order and logic than
-the main loop ordering.
+Another necessary step is to save the list of active interfaces onto a
+stack at the beginning of each main loop, while marking all existing
+interfaces as inactive. When exiting a main loop, we should restore
+the list of active interfaces to the last saved state from the stack
+and then remove that state from the stack. This ensures that all
+interfaces have a scope limited to the loop in which they were
+created, and their allocation and deallocation will follow the same
+order and logic as the main loop execution.
 
-For this we need to call some adequate functions in the right
-places. Before entering a new loop or subloop we save the state of our
-interfaces in the stack and mark all them as inactive:
+To achieve this, appropriate functions need to be called at the
+correct points. Before entering a new loop or subloop, we save the
+state of our interfaces onto the stack and mark all of them as
+inactive:
 
 \iniciocodigo
 @<Code Before Loop and Subloop@>+=
@@ -1782,21 +1794,20 @@ _Wrender_interface(W.t);
 @
 \fimcodigo
 
-To render and turn interfaces active, we need first to create
-them. The interface API expect that we pass to the function that
-creates them a path for the shader source code and for the file with
-the texture. Both values can also be \monoespaco{NULL} to use default
-shader or texture.
+To render and activate interfaces, we first need to create them. The
+interface API expects that we pass to the creation function a path for
+the shader source code and a file for the texture. Both parameters can
+also be \monoespaco{NULL} to use the default shader or texture.
 
-But instead of expecting users to give full file paths, Weaver Engine
-expect the user to just give the filename and this file will be taken
-from the correct directory. Shader source-codes should be in
-the \monoespaco{shader} directory and image files with texture should
-be in the \monoespaco{image} directory. Both directories will be
-searched on \monoespaco{W\_DATA\_DIR} if this macro is
-defined. Otherwise, they are searched on the current directory. This
-macro probably will be defined only when the game is being compiled to
-be installed.
+However, instead of requiring users to provide full file paths, Weaver
+Engine expects only the filename. The file will then be loaded from
+the appropriate directory. Shader source code files should be placed
+in the \monoespaco{shader} directory, and image files for textures
+should be in the \monoespaco{image} directory. Both directories will
+be searched inside the path defined by the \monoespaco{W\_DATA\_DIR}
+macro, if it is defined. Otherwise, they are searched in the current
+directory. This macro is typically defined only when compiling the
+game for installation.
 
 Therefore, new interfaces will be created by the following function:
 
@@ -1848,18 +1859,48 @@ This requires the string header:
 @
 \fimcodigo
 
-We place this new function in our API namespace:
+But in addition to creating visual user interfaces, our interface
+subsystem also allows the creation of audio interfaces. They work in a
+similar way, requiring only that the user specify the path to the
+audio file. We apply here the same simplification used before: instead
+of requiring the user to provide the full path, the engine assumes
+that all sound files are located in the \monoespaco{sound} directory,
+without the need to specify it explicitly.
+
+\iniciocodigo
+@<Function Definition (weaver.c)@>+=
+static struct sound *new_sound(char *audio){
+  char path_audio[512];
+  int dir_len, audio_len;
+  audio_len = strlen(audio);
+  path_audio[0] = '.';
+  path_audio[1] = '\0';
+  dir_len = 1;
+#if defined(W_DATA_DIR)
+  dir_len = strlen(W_DATA_DIR);
+  memcpy(path_audio, W_DATA_DIR, dir_len + 1);
+#endif
+  memcpy(&path_audio[dir_len], "/sound/", 8);
+  dir_len += 7;
+  memcpy(&path_audio[dir_len], audio, audio_len + 1);  
+  return _Wnew_sound(path_audio);
+}
+@
+\fimcodigo
+
+We place these new function in our API namespace:
 
 \iniciocodigo
 @<Functions Namespace@>+=
 struct user_interface *(*new_interface)(char *, char *, float, float,
                                         float, float, float);
+struct sound *(*new_sound)(char *);
 @
 \fimcodigo
 
-The other functions from our user interface submodule will be used
-exactly as they are defined. Therefore, we just declare them in our
-namespace:
+The remaining functions from our user interface submodule are used
+without modification. For this reason, we simply declare them in our
+API namespace.
 
 \iniciocodigo
 @<Functions Namespace@>+=
@@ -1867,21 +1908,24 @@ struct user_interface *(*link_interface)(struct user_interface *);
 void (*rotate_interface)(struct user_interface *, float);
 void (*resize_interface)(struct user_interface *, float, float);
 void (*move_interface)(struct user_interface *, float, float, float);
+bool (*play_sound)(struct sound *);
 @
 \fimcodigo
 
-All functions need to be prepared to be used after the initialization:
+All function pointers must be initialized before being used:
+
 
 \iniciocodigo
 @<Weaver API: Initialization@>+=
 W.new_interface = new_interface;
+W.new_sound = new_sound;
 W.link_interface = _Wlink_interface;
 W.rotate_interface = _Wrotate_interface;
 W.resize_interface = _Wresize_interface;
 W.move_interface = _Wmove_interface;
+W.play_sound = _Wplay_sound;
 @
 \fimcodigo
-
 
 \secao{Empty Definitions}
 

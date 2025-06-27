@@ -179,7 +179,8 @@ submodules:
 	cp weaver-interface/src/interface.c project/src/weaver/interface.c
 	cp weaver-interface-metafont/src/metafont.h project/src/weaver/metafont.h
 	cp weaver-interface-metafont/src/metafont.c project/src/weaver/metafont.c
-
+	cp weaver-interface-wave/src/wave.c project/src/weaver/wave.c
+	cp weaver-interface-wave/src/wave.h project/src/weaver/wave.h
 doc_en:
 	tex weaver_program_en.tex
 	dvipdf weaver_program_en.dvi

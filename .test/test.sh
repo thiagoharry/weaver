@@ -220,6 +220,7 @@ function test_new_project(){
     cp ../test4.c src/game.c
     cp ../shader.glsl shaders/
     cp ../texture.mf image/texture.mf
+    cp ../../weaver-interface-wave/tests/samples/mouseclick.wav sound/
     if [[ ${OSTYPE} == *"bsd"* ]]; then
 	gmake &> /dev/null
     elif [[ ${OSTYPE} ==  "msys" ]]; then
@@ -230,7 +231,7 @@ function test_new_project(){
     assertExecutableRun "Testing shader and user interface" ./test
     #######
     cd - > /dev/null
-    rm -rf .test/test
+    #rm -rf .test/test
 }
 
 echo -e "Running tests...\n"

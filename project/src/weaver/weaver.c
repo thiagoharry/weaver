@@ -27,11 +27,12 @@ struct _game_struct _game;
 #endif
 #line 1446 "weaver_api.tex"
 /*:68*//*92:*/
-#line 1772 "weaver_api.tex"
+#line 1773 "weaver_api.tex"
 
 #include "metafont.h"
+#include "wave.h"
 /*:92*//*100:*/
-#line 1917 "weaver_api.tex"
+#line 1919 "weaver_api.tex"
 
 #include <string.h> 
 /*:100*/
@@ -184,7 +185,7 @@ _Wtrash(memory_arena,1);
 
 _Wget_window_input(W.t,&keyboard,&W.mouse);
 /*:81*//*97:*/
-#line 1839 "weaver_api.tex"
+#line 1841 "weaver_api.tex"
 
 _Winteract_interface(W.mouse.x,W.mouse.y,
 W.mouse.button[W_MOUSE_LEFT]> 0,
@@ -203,7 +204,7 @@ void _render(void){
 
 _Wrender_window();
 /*:80*//*98:*/
-#line 1851 "weaver_api.tex"
+#line 1853 "weaver_api.tex"
 
 _Wrender_interface(W.t);
 /*:98*/
@@ -223,7 +224,7 @@ emscripten_cancel_main_loop();
 #endif
 #line 1024 "weaver_api.tex"
 /*:43*//*96:*/
-#line 1831 "weaver_api.tex"
+#line 1833 "weaver_api.tex"
 
 _Wrestore_history_interface();
 /*:96*/
@@ -250,16 +251,16 @@ _update_time();
 
 _Wflush_window_input(&keyboard,&W.mouse);
 /*:82*//*95:*/
-#line 1821 "weaver_api.tex"
+#line 1823 "weaver_api.tex"
 
 _Wmark_history_interface();
 /*:95*/
 #line 990 "weaver_api.tex"
 
-/*106:*/
-#line 1978 "weaver_api.tex"
+/*107:*/
+#line 2011 "weaver_api.tex"
 
-/*:106*/
+/*:107*/
 #line 991 "weaver_api.tex"
 
 /*54:*/
@@ -298,16 +299,16 @@ _update_time();
 
 _Wflush_window_input(&keyboard,&W.mouse);
 /*:82*//*95:*/
-#line 1821 "weaver_api.tex"
+#line 1823 "weaver_api.tex"
 
 _Wmark_history_interface();
 /*:95*/
 #line 1038 "weaver_api.tex"
 
-/*104:*/
-#line 1966 "weaver_api.tex"
+/*105:*/
+#line 2001 "weaver_api.tex"
 
-/*:104*/
+/*:105*/
 #line 1039 "weaver_api.tex"
 
 if(_number_of_loops>=W_MAX_SUBLOOP){
@@ -334,10 +335,10 @@ Wexit();
 exit(1);
 }
 else{
-/*105:*/
-#line 1971 "weaver_api.tex"
+/*106:*/
+#line 2006 "weaver_api.tex"
 
-/*:105*/
+/*:106*/
 #line 1113 "weaver_api.tex"
 
 _number_of_loops--;
@@ -353,7 +354,7 @@ _update_time();
 
 _Wflush_window_input(&keyboard,&W.mouse);
 /*:82*//*95:*/
-#line 1821 "weaver_api.tex"
+#line 1823 "weaver_api.tex"
 
 _Wmark_history_interface();
 /*:95*/
@@ -404,7 +405,7 @@ W.pending_files--;
 MUTEX_SIGNAL(&pending_files_mutex);
 }
 /*:90*//*99:*/
-#line 1875 "weaver_api.tex"
+#line 1877 "weaver_api.tex"
 
 static struct user_interface*new_interface(char*shader,char*texture,
 float x,float y,float z,
@@ -420,7 +421,7 @@ dir_len= 1;
 dir_len= strlen(W_DATA_DIR);
 memcpy(path_shader,W_DATA_DIR,dir_len+1);
 #endif
-#line 1890 "weaver_api.tex"
+#line 1892 "weaver_api.tex"
  memcpy(&path_shader[dir_len],"/shaders/",10);
 dir_len+= 9;
 memcpy(&path_shader[dir_len],shader,shader_len+1);
@@ -434,7 +435,7 @@ dir_len= 1;
 dir_len= strlen(W_DATA_DIR);
 memcpy(path_texture,W_DATA_DIR,dir_len+1);
 #endif
-#line 1903 "weaver_api.tex"
+#line 1905 "weaver_api.tex"
  memcpy(&path_texture[dir_len],"/image/",8);
 dir_len+= 7;
 memcpy(&path_texture[dir_len],texture,texture_len+1);
@@ -443,7 +444,27 @@ return _Wnew_interface((texture==NULL)?(NULL):(path_texture),
 (shader==NULL)?(NULL):(path_shader),
 x,y,z,width,height);
 }
-/*:99*/
+/*:99*//*101:*/
+#line 1934 "weaver_api.tex"
+
+static struct sound*new_sound(char*audio){
+char path_audio[512];
+int dir_len,audio_len;
+audio_len= strlen(audio);
+path_audio[0]= '.';
+path_audio[1]= '\0';
+dir_len= 1;
+#if defined(W_DATA_DIR)
+dir_len= strlen(W_DATA_DIR);
+memcpy(path_audio,W_DATA_DIR,dir_len+1);
+#endif
+#line 1946 "weaver_api.tex"
+ memcpy(&path_audio[dir_len],"/sound/",8);
+dir_len+= 7;
+memcpy(&path_audio[dir_len],audio,audio_len+1);
+return _Wnew_sound(path_audio);
+}
+/*:101*/
 #line 208 "weaver_api.tex"
 
 /*9:*/
@@ -626,7 +647,7 @@ if(rotated_screen){
 #endif
 #line 1757 "weaver_api.tex"
 /*93:*/
-#line 1779 "weaver_api.tex"
+#line 1781 "weaver_api.tex"
 
 {
 int dpi_x,dpi_y;
@@ -646,17 +667,20 @@ _talloc,NULL,before_loading_resources,
 after_loading_resources,
 
 "mf",_Wmetafont_loading,
+"wav",_extract_wave,
 NULL);
 }
-/*:91*//*103:*/
-#line 1948 "weaver_api.tex"
+/*:91*//*104:*/
+#line 1982 "weaver_api.tex"
 
 W.new_interface= new_interface;
+W.new_sound= new_sound;
 W.link_interface= _Wlink_interface;
 W.rotate_interface= _Wrotate_interface;
 W.resize_interface= _Wresize_interface;
 W.move_interface= _Wmove_interface;
-/*:103*/
+W.play_sound= _Wplay_sound;
+/*:104*/
 #line 297 "weaver_api.tex"
 
 }
@@ -678,7 +702,7 @@ _Wdestroy_window();
 MUTEX_DESTROY(&pending_files_mutex);
 MUTEX_DESTROY(&loading_files);
 /*:89*//*94:*/
-#line 1802 "weaver_api.tex"
+#line 1804 "weaver_api.tex"
 
 _Wfinish_interface();
 /*:94*/

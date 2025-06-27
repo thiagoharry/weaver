@@ -17,4 +17,8 @@
 	url = https://github.com/thiagoharry/weaver-interface-metafont.git
 	branch = main
 	update = rebase
+[submodule "weaver-interface-wave"]
+	path = weaver-interface-wave
+	url = https://github.com/thiagoharry/weaver-interface-wave.git
+	branch = main
 

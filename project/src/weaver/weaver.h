@@ -92,19 +92,21 @@ void*(*talloc)(size_t);
 #line 1509 "weaver_api.tex"
 
 uint64_t(*rand)(void);
-/*:72*//*101:*/
-#line 1925 "weaver_api.tex"
+/*:72*//*102:*/
+#line 1957 "weaver_api.tex"
 
 struct user_interface*(*new_interface)(char*,char*,float,float,
 float,float,float);
-/*:101*//*102:*/
-#line 1936 "weaver_api.tex"
+struct sound*(*new_sound)(char*);
+/*:102*//*103:*/
+#line 1969 "weaver_api.tex"
 
 struct user_interface*(*link_interface)(struct user_interface*);
 void(*rotate_interface)(struct user_interface*,float);
 void(*resize_interface)(struct user_interface*,float,float);
 void(*move_interface)(struct user_interface*,float,float,float);
-/*:102*/
+bool(*play_sound)(struct sound*);
+/*:103*/
 #line 260 "weaver_api.tex"
 
 }W;

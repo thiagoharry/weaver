@@ -1760,21 +1760,23 @@ A nossa API de interface de usuário é inicializada com:
                    after_loading_resources,
                    // Formatos suportados:
                    "mf", _Wmetafont_loading,
+                   "wav", _extract_wave,
                    NULL);
 }
 @
 \fimcodigo
 
 Para permitirmos os diferentes formatos suportados para interpretar
-texturas, precisamos adicionar o cabeçalho para suas funções de
-carregamento:
+texturas e arquivos de áudio, precisamos adicionar o cabeçalho para
+suas funções de carregamento:
 
 @<Cabeçalhos Locais (weaver.c)@>+=
 #include "metafont.h"
+#include "wave.h"
 @
 
-E executamos também o código de inicialização específico para cada um
-dos formatos:
+E executamos também o código de inicialização específico que alguns
+formatos requerem:
 
 @<API Weaver: Formatos de Interface (Inicialização)@>=
 {
@@ -1919,12 +1921,43 @@ Isso requer que usemos o cabeçalho de strings:
 @
 \fimcodigo
 
-E colocamos esta função no namespace da API Weaver:
+Mas além de criar interfaces de usuário visuais, nosso subsistema de
+interface também permite criar interfaces sonoras. Elas funcionam de
+maneira semelhante, exigindo apenas que o usuário especifique o
+caminho para o arquivo de áudio. Aplicaremos aqui a mesma
+simplificação adotada anteriormente: em vez de o usuário precisar
+informar o caminho completo, a engine assume que todos os arquivos de
+som estão localizados no diretório \monoespaco{sound}, sem que seja
+necessário indicá-lo explicitamente.
+
+\iniciocodigo
+@<Definição de Função (weaver.c)@>+=
+static struct sound *new_sound(char *audio){
+  char path_audio[512];
+  int dir_len, audio_len;
+  audio_len = strlen(audio);
+  path_audio[0] = '.';
+  path_audio[1] = '\0';
+  dir_len = 1;
+#if defined(W_DATA_DIR)
+  dir_len = strlen(W_DATA_DIR);
+  memcpy(path_audio, W_DATA_DIR, dir_len + 1);
+#endif
+  memcpy(&path_audio[dir_len], "/sound/", 8);
+  dir_len += 7;
+  memcpy(&path_audio[dir_len], audio, audio_len + 1);  
+  return _Wnew_sound(path_audio);
+}
+@
+\fimcodigo
+
+E colocamos ambas as funções no namespace da API Weaver:
 
 \iniciocodigo
 @<Namespace de Funções@>+=
 struct user_interface *(*new_interface)(char *, char *, float, float,
                                         float, float, float);
+struct sound *(*new_sound)(char *);
 @
 \fimcodigo
 
@@ -1938,6 +1971,7 @@ struct user_interface *(*link_interface)(struct user_interface *);
 void (*rotate_interface)(struct user_interface *, float);
 void (*resize_interface)(struct user_interface *, float, float);
 void (*move_interface)(struct user_interface *, float, float, float);
+bool (*play_sound)(struct sound *);
 @
 \fimcodigo
 
@@ -1947,13 +1981,14 @@ a inicialização:
 \iniciocodigo
 @<API Weaver: Inicialização@>+=
 W.new_interface = new_interface;
+W.new_sound = new_sound;
 W.link_interface = _Wlink_interface;
 W.rotate_interface = _Wrotate_interface;
 W.resize_interface = _Wresize_interface;
 W.move_interface = _Wmove_interface;
+W.play_sound = _Wplay_sound;
 @
 \fimcodigo
-
 
 \secao{Definições Vazias}
 
@@ -1972,14 +2007,10 @@ posteriormente preenchidas e melhor explicadas.
 @
 \fimcodigo
 
-
-
 \iniciocodigo
 @<Código antes de Loop, não de Subloop@>=
 @
 \fimcodigo
-
-
 
 \secao{Referências}
 

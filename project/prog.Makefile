@@ -26,7 +26,7 @@ DONT_USE_MP3=$(shell grep "^\#define[ \t]\+W_DISABLE_MP3" conf/conf.h)
 #endif
 #INCLUDES=-I$(shell pkg-config --cflags x11 gl glew openal) ${INCMP3} ${INCPNG}
 INCLUDES=-include conf/conf.h
-LIB=-lm -pthread -lX11 -lEGL -lGLESv2
+LIB=-lm -pthread -lX11 -lEGL -lGLESv2 -lopenal
 all: ${OBJ} ${W_OBJ} ${HEADERS} ${PLUGINS} ${MISC_OBJ} conf/conf.h
 	$(CC) ${INCLUDES} ${DEFINES} ${FLAGS} ${OBJ} ${W_OBJ} ${MISC_OBJ} -o ${PROG} ${LIB} ${LDFLAGS}
 %.o : src/%.c ${HEADERS} conf/conf.h
