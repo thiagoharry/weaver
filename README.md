@@ -6,7 +6,7 @@ C++ and compiled to Linux executables or Javascript web pages.
 This project is under heavy refactoring, so it can't be
 installed. This will be corrected soon.
 
-## Literary programming code
+## Literate programming code
 
 You can read the PDFs documenting all the Weaver code here:
 
