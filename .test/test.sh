@@ -231,7 +231,7 @@ function test_new_project(){
     assertExecutableRun "Testing shader and user interface" ./test
     #######
     cd - > /dev/null
-    #rm -rf .test/test
+    rm -rf .test/test
 }
 
 echo -e "Running tests...\n"

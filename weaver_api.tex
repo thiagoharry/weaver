@@ -1750,8 +1750,8 @@ A nossa API de interface de usuário é inicializada com:
   int *window_width = &W.width, *window_height = &W.height;
 #if defined(W_FORCE_LANDSCAPE)
   if(rotated_screen){
-    *window_width = &W.height;
-    *window_height = &W.width;
+    window_width = &W.height;
+    window_height = &W.width;
   }
 #endif
   @<API Weaver: Formatos de Interface (Inicialização)@>
